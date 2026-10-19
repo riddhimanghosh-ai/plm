@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BSC PLM Flowcharts</title>
+</head>
+<body style="margin:0">
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F6F4EE; --paper: #FFFFFF; --ink: #1F2419; --ink-2: #4A5044; --ink-3: #7A8074; --line: #DDD9CC; --line-2: #ECE8DD; --olive: #3D4A2E; --olive-soft: #E6EADF;
+    --design: #6B4E7A; --sourcing: #9A6B1F; --production: #2F6F6B; --planning: #5B6470; --warehouse: #3D4A2E; --store: #7A4E3A; --finance: #7A6A2E; --alert: #B8544A;
+    --serif: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif; --sans: "Public Sans", -apple-system, "Segoe UI", Roboto, sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ground: #171A15; --paper: #1F2320; --ink: #ECEAE2; --ink-2: #C3C1B7; --ink-3: #8C8B82; --line: #34382F; --line-2: #2A2E27; --olive: #A9BC8E; --olive-soft: #26301F; } }
+  :root[data-theme="dark"] { --ground: #171A15; --paper: #1F2320; --ink: #ECEAE2; --ink-2: #C3C1B7; --ink-3: #8C8B82; --line: #34382F; --line-2: #2A2E27; --olive: #A9BC8E; --olive-soft: #26301F; }
+  * { box-sizing: border-box; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 40px 28px 80px; display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 44px; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; gap: 24px; padding: 24px 16px 60px; } nav.toc { position: static; } }
+  nav.toc { position: sticky; top: 24px; align-self: start; font-size: 12.5px; }
+  nav.toc a { display: block; color: var(--ink-2); text-decoration: none; padding: 5px 0 5px 10px; border-left: 2px solid var(--line); }
+  nav.toc a:hover { color: var(--ink); border-left-color: var(--olive); }
+  nav.toc .n { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); margin-right: 6px; }
+  main { min-width: 0; }
+  .eyebrow { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(32px, 4.6vw, 48px); line-height: 1.04; margin: 6px 0 12px; text-wrap: balance; }
+  h2 { font-family: var(--serif); font-weight: 700; font-size: 24px; line-height: 1.15; margin: 0 0 6px; }
+  p { margin: 0 0 12px; max-width: 70ch; }
+  .lede { font-size: 16.5px; color: var(--ink-2); max-width: 64ch; }
+  section { padding: 30px 0 8px; border-top: 1px solid var(--line); margin-top: 26px; }
+  section:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+  .legend { display: flex; gap: 8px 14px; flex-wrap: wrap; margin: 14px 0 4px; font-size: 12.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid; }
+  .legend .shape { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .chart { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 14px 10px; margin: 14px 0 6px; overflow-x: auto; }
+  .chart pre.mermaid { margin: 0; background: transparent; }
+  .chart svg { display: block; }
+  .chart svg, .chart svg text, .chart svg tspan, .chart svg foreignObject div, .chart svg foreignObject span, .chart .nodeLabel, .chart .edgeLabel, .chart .messageText, .chart .noteText, .chart .actor { font-family: Helvetica, Arial, sans-serif !important; }
+  .cap { font-size: 12.5px; color: var(--ink-3); margin: 6px 0 0; max-width: 72ch; }
+  .chart::before { content: "wide — scroll sideways →"; display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 6px 4px; }
+  .touch { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0 4px; }
+  .touch th { text-align: left; font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; padding: 0 10px 6px 0; border-bottom: 1px solid var(--line); }
+  .touch td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+  .touch tr:last-child td { border-bottom: 0; }
+  .touch td:first-child { white-space: nowrap; font-weight: 500; }
+  .team { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding: 1px 7px; border-radius: 3px; border: 1px solid; }
+  .t-design { color: var(--design); border-color: var(--design); } .t-sourcing { color: var(--sourcing); border-color: var(--sourcing); } .t-production { color: var(--production); border-color: var(--production); } .t-planning { color: var(--planning); border-color: var(--planning); } .t-warehouse { color: var(--warehouse); border-color: var(--warehouse); } .t-store { color: var(--store); border-color: var(--store); } .t-finance { color: var(--finance); border-color: var(--finance); }
+  code { font-family: var(--mono); font-size: 12px; background: var(--olive-soft); color: var(--olive); padding: 1px 5px; border-radius: 3px; }
+  .scroll { overflow-x: auto; }
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="Sections">
+  <div class="eyebrow">Flowcharts</div>
+  <a href="#map"><span class="n">00</span>Master map · all teams</a>
+  <a href="#mtm"><span class="n">01</span>MTM new fabric · end to end</a>
+  <a href="#request"><span class="n">02</span>Option request · one option</a>
+  <a href="#sampling"><span class="n">03</span>Concept sampling gates</a>
+  <a href="#swatch"><span class="n">04</span>Swatch desk · warehouse</a>
+  <a href="#golive"><span class="n">05</span>Designs · stickers · go live</a>
+  <a href="#rtw"><span class="n">06</span>RTW requirement · brief to live</a>
+  <a href="#modes"><span class="n">07</span>Three ways to buy cloth</a>
+  <a href="#planning"><span class="n">08</span>Planning · stock health</a>
+  <a href="#launch"><span class="n">09</span>RTW launch · HO to stores</a>
+  <a href="#warehouse"><span class="n">10</span>Warehouse · stores · finance</a>
+  <a href="#users"><span class="n">11</span>User flow · click by click</a>
+</nav>
+
+<main>
+<section id="map">
+  <div class="eyebrow">Bombay Shirt Company · PLM prototype · optimized flows</div>
+  <h1>Every team, every touch point</h1>
+  <p class="lede">Swimlane flowcharts of the flows as they run in the prototype after the 22–23 September corrections. Each lane is a team; each box is something a person does; diamonds are the decisions a person takes; arrows are what one person hands to the next. Systems are left out on purpose — this is who touches what, in what order.</p>
+  <div class="legend">
+    <span><i style="background:#EFE7F3;border-color:#6B4E7A"></i>Design</span><span><i style="background:#F5EBD8;border-color:#9A6B1F"></i>Sourcing</span><span><i style="background:#DDEEEC;border-color:#2F6F6B"></i>Production · factory · RQC</span><span><i style="background:#E7EAEE;border-color:#5B6470"></i>Planning</span><span><i style="background:#E6EADF;border-color:#3D4A2E"></i>Warehouse</span><span><i style="background:#F2E6E0;border-color:#7A4E3A"></i>Stores · online</span><span><i style="background:#F3EEDC;border-color:#7A6A2E"></i>Finance</span>
+    <span class="shape">[ ] something a person does &nbsp; { } a decision &nbsp; [/ /] a document a person prints</span>
+  </div>
+
+  <h2 style="margin-top:22px">00 · Master map</h2>
+  <p>Who hands what to whom: a gap raises a request; a request settles into a PO; cloth lands and becomes swatches and designs; a requirement becomes a run and a launch. Everything else in this document zooms into one of these boxes.</p>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": true, "useMaxWidth": false, "padding": 12, "curve": "basis", "nodeSpacing": 28, "rankSpacing": 40}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "13px"}}}%%
+flowchart LR
+  classDef design fill:#EFE7F3,stroke:#6B4E7A,color:#1F2419
+  classDef sourcing fill:#F5EBD8,stroke:#9A6B1F,color:#1F2419
+  classDef production fill:#DDEEEC,stroke:#2F6F6B,color:#1F2419
+  classDef planning fill:#E7EAEE,stroke:#5B6470,color:#1F2419
+  classDef warehouse fill:#E6EADF,stroke:#3D4A2E,color:#1F2419
+  classDef store fill:#F2E6E0,stroke:#7A4E3A,color:#1F2419
+  classDef finance fill:#F3EEDC,stroke:#7A6A2E,color:#1F2419
+
+  subgraph D["DESIGN"]
+    D1["Assortment gap<br/>book 21 / 30 → 9 short"]:::design
+    D2["Option request<br/>category · N options · BOM<br/>→ sent to sourcing"]:::design
+    D3["Push PO / Reject / More time<br/>per option"]:::design
+    D4["Log an MTM concept — the ask<br/>new fabric: working name · why · book / range<br/>wanted on the floor by · reference fabric"]:::design
+    D5["RTW requirement<br/>style · qty · ratio · cloth · BOM"]:::design
+    D6["Stores told · Go live in stores<br/>any time"]:::design
+    D7["Online: photos · video · post → live online"]:::design
+  end
+  subgraph S["SOURCING"]
+    S1["One vendor per option / style<br/>mill · article · ₹/m · MOQ · lead · hold"]:::sourcing
+    S2["Chase the mill<br/>confirm dispatch date"]:::sourcing
+    S3["Designs on the fabric<br/>product codes BOM-SHI-xx-nnnn"]:::sourcing
+    S4["Core stock review · blocks · extra fabric"]:::sourcing
+  end
+  subgraph P["PRODUCTION · FACTORY · RQC"]
+    P1["PAT · PP sample · shipment sample<br/>rounds until approved"]:::production
+    P2["Factory allocated on capacity<br/>TNA from category template"]:::production
+    P3["Bulk run · milestones · escalations"]:::production
+    P4["MTM daily plan · dispatch"]:::production
+  end
+  subgraph PL["PLANNING"]
+    PL1["Size ratio · total pieces"]:::planning
+    PL2["Stock health · 9 verbs<br/>reorder · core · liquidate · off shelf · reintroduce"]:::planning
+    PL3["Launch: HO → display & fit → dispatch → stores → marketing → date"]:::planning
+    PL4["What is selling<br/>weekly · DSR · stylist KPI"]:::planning
+  end
+  subgraph W["WAREHOUSE"]
+    W1["GRN · fabric received<br/>incoming → shelf"]:::warehouse
+    W2["Swatch desk<br/>received · to swatches · cut · sticker · dispatched · photos"]:::warehouse
+    W3["Materials issued to factory · goods received · STOs"]:::warehouse
+  end
+  subgraph ST["STORES · ONLINE"]
+    ST1["Swatch received · book on the floor"]:::store
+    ST2["Sell from the swatch<br/>MTM order sheet"]:::store
+    ST3["Display & fit pieces · stock asks · returns"]:::store
+    ST4["Shopify PDP live"]:::store
+  end
+
+  D1 -->|raises, pre-filled| D2
+  D2 -->|sends| S1
+  S1 -->|one vendor each| D3
+  D3 -->|PO pushed| S2
+  S2 -->|cloth| W1
+  W1 --> W2
+  S3 -->|labels per design| W2
+  W2 -->|dispatched, per store| ST1
+  ST1 --> D6
+  D6 --> ST2
+  D6 --> D7 --> ST4
+  D4 --> P1 -->|approved| S1
+  D5 --> PL1 --> S1
+  D3 -->|RTW: PO raised| P2 --> P3 --> W3 --> PL3 --> ST3
+  PL2 -->|reorder| D5
+  PL4 --> PL2
+  ST2 --> P4
+  </pre></div>
+  <p class="cap">Every arrow is a hand-off between people. Section numbers below zoom into each area.</p>
+</section>
+
+<section id="mtm">
+  <div class="eyebrow">01</div>
+  <h2>MTM new fabric · from the ask to live, every touch point</h2>
+  <p>The longest path in the business, with its two starting points: design logs <b>one concept</b> — "we need this new fabric", with the working name, the why, the book it fills, when it is wanted and the reference — and it is sampled before any cloth is bought; or design reads a <b>gap in a book</b> and raises a request for several options at once. Both arrive at the same place: sourcing puts one vendor against each, design pushes the PO, and from there the cloth has one record all the way to a customer ordering it.</p>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": true, "useMaxWidth": false, "padding": 12, "curve": "basis", "nodeSpacing": 26, "rankSpacing": 44}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px"}}}%%
+flowchart TB
+  classDef design fill:#EFE7F3,stroke:#6B4E7A,color:#1F2419
+  classDef sourcing fill:#F5EBD8,stroke:#9A6B1F,color:#1F2419
+  classDef production fill:#DDEEEC,stroke:#2F6F6B,color:#1F2419
+  classDef warehouse fill:#E6EADF,stroke:#3D4A2E,color:#1F2419
+  classDef store fill:#F2E6E0,stroke:#7A4E3A,color:#1F2419
+  classDef doc fill:#FFFFFF,stroke:#3D4A2E,color:#1F2419
+
+  subgraph L1["DESIGN — the ask · two ways in"]
+    a0["Log an MTM concept — one new fabric<br/>working name · why · swatch book / range<br/>wanted on the floor by · reference fabric · sketch / PAT"]:::design
+    a0b["Sampling first: PAT to factory →<br/>PP sample → shipment sample → approval<br/>(§03) — no cloth bought before this clears"]:::design
+    a1["Or: MTM concepts · strip reads<br/>FORMAL VOL.1 · 21/30 → 9 short"]:::design
+    a2["raise a request for 9 options →<br/>form pre-filled: count, category, brief"]:::design
+    a3["Option request REQ-002<br/>10 options · live by · target ₹<br/>a word for each option"]:::design
+    a4["Bill of materials on the request<br/>trims are stock on the trims master"]:::design
+    a5["Create request → it goes to sourcing<br/>every option reads 'sourcing to add vendors'"]:::design
+    a0c["Asks sourcing for a vendor<br/>the concept's Vendors step opens for sourcing"]:::design
+  end
+  subgraph L2["SOURCING — one vendor per option"]
+    b1["Fabric vendors · search by fabric →<br/>which mills carry this cloth"]:::sourcing
+    b2["Put a vendor against it<br/>mill · article · cloth name<br/>₹/m · MOQ · lead · holds until · book · note"]:::sourcing
+    b3["Edit in place until sent"]:::sourcing
+    b4["Send option N to design →"]:::sourcing
+    b5{"design's answer?"}
+    b6["Extend the hold at the mill<br/>new date · Hold extended — back to design"]:::sourcing
+    b7["Mill won't hold — withdraw vendor<br/>option back to 'sourcing to add vendors'"]:::sourcing
+  end
+  subgraph L3["DESIGN — settle each option"]
+    c1["'design to push PO'<br/>vendor card: ₹/m · MOQ · first buy · lead · hold"]:::design
+    c2["Why — kept on the decision"]:::design
+    c3["Push PO · ₹31,100<br/>vendor chosen and PO raised in one click<br/>the cloth now has its concept record"]:::design
+    c4["Reject — reason on the record<br/>option back to sourcing"]:::design
+    c5["More time — extension asked"]:::design
+    c6["Close option N<br/>'ten asked, seven made' stays on the record"]:::design
+  end
+  subgraph L4["SOURCING — get the cloth in"]
+    d1["Fabric POs · confirm with mills<br/>mill confirmed · dispatch date · remark"]:::sourcing
+    d2["Bespoke / mill stock sheet import<br/>availability by article"]:::sourcing
+  end
+  subgraph L5["WAREHOUSE — swatch desk"]
+    e1["GRN · fabric received<br/>metres on the shelf"]:::warehouse
+    e2["Bulk received — date"]:::warehouse
+    e3["Priority-1 switch<br/>sorts to the top"]:::warehouse
+    e4["To swatches — handover date"]:::warehouse
+    e5["Cut · 25 × 25"]:::warehouse
+    e6[/"Print sticker sheet<br/>3 across · one label per design per store<br/>fabric code · name – article · book<br/>MRP · Incl. of all taxes"/]:::doc
+    e7["Dispatched — one row per store"]:::warehouse
+    e8["Photos shared"]:::warehouse
+  end
+  subgraph L6["SOURCING — designs on the fabric"]
+    f1["Designs on this fabric<br/>design name · Formal/Casual · MRP"]:::sourcing
+    f2["Add design → product code<br/>BOM-SHI-FM-4201 … one fabric, five designs"]:::sourcing
+  end
+  subgraph L7["DESIGN — switch it on"]
+    g1["Records the Enigma configuration<br/>template · consumption · options"]:::design
+    g2["Enigma flags: large check ✓ · composition family"]:::design
+    g3["Name & price · final name from marketing<br/>REVISED NAME: old → new · MRP"]:::design
+    g4["Story & channels"]:::design
+    g5["Stores told to display"]:::design
+    g6["Go live in stores — any time<br/>gates still open are recorded, not blocking"]:::design
+    g7["Online: photos · video · post → Go live online<br/>≈ 2 weeks after stores"]:::design
+  end
+  subgraph L8["STORES · ONLINE"]
+    h1["Store taps: swatch received<br/>the tracker's receiving date"]:::store
+    h2["Book on the floor · sells from the swatch<br/>MTM order sheet → daily production"]:::store
+    h3["Product live online"]:::store
+  end
+
+  a0 --> a0b --> a0c -->|"sends"| b2
+  a1 --> a2 --> a3 --> a4 --> a5
+  a5 -->|"sends · one vendor per option"| b1 --> b2 --> b3 --> b4
+  b4 -->|"'design to push PO'"| c1 --> c2
+  c2 --> c3 & c4 & c5 & c6
+  c4 -->|"back"| b2
+  c5 -->|"'extension asked'"| b5
+  b5 -->|"mill extends"| b6 --> c1
+  b5 -->|"mill won't hold"| b7 --> b2
+  c3 -->|"PO pushed"| d1
+  d2 -.-> d1
+  d1 -->|"cloth arrives"| e1 --> e2 --> e4 --> e5 --> e6 --> e7 --> e8
+  e2 -.-> e3
+  f1 --> f2 -->|"labels"| e6
+  e1 -.->|"in parallel"| f1
+  e7 --> h1
+  e8 --> g5
+  g1 --> g2 --> g3 --> g4
+  g3 -.->|"name & MRP"| e6
+  g5 --> g6 --> h2
+  g6 --> g7 --> h3
+  </pre></div>
+  <div class="scroll"><table class="touch">
+    <tr><th>Touch point</th><th>Who</th><th>Screen</th><th>What they see next</th></tr>
+    <tr><td>Log a concept</td><td><span class="team t-design">design</span></td><td>MTM concepts · + Log an MTM concept</td><td>new fabric or construction · working name · why · book · wanted by · reference fabric · files; the concept opens on step 1</td></tr>
+    <tr><td>Assortment gap</td><td><span class="team t-design">design</span></td><td>MTM concepts · strip per swatch book</td><td>counts active options per book against 30; the link opens a pre-filled request</td></tr>
+    <tr><td>Option request → sent to sourcing</td><td><span class="team t-design">design</span> <span class="team t-planning">planning</span></td><td>Option requests · + New request · Create</td><td>creating it sends it: every option reads <em>sourcing to add vendors</em>; sourcing sees the request on its screen and in the bell</td></tr>
+    <tr><td>One vendor per option</td><td><span class="team t-sourcing">sourcing</span></td><td>Option requests · option N</td><td>a second add replaces the first (kept as history); Edit until sent; Send flips the status</td></tr>
+    <tr><td>Push PO</td><td><span class="team t-design">design</span></td><td>option N · vendor card</td><td>the vendor is chosen and the PO is out in one click; sourcing sees it to chase</td></tr>
+    <tr><td>Reject · More time · Close</td><td><span class="team t-design">design</span></td><td>option N</td><td>reason kept; reject sends the option back; extension asks sourcing; close keeps the "seven of ten" fact</td></tr>
+    <tr><td>Confirm with the mill</td><td><span class="team t-sourcing">sourcing</span></td><td>Fabric master · Fabric POs</td><td>confirmed date, remark; overdue turns red</td></tr>
+    <tr><td>GRN</td><td><span class="team t-warehouse">warehouse</span></td><td>Goods received</td><td>the metres are on the shelf; the fabric appears on the swatch desk</td></tr>
+    <tr><td>Swatch desk</td><td><span class="team t-warehouse">warehouse</span></td><td>Swatch desk · row per fabric</td><td>six dates in order; priority sorts; dispatched fans out one row per store</td></tr>
+    <tr><td>Designs · product codes</td><td><span class="team t-sourcing">sourcing</span></td><td>concept · Designs on this fabric</td><td>each design mints <code>BOM-SHI-xx-nnnn</code>; the sticker sheet gains a label</td></tr>
+    <tr><td>Sticker sheet</td><td><span class="team t-warehouse">warehouse</span></td><td>Swatch desk · drawer</td><td>3 × 7 labels, one per design per store; printing writes the Sticker date</td></tr>
+    <tr><td>Stores told · Go live</td><td><span class="team t-design">design</span></td><td>Swatch desk · concept step 6</td><td>go live is a button at any time; open gates are recorded</td></tr>
+    <tr><td>Online</td><td><span class="team t-design">design</span></td><td>concept · Live online</td><td>three content gates, own date, days after stores shown</td></tr>
+  </table></div>
+</section>
+
+<section id="request">
+  <div class="eyebrow">02</div>
+  <h2>One option · every state it can be in</h2>
+  <p>The smallest decision in the system, drawn completely. Three status words are the only ones anyone reads: <em>sourcing to add vendors · design to push PO · extension asked</em>.</p>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": true, "useMaxWidth": false, "padding": 12, "curve": "basis"}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px"}}}%%
+stateDiagram-v2
+  direction LR
+  [*] --> open : design raises the request
+  open : sourcing to add vendors
+  open : (vendor card empty · form open)
+  withDesign : design to push PO
+  withDesign : (one vendor · Push PO · Reject · More time)
+  extension : extension asked
+  extension : (sourcing — Extend · back to design · withdraw)
+  poRaised : PO raised
+  poRaised : (fabric on the master · FPO · incoming)
+  closed : closed
+  closed : (reason kept · reopen)
+
+  open --> withDesign : Send to design
+  open --> open : Add / Edit vendor (replaces, history kept)
+  withDesign --> poRaised : Push PO · metres
+  withDesign --> open : Reject (reason) — last vendor out
+  withDesign --> extension : More time
+  extension --> withDesign : Hold extended — back to design
+  extension --> open : Mill won't hold — withdraw vendor
+  withDesign --> closed : Close option
+  open --> closed : Close option (design or sourcing)
+  extension --> closed : Close option
+  closed --> withDesign : reopen (live vendor)
+  closed --> open : reopen (no vendor)
+  poRaised --> [*]
+  </pre></div>
+  <p class="cap">Every arrow is a button one person presses. An option that has a PO cannot take a new vendor; a rejected vendor cannot be pushed; closing and reopening keep the reason.</p>
+</section>
+
+<section id="sampling">
+  <div class="eyebrow">03</div>
+  <h2>Concept sampling · the gates before any cloth is bought</h2>
+  <p>On an MTM concept the sample is made off the vendor's swatch, so it comes before the bulk fabric is chosen — a concept that fails costs a sample, not a bulk.</p>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": true, "useMaxWidth": false, "padding": 12, "curve": "basis", "nodeSpacing": 26, "rankSpacing": 40}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px"}}}%%
+flowchart LR
+  classDef design fill:#EFE7F3,stroke:#6B4E7A,color:#1F2419
+  classDef production fill:#DDEEEC,stroke:#2F6F6B,color:#1F2419
+  classDef sourcing fill:#F5EBD8,stroke:#9A6B1F,color:#1F2419
+  classDef doc fill:#FFFFFF,stroke:#3D4A2E,color:#1F2419
+
+  subgraph D["DESIGN"]
+    d1["Log an MTM concept — the ask<br/>new fabric or construction · working name · why<br/>swatch book / range · wanted by · reference fabric"]:::design
+    d2["Files: sketch · PAT · CAD · tech pack"]:::doc
+    d3["Send sample & PAT file to the factory"]:::design
+    d4{"review PP round n<br/>on your desk"}
+    d5{"review shipment sample"}
+    d6["Approval posted to every department<br/>one thread post, not an email"]:::design
+  end
+  subgraph P["PRODUCTION UNIT"]
+    p1["PP sample round n<br/>made off the vendor swatch"]:::production
+    p2["Resubmit: fix majors<br/>collar · fit · construction · fabric handling"]:::production
+    p3["Shipment sample<br/>ready to make at scale"]:::production
+  end
+  subgraph S["SOURCING"]
+    s1["Vendors: one vendor against the concept<br/>only after the shipment sample clears"]:::sourcing
+  end
+  d1 --> d2 --> d3 --> p1 --> d4
+  d4 -->|"majors"| p2 --> p1
+  d4 -->|"approved"| p3 --> d5
+  d5 -->|"majors"| p3
+  d5 -->|"approved"| d6 --> s1
+  </pre></div>
+  <p class="cap">Every round is a new round, never a restart; comments carry area (collar, fit, fabric handling) and major/minor. A construction variant skips vendors, PO and fabric-in — it is made on cloth already held.</p>
+</section>
+
+<section id="swatch">
+  <div class="eyebrow">04</div>
+  <h2>Swatch desk · the warehouse's row</h2>
+  <p>The MTM_Swatches tracker, as a state machine. Everything the tracker holds in columns is a date someone writes here; the per-store tracking columns become one dispatch row per store that the store itself taps.</p>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": true, "useMaxWidth": false, "padding": 12, "curve": "basis", "nodeSpacing": 24, "rankSpacing": 38}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px"}}}%%
+flowchart LR
+  classDef warehouse fill:#E6EADF,stroke:#3D4A2E,color:#1F2419
+  classDef design fill:#EFE7F3,stroke:#6B4E7A,color:#1F2419
+  classDef store fill:#F2E6E0,stroke:#7A4E3A,color:#1F2419
+  classDef sourcing fill:#F5EBD8,stroke:#9A6B1F,color:#1F2419
+  classDef doc fill:#FFFFFF,stroke:#3D4A2E,color:#1F2419
+
+  subgraph W["WAREHOUSE — one person"]
+    w0{"Priority-1?"}
+    w1["Row appears when design pushes the PO<br/>Bulk received — Fabric Bulk Received date"]:::warehouse
+    w2["To swatches<br/>Fabric Team handover date"]:::warehouse
+    w3["Cut · 25 × 25"]:::warehouse
+    w4[/"Print sticker sheet<br/>Sticker date written"/]:::doc
+    w5["Dispatched<br/>one row per store · tracking"]:::warehouse
+    w6["Photos shared"]:::warehouse
+  end
+  subgraph S["SOURCING"]
+    s1["Designs on the fabric<br/>product codes → labels"]:::sourcing
+  end
+  subgraph ST["EACH STORE"]
+    st1["Swatch received — tap<br/>the tracker's Receiving Date"]:::store
+    st2["Book on the floor · left / right"]:::store
+  end
+  subgraph D["DESIGN"]
+    d1["Stores told to display"]:::design
+    d2["Go live in stores<br/>any time — before or after"]:::design
+  end
+  w1 --> w2 --> w3 --> w4 --> w5 --> w6 --> d1 --> d2
+  w1 -.-> w0
+  w0 -->|"yes · sorts to top"| w2
+  s1 -->|"one label per design per store"| w4
+  w5 --> st1 --> st2
+  </pre></div>
+  <p class="cap">Owner colour on every step; the next date is the only button on the row. Design may switch a fabric on at any point in this chain. "Picario" (digital swatch) is an open question — one more destination, or its own step.</p>
+</section>
+
+<section id="golive">
+  <div class="eyebrow">05</div>
+  <h2>Designs, stickers, two go-lives</h2>
+  <p>One fabric, several designs; one sticker sheet with a label per design per store; stores live when design says so; online when the content is done.</p>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": true, "useMaxWidth": false, "padding": 12, "curve": "basis", "nodeSpacing": 26, "rankSpacing": 42}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px"}}}%%
+flowchart TB
+  classDef design fill:#EFE7F3,stroke:#6B4E7A,color:#1F2419
+  classDef sourcing fill:#F5EBD8,stroke:#9A6B1F,color:#1F2419
+  classDef warehouse fill:#E6EADF,stroke:#3D4A2E,color:#1F2419
+  classDef store fill:#F2E6E0,stroke:#7A4E3A,color:#1F2419
+  classDef doc fill:#FFFFFF,stroke:#3D4A2E,color:#1F2419
+
+  subgraph S["SOURCING — designs"]
+    s1["Design 1 · Houndstooth Shirt · Formal · ₹2,990<br/>BOM-SHI-FM-4200"]:::sourcing
+    s2["Design 2 · Half Sleeve · ₹2,690<br/>BOM-SHI-FM-4201"]:::sourcing
+    s3["Design 3 · Band Collar · ₹3,190<br/>BOM-SHI-FM-4202"]:::sourcing
+    s4["… design 4, 5"]:::sourcing
+  end
+  subgraph W["WAREHOUSE — sticker sheet"]
+    w1[/"5 designs × 34 stores = 170 labels · 9 sheets of 21<br/>CONVHOO000-06 · Houndstooth Shirt – BOM-SHI-FM-4200<br/>CASUAL SHIRTS VOL.1 · MRP 2,990 · Incl. of all taxes"/]:::doc
+    w2["Sticker date written · dispatched per store"]:::warehouse
+  end
+  subgraph D["DESIGN — name, story, switch"]
+    d1["Records the Enigma configuration<br/>large check ✓ · composition family"]:::design
+    d2["Final name & MRP from marketing<br/>replaces the working name everywhere"]:::design
+    d3["Story & channels"]:::design
+    d4["Go live in stores — any time"]:::design
+    d5["Photos · Video · Post"]:::design
+    d6["Go live online · ≈ +14 d"]:::design
+  end
+  subgraph ST["STORES · WEB"]
+    st1["Sell from the swatch · order sheet"]:::store
+    st2["Product live online"]:::store
+  end
+  s1 & s2 & s3 & s4 --> w1 --> w2
+  d2 -.->|"name & MRP flow into labels"| w1
+  d1 --> d2 --> d3 --> d4 --> st1
+  d4 --> d5 --> d6 --> st2
+  w2 -.-> d4
+  </pre></div>
+</section>
+
+<section id="rtw">
+  <div class="eyebrow">06</div>
+  <h2>RTW requirement · brief to live, six steps</h2>
+  <p>One bulk style is one record. The six numbered steps read the same on the list row, in the drawer, and here.</p>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": true, "useMaxWidth": false, "padding": 12, "curve": "basis", "nodeSpacing": 26, "rankSpacing": 44}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px"}}}%%
+flowchart TB
+  classDef design fill:#EFE7F3,stroke:#6B4E7A,color:#1F2419
+  classDef sourcing fill:#F5EBD8,stroke:#9A6B1F,color:#1F2419
+  classDef production fill:#DDEEEC,stroke:#2F6F6B,color:#1F2419
+  classDef planning fill:#E7EAEE,stroke:#5B6470,color:#1F2419
+  classDef warehouse fill:#E6EADF,stroke:#3D4A2E,color:#1F2419
+  classDef store fill:#F2E6E0,stroke:#7A4E3A,color:#1F2419
+  classDef finance fill:#F3EEDC,stroke:#7A6A2E,color:#1F2419
+  classDef doc fill:#FFFFFF,stroke:#3D4A2E,color:#1F2419
+
+  subgraph S1["1 · REQUEST — design & planning"]
+    r1["New requirement<br/>category · sub-category · style · fit"]:::design
+    r2["Qty · target in-house · target ₹/pc"]:::design
+    r3["Size ratio · total pieces<br/>Charanjeet"]:::planning
+    r4{"the cloth?"}
+    r5["Fabric brief: cloth · composition · colour<br/>close to an MTM fabric? (BSC buys, or what the vendor must buy)"]:::design
+    r6["BOM · size curve"]:::design
+    r7["Hand to sourcing → lead-time clock starts"]:::design
+  end
+  subgraph S2["2 · VENDORS — sourcing, then design"]
+    v1["Who could make this →<br/>mills ranked · closest cloth on record"]:::sourcing
+    v2["One vendor with terms<br/>₹/m · MOQ · lead · lands · holds until"]:::sourcing
+    v3["Send to design →"]:::sourcing
+    v4["Push PO · 320 m · ₹71,040 / Reject / More time"]:::design
+    v5["FOB: name the supplier ·<br/>Nomination emailed to the vendor"]:::design
+  end
+  subgraph S3["3 · PURCHASE ORDER — sourcing chases it"]
+    po2["Confirm with the mill · dispatch date"]:::sourcing
+  end
+  subgraph S4["4 · FABRIC IN — warehouse"]
+    f1["GRN · received · checked"]:::warehouse
+    f2["Materials issued to the factory<br/>with sample · tech pack · job card"]:::warehouse
+  end
+  subgraph S5["5 · FACTORY & SAMPLING — planning, production, RQC"]
+    p1["Allocate a factory on capacity<br/>headroom · lead · on-time grade"]:::planning
+    p2["TNA from the category's milestone template"]:::production
+    p3[/"Style sheet · job card · BOM<br/>printed off the record"/]:::doc
+    p4["Photo / PP sample round n"]:::production
+    p5{"RQC review"}
+    p6["Bulk run · milestones · vendor status<br/>escalation when a milestone slips"]:::production
+  end
+  subgraph S6["6 · GO LIVE — planning, warehouse, stores, design"]
+    l1["Goods received at HO"]:::warehouse
+    l2["Launch record · drop month<br/>display & fit pieces allocated to stores"]:::planning
+    l3["STO dispatched · hemming type"]:::warehouse
+    l4["Store confirms receipt"]:::store
+    l5["Marketing brief · name & description"]:::design
+    l6["Launch date set · live in Enigma on the day"]:::planning
+    l7["Live · POS and online close together"]:::store
+  end
+  FIN["Finance: GRN seen · invoice · COGS closure"]:::finance
+
+  r1 --> r2 --> r3 --> r4
+  r4 -->|"BSC buys"| r5
+  r4 -->|"FOB · supplier nominated"| r5
+  r4 -->|"vendor sources"| r6
+  r5 --> r6 --> r7
+  r7 -->|"BSC buys"| v1 --> v2 --> v3 --> v4
+  r7 -->|"FOB"| v5 --> p1
+  r7 -->|"vendor sources"| p1
+  v4 -->|"PO pushed"| po2 --> f1 --> f2
+  v4 -->|"PO raised → allocate"| p1 --> p2 --> p3 --> p4 --> p5
+  p5 -->|"comments · resubmit"| p4
+  p5 -->|"PP go-ahead"| p6
+  f2 --> p6
+  p6 --> l1 --> l2 --> l3 --> l4 --> l6 --> l7
+  l2 --> l5 --> l6
+  l1 -.-> FIN
+  </pre></div>
+  <div class="scroll"><table class="touch">
+    <tr><th>Step</th><th>Owner</th><th>Screen</th><th>Done when</th></tr>
+    <tr><td>1 · Request</td><td><span class="team t-design">design</span> <span class="team t-planning">planning</span></td><td>RTW requirements → drawer → The call</td><td>handed to sourcing</td></tr>
+    <tr><td>2 · Vendors</td><td><span class="team t-sourcing">sourcing</span> → <span class="team t-design">design</span></td><td>Fabric sourcing · Bulk styles</td><td>vendor chosen (or FOB nomination emailed · or vendor sources)</td></tr>
+    <tr><td>3 · Purchase order</td><td><span class="team t-design">design</span></td><td>requirement · step 3 · Fabric master · POs</td><td>FPO raised</td></tr>
+    <tr><td>4 · Fabric in</td><td><span class="team t-warehouse">warehouse</span></td><td>Goods received · GRN</td><td>received and checked at the unit</td></tr>
+    <tr><td>5 · Sampling</td><td><span class="team t-planning">planning</span> <span class="team t-production">production</span></td><td>requirement · step 5 · RTW production tracker</td><td>PP go-ahead</td></tr>
+    <tr><td>6 · Go live</td><td><span class="team t-planning">planning</span> <span class="team t-design">design</span></td><td>RTW launches</td><td>launched</td></tr>
+  </table></div>
+</section>
+
+<section id="modes">
+  <div class="eyebrow">07</div>
+  <h2>Three ways to buy the cloth</h2>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": true, "useMaxWidth": false, "padding": 12, "curve": "basis", "nodeSpacing": 30, "rankSpacing": 40}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px"}}}%%
+flowchart LR
+  classDef design fill:#EFE7F3,stroke:#6B4E7A,color:#1F2419
+  classDef sourcing fill:#F5EBD8,stroke:#9A6B1F,color:#1F2419
+  classDef production fill:#DDEEEC,stroke:#2F6F6B,color:#1F2419
+  classDef store fill:#F2E6E0,stroke:#7A4E3A,color:#1F2419
+
+  req["Requirement · 'The cloth?'"]:::design
+  subgraph A["BSC BUYS IT"]
+    a1["Sourcing: one vendor + terms"]:::sourcing
+    a2["Design: Push PO"]:::design
+    a4["Mill ships cloth → warehouse GRN → issued to factory"]:::production
+  end
+  subgraph B["FOB · SUPPLIER NOMINATED"]
+    b1["Design names the supplier"]:::design
+    b2["Nomination emailed to the vendor — recorded"]:::design
+    b3["Vendor buys the nominated cloth · funds · makes"]:::production
+    b4["BSC buys finished garments<br/>labels & trims sent → charged via BOM"]:::store
+  end
+  subgraph C["VENDOR SOURCES"]
+    c1["Vendor finds and buys its own cloth"]:::production
+  end
+  req --> a1 --> a2 --> a4
+  req --> b1 --> b2 --> b3 --> b4
+  req --> c1
+  </pre></div>
+</section>
+
+<section id="planning">
+  <div class="eyebrow">08</div>
+  <h2>Planning · stock health, weekly</h2>
+  <p>Planning reads each option down the ladder to one of nine verbs, acts on it, and the replenishment sheet and STOs follow.</p>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": true, "useMaxWidth": false, "padding": 12, "curve": "basis", "nodeSpacing": 24, "rankSpacing": 40}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px"}}}%%
+flowchart TB
+  classDef planning fill:#E7EAEE,stroke:#5B6470,color:#1F2419
+  classDef design fill:#EFE7F3,stroke:#6B4E7A,color:#1F2419
+  classDef warehouse fill:#E6EADF,stroke:#3D4A2E,color:#1F2419
+  classDef store fill:#F2E6E0,stroke:#7A4E3A,color:#1F2419
+
+  subgraph L["THE LADDER — one verb per option"]
+    q0{"off the shelf?"}
+    q1{"stock = 0 & sold at peak?"}
+    q2{"velocity E?"}
+    q3{"cover ≥ exit / clear?"}
+    q4{"healthy & cover ≤ urgent?"}
+    q5{"2+ sizes out & selling?"}
+    v0["REINTRODUCE · make active"]:::planning
+    v1["URGENT REPLENISH"]:::planning
+    v2["REVIEW"]:::planning
+    v3["LIQUIDATE"]:::planning
+    v4["EXIT · CLEAR / DISCOUNT"]:::planning
+    v5["SIZE FILL"]:::planning
+    v6["MAINTAIN · MONITOR"]:::planning
+  end
+  subgraph A["THE CALL — planning acts"]
+    a1["Raise reorder · N pcs<br/>planned demand × (lead + 90 d) − on hand − incoming · MOQ"]:::planning
+    a2["Promote to core"]:::planning
+    a3["Liquidate · pull displays · take off the shelf"]:::planning
+    a4["Take off the shelf"]:::planning
+    a5["Make active & order / Make active only"]:::planning
+  end
+  subgraph R["REPLENISH & PULL BACK — this week"]
+    r1["One line per SKU-size: at unit · allocate · balance<br/>to stores at zero · pull back from over-cover"]:::planning
+    r2["STO wave · display / off the rack / replenishment"]:::warehouse
+    r3["Store receives · closes STO"]:::store
+    r4["Store asks another store — demand the shelf missed"]:::store
+  end
+  subgraph P["OPTION COUNT VS PLAN"]
+    p1["Per sub-category: ideal · core ideal · listed · healthy · size out · gap"]:::planning
+    p2["Every count drills into the rows"]:::planning
+  end
+  q0 -->|"yes · it sold at its peak"| v0 --> a5
+  q0 -->|"yes · no demand signal"| v6
+  q0 -->|"no"| q1
+  q1 -->|"yes"| v1 --> a1
+  q1 -->|"no · stock 0"| v2
+  q1 -->|"stock > 0"| q2
+  q2 -->|"yes"| v3 --> a3
+  q2 -->|"no"| q3
+  q3 -->|"yes"| v4 --> a3
+  q3 -->|"no"| q4
+  q4 -->|"yes"| v1
+  q4 -->|"no"| q5
+  q5 -->|"yes"| v5 --> a1
+  q5 -->|"no"| v6 --> a2
+  v6 --> a4
+  a1 --> r1 --> r2 --> r3
+  r4 -.-> r1
+  p1 --> p2
+  </pre></div>
+</section>
+
+<section id="launch">
+  <div class="eyebrow">09</div>
+  <h2>RTW launch · head office to the floor</h2>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": true, "useMaxWidth": false, "padding": 12, "curve": "basis", "nodeSpacing": 26, "rankSpacing": 40}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px"}}}%%
+flowchart LR
+  classDef planning fill:#E7EAEE,stroke:#5B6470,color:#1F2419
+  classDef design fill:#EFE7F3,stroke:#6B4E7A,color:#1F2419
+  classDef warehouse fill:#E6EADF,stroke:#3D4A2E,color:#1F2419
+  classDef store fill:#F2E6E0,stroke:#7A4E3A,color:#1F2419
+  classDef finance fill:#F3EEDC,stroke:#7A6A2E,color:#1F2419
+
+  subgraph W["WAREHOUSE"]
+    w1["Goods received at HO<br/>expected vs actual · revised weekly"]:::warehouse
+    w2["Pieces dispatched · STO series · hemming"]:::warehouse
+  end
+  subgraph P["PLANNING"]
+    p1["Launch record · drop month · style"]:::planning
+    p2["Display & fit pieces allocated per store<br/>issued at COGS · never sellable"]:::planning
+    p3["Launch date set"]:::planning
+    p4["Switches it live on the day"]:::planning
+  end
+  subgraph D["DESIGN"]
+    d1["Name & description to marketing<br/>lead: MARKETING_LEAD_DAYS before launch"]:::design
+  end
+  subgraph S["STORES"]
+    s1["Store confirms receipt · fit sample marked"]:::store
+    s2["On the floor · POS live"]:::store
+  end
+  subgraph F["FINANCE"]
+    f1["Display & fit pieces at COGS · write-offs"]:::finance
+  end
+  w1 --> p1 --> p2 --> w2 --> s1 --> p3 --> p4 --> s2
+  p1 --> d1 --> p3
+  p2 -.-> f1
+  </pre></div>
+</section>
+
+<section id="warehouse">
+  <div class="eyebrow">10</div>
+  <h2>Warehouse, stores and finance · the daily touch points</h2>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": true, "useMaxWidth": false, "padding": 12, "curve": "basis", "nodeSpacing": 24, "rankSpacing": 40}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px"}}}%%
+flowchart LR
+  classDef warehouse fill:#E6EADF,stroke:#3D4A2E,color:#1F2419
+  classDef store fill:#F2E6E0,stroke:#7A4E3A,color:#1F2419
+  classDef finance fill:#F3EEDC,stroke:#7A6A2E,color:#1F2419
+  classDef production fill:#DDEEEC,stroke:#2F6F6B,color:#1F2419
+  classDef sourcing fill:#F5EBD8,stroke:#9A6B1F,color:#1F2419
+
+  subgraph IN["INBOUND"]
+    i1["GRN · fabric from mills<br/>incoming → shelf"]:::warehouse
+    i2["GRN · finished garments from factories"]:::warehouse
+    i3["Bespoke: mill stock sheet import · inward"]:::sourcing
+  end
+  subgraph OUT["OUTBOUND TO FACTORIES"]
+    o1["Materials issued with sample · tech pack · job card"]:::warehouse
+    o2["Extra fabric request → sourcing decides"]:::production
+    o3["Cut-and-sew dispatch · MTM daily plan"]:::warehouse
+  end
+  subgraph SW["SWATCHES"]
+    sw1["Swatch desk · six dates · sticker sheet"]:::warehouse
+    sw2["Swatch books dispatched · store receives"]:::store
+  end
+  subgraph STO["STORES"]
+    s1["STO received · closed"]:::store
+    s2["Stock request to another store → answered"]:::store
+    s3["Return raised · resolution · to factory · refund"]:::store
+    s4["Fit sample dispatched · marked"]:::store
+    s5["Swatch received tap"]:::store
+  end
+  subgraph FIN["FINANCE"]
+    f1["GRN seen · invoice matched"]:::finance
+    f2["Refunds & store credit"]:::finance
+    f3["Write-offs · COGS closure"]:::finance
+  end
+  i1 --> o1 --> o3
+  i1 --> sw1 --> sw2 --> s5
+  i2 --> s1
+  o2 -.-> i1
+  s3 --> f2
+  i2 --> f1
+  s1 -.-> f3
+  </pre></div>
+</section>
+
+
+<section id="users">
+  <div class="eyebrow">11</div>
+  <h2>User flow · click by click, people only</h2>
+  <p>No systems in this one. Each lane is a person; each arrow is what they hand to the next person; each note is the screen they are on and the button they press. Read top to bottom: this is a week in the life of one new MTM fabric, then one RTW style.</p>
+
+  <h3 style="font-family:var(--serif);font-size:17px;margin:18px 0 6px">11a · A new MTM fabric — from "the book is short" to a customer ordering it</h3>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"sequence": {"useMaxWidth": false, "wrap": true, "width": 190, "mirrorActors": false, "actorMargin": 28, "messageMargin": 34, "noteMargin": 8, "boxMargin": 8}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px", "actorBkg": "#F6F4EE", "actorBorder": "#7A8074", "noteBkgColor": "#FFFFFF", "noteBorderColor": "#DDD9CC", "activationBkgColor": "#E6EADF"}}}%%
+sequenceDiagram
+  autonumber
+  actor D as Design (Kunal)
+  actor S as Sourcing (Sreekanth)
+  actor M as Mill
+  actor W as Warehouse (swatch person)
+  actor T as Stores (each store)
+  actor K as Marketing
+
+  Note over D: Two ways in. Either — MTM concepts · + Log an MTM concept
+  D->>D: names the fabric it needs · why · book · wanted by · reference fabric · attaches sketch / PAT
+  D->>S: (after sampling clears) one concept — sourcing puts one vendor against it
+  Note over D: Or — MTM concepts · strip reads "FORMAL VOL.1 · 21/30 — 9 short"
+  D->>D: clicks "raise a request for 9 options →"
+  Note over D: Option requests · New request opens pre-filled: MTM shirts · 9 · brief
+  D->>D: names each option in a word · fills the BOM · Create
+  D->>S: request REQ-002 · 9 options · status "sourcing to add vendors"
+
+  loop for each option
+    Note over S: Option requests · open the option
+    S->>M: asks for cloth, price, MOQ, lead, how long it will hold
+    M-->>S: article, ₹/m, MOQ, lead, holds until
+    S->>S: Put a vendor against option N · Save vendor · edits in place if the mill revises
+    S->>D: Send option N to design → · status "design to push PO"
+  end
+
+  Note over D: Option requests · option N · one vendor card
+  D->>D: writes "Why" once
+  alt the cloth is right
+    D->>S: Push PO · metres · ₹ — vendor chosen and fabric PO raised in one click
+  else not this mill
+    D->>S: Reject (reason) — option goes back to "sourcing to add vendors"
+  else needs longer than the hold
+    D->>S: More time — status "extension asked"
+    S->>M: asks the mill to extend
+    alt mill extends
+      S->>D: Extend · Hold extended — back to design →
+    else mill will not hold
+      S->>S: Mill won't hold — withdraw vendor · puts another
+    end
+  else not going ahead
+    D->>D: Close option N (reason) — seven of ten made stays on the record
+  end
+
+  Note over S: Fabric master · Fabric POs
+  S->>M: chases the PO
+  M-->>S: dispatch date
+  S->>S: Mill confirmed… · date · remark
+  M->>W: cloth arrives
+
+  Note over W: Goods received · GRN
+  W->>W: receives the metres — shelf goes up
+  Note over W: Swatch desk · the fabric's row
+  W->>W: Bulk received (date)
+  opt design wants it first
+    W->>W: Priority-1 switch — row sorts to the top
+  end
+  W->>W: To swatches (handover date)
+  W->>W: Cut · 25 × 25
+
+  par in parallel, once the cloth is real
+    Note over S: concept · Designs on this fabric
+    S->>S: Add design ×5 — name · Formal/Casual · MRP → product codes BOM-SHI-FM-4200…4204
+  and
+    Note over D: concept · step 6
+    D->>D: records Enigma configured · large check · composition family
+  end
+
+  Note over W: Swatch desk · drawer · The sticker page
+  W->>W: Print sticker sheet — 5 designs × 34 stores = 170 labels · Sticker date written
+  W->>T: Dispatched — one row per store · swatches + labels in the parcel
+  W->>W: Photos shared
+  T->>T: taps "swatch received" — the receiving date
+  T->>T: puts the swatch in the book, left or right
+
+  Note over D: Swatch desk or concept step 6
+  D->>T: Stores told to display
+  D->>D: Go live in stores — whenever design decides
+  T->>T: sells from the swatch · MTM order sheet
+
+  K-->>D: final product name · description
+  D->>D: Name & price — the new name flows to labels and the master
+  D->>D: Photos · Video · Post-production done
+  D->>D: Go live online — about two weeks after stores
+  </pre></div>
+
+  <h3 style="font-family:var(--serif);font-size:17px;margin:22px 0 6px">11b · An RTW style — from the requirement to the shop floor</h3>
+  <div class="chart"><pre class="mermaid">
+%%{init: {"sequence": {"useMaxWidth": false, "wrap": true, "width": 190, "mirrorActors": false, "actorMargin": 26, "messageMargin": 34, "noteMargin": 8}, "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "12.5px", "actorBkg": "#F6F4EE", "actorBorder": "#7A8074", "noteBkgColor": "#FFFFFF", "noteBorderColor": "#DDD9CC"}}}%%
+sequenceDiagram
+  autonumber
+  actor D as Design (Kunal)
+  actor P as Planning (Charanjeet)
+  actor S as Sourcing (Sreekanth)
+  actor F as Factory / merchandiser
+  actor Q as RQC
+  actor W as Warehouse
+  actor T as Stores
+  actor K as Marketing
+
+  Note over D: RTW requirements · + New requirement
+  D->>D: category · sub-category · style · fit
+  P->>D: size ratio · total pieces
+  D->>D: qty · target in-house · target ₹/pc · "The cloth?" — BSC buys / FOB / vendor sources
+  D->>D: fabric brief · BOM · size curve · Create requirement
+  D->>S: Hand to sourcing → — the lead-time clock starts
+
+  alt BSC buys it
+    Note over S: Fabric sourcing · Bulk styles · Who could make this
+    S->>S: one vendor + terms · Save vendor · Send to design →
+    Note over D: requirement · step 2
+    D->>S: Push PO · 320 m · ₹71,040 (or Reject · More time)
+    S->>S: confirms with the mill · dispatch date
+    S->>W: cloth to the warehouse
+    W->>W: GRN · received · checked
+  else FOB — supplier nominated
+    D->>D: names the supplier · Nomination emailed to the vendor
+    D->>F: buy the cloth from that supplier
+  else vendor sources
+    Note over D,F: nothing to buy — steps 2–4 read "not needed"
+  end
+
+  Note over P: requirement · step 5 · Allocate a factory on capacity
+  P->>F: factory allocated · TNA from the category template
+  D->>F: Print style sheet · BOM · job card — off the record
+  W->>F: materials issued with sample, tech pack, job card
+
+  loop until PP go-ahead
+    F->>Q: photo / PP sample round n
+    Q-->>F: comments · resubmit
+  end
+  Q->>F: PP go-ahead
+  F->>F: bulk run · updates milestones
+  opt a milestone slips
+    F->>P: escalation raised — who is chasing, by when
+  end
+
+  F->>W: finished goods
+  Note over W: Goods received at HO
+  W->>P: received · expected vs actual
+  Note over P: RTW launches
+  P->>P: launch record · drop month · display & fit pieces per store
+  W->>T: STO dispatched · hemming type
+  T->>P: store confirms receipt
+  K-->>D: name & description
+  D->>P: marketing brief on the launch
+  P->>P: launch date set · live on the day
+  T->>T: on the floor · POS and online close together
+
+  Note over P: RTW stock health · weekly
+  P->>P: one verb per option · reorder / core / liquidate / off shelf / reintroduce
+  P->>D: reorder → a new requirement
+  </pre></div>
+  <p class="cap">Every arrow above is a button someone presses or a thing someone hands over. Where the arrow used to be a Slack message, an email, or a retyped tracker cell, the record now carries it — but the person and the order of events are unchanged.</p>
+</section>
+</main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, securityLevel: "loose" });</script>
+</body>
+</html>

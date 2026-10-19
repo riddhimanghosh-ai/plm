@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Design, End to End</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff;
+    --paper:#ffffff;
+    --ink:#1a1a13;
+    --soft:#6b6759;
+    --line:#e3ddcd;
+    --line-strong:#c9c1a8;
+    --accent:#3c4a30;
+    --accent-soft:#e7ebe0;
+    --tag-bg:#efeadf;
+    color-scheme: light;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    font-size:15px; line-height:1.6;
+    padding-inline:20px; padding-block:56px 80px;
+  }
+  main{max-width:760px;margin:0 auto}
+
+  .eyebrow{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--soft);margin:0 0 10px}
+  h1{font-family:'Source Serif 4',Georgia,serif;font-weight:700;font-size:clamp(30px,5vw,42px);line-height:1.08;letter-spacing:-.01em;margin:0 0 14px;text-wrap:balance}
+  .dek{font-size:16px;color:var(--soft);max-width:64ch;margin:0 0 6px}
+  .meta{font-size:12.5px;color:var(--soft);margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line)}
+
+  section.intro{margin:40px 0 48px}
+  section.intro p{max-width:66ch;margin:0 0 14px}
+  section.intro p:last-child{margin-bottom:0}
+  section.intro strong{color:var(--ink)}
+
+  .anchor-note{background:var(--accent-soft);border:1px solid var(--line);border-radius:10px;padding:16px 18px;font-size:13.5px;color:var(--ink);max-width:66ch}
+  .anchor-note b{color:var(--accent)}
+  .anchor-note p{margin:0 0 10px}
+  .anchor-note p:last-child{margin-bottom:0}
+
+  h2.section-head{font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);margin:0 0 22px;padding-top:8px}
+
+  .foundations{display:flex;gap:14px;align-items:flex-start;padding:18px 20px;background:var(--paper);border:1px dashed var(--line-strong);border-radius:10px;margin-bottom:34px}
+  .foundations .mark{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px dashed var(--soft);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--soft);font-weight:600;margin-top:2px}
+  .foundations h3{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;color:var(--soft)}
+  .foundations p{margin:0;font-size:13.5px;color:var(--soft);max-width:60ch}
+
+  .phase{position:relative;display:grid;grid-template-columns:56px 1fr;gap:0 22px;padding-bottom:36px}
+  .phase:last-of-type{padding-bottom:0}
+  .rail{position:relative;display:flex;flex-direction:column;align-items:center}
+  .num{width:40px;height:40px;border-radius:50%;background:var(--accent);color:var(--bg);font-family:'Source Serif 4',serif;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;flex:none;z-index:1;font-variant-numeric:tabular-nums}
+  .thread{flex:1;width:2px;background:var(--line-strong);margin-top:4px}
+  .phase:last-of-type .thread{display:none}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:20px 22px 22px;margin-top:-2px}
+  .card .kicker{font-size:11.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);margin:0 0 4px}
+  .card h3{font-family:'Source Serif 4',Georgia,serif;font-size:20px;font-weight:700;line-height:1.25;margin:0 0 12px;text-wrap:balance}
+  .card > p{margin:0 0 12px;max-width:64ch}
+  .card ul.flows{margin:0 0 16px;padding-left:20px}
+  .card ul.flows li{margin-bottom:9px;max-width:62ch}
+  .card ul.flows li:last-child{margin-bottom:0}
+  .card ul.flows li::marker{color:var(--soft)}
+
+  .enigma-block{margin-top:16px;padding-top:16px;border-top:1px dashed var(--line)}
+  .enigma-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin:0 0 9px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px 8px}
+  .chip{font-family:'Inter',sans-serif;font-size:12px;background:var(--tag-bg);color:var(--ink);padding:4px 10px;border-radius:6px;border:1px solid var(--line);white-space:nowrap}
+
+  .done{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:baseline;font-size:13.5px}
+  .done .tag{flex:none;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);background:var(--tag-bg);border-radius:5px;padding:3px 8px}
+  .done span.text{color:var(--soft)}
+
+  .why{font-size:13px;color:var(--soft);font-style:italic;margin-top:10px}
+
+  .closing{margin-top:44px;display:grid;gap:16px}
+  .closing .block{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+  .closing h3{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px;color:var(--accent)}
+  .closing p{margin:0;font-size:13.5px;color:var(--soft);max-width:64ch}
+
+  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--soft)}
+
+  @media (max-width:520px){
+    .phase{grid-template-columns:40px 1fr;gap:0 14px}
+    .num{width:32px;height:32px;font-size:14px}
+    .card{padding:16px 16px 18px}
+    .card h3{font-size:18px}
+  }
+
+  ol.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+  ol.steps > li{counter-increment:s;display:grid;grid-template-columns:28px 1fr;gap:0 10px;padding:11px 0;border-top:1px solid var(--line)}
+  ol.steps > li:first-child{border-top:0;padding-top:4px}
+  ol.steps > li::before{content:counter(s);width:22px;height:22px;border-radius:50%;background:var(--tag-bg);border:1px solid var(--line);font-size:11.5px;font-weight:600;display:flex;align-items:center;justify-content:center;color:var(--accent);margin-top:1px}
+  ol.steps b{font-weight:600}
+  ol.steps .who{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--soft);background:var(--tag-bg);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+  ol.steps p{margin:2px 0 0;font-size:14px;color:var(--ink);max-width:62ch}
+  ol.steps ul{margin:6px 0 0;padding-left:18px;font-size:14px;list-style:disc}
+  ol.steps ul li{display:list-item;padding:1px 0;border:0}
+  .flag{background:#fbf3e2;border:1px solid #ecd9ae;border-radius:10px;padding:16px 18px;font-size:13.5px}
+  .flag h3{color:#8a5a12 !important}
+</style>
+</head><body><main>
+<p class="eyebrow">BSC PLM &middot; for the design team</p>
+<h1>Design, end to end</h1>
+<p class="dek">Every process the design team runs in BSC PLM, from the first ask to the day it goes live.</p>
+<p class="meta">8 Oct 2026 &middot; Riddhiman Ghosh &middot; DevX Labs</p>
+<section class="intro">
+<p>Design works from one list, <strong>Requirements</strong>. Every ask starts with <strong>+ New requirement</strong>, which asks one question: an MTM fabric, several fabric options at once, or an RTW style.</p>
+<div class="anchor-note"><p>Each ask moves through the same five stages, and the list shows which one it is at: <b>Requirement</b>, <b>Sourcing</b>, <b>Finalised and ordered</b>, <b>Downstream</b>, then <b>Live</b>.</p></div>
+</section>
+<h2 class="section-head">The three flows</h2>
+<div class="phase"><div class="rail"><div class="num">1</div><div class="thread"></div></div><div class="card"><p class="kicker">Made to measure</p><h3>An MTM fabric, from idea to live</h3><p>One new fabric, shade or construction variant for the swatch books.</p><ol class="steps"><li><div><b>Raise the ask</b><span class="who">Design</span><p>Pick the kind: a new fabric or shade, or a construction variant (collar, cuff or placket) on a fabric already in stock. Give a working name and why, and optionally the swatch book and the month it is wanted.</p></div></li><li><div><b>Sample and approve, if needed</b><span class="who">Production unit · Design</span><p>The pre-production sample and the approval to every department are optional. Skip them with a reason, for example for a new shade of a known fabric.</p></div></li><li><div><b>One vendor against the ask</b><span class="who">Sourcing</span><p>Mill, article number, price per metre, minimum order, lead time and how long the mill will hold the cloth. Then send it to design.</p></div></li><li><div><b>Decide</b><span class="who">Design</span><p>Push the fabric PO, reject the vendor with a reason, or ask for more time. A lapsed hold has to be extended by sourcing first.</p></div></li><li><div><b>PO raised</b><span class="who">System</span><p>The PO mints the Enigma fabric code and the cloth lands on the swatch desk.</p></div></li><li><div><b>Swatch desk</b><span class="who">Warehouse · Stores</span><p>Received, handed to swatches, cut, sticker printed, dispatched, photographed. Each store confirms it arrived.</p></div></li><li><div><b>Set up for sale</b><span class="who">Sourcing · Design</span><p>Sourcing adds the designs on the fabric. Design sets it up in Enigma and adds marketing’s name and the price.</p></div></li><li><div><b>Go live</b><span class="who">Design</span><p>Tell stores, write the story, go live in stores. Online follows about two weeks later, once photos, video, post-production and the product page are done.</p></div></li></ol></div></div>
+<div class="phase"><div class="rail"><div class="num">2</div><div class="thread"></div></div><div class="card"><p class="kicker">Made to measure</p><h3>Several options at once</h3><p>Used to fill a swatch book, for example “ten winter shirts”.</p><ol class="steps"><li><div><b>See the gap</b><span class="who">Design</span><p>The swatch book tiles show active options against a plan of 30 per book.</p></div></li><li><div><b>Raise the request</b><span class="who">Design</span><p>Category, count, live-by date, target cost and the bill of materials.</p></div></li><li><div><b>Write each option’s ask</b><span class="who">Design</span><p>Look, composition, colour, weight, a reference fabric, the top price per metre and notes, per option.</p></div></li><li><div><b>Fill the options</b><span class="who">Sourcing</span><p>One vendor against each option, then send it to design.</p></div></li><li><div><b>Settle each option</b><span class="who">Design</span><p>Each option is one line with a Review button. Push the PO, reject, or ask for more time. Every option has its own hold.</p></div></li><li><div><b>Close what will not happen</b><span class="who">Design · Sourcing</span><p>Either side closes an option with a reason; design can reopen it. The request completes when every option is ordered or closed.</p></div></li><li><div><b>Ordered options carry on as MTM fabrics</b><span class="who">System</span><p>Each starts at “PO raised”, already approved, and runs the swatch desk and go-live steps above.</p></div></li></ol></div></div>
+<div class="phase"><div class="rail"><div class="num">3</div><div class="thread"></div></div><div class="card"><p class="kicker">Ready to wear</p><h3>An RTW style, from request to launch</h3><p>One record per style in four sections: the request, factory finalisation, fabric finalisation, then milestones and final steps. Design owns the first and the two POs.</p><ol class="steps"><li><div><b>Proto first</b><span class="who">Production unit · Design</span><p>The unit makes the style on any shirt fabric to hand. Design approves it, sends it back, or skips it with a reason for a repeat.</p></div></li><li><div><b>Send the request</b><span class="who">Design</span><p><ul><li>Style, category, fit and order quantity</li><li>Size ratio across 28–50 or XS–4XL</li><li>Target price and target in-house date</li><li>The cloth wanted and the trims</li><li>Job card, trim card, BOM and tech pack</li></ul><p>Missing documents are flagged as owed but do not block. The style shows on the RTW tracker as “no PO yet”.</p></p></div></li><li><div><b>Factory decision</b><span class="who">Production (Nitin) · Design</span><p>Nitin proposes a factory with a cost and an in-house date. Design accepts, or rejects with a comment and he proposes again.</p></div></li><li><div><b>Factory PO</b><span class="who">Design</span><p>Design raises it and the documents travel with it. The milestone plan is drawn from the PO date.</p></div></li><li><div><b>Fabric PO</b><span class="who">Sourcing · Design</span><p>From the day the request lands, sourcing puts one vendor against the cloth. Design pushes the fabric PO exactly as for MTM. The PO mints the Enigma code and fills the tracker’s fabric details by itself.</p></div></li><li><div><b>Short cloth</b><span class="who">Merchandiser · Design</span><p>If the factory counts less usable cloth than needed, the merchandiser or production asks. Design gives a modified size ratio or a cut short.</p></div></li><li><div><b>Design steps out</b><span class="who">Production · Warehouse · Planning</span><p>Nitin and the factory merchandiser run milestones, QC and dispatch. The warehouse receives the lots and planning puts the style into a drop.</p></div></li></ol></div></div>
+<div class="closing">
+<div class="block"><h3>Design’s standing jobs</h3>
+<p><b>Pausing and reactivating fabrics.</b> Sourcing checks core stock weekly and escalates a fabric whose supply is delayed or out. Design pauses it, which hides it from stores and the order form, and reactivates it when stock is back.</p>
+<p style="margin-top:10px"><b>Promoting non-core to core.</b> Design decides; sourcing then agrees a supply block with the mill.</p>
+<p style="margin-top:10px"><b>Bespoke.</b> No design step. The cloth stays at the mill and is ordered per customer order, never as a requirement.</p></div>
+<div class="block flag"><h3>Open item</h3><p>The new RTW form in the prototype still offers “Vendor sources” as who buys the cloth, and the requirement flow’s cases still list it. That contradicts “BSC buys the cloth for every bulk style”, so it probably goes the same way as FOB.</p></div>
+</div>
+<footer>Sources: the optimized process (requirement to PO, several options, MTM downstream, RTW four-section record); call with Nitin, 3 Oct 2026; design discovery session, 22 Sep 2026.</footer>
+</main></body></html>

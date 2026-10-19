@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Build Order</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff;
+    --paper:#ffffff;
+    --ink:#1a1a13;
+    --soft:#6b6759;
+    --line:#e3ddcd;
+    --line-strong:#c9c1a8;
+    --accent:#3c4a30;
+    --accent-soft:#e7ebe0;
+    --tag-bg:#efeadf;
+    color-scheme: light;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    font-size:15px; line-height:1.6;
+    padding-inline:20px; padding-block:56px 80px;
+  }
+  main{max-width:760px;margin:0 auto}
+
+  .eyebrow{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--soft);margin:0 0 10px}
+  h1{font-family:'Source Serif 4',Georgia,serif;font-weight:700;font-size:clamp(30px,5vw,42px);line-height:1.08;letter-spacing:-.01em;margin:0 0 14px;text-wrap:balance}
+  .dek{font-size:16px;color:var(--soft);max-width:64ch;margin:0 0 6px}
+  .meta{font-size:12.5px;color:var(--soft);margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line)}
+
+  section.intro{margin:40px 0 48px}
+  section.intro p{max-width:66ch;margin:0 0 14px}
+  section.intro p:last-child{margin-bottom:0}
+  section.intro strong{color:var(--ink)}
+
+  .anchor-note{background:var(--accent-soft);border:1px solid var(--line);border-radius:10px;padding:16px 18px;font-size:13.5px;color:var(--ink);max-width:66ch}
+  .anchor-note b{color:var(--accent)}
+  .anchor-note p{margin:0 0 10px}
+  .anchor-note p:last-child{margin-bottom:0}
+
+  h2.section-head{font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);margin:0 0 22px;padding-top:8px}
+
+  .foundations{display:flex;gap:14px;align-items:flex-start;padding:18px 20px;background:var(--paper);border:1px dashed var(--line-strong);border-radius:10px;margin-bottom:34px}
+  .foundations .mark{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px dashed var(--soft);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--soft);font-weight:600;margin-top:2px}
+  .foundations h3{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;color:var(--soft)}
+  .foundations p{margin:0;font-size:13.5px;color:var(--soft);max-width:60ch}
+
+  .phase{position:relative;display:grid;grid-template-columns:56px 1fr;gap:0 22px;padding-bottom:36px}
+  .phase:last-of-type{padding-bottom:0}
+  .rail{position:relative;display:flex;flex-direction:column;align-items:center}
+  .num{width:40px;height:40px;border-radius:50%;background:var(--accent);color:var(--bg);font-family:'Source Serif 4',serif;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;flex:none;z-index:1;font-variant-numeric:tabular-nums}
+  .thread{flex:1;width:2px;background:var(--line-strong);margin-top:4px}
+  .phase:last-of-type .thread{display:none}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:20px 22px 22px;margin-top:-2px}
+  .card .kicker{font-size:11.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);margin:0 0 4px}
+  .card h3{font-family:'Source Serif 4',Georgia,serif;font-size:20px;font-weight:700;line-height:1.25;margin:0 0 12px;text-wrap:balance}
+  .card > p{margin:0 0 12px;max-width:64ch}
+  .card ul.flows{margin:0 0 16px;padding-left:20px}
+  .card ul.flows li{margin-bottom:9px;max-width:62ch}
+  .card ul.flows li:last-child{margin-bottom:0}
+  .card ul.flows li::marker{color:var(--soft)}
+
+  .enigma-block{margin-top:16px;padding-top:16px;border-top:1px dashed var(--line)}
+  .enigma-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin:0 0 9px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px 8px}
+  .chip{font-family:'Inter',sans-serif;font-size:12px;background:var(--tag-bg);color:var(--ink);padding:4px 10px;border-radius:6px;border:1px solid var(--line);white-space:nowrap}
+
+  .done{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:baseline;font-size:13.5px}
+  .done .tag{flex:none;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);background:var(--tag-bg);border-radius:5px;padding:3px 8px}
+  .done span.text{color:var(--soft)}
+
+  .why{font-size:13px;color:var(--soft);font-style:italic;margin-top:10px}
+
+  .closing{margin-top:44px;display:grid;gap:16px}
+  .closing .block{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+  .closing h3{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px;color:var(--accent)}
+  .closing p{margin:0;font-size:13.5px;color:var(--soft);max-width:64ch}
+
+  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--soft)}
+
+  @media (max-width:520px){
+    .phase{grid-template-columns:40px 1fr;gap:0 14px}
+    .num{width:32px;height:32px;font-size:14px}
+    .card{padding:16px 16px 18px}
+    .card h3{font-size:18px}
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <p class="eyebrow">BSC PLM &middot; for the implementation team</p>
+  <h1>Build Order</h1>
+  <p class="dek">Which team gets a working screen first, every flow that comes with it, and what it reads from Enigma and what it writes back to make it work &mdash; not the order the process runs in, but the order to build it in.</p>
+  <p class="meta">14 Oct 2026 &middot; Riddhiman Ghosh &middot; DevX Labs</p>
+
+  <section class="intro">
+    <p>Bombay Shirt Company's day runs design and sourcing first, then production, then the warehouse, then the store. This document runs the other way. It starts with the two teams whose day is most painfully manual right now &mdash; the production planner and the factory merchandiser &mdash; and adds a team at a time until every phase is live.</p>
+    <div class="anchor-note">
+      <p><b>This is built beside Enigma and connected to it, not inside it.</b> Enigma stays Bombay Shirt Company's system of record for fabrics, orders, purchase orders and stock. BSC PLM is its own application: every phase below reads what it needs from Enigma over its API, keeps its own records for everything Enigma does not hold today (the plan, the tracker, cases, GRNs, swatch books), and writes back into Enigma only where BSC and the Enigma team have agreed access.</p>
+      <p>That is why the first step is a read-only connection, and why writing back into Enigma has its own place in the last phase. Each phase below names what it reads from Enigma and what it keeps itself, so the build team knows exactly what crosses that line.</p>
+    </div>
+    <p><strong>This is still deliberately high-level.</strong> Each phase names every flow it covers, what it reads from Enigma and what it keeps itself, in plain terms &mdash; not the exact fields, buttons, or edge cases. That level of detail already exists, flow by flow, in the full implementation handover; a technical discovery pass turns each phase into a build spec against that document before work starts on it.</p>
+  </section>
+
+  <div class="foundations">
+    <div class="mark">0</div>
+    <div>
+      <h3>Before phase 1</h3>
+      <p>A short foundations step: a read-only connection to Enigma (fabrics, customer orders, purchase orders, stock by warehouse), one login per team and per store or factory, and the shared page shell &mdash; the record view, the notification bell, search, printing &mdash; is built once and reused by every phase below. Nothing team-facing ships from this step on its own.</p>
+    </div>
+  </div>
+
+  <h2 class="section-head">The seven phases</h2>
+
+  <div class="timeline">
+
+    <div class="phase">
+      <div class="rail"><div class="num">1</div><div class="thread"></div></div>
+      <div class="card">
+        <p class="kicker">Production &middot; Factory merchandiser &middot; built together</p>
+        <h3>MTM production and the floor</h3>
+        <p>The first team-facing release, because this is where the floor's day is most manual today: a planner working from memory and a WhatsApp thread per factory, and no way for a factory to ask for more cloth without a phone call.</p>
+        <ul class="flows">
+          <li><strong>The daily allocation screen, for the planner.</strong> It proposes which factory each punched order should go to, based on each factory's spare capacity that day, and lets the planner accept the proposal, override it, or send a batch to a chosen factory.</li>
+          <li><strong>Submitting the plan.</strong> Sending it to a factory closes that batch for the day; sending more than a factory's spare capacity is still possible, but it is recorded with the planner's name against it.</li>
+          <li><strong>The factory merchandiser's own screen.</strong> What has been sent to their factory, scanning pieces in when they arrive and out when they are done, and logging the day's output at day's end.</li>
+          <li><strong>Asking for extra cloth.</strong> The merchandiser raises it when a panel is spoiled, naming the order, the panel, the metres, and whose error it was.</li>
+          <li><strong>Approving the ask, on the production side.</strong> Approving deducts the metres from stock the same moment, instead of someone adjusting the stock count by hand afterwards.</li>
+          <li><strong>The vehicle round.</strong> What a factory declared ready against what actually came back, piece by piece, with a reason recorded for anything turned back or missing.</li>
+          <li><strong>Tracking a sheet change after an order is planned.</strong> The factory sees exactly what changed and needs to be told, flagged for reprint, instead of a phone call.</li>
+          <li><strong>Bespoke orders in the same plan.</strong> A customer's bespoke shirt waits outside the plan until its cut length has arrived from the mill, then runs like any other made-to-measure order; the allocation table marks it so the planner can see why it waited.</li>
+          <li><strong>An ageing view.</strong> How many days a piece has sat in a factory, so a stuck order surfaces before it becomes a missed promise.</li>
+        </ul>
+        <div class="enigma-block">
+          <p class="enigma-label">New in BSC PLM</p>
+          <div class="chips">
+            <span class="chip">Daily production plan</span>
+            <span class="chip">Factory output log</span>
+            <span class="chip">Extra-fabric request</span>
+            <span class="chip">Order-sheet revision history</span>
+            <span class="chip">Vehicle-round receipt</span>
+          </div>
+        </div>
+        <div class="done"><span class="tag">Done when</span><span class="text">a planner and every MTM factory's merchandiser are working from these screens for real orders, and the WhatsApp thread for allocation and extra cloth is no longer the record of what happened.</span></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="rail"><div class="num">2</div><div class="thread"></div></div>
+      <div class="card">
+        <p class="kicker">Store manager</p>
+        <h3>The store floor</h3>
+        <p>Store-facing and customer-facing, so it goes after the MTM floor has proven the pattern.</p>
+        <ul class="flows">
+          <li><strong>Punching a bill with more than one piece,</strong> each piece becoming its own order for the factory or the shelf. A bespoke fabric can be picked only while the mill's last report says it is available &mdash; the store can no longer sell what the mill no longer has.</li>
+          <li><strong>The order list,</strong> with the sheet's revision history and a rule for how late a change can still be made before it counts as an alteration instead.</li>
+          <li><strong>Raising a case on a delivered piece,</strong> found by order number, bill number, or the customer's name.</li>
+          <li><strong>The six-rung resolution ladder.</strong> Alter it in the store, swap it from the shelf, send it to the hemming unit, send it back to the factory, refit it, remake it, and if none of that works, store credit or a refund &mdash; skipping a rung is allowed and stays on the record.</li>
+          <li><strong>The hemming-unit round trip.</strong> Seven hand-offs from the store to the warehouse to the unit and back, each one a single button for whoever is holding the piece that day.</li>
+          <li><strong>The factory round trip,</strong> for a made-to-measure alteration or remake that has to go back to the factory that made it.</li>
+          <li><strong>A store-credit ledger per customer,</strong> so a balance is never held in someone's memory. A credit note is good for a year; a full refund to the bank waits for HO approval before finance moves it.</li>
+          <li><strong>What the bill carries for the floor (store manager call, 13 Oct 2026).</strong> More than one fit profile per customer, who measured, a comment for the factory and a comment for shipping that travel with the order sheet, "trial shirt first" for a new customer (about 25 days) and "urgent" (7&ndash;8 days, &#8377;600). The store's bell says when a fabric has been closed for selling, and a case opened within 30 days of delivery reads free alteration, credit note on return. Production can move an open piece&rsquo;s ship-by date with a reason &mdash; one piece, or every piece at a factory that is shut &mdash; and the store sees the old date, the new one and why. One bill carries pieces of different sizes. Every store sees every store&rsquo;s RTW shelf for a style, size by size, and asks the store that has it from the cell. The display piece every store gets per launch is not shelf stock; selling it puts the window at &minus;1 until the next order brings one. A piece taken back generates a numbered credit note on the spot, good for a year.</li>
+          <li><strong>Left for later in this phase:</strong> stickers and barcodes printed from the system, the daily closing report read off the bills instead of matched by hand for 45 minutes, and measurements that update every open order when a profile changes.</li>
+          <li><strong>Stock in and out at store level.</strong> Parcels arriving from the unit, asking another store for a size, writing off a damaged piece, launch display and fit pieces, and confirming swatch books and fit samples on arrival.</li>
+          <li><strong>Counting in fewer than the box said,</strong> with what was missing, so the transfer closes at the real figure and the warehouse is told. And asking the unit for swatch books &mdash; which book, how many, why.</li>
+        </ul>
+        <div class="enigma-block">
+          <p class="enigma-label">New in BSC PLM</p>
+          <div class="chips">
+            <span class="chip">Return case</span>
+            <span class="chip">Resolution-ladder attempts</span>
+            <span class="chip">Hemming-unit leg</span>
+            <span class="chip">Store-credit ledger</span>
+            <span class="chip">Stock write-off</span>
+            <span class="chip">Store-to-store stock request</span>
+            <span class="chip">Fit profiles</span>
+            <span class="chip">Who measured</span>
+            <span class="chip">Factory &amp; shipping comments</span>
+            <span class="chip">Fabric-closed alert</span>
+            <span class="chip">Refund approval</span>
+          </div>
+        </div>
+        <div class="done"><span class="tag">Done when</span><span class="text">a handful of pilot stores are running returns and alterations through this instead of Slack, and store credit has one ledger instead of living in someone's memory.</span></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="rail"><div class="num">3</div><div class="thread"></div></div>
+      <div class="card">
+        <p class="kicker">Warehouse</p>
+        <h3>Everything that arrives, and everything that leaves</h3>
+        <p>Goes after the store phase because by then both sides of most warehouse hand-offs &mdash; the factory feeding it, the store receiving from it &mdash; are already live.</p>
+        <ul class="flows">
+          <li><strong>Every receipt writes one goods-received note,</strong> always against the purchase order or parcel it belongs to: fabric rolls, ready-to-wear bulk in lots, bespoke parcels, and the vehicle round from MTM factories.</li>
+          <li><strong>Bespoke, mill to customer.</strong> The mill's daily stock list typed or pasted in, one mill at a time; a fabric reported out goes on hold on the website and in every store the same second, and comes back when the mill does. The day's new bespoke orders are called from each mill with the parcel codes BSC minted at punch, and a parcel is inwarded only when its code matches an order actually waiting on it &mdash; replacing the five emails retyped every morning and the sold-out fabric nobody remembered to switch off.</li>
+          <li><strong>The goods-received-note register,</strong> with an invoice number attached and a pickup step for finance.</li>
+          <li><strong>Cutting fabric and sending bundles</strong> to MTM factories against the day's plan.</li>
+          <li><strong>Picking and sending an approved extra-fabric ask.</strong></li>
+          <li><strong>Sending parcels to stores.</strong> Stock transfers, made-to-measure pieces ready for a customer, ready-to-wear pieces, launch pieces, and swatch books.</li>
+          <li><strong>Ready-to-wear customer orders from stock.</strong> A website or store order is a stock sale, like a web shop: in stock means sellable, out of stock means not for sale, and no factory is involved. The warehouse picks, hems if an inseam is set, and dispatches with the courier and tracking.</li>
+          <li><strong>Closing a stock transfer on receipt,</strong> with an alert when one has sat open for a week &mdash; the exact gap where stock quietly goes missing today.</li>
+          <li><strong>Short counts closed by the warehouse.</strong> When a store counts in fewer than the transfer said, the gap lands on the warehouse's list: send the balance, or write it off with a reason on the transfer.</li>
+          <li><strong>Sending and confirming swatch books and fit samples,</strong> store by store.</li>
+          <li><strong>Swatch-book asks from stores.</strong> A store asks for a particular book or more copies with a reason; the warehouse dispatches or declines it from the same list.</li>
+          <li><strong>The warehouse's side of the hemming-unit round trip.</strong></li>
+        </ul>
+        <div class="enigma-block">
+          <p class="enigma-label">New in BSC PLM</p>
+          <div class="chips">
+            <span class="chip">Goods-received note (all kinds)</span>
+            <span class="chip">Stock transfer</span>
+            <span class="chip">Swatch-book dispatch</span>
+            <span class="chip">Fit-sample dispatch</span>
+            <span class="chip">Bespoke mill-stock list</span>
+            <span class="chip">Bespoke parcel code and call</span>
+          </div>
+        </div>
+        <div class="done"><span class="tag">Done when</span><span class="text">a fabric receipt updates saleable stock everywhere within the day, and a stock transfer that has sat unclosed for a week shows up as a problem on the warehouse's own list, not as stock nobody notices is missing.</span></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="rail"><div class="num">4</div><div class="thread"></div></div>
+      <div class="card">
+        <p class="kicker">Design &amp; Sourcing</p>
+        <h3>Requirement to purchase order</h3>
+        <p class="why">Comes after the three phases above because design and sourcing can keep working over email and Enigma's existing screens in the meantime, whereas the floor teams in phases 1&ndash;3 have no such fallback.</p>
+        <ul class="flows">
+          <li><strong>Raising any of the four kinds of ask</strong> from one list: a new made-to-measure fabric, several fabric options at once, or a ready-to-wear style.</li>
+          <li><strong>For a ready-to-wear style, the bill of materials and tech pack before it goes to sourcing,</strong> with the fabric line as one cloth or a shortlist of candidates. Sending it is refused without a tech pack and an approved prototype.</li>
+          <li><strong>For a made-to-measure fabric, the sample and the approval to every department are optional</strong> &mdash; design can skip them with a reason and go straight to the vendor and purchase order.</li>
+          <li><strong>Sourcing finalises the cloth and puts one vendor and its terms</strong> against the ask, with a hold-until date, and only one live vendor per ask at a time. Where design sent a shortlist, sourcing picks the one cloth, records why, and adds the vendor for that one.</li>
+          <li><strong>Design pushes the purchase order, rejects the vendor, or asks for more time.</strong></li>
+          <li><strong>Settling several fabric options from one request,</strong> one option at a time, so a book can be filled without ten separate asks.</li>
+          <li><strong>The swatch desk.</strong> Bulk received, handed to swatches, cut, sticker printed, dispatched, photos taken, and stores told &mdash; the six steps that replace the swatch tracker sheet.</li>
+          <li><strong>Adding a design to a fabric</strong> &mdash; one sellable configuration, with its own product code, price and margin.</li>
+          <li><strong>Recording that a fabric was set up in Enigma,</strong> and setting its final name, price and marketing story.</li>
+          <li><strong>Going live in stores, and separately online</strong> about two weeks later.</li>
+        </ul>
+        <div class="enigma-block">
+          <p class="enigma-label">New in BSC PLM</p>
+          <div class="chips">
+            <span class="chip">Requirement record (all four kinds)</span>
+            <span class="chip">Fabric shortlist and pick</span>
+            <span class="chip">Fabric vendor offer</span>
+            <span class="chip">Swatch desk</span>
+            <span class="chip">Design on a fabric</span>
+            <span class="chip">Launch record</span>
+          </div>
+        </div>
+        <div class="done"><span class="tag">Done when</span><span class="text">ten fabrics run from raised to stores told without the swatch tracker sheet or a hand-made sticker.</span></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="rail"><div class="num">5</div><div class="thread"></div></div>
+      <div class="card">
+        <p class="kicker">Planning &middot; Sourcing</p>
+        <h3>Replenishment and the sales review</h3>
+        <ul class="flows">
+          <li><strong>The reorder rule for every core made-to-measure fabric.</strong> Below the reorder point, a domestic mill gets an automatic purchase order; an international one gets a one-click purchase order for a person to raise.</li>
+          <li><strong>Bespoke has no reorder point.</strong> The mill's list is its only availability, so this phase only reads it: the bespoke tab of the weekly sales review, bespoke against core and non-core by ticket band.</li>
+          <li><strong>The weekly mill check,</strong> and pausing, resuming, promoting a fabric to core, or agreeing a supply block with a mill.</li>
+          <li><strong>The RTW planning review, one record per option.</strong> What planning keeps in sheets today in one place: usable stock by size, the observed sales rate beside the planner&rsquo;s own, what is on the tracker and when it lands, stock projected week by week and size by size, the gap after a new order arrives, display pieces and vendor MOQ confirmed rather than assumed, a draft and an approved size ratio, and the reason the approved number differs. Approve, send to design, and it runs as an RTW style. The next sitting compares each assumption with what sold. No forecasting model in this phase; that is tested later against the history this record builds.</li>
+          <li><strong>Non-core count against the plan,</strong> and which options will not survive the next selling period with nothing landing in time.</li>
+          <li><strong>The nine-word action for every ready-to-wear style</strong> &mdash; reorder it, pull it back, discount it, promote it, or leave it &mdash; worked out fresh every time the list is opened, never typed in.</li>
+          <li><strong>The replenish-and-pull-back list.</strong> Which stores should get more of a style this week, and which are holding too much of one that has stopped moving.</li>
+          <li><strong>The weekly sales review, the daily sales report, and the stylist scorecard,</strong> all read from one page instead of rebuilt by hand from five spreadsheets.</li>
+        </ul>
+        <div class="enigma-block">
+          <p class="enigma-label">New in BSC PLM</p>
+          <div class="chips">
+            <span class="chip">RTW planning review</span>
+            <span class="chip">Size-wise projection</span>
+            <span class="chip">Fabric supply review</span>
+            <span class="chip">Core-fabric supply block</span>
+            <span class="chip">Sales-review page</span>
+          </div>
+        </div>
+        <div class="done"><span class="tag">Done when</span><span class="text">the international-fabric spreadsheet and the weekly stock-health scan are retired.</span></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="rail"><div class="num">6</div><div class="thread"></div></div>
+      <div class="card">
+        <p class="kicker">Production &middot; Warehouse</p>
+        <h3>RTW production</h3>
+        <p>The equivalent for ready-to-wear, where an order is a purchase order to a factory for hundreds of pieces at once, not a single customer's shirt.</p>
+        <p class="why">Comes after design, sourcing and replenishment, because half of every tracker row &mdash; category, quantity, size break-up, target in-house date and cost, style, fabric brief, vendor, purchase order &mdash; is written by planning, design and sourcing before production touches it; building the tracker earlier would mean typing those fields in twice. What this phase adds is the factory's time-and-action plan, the actuals, the escalations and the warehouse's receipt.</p>
+        <ul class="flows">
+          <li><strong>The RTW production tracker.</strong> Every RTW style on one screen from the day design sends the request, as the tracker sheet reads today. A style with no factory PO yet reads &ldquo;no PO yet&rdquo; and sorts first: PO, style, category, vendor, merchant, quantity, where it is on the floor, its date calendar, and how many days of buffer it has left before the promised date. The same records, open and closed, with the customer orders from stock alongside. Every row starts life as the design requirement (phase 4) and carries it through, so nothing is retyped. Everything below hangs off a row on this tracker.<br><br><em>Who writes which section:</em> planning and category set the requirement &mdash; category, quantity, size ratio, target in-house date, target cost; design adds the style, its description and the fabric specification; Nitin, who runs RTW production, proposes the factory, its cost and date, and design accepts it and raises the factory PO; sourcing adds the vendor against the cloth, and design&rsquo;s fabric PO fills in the fabric details; the template gives the initial time-and-action plan from the factory PO &mdash; fabric, trims, PPS, production stages, inspection, delivery; the factory merchandiser, from their own portal, and Nitin record progress against it &mdash; revised and actual dates, delays, escalations; the warehouse's goods receipt is the last checkpoint that closes the row. The meeting settled who provides each piece of information, not who types it into the sheet today; in the tool each section is owned by the team that knows it.</li>
+          <li><strong>The tracker's own settings, in the tracker.</strong> The workbook's Config and Auto Plan Logic tabs become a settings tab: days from PO per milestone per category, the risk thresholds and the in-full tolerance. Saving re-plots every open PO's planned dates that have no actual yet, instead of a formula dragged down 300 rows. The Instructions &amp; Legend tab sits beside it.</li>
+          <li><strong>One record in four sections,</strong> the sheet&rsquo;s own columns and nothing else: the request from design, factory finalisation, fabric finalisation, and the milestones and final steps, with files and the conversation at the foot.</li>
+          <li><strong>Factory finalisation.</strong> Nitin agrees a factory on the phone and proposes it with the cost and in-house date; design accepts, or rejects with a comment and he proposes again; design then raises the factory PO, and the job card, trim card, BOM and tech pack travel with it, with any still owed flagged.</li>
+          <li><strong>Fabric finalisation, the same loop as made-to-measure.</strong> Sourcing puts one vendor against the cloth with price, MOQ, lead time, the mill&rsquo;s article and a hold; design pushes the fabric PO or asks for more time; the PO mints the Enigma fabric code and fills the tracker&rsquo;s fabric details by itself. Once both POs exist sourcing sends the cloth to the factory.</li>
+          <li><strong>The factory merchandiser&rsquo;s portal, split MTM and RTW.</strong> On the RTW side the merchandiser sees what design asked for with every document, the cloth on its way, and confirms the metres usable and damaged and the trims received.</li>
+          <li><strong>Short cloth: a modified ratio or a cut short.</strong> The merchandiser or production asks; design gives the new size ratio; it goes to the factory and the order quantity updates.</li>
+          <li><strong>The style sheet and job card, printed from the record.</strong> The bill of materials, size ratio, and fabric to issue are worked out from what was already entered, not retyped.</li>
+          <li><strong>The prototype before any cloth is sourced.</strong> Design asks the unit for the style on whatever shirt fabric is to hand; the unit logs each round, design approves it or sends it back, or records that none is needed for a repeat. The ask cannot go to sourcing until the prototype is approved.</li>
+          <li><strong>Sample rounds.</strong> Logging each round the factory sends back, reviewing it by area &mdash; fit, stitching, pattern, construction &mdash; and giving or withholding the go-ahead to start bulk production.</li>
+          <li><strong>The other BOM items into inventory.</strong> After the fabric purchase order, sourcing checks every trim and packaging line against stock at the unit for this order's quantity, raises a bulk order where short, and signs the lot off as covered.</li>
+          <li><strong>The day-by-day milestone plan.</strong> Cutting, stitching, finishing and dispatch, each with a plan date, a revised date with a reason when it slips, and an actual date once it happens; a late step pushes every later step's revised date automatically.</li>
+          <li><strong>A quality audit before a lot ships,</strong> with the option to hold goods at the factory until they are corrected.</li>
+          <li><strong>Splitting a dispatch into more than one lot</strong> when only part of an order is ready, without losing track of the order as a whole.</li>
+          <li><strong>Receiving goods against the order in lots,</strong> including the ability to close an order short of what was originally ordered.</li>
+          <li><strong>The design code, minted by design once the garments are in.</strong> An RTW style has no sellable code until it is produced and received; design mints it on the launch record, and the launch cannot be made live without it.</li>
+          <li><strong>One analytics screen for the RTW planner,</strong> read off the tracker: the OTIF dashboard by factory and by order, the daily monitor (today's snapshot, the milestone stage tracker, quantity progress, PO status by category, vendor and merchant), the escalation log with the recommended action per PO, and the merchandiser alerts for every milestone overdue or due inside the window &mdash; the workbook's other four tabs, always today, never rebuilt by hand.</li>
+        </ul>
+        <div class="enigma-block">
+          <p class="enigma-label">New in BSC PLM</p>
+          <div class="chips">
+            <span class="chip">Production tracker</span>
+            <span class="chip">Factory proposals</span>
+            <span class="chip">Fabric to factory</span>
+            <span class="chip">Merchandiser RTW portal</span>
+            <span class="chip">Cut short &amp; ratio</span>
+            <span class="chip">Lead-time config</span>
+            <span class="chip">Time-and-action milestones</span>
+            <span class="chip">Prototype rounds</span>
+            <span class="chip">Sample rounds</span>
+            <span class="chip">Materials checklist</span>
+            <span class="chip">Trims cover sign-off</span>
+            <span class="chip">QC audit</span>
+            <span class="chip">Split dispatch</span>
+            <span class="chip">RTW analytics (OTIF, daily monitor, escalations, alerts)</span>
+          </div>
+        </div>
+        <div class="done"><span class="tag">Done when</span><span class="text">one month's cohort of ready-to-wear styles is tracked end to end on this, and the old production spreadsheet is retired for that cohort.</span></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="rail"><div class="num">7</div></div>
+      <div class="card">
+        <p class="kicker">All teams</p>
+        <h3>Writing into Enigma, and the remaining edges</h3>
+        <p>Everything above reads from Enigma and records beside it. Wherever write access has been agreed by now, this phase closes the loop; and it picks up the handful of things deliberately set aside while the six phases above were getting a team live:</p>
+        <ul class="flows">
+          <li><strong>Writing back into Enigma.</strong> Purchase orders, fabric on-hold and sold-out flags, goods-received notes and stock transfers go into Enigma instead of only being read from it and recorded alongside, so the two systems stop needing a person to keep them in step.</li>
+          <li><strong>A screen for finance</strong> to move a refund and see every one waiting, which today has no home of its own.</li>
+          <li><strong>Turning a few warnings into hard stops</strong> &mdash; a lapsed vendor hold, a second open case on the same piece, a production plan sent over a factory's capacity &mdash; where today the system only flags it and lets the person carry on.</li>
+          <li><strong>Layouts sized for a phone,</strong> for the screens people actually stand at while working: the warehouse's receiving desk, the store's returns bench, the hemming unit's hand-offs.</li>
+          <li><strong>Bulk actions,</strong> so a person can act on many rows at once instead of one at a time.</li>
+          <li><strong>Cleaning up known data mistakes carried over from the old spreadsheets</strong> &mdash; for example, the weekly sales review currently reads a revenue column where a quantity column is meant.</li>
+        </ul>
+        <div class="enigma-block">
+          <p class="enigma-label">New in BSC PLM</p>
+          <div class="chips">
+            <span class="chip">Enigma write-back</span>
+            <span class="chip">Finance refund screen</span>
+            <span class="chip">Hard-stop guard rails</span>
+            <span class="chip">Mobile layouts</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="closing">
+    <div class="block">
+      <h3>Running two habits side by side</h3>
+      <p>For every phase, the spreadsheet or habit it replaces stays available, read-only, for one month after go-live. Each week, someone compares the new screens against the old sheet with the team that owns it, before that sheet is finally switched off.</p>
+    </div>
+  </div>
+
+  <footer>
+    Sources: the flow-by-flow sections of the BSC PLM implementation handover (requirement to purchase order, MTM and RTW production, store, warehouse, replenishment); PRD &mdash; First Pivot Plan &amp; Dates v3.0 (19 Aug 2026) and the MTM First Cut thinking document, for building MTM first and closing one phase before opening the next; Discovery Close-Out &mdash; 4-Day Field Plan (07 Sep 2026).
+  </footer>
+
+</main>
+</body>
+</html>

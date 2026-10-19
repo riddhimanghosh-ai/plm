@@ -1,0 +1,345 @@
+@import "tailwindcss";
+
+/* Palette read off Bombay Shirt Company's own surfaces: bone ground, near-black
+   ink (their wordmark is black, not navy), accents from the brand photography —
+   olive hillside, dune grass, weathered brick. Display is a bold condensed sans
+   because that is what the wordmark is. Every text/background pair below is
+   picked to clear WCAG AA (4.5:1 for body text, 3:1 for large/UI text) — the
+   old palette leaned on a faint tan-grey for most secondary text and pill
+   labels, which read as barely-there on the bone ground; this pass keeps the
+   same warm, heritage feel but darkens every "soft" tone until it holds up. */
+:root {
+  --ground:#f3efe6; --surface:#ffffff; --surface-2:#f6f2ea; --surface-3:#ece5d5;
+  --ink:#1a1a13; --ink-soft:#4a4740; --ink-faint:#6b6759;
+  --line:#dad2c0; --line-soft:#e8e1d1;
+  --accent:#3c4a30; --accent-soft:#e2e8d7; --accent-ink:#ffffff;
+  --warn:#7a5a0a; --warn-soft:#f3e8cc;
+  --risk:#8a2f1f; --risk-soft:#f6ddd3;
+  --good:#2c5934; --good-soft:#dcebdd;
+  --info:#1f3a52; --info-soft:#dce6ed;
+  --sidebar:#1a1a13; --sidebar-ink:#f7f4ea; --sidebar-soft:#c9c3ae; --sidebar-active:#4c5c3e;
+  --shadow:0 1px 2px rgb(22 22 15/.08), 0 8px 24px -12px rgb(22 22 15/.28);
+  --display:'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --body:'Barlow', 'IBM Plex Sans', system-ui, sans-serif;
+  --mono:'IBM Plex Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:#16160f; --surface:#212317; --surface-2:#282a1d; --surface-3:#323524;
+    --ink:#f3f1e6; --ink-soft:#c7c3b0; --ink-faint:#9d9884;
+    --line:#3a3d2c; --line-soft:#2d3021;
+    --accent:#b3c69a; --accent-soft:#2b331f; --accent-ink:#14160d;
+    --warn:#e2bd76; --warn-soft:#362c17;
+    --risk:#e2a091; --risk-soft:#3a2119;
+    --good:#9cc797; --good-soft:#213524;
+    --info:#a9c3da; --info-soft:#20303e;
+    --sidebar:#101008; --sidebar-ink:#f7f4ea; --sidebar-soft:#c9c3ae; --sidebar-active:#4c5c3e;
+  }
+}
+
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--ground); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; letter-spacing: .01em; margin: 0; text-transform: uppercase; }
+h1 { font-size: 30px; line-height: 1; }
+h2 { font-size: 20px; }
+h3 { font-family: var(--body); font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+::selection { background: var(--accent-soft); }
+
+/* component classes — one look, applied everywhere */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; box-shadow: var(--shadow); }
+/* a card inside a card is a group, not another box: no shadow, a soft border,
+   and inside a drawer just a rule down the left */
+.card .card { box-shadow: none; border-color: var(--line-soft); }
+.drawer .card .card { border: 0; border-left: 2px solid var(--line); border-radius: 0; background: transparent; }
+.drawer .card .card.role-tint { border-left-width: 2px; }
+.pad { padding: 14px 16px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 3px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background .12s, border-color .12s; }
+.btn:hover { background: var(--surface-2); border-color: var(--ink-faint); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--risk); border-color: var(--risk); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--ink-soft); }
+/* …but it still has to answer the cursor: this rule sits after .btn:hover and
+   was cancelling it, so every secondary button in the app felt dead */
+.btn.ghost:hover { background: var(--surface-2); border-color: var(--line); }
+.btn.sm { padding: 4px 9px; font-size: 12px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.input, .select { font: inherit; font-size: 13px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); color: var(--ink); width: 100%; }
+.input:focus, .select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.label { display: block; font-family: var(--body); font-size: 11.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-faint); margin-bottom: 4px; }
+/* Pills say a state in plain words — sentence case, body face. Mono caps is
+   reserved for codes (BOM-SHI-FM-4200) and numbers; a pill with a verb in it
+   read like a terminal when it was set in mono caps. */
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-family: var(--body); font-size: 11.5px; font-weight: 500; letter-spacing: 0; text-transform: none; white-space: nowrap; line-height: 1.45; background: var(--surface-3); color: var(--ink-soft); border: 0; }
+.pill.code { font-family: var(--mono); font-size: 10.5px; letter-spacing: .03em; text-transform: uppercase; }
+.pill.good { background: var(--good-soft); color: var(--good); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.risk { background: var(--risk-soft); color: var(--risk); }
+.pill.info { background: var(--info-soft); color: var(--info); }
+.pill.accent { background: var(--accent-soft); color: var(--accent); }
+/* One colour per team, everywhere a team is named — design is plum, sourcing is
+   ochre, production is teal, planning is slate, warehouse is brown. A glance
+   says whose hand a row is in before the words are read. */
+:root {
+  --role-design: #6b3f7a;     --role-design-soft: #efe4f2;
+  --role-sourcing: #8a5a12;   --role-sourcing-soft: #f6ead3;
+  --role-production: #1f6b6b; --role-production-soft: #dcefee;
+  --role-planning: #3d5a80;   --role-planning-soft: #e1e8f2;
+  --role-warehouse: #7a4b2a;  --role-warehouse-soft: #f1e4da;
+  --role-store: #4d6b2f;      --role-store-soft: #e5ecd9;
+  --role-finance: #4a4a4a;    --role-finance-soft: #e8e8e8;
+  --role-merchandiser: #1f6b6b; --role-merchandiser-soft: #dcefee;
+  --role-owner: #2b2b2b;      --role-owner-soft: #e8e8e8;
+}
+.pill.role-design { background: var(--role-design-soft); color: var(--role-design); }
+.pill.role-sourcing { background: var(--role-sourcing-soft); color: var(--role-sourcing); }
+.pill.role-production, .pill.role-merchandiser { background: var(--role-production-soft); color: var(--role-production); }
+.pill.role-planning { background: var(--role-planning-soft); color: var(--role-planning); }
+.pill.role-warehouse { background: var(--role-warehouse-soft); color: var(--role-warehouse); }
+.pill.role-store { background: var(--role-store-soft); color: var(--role-store); }
+.pill.role-finance, .pill.role-owner { background: var(--role-finance-soft); color: var(--role-finance); }
+/* A section that belongs to a team wears the team's colour as one rule down
+   its left edge — nothing else on the card changes colour. The old pastel wash
+   over the whole card put a dozen tints on one drawer and the numbers inside
+   fought the background. Semantic colour (good/warn/risk) is for states only. */
+.role-tint { border-left: 3px solid var(--line); }
+.role-tint.role-design { border-left-color: var(--role-design); }
+.role-tint.role-sourcing { border-left-color: var(--role-sourcing); }
+.role-tint.role-production, .role-tint.role-merchandiser { border-left-color: var(--role-production); }
+.role-tint.role-planning { border-left-color: var(--role-planning); }
+.role-tint.role-warehouse { border-left-color: var(--role-warehouse); }
+.role-tint.role-store { border-left-color: var(--role-store); }
+.role-tint.role-finance { border-left-color: var(--role-finance); }
+.role-edge { border-left: 3px solid var(--line) !important; }
+.role-edge.role-design { border-left-color: var(--role-design) !important; }
+.role-edge.role-sourcing { border-left-color: var(--role-sourcing) !important; }
+.role-edge.role-production { border-left-color: var(--role-production) !important; }
+.role-edge.role-planning { border-left-color: var(--role-planning) !important; }
+.role-edge.role-warehouse { border-left-color: var(--role-warehouse) !important; }
+.kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.kv:last-child { border-bottom: 0; }
+.kv .k { color: var(--ink-faint); }
+.kv .v { text-align: right; font-weight: 500; }
+table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.t th { text-align: left; font-family: var(--body); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.t td { padding: 8px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; line-height: 1.4; }
+/* the name in a row is the thing to land on; its second and third lines fall back */
+table.t td .font-medium, table.t td .font-semibold { font-size: 13.5px; color: var(--ink); }
+table.t tr:last-child td { border-bottom: 0; }
+table.t tr.row:hover td { background: var(--surface-2); cursor: pointer; }
+table.t td.num, table.t th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* Tabs are the top-level move on most screens, so they read like one: a single
+   line each (they used to wrap mid-label), full-contrast text, and an active
+   state you can find without hunting for a hairline. */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow: hidden; }
+.tab { padding: 10px 16px; font-size: 14px; font-weight: 500; color: var(--ink-soft); white-space: nowrap; min-width: 0; border-bottom: 2px solid transparent; background: none; border-top: 0; border-left: 0; border-right: 0; cursor: pointer; font-family: inherit; display: flex; gap: 7px; align-items: center; flex: 0 1 auto; }
+.tab-l { overflow: hidden; text-overflow: ellipsis; }
+.tab .pill { flex: none; }
+.tab:hover:not(.on) { color: var(--ink); background: var(--surface-2); }
+.tab.on { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+.tab .pill { background: var(--surface-3); color: var(--ink-soft); }
+.tab.on .pill { background: var(--accent); color: var(--accent-ink); }
+.note { padding: 10px 14px; border-radius: 3px; font-size: 12.5px; color: var(--ink-soft); background: var(--surface-2); border-left: 2px solid var(--line); }
+.note.warn { background: var(--warn-soft); border-left-color: var(--warn); }
+.note.risk { background: var(--risk-soft); border-left-color: var(--risk); }
+.note.good { background: var(--good-soft); border-left-color: var(--good); }
+.stat { padding: 12px 14px; border-right: 1px solid var(--line); }
+.stat:last-child { border-right: 0; }
+.stat .l { font-family: var(--body); font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
+.stat .n { font-family: var(--display); font-size: 28px; font-weight: 600; line-height: 1.1; margin-top: 4px; }
+.stat .n.warn { color: var(--warn); } .stat .n.risk { color: var(--risk); } .stat .n.good { color: var(--good); }
+.drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 50vw; min-width: 380px; max-width: calc(100vw - 120px); background: var(--ground); border-left: 1px solid var(--line); box-shadow: -12px 0 40px rgb(0 0 0/.18); z-index: 50; overflow-y: auto; overflow-x: hidden; }
+/* a wide table scrolls in its own box, never the drawer: once the drawer scrolled
+   sideways the title, the index and every heading slid off the left edge */
+.drawer .card { min-width: 0; }
+/* Three kinds of block in a record, not one card eight times over. The lead
+   ("The call") is a header: no box, a tinted band in the team's colour, a
+   bigger title. Steps are cards with the team's rule down the left. The tail
+   (files · conversation · activity) is a footer: a rule above, faint title. */
+.card.sec-lead { border: 0; box-shadow: none; background: transparent; border-radius: 0; margin-bottom: 4px; }
+.card.sec-lead > .sec-head { border-bottom: 0 !important; padding-left: 12px; border-radius: 4px; background: var(--surface-2); }
+.card.sec-lead > .sec-head h3 { font-size: 17px; }
+.card.sec-lead.role-design > .sec-head { background: var(--role-design-soft); }
+.card.sec-lead.role-sourcing > .sec-head { background: var(--role-sourcing-soft); }
+.card.sec-lead.role-production > .sec-head, .card.sec-lead.role-merchandiser > .sec-head { background: var(--role-production-soft); }
+.card.sec-lead.role-planning > .sec-head { background: var(--role-planning-soft); }
+.card.sec-lead.role-warehouse > .sec-head { background: var(--role-warehouse-soft); }
+.card.sec-lead.role-store > .sec-head { background: var(--role-store-soft); }
+.card.sec-lead > .sec-body { padding: 10px 12px 4px; }
+.card.sec-tail { border: 0; box-shadow: none; background: transparent; border-radius: 0; border-top: 1px solid var(--line); margin-top: 8px; }
+.card.sec-tail > .sec-head { border-bottom: 0 !important; }
+.card.sec-tail > .sec-head h3 { font-size: 13px; font-weight: 500; color: var(--ink-faint); }
+.card.sec-tail .pill { background: transparent; color: var(--ink-faint); padding: 0; }
+/* the fold that holds the other steps is a list, not a card */
+.card.sec-fold { box-shadow: none; background: transparent; border-style: dashed; }
+.card.sec-fold > .sec-body > .card { margin-top: 8px; }
+.drawer table.t { max-width: 100%; }
+.scrim { position: fixed; inset: 0; background: rgb(22 22 15/.35); z-index: 40; }
+.toast { position: fixed; bottom: 18px; right: 18px; z-index: 60; display: flex; flex-direction: column; gap: 6px; }
+.toast > div { background: var(--ink); color: var(--ground); padding: 9px 14px; border-radius: 3px; font-size: 12.5px; box-shadow: var(--shadow); }
+.toast > div.warn { background: var(--warn); }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* a vendor name that opens its 360 */
+.vlink { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline dotted var(--ink-faint); text-underline-offset: 3px; text-align: left; }
+.vlink:hover { color: var(--accent); text-decoration-color: var(--accent); }
+
+/* dense report tables — factory names and stage counts never wrap. A matrix is
+   read across as well as down, so these get real gridlines; the plain list
+   tables keep their quiet row rules. */
+.t.compact th, .t.compact td { white-space: nowrap; padding: 8px 10px; border-right: 1px solid var(--line-soft); }
+.t.compact th { background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.t.compact th:last-child, .t.compact td:last-child { border-right: 0; }
+.t.compact tbody tr:last-child td { border-bottom: 0; }
+.t.compact td.num, .t.compact th.num { font-variant-numeric: tabular-nums; min-width: 56px; }
+.t.compact td:first-child { min-width: 150px; }
+.vlink { white-space: nowrap; }
+.t td.num, .t th.num { font-variant-numeric: tabular-nums; }
+
+/* Segmented filter — one question answered at a time. These screens used to
+   stack six tables down a page; now the page asks which cut you want. */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 12.5px; font-weight: 500; padding: 5px 11px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--ink-faint); cursor: pointer; white-space: nowrap; }
+.seg button:last-child { border-right: 0; }
+.seg button:hover:not(.on) { background: var(--surface-2); color: var(--ink); }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.seg .segn { font-family: var(--mono); font-size: 10px; margin-left: 6px; padding: 1px 5px; border-radius: 999px; background: var(--surface-3); color: var(--ink-soft); }
+.seg button.on .segn { background: rgb(255 255 255/.22); color: var(--accent-ink); }
+
+/* A table that scrolls inside its own card, so the page itself does not, and
+   the column headings stay put while you read down. */
+.tbox { overflow: auto; max-height: calc(100vh - 425px); min-height: 200px; }
+.tbox table.t thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+
+/* Print — the cut list leaves the building on paper today, so keep that, but
+   print the sheet rather than a screenshot of the app: no sidebar, no buttons,
+   black on white, and the table never split mid-row. */
+@media print {
+  @page { margin: 14mm; }
+  body { background: #fff; color: #000; }
+  aside:not(.drawer), .toast, .no-print, .tabs { display: none !important; }
+  .print-only { display: block !important; }
+  main { padding: 0 !important; max-width: none !important; }
+  .card { box-shadow: none; border-color: #999; }
+  table.t th { border-bottom: 1px solid #000; }
+  table.t tr, table.t td, table.t th { page-break-inside: avoid; }
+  .pill { border: 1px solid #999; background: none !important; color: #000 !important; }
+}
+.print-only { display: none; }
+
+/* A wide table keeps its first column while you scroll sideways — the tracker's
+   sheet view is 80 columns, and by column twelve you have lost which PO you are
+   reading. Opt in with .t.frozen inside an overflow-x container. */
+.t.frozen th:first-child, .t.frozen td:first-child {
+  position: sticky; left: 0; z-index: 2;
+  background: var(--surface);
+  box-shadow: 1px 0 0 var(--line);
+}
+.t.frozen thead th:first-child { z-index: 3; }
+.t.frozen tr.row:hover td:first-child { background: var(--surface-2); }
+
+/* Long drawers get an index down the side: twelve sections is a scroll, and the
+   thing you opened the record for is usually not the first one. */
+.drawer-index {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--ground);
+  border-bottom: 1px solid var(--line);
+  display: flex; gap: 2px; overflow-x: auto; padding: 8px 20px;
+}
+.drawer-index button {
+  font: inherit; font-size: 11.5px; white-space: nowrap;
+  padding: 4px 9px; border: 1px solid transparent; border-radius: 999px;
+  background: transparent; color: var(--ink-faint); cursor: pointer;
+}
+.drawer-index button:hover { background: var(--surface-2); color: var(--ink); }
+.drawer-index button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-soft); }
+
+/* What goes to the floor gets printed: the job card, the cut sheet, a GRN.
+   Everything that is navigation or chrome comes off the page. */
+@media print {
+  aside:not(.drawer), .toast, .no-print, .drawer-index, .tabs, .seg, .pager { display: none !important; }
+  /* a record prints whole: a folded section is a screen convenience, not an
+     instruction to leave half the job card off the paper */
+  .card > [hidden] { display: block !important; }
+  .tbox { max-height: none !important; overflow: visible !important; }
+  .drawer { position: static !important; width: 100% !important; height: auto !important; border: 0 !important; box-shadow: none !important; overflow: visible !important; }
+  .scrim { display: none !important; }
+  body, .card { background: #fff !important; }
+  .card { border: 1px solid #ccc !important; box-shadow: none !important; break-inside: avoid; }
+  main { padding: 0 !important; max-width: none !important; }
+  a[href]::after { content: ''; }
+  .print-only { display: block !important; }
+}
+.print-only { display: none; }
+
+/* fit-set tiles — the actions stay out of the way until you want them */
+.fitcell .fitacts { visibility: hidden; }
+.fitcell:hover .fitacts, .fitcell:focus-within .fitacts { visibility: visible; }
+
+/* The vendor form inside an option — one twelve-column grid so every field
+   lines up no matter how wide the drawer is, banded by a caption that spans
+   the row. Below 900px the drawer is too narrow for twelve, so it halves. */
+.vgrid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px 12px; align-items: start; }
+.vgrid .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vgrid > .vgrid-cap { grid-column: 1 / -1; font-family: var(--body); font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); margin-top: 10px; padding-bottom: 2px; border-bottom: 1px solid var(--line-soft); }
+.vgrid > .vgrid-cap:first-child { margin-top: 0; }
+.vgrid .q { color: var(--ink-faint); font-size: 9px; }
+@media (max-width: 760px) { .vgrid { grid-template-columns: repeat(6, minmax(0, 1fr)); } .vgrid > div[style*="span 5"], .vgrid > div[style*="span 4"] { grid-column: span 6 !important; } }
+
+/* A caption inside a drawer section — groups a run of rows under a name so one
+   folder can hold three related things without becoming three folders. */
+.card .cap { font-family: var(--body); font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); margin: 16px 0 4px; }
+.card .cap:first-child { margin-top: 2px; }
+
+/* The drawer's left edge is a handle: four pixels of hit area that widens on
+   hover, so the panel can be sized to the work rather than the other way round. */
+.drawer-grip { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; margin-left: -4px; cursor: col-resize; z-index: 8; touch-action: none; }
+.drawer-grip::before { content: ''; position: absolute; left: 3px; top: 0; bottom: 0; width: 2px; background: transparent; transition: background .12s ease; }
+.drawer-grip:hover::before, .drawer-grip:active::before { background: var(--accent); }
+@media print { .drawer-grip { display: none; } }
+
+/* Every heading grew an ⓘ; together they said "all of this needs explaining".
+   The marks stay, at a whisper, and come up when the pointer is near them. */
+/* quiet mode — the pilot switch: guidance off, the tool as the team will use it */
+.quiet .qi, .quiet .note.guide, .quiet .ex-strip, .quiet .drawer-index, .quiet .nav-hint, .quiet [data-pending-badge],
+.quiet .acts-by, .quiet .owner-pill, .quiet .intro { display: none !important; }
+/* plain view: one status per header, no coloured rails, no card inside a card */
+.quiet .sec-head > div:last-child > .pill ~ .pill, .quiet .sec-head > div:last-child > span > .pill ~ .pill { display: none !important; }
+.quiet .role-tint { border-left: 1px solid var(--line) !important; }
+.quiet .drawer .card .card { border: 0; border-top: 1px solid var(--line-soft); border-radius: 0; box-shadow: none; background: transparent; }
+.quiet .drawer .card { box-shadow: none; }
+/* a wide table scrolls inside its card instead of running off the page */
+.card:has(> table.t), .card:has(> div > table.t) { overflow-x: auto; }
+/* status pills inside table cells may wrap onto two lines rather than force the table wider */
+/* a long status in a section header truncates instead of sliding over the title */
+.sec-head > div:last-child { min-width: 0; max-width: 55%; }
+.sec-head > div:last-child .pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+table.t td .pill.wrap { white-space: normal; text-align: left; border-radius: 6px; }
+table.t td { vertical-align: middle; }
+.qi { opacity: .35; transition: opacity .12s; }
+th:hover .qi, label:hover .qi, header:hover .qi, .qi:hover, .qi:focus-visible, button:hover > .qi { opacity: 1; }
+.vgrid .q, .label .q { opacity: .45; font-size: 10px; }
+
+/* 8 · an empty slot looks empty: dashed, faint, one thing to do */
+.empty { border: 1px dashed var(--line); border-radius: 4px; padding: 12px 14px; color: var(--ink-faint); font-size: 12.5px; background: transparent; }
+.empty b { color: var(--ink-soft); font-weight: 500; }
+
+/* 10 · rhythm: room between blocks, tight within them */
+.drawer-body { display: flex; flex-direction: column; gap: 18px; }
+.drawer-body > .card.sec-lead + .card { margin-top: 0; }
+.sec-body { font-size: 13px; }
+.sec-body .kv { padding: 7px 0; }
+
+/* the sidebar's demo controls fold away — they are scaffolding, not the tool */
+.demo-fold summary { list-style: none; cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--sidebar-soft); padding: 4px 2px; display: flex; justify-content: space-between; align-items: center; }
+.demo-fold summary::-webkit-details-marker { display: none; }
+.demo-fold summary::after { content: '▸'; font-size: 10px; opacity: .8; }
+.demo-fold[open] summary::after { content: '▾'; }
+
+/* action links read as buttons: anything that takes you to the next step */
+.cta { display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 12px; font-weight: 500; line-height: 1.2; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.cta:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.cta:disabled { opacity: .5; cursor: default; }

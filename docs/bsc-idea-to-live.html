@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BSC Idea to Live</title>
+
+</head>
+<body style="margin:0">
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F6F4EE; --paper: #FFFFFF; --ink: #1F2419; --ink-2: #4A5044; --ink-3: #7A8074; --line: #DDD9CC; --line-2: #ECE8DD;
+    --olive: #3D4A2E; --olive-soft: #E6EADF;
+    --design: #6B4E7A; --design-soft: #EFE7F3; --sourcing: #9A6B1F; --sourcing-soft: #F5EBD8; --production: #2F6F6B; --production-soft: #DDEEEC; --planning: #5B6470; --planning-soft: #E7EAEE; --store: #7A4E3A; --store-soft: #F2E6E0;
+    --today: #B8544A; --today-soft: #F7E4E1;
+    --serif: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif; --sans: "Public Sans", -apple-system, "Segoe UI", Roboto, sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --ground: #171A15; --paper: #1F2320; --ink: #ECEAE2; --ink-2: #C3C1B7; --ink-3: #8C8B82; --line: #34382F; --line-2: #2A2E27;
+    --olive: #A9BC8E; --olive-soft: #26301F;
+    --design: #C9A7D6; --design-soft: #2E2434; --sourcing: #E0B15E; --sourcing-soft: #34290F; --production: #7FC4BE; --production-soft: #173432; --planning: #A8B1BC; --planning-soft: #262B31; --store: #D3A08A; --store-soft: #34251E;
+    --today: #E27F75; --today-soft: #3A2220;
+  } }
+  :root[data-theme="dark"] {
+    --ground: #171A15; --paper: #1F2320; --ink: #ECEAE2; --ink-2: #C3C1B7; --ink-3: #8C8B82; --line: #34382F; --line-2: #2A2E27;
+    --olive: #A9BC8E; --olive-soft: #26301F;
+    --design: #C9A7D6; --design-soft: #2E2434; --sourcing: #E0B15E; --sourcing-soft: #34290F; --production: #7FC4BE; --production-soft: #173432; --planning: #A8B1BC; --planning-soft: #262B31; --store: #D3A08A; --store-soft: #34251E;
+    --today: #E27F75; --today-soft: #3A2220;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
+  @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; gap: 24px; padding: 24px 18px 60px; } nav.toc { position: static; } }
+  nav.toc { position: sticky; top: 24px; align-self: start; font-size: 12.5px; }
+  nav.toc .eyebrow { margin-bottom: 10px; }
+  nav.toc a { display: block; color: var(--ink-2); text-decoration: none; padding: 5px 0 5px 10px; border-left: 2px solid var(--line); }
+  nav.toc a:hover, nav.toc a:focus-visible { color: var(--ink); border-left-color: var(--olive); outline: none; }
+  nav.toc .n { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); margin-right: 6px; }
+  main { min-width: 0; max-width: 760px; }
+  .eyebrow { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(34px, 5vw, 52px); line-height: 1.02; letter-spacing: -.01em; margin: 6px 0 14px; text-wrap: balance; }
+  h2 { font-family: var(--serif); font-weight: 700; font-size: 26px; line-height: 1.15; margin: 0 0 6px; text-wrap: balance; }
+  h3 { font-family: var(--serif); font-weight: 700; font-size: 17px; margin: 22px 0 6px; }
+  p { margin: 0 0 12px; max-width: 66ch; }
+  .lede { font-size: 17px; color: var(--ink-2); max-width: 60ch; }
+  section { padding: 34px 0 10px; border-top: 1px solid var(--line); margin-top: 26px; }
+  section:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+  .meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-3); margin: 0 0 22px; }
+  .meta b { color: var(--ink-2); font-weight: 500; }
+  .team { display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; background: var(--planning-soft); color: var(--planning); }
+  .team.design { background: var(--design-soft); color: var(--design); } .team.sourcing { background: var(--sourcing-soft); color: var(--sourcing); } .team.production { background: var(--production-soft); color: var(--production); } .team.store { background: var(--store-soft); color: var(--store); }
+  .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 18px 0 6px; }
+  .rule { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+  .rule b { display: block; font-family: var(--serif); font-size: 15px; margin-bottom: 4px; }
+  .rule span { font-size: 13px; color: var(--ink-2); }
+  .gone { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 14px 0 4px; }
+  .gone div { border-left: 3px solid var(--today); padding: 6px 12px; font-size: 13.5px; background: var(--today-soft); border-radius: 0 4px 4px 0; }
+  .gone div s { color: var(--ink-3); }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 14px 0 6px; }
+  table.cmp th { text-align: left; font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 0 10px 8px 0; border-bottom: 1px solid var(--line); font-weight: 500; }
+  table.cmp td { vertical-align: top; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line-2); }
+  table.cmp td:first-child { color: var(--ink-2); width: 44%; }
+  table.cmp td:last-child { font-weight: 500; }
+  table.cmp tr:last-child td { border-bottom: 0; }
+  .scroll { overflow-x: auto; }
+  .where { font-size: 12.5px; color: var(--ink-3); margin: 8px 0 0; }
+  .where b { color: var(--ink-2); font-weight: 500; }
+  code, .code { font-family: var(--mono); font-size: 12.5px; background: var(--olive-soft); color: var(--olive); padding: 1px 6px; border-radius: 3px; }
+  figure { margin: 18px 0 8px; }
+  figure svg { max-width: 100%; height: auto; display: block; color: var(--ink); }
+  figcaption { font-size: 12.5px; color: var(--ink-3); margin-top: 8px; max-width: 66ch; }
+  .stays { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 14px 18px; margin: 14px 0; }
+  .stays ul { columns: 2; column-gap: 28px; margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; color: var(--ink-2); }
+  @media (max-width: 600px) { .stays ul { columns: 1; } }
+  ol.build { padding-left: 0; list-style: none; counter-reset: b; margin: 14px 0 0; }
+  ol.build li { counter-increment: b; display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line-2); font-size: 14px; }
+  ol.build li::before { content: counter(b); font-family: var(--serif); font-weight: 700; font-size: 18px; color: var(--olive); }
+  ol.build li .why { display: block; font-size: 12.5px; color: var(--ink-3); }
+  ol.build li .eff { font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+  ul.q { padding-left: 18px; font-size: 14px; color: var(--ink-2); margin: 10px 0 0; }
+  ul.q li { margin-bottom: 6px; }
+  ul.q b { color: var(--ink); font-weight: 600; }
+  .tabnum { font-variant-numeric: tabular-nums; }
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="Sections">
+  <div class="eyebrow">Sections</div>
+  <a href="#heard"><span class="n">00</span>What changes</a>
+  <a href="#whole"><span class="n">01</span>The whole flow</a>
+  <a href="#swatch"><span class="n">02</span>Cloth in → stores showing it</a>
+  <a href="#design"><span class="n">03</span>Designs · product codes</a>
+  <a href="#enigma"><span class="n">04</span>Enigma stays master</a>
+  <a href="#books"><span class="n">05</span>Swatch books · the assortment</a>
+  <a href="#rtw"><span class="n">06</span>RTW · brief to bulk</a>
+  <a href="#fob"><span class="n">07</span>Three ways to buy cloth</a>
+  <a href="#next"><span class="n">08</span>Build order · open questions</a>
+</nav>
+
+<main>
+<section id="heard">
+  <div class="eyebrow">Bombay Shirt Company · design &amp; planning · process document</div>
+  <h1>Idea to live, in one record</h1>
+  <p class="lede">What the design team described on 22 September, and how the PLM carries each step — with the same people, the same words, and Enigma still the master. Fifteen minutes to read; every screen named here exists in the prototype.</p>
+  <div class="meta"><span>From the call with <b>design</b> · 22 Sep 2026, corrected 23 Sep against the <b>MTM_Swatches</b> and <b>Swatch Books</b> workbooks</span><span>Prototype <b>bsc-plm</b>, walkthrough mode</span><span>Author <b>DevX Labs</b></span></div>
+
+  <h3>Four things that stop existing</h3>
+  <div class="gone">
+    <div><s>The swatch Slack channel</s><br>becomes seven dates on a row</div>
+    <div><s>The blue highlight</s><br>becomes a priority switch that sorts</div>
+    <div><s>The sticker made in Canva</s><br>prints off the record</div>
+    <div><s>Vendor updates re-typed across trackers</s><br>one status, on the record it is about</div>
+  </div>
+
+  <h3>Five rules the whole flow follows</h3>
+  <div class="rules">
+    <div class="rule"><b>One record per thing</b><span>A concept, a requirement, an option request. The conversation, the files and every date live on it — never beside it.</span></div>
+    <div class="rule"><b>The next date is the only button</b><span>A row shows what has happened and one thing to do. Whose move it is reads in the team's colour.</span></div>
+    <div class="rule"><b>One vendor per option</b><span>Sourcing puts one vendor against each option or style; design pushes the PO, rejects, or asks for more time. Rejected vendors stay as history.</span></div>
+    <div class="rule"><b>Enigma stays the master</b><span>The PLM records that a step was done, by whom, when — and holds only the two or three fields that change what happens next.</span></div>
+    <div class="rule"><b>Go live is a decision, not a gate</b><span>Design switches a fabric on whenever it decides — before or after the swatch dates. The record keeps what was skipped. Online is its own date, about two weeks later.</span></div>
+  </div>
+</section>
+
+<section id="whole">
+  <div class="eyebrow">01</div>
+  <h2>The whole flow, by team</h2>
+  <p>A new MTM fabric, from the gap in a swatch book to a customer ordering it. Each lane is a team; each box is a step someone records; the arrows are what passes between them.</p>
+  <figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1040 470" role="img" aria-label="Five swimlanes — design, sourcing, factory, swatch desk, stores and online — showing the optimized MTM flow from an assortment gap to online launch, with Enigma as the master beside it" style="min-width: 760px">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+    <g font-family="JetBrains Mono, monospace" font-size="10.5" letter-spacing=".06em">
+      <text x="14" y="52" fill="var(--design)">DESIGN</text>
+      <text x="14" y="142" fill="var(--sourcing)">SOURCING</text>
+      <text x="14" y="232" fill="var(--production)">WAREHOUSE</text>
+      <text x="14" y="322" fill="var(--production)">SWATCH DESK · WAREHOUSE</text>
+      <text x="14" y="412" fill="var(--store)">STORES · ONLINE</text>
+    </g>
+    <g stroke="var(--line)" stroke-width="1"><line x1="0" y1="90" x2="1040" y2="90"/><line x1="0" y1="180" x2="1040" y2="180"/><line x1="0" y1="270" x2="1040" y2="270"/><line x1="0" y1="360" x2="1040" y2="360"/></g>
+    <g font-family="Public Sans, sans-serif" font-size="12" fill="var(--ink)">
+      <!-- design lane -->
+      <rect x="130" y="26" width="128" height="40" rx="4" fill="var(--design-soft)" stroke="var(--design)"/><text x="194" y="43" text-anchor="middle">Assortment gap</text><text x="194" y="57" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">book 21/30 → 9 short</text>
+      <rect x="290" y="26" width="128" height="40" rx="4" fill="var(--design-soft)" stroke="var(--design)"/><text x="354" y="43" text-anchor="middle">Option request</text><text x="354" y="57" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">category · 9 options</text>
+      <rect x="610" y="26" width="128" height="40" rx="4" fill="var(--design-soft)" stroke="var(--design)"/><text x="674" y="43" text-anchor="middle">Push PO</text><text x="674" y="57" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">or reject · more time</text>
+      <rect x="770" y="116" width="128" height="40" rx="4" fill="var(--sourcing-soft)" stroke="var(--sourcing)"/><text x="834" y="133" text-anchor="middle">Designs · product codes</text><text x="834" y="147" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">one fabric → 5 designs</text>
+      <!-- sourcing lane -->
+      <rect x="450" y="116" width="128" height="40" rx="4" fill="var(--sourcing-soft)" stroke="var(--sourcing)"/><text x="514" y="133" text-anchor="middle">One vendor / option</text><text x="514" y="147" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">price · MOQ · hold</text>
+      <rect x="610" y="116" width="128" height="40" rx="4" fill="var(--sourcing-soft)" stroke="var(--sourcing)"/><text x="674" y="133" text-anchor="middle">Chase the mill</text><text x="674" y="147" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">PO on the fabric master</text>
+      <!-- factory lane -->
+      <rect x="610" y="206" width="128" height="40" rx="4" fill="var(--production-soft)" stroke="var(--production)"/><text x="674" y="223" text-anchor="middle">Bulk received</text><text x="674" y="237" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">the tracker’s inward date</text>
+      <!-- swatch desk lane -->
+      <rect x="610" y="296" width="60" height="40" rx="4" fill="var(--production-soft)" stroke="var(--production)"/><text x="640" y="320" text-anchor="middle" font-size="11">Handover</text>
+      <rect x="680" y="296" width="60" height="40" rx="4" fill="var(--production-soft)" stroke="var(--production)"/><text x="710" y="320" text-anchor="middle" font-size="11">Cut 25×25</text>
+      <rect x="750" y="296" width="60" height="40" rx="4" fill="var(--production-soft)" stroke="var(--production)"/><text x="780" y="320" text-anchor="middle" font-size="11">Sticker</text>
+      <rect x="820" y="296" width="60" height="40" rx="4" fill="var(--production-soft)" stroke="var(--production)"/><text x="850" y="320" text-anchor="middle" font-size="11">Dispatch</text>
+      <!-- stores lane -->
+      <rect x="770" y="386" width="118" height="40" rx="4" fill="var(--store-soft)" stroke="var(--store)"/><text x="829" y="403" text-anchor="middle">Live in stores</text><text x="829" y="417" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">design’s switch, any time</text>
+      <rect x="910" y="386" width="118" height="40" rx="4" fill="var(--store-soft)" stroke="var(--store)"/><text x="969" y="403" text-anchor="middle">Live online</text><text x="969" y="417" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">photos · video · post · +2 wk</text>
+    </g>
+    <g stroke="currentColor" stroke-width="1.2" fill="none" marker-end="url(#ar)">
+      <line x1="258" y1="46" x2="288" y2="46"/>
+      <path d="M418,46 L434,46 L434,136 L448,136"/>
+      <line x1="578" y1="136" x2="594" y2="136"/><path d="M594,136 L594,46 L608,46"/>
+      <path d="M674,66 L674,114"/>
+      <path d="M674,156 L674,204"/>
+      <path d="M674,246 L640,246 L640,294"/>
+      <line x1="670" y1="316" x2="678" y2="316"/><line x1="740" y1="316" x2="748" y2="316"/><line x1="810" y1="316" x2="818" y2="316"/>
+      <path d="M850,336 L850,370 L829,370 L829,384"/>
+      <path d="M738,136 L768,136"/>
+      <path d="M834,156 L834,270 L905,270 L905,384 L925,384" stroke-dasharray="3 3"/>
+      <line x1="888" y1="406" x2="908" y2="406"/>
+    </g>
+    <g font-family="Public Sans, sans-serif" font-size="10.5" fill="var(--ink-3)">
+      <text x="436" y="96" >sends</text>
+      <text x="586" y="100">one vendor each</text>
+      <text x="678" y="94">PO to the mill</text>
+      <text x="678" y="184">cloth</text>
+      <text x="858" y="364">stores told</text>
+      <text x="908" y="264">product codes → labels</text>
+    </g>
+    <!-- enigma, beside -->
+    <rect x="930" y="110" width="98" height="60" rx="4" fill="var(--paper)" stroke="currentColor" stroke-dasharray="4 3"/>
+    <text x="979" y="134" text-anchor="middle" font-family="Public Sans, sans-serif" font-size="12" fill="var(--ink)">Enigma</text>
+    <text x="979" y="150" text-anchor="middle" font-family="Public Sans, sans-serif" font-size="10.5" fill="var(--ink-3)">master · complemented</text>
+    <path d="M738,40 L979,40 L979,108" stroke="currentColor" stroke-width="1.2" fill="none" stroke-dasharray="3 3" marker-end="url(#ar)"/>
+    <text x="800" y="36" font-family="Public Sans, sans-serif" font-size="10.5" fill="var(--ink-3)">configured on</text>
+  </svg>
+  </div>
+  <figcaption>The MTM path for a new fabric. The warehouse owns the cloth from bulk received to photos shared; sourcing creates the designs — several on one fabric — and each gets the product code the master carries; the label sheet prints one label per design per store. Design tells the stores and switches it on whenever it decides. The dotted lines are the places the record touches Enigma — it notes that the step was done, it does not copy the fields.</figcaption>
+  </figure>
+</section>
+
+<section id="swatch">
+  <div class="eyebrow">02 · MTM intake, swatches, store activation</div>
+  <h2>Cloth in → stores showing it</h2>
+  <p>This is the <b>MTM_Swatches</b> tracker: Vendor · Fabric bulk received · Fabric team handover · Fabric code · Priority-1 · Sticker Link · Status, then per store a tracking number, a dispatch date and a receiving date. The warehouse does the inward and one person there cuts the swatches. The sticker column is empty today because the sticker is made elsewhere by hand.</p>
+  <div class="scroll"><table class="cmp">
+    <tr><th>Today</th><th>In the PLM</th></tr>
+    <tr><td>Warehouse writes "Fabric Bulk Received date", then "Fabric Team handover date for swatches".</td><td>Same two dates, same person, on the fabric's row on the <b>Swatch desk</b> — the next date is the only button. <span class="team">Warehouse</span> owns the row until photos are shared.</td></tr>
+    <tr><td>"Priority-1" typed in a column; someone is then told what to cut first.</td><td><span class="team">Priority-1</span> is a switch on the row. Priority rows sort to the top; a priority not cut raises an alert to the warehouse.</td></tr>
+    <tr><td>Swatches cut 25 × 25, handed to shipping; photos posted in Slack so design knows they went; tracking numbers and receiving dates typed per store.</td><td>Cut · Dispatched · Photos — dates on the row. "Dispatched" fans out one row per store underneath, and the store's own tap fills the receiving date. Design sees the row turn.</td></tr>
+    <tr><td>The "Sticker Link" column stays empty; a label sheet — fabric code, name – article, book, MRP, "Incl. of all taxes", three across — is made by hand in Word or Canva.</td><td><b>Print sticker sheet</b> on the record: the same five lines, three across, seven down, <b>one label per design per store</b> (five designs × 34 stores = 170 labels, 9 sheets). Printing writes the Sticker date. Change a name or an MRP and the sheet follows.</td></tr>
+    <tr><td>Stores are told to display via the Slack group; "Swatches to Stores: Live on …" typed in the fabric sheet.</td><td><span class="team design">Stores told</span> and <span class="team design">Live in stores</span> are design's two dates — and <b>Go live is a button, whenever design decides</b>, not the end of a sequence. Online is its own date (§03).</td></tr>
+  </table></div>
+  <p class="where"><b>Where:</b> Design → Swatch desk (warehouse and design share the row) · the same chips appear on the concept under 6 · Go live. <b>Alerts:</b> to the warehouse — priority not cut · cloth in 2+ days, not handed over; to design — dispatched, stores not told.</p>
+</section>
+
+<section id="design">
+  <div class="eyebrow">03 · MTM designs · product codes</div>
+  <h2>One fabric, several designs — each with a product code</h2>
+  <p>The fabric sheet says it plainly: <em>Fabric code → Product Code → Design Name → Design Type → MRP</em>, and one fabric appears against several designs. The product code is what the store and the website sell; the fabric code hangs off it. <span class="team sourcing">Sourcing</span> creates the designs, while the swatches are being cut; marketing's final name replaces the working one later.</p>
+  <p><span class="code">CONVHOO000-06</span> &nbsp;→&nbsp; <span class="code">BOM-SHI-FM-4200</span> Houndstooth Shirt · <span class="code">BOM-SHI-FM-4201</span> Houndstooth Shirt – Half Sleeve · <span class="code">BOM-SHI-FM-4202</span> Band Collar · <span class="code">…4203</span> Kurta · <span class="code">…4204</span> Popover</p>
+  <div class="scroll"><table class="cmp">
+    <tr><th>Today</th><th>In the PLM</th></tr>
+    <tr><td>Product codes and design names typed into the fabric sheet, one row per design, all against the fabric.</td><td><b>Designs on this fabric</b> on the concept and on the swatch desk: design name, Formal/Casual, MRP → <b>Add design</b> mints the product code (<span class="code">BOM-SHI-xx-nnnn</span>, as the master's newer rows). Add a design and the sticker sheet grows by a label.</td></tr>
+    <tr><td>The REVISED NAME tab: old product name → new product name, price — retyped in three places.</td><td>Name &amp; price set once on the concept; the sticker sheet, the swatch desk and the master read that line.</td></tr>
+    <tr><td>Store go-live and online go-live tracked as one thing, though online is ~2 weeks behind.</td><td>Two dates. <b>Live in stores</b> when swatches are on the floor; <b>Live online</b> has its own three gates — swatch photography, video, post-production — and its own date. The concept shows both.</td></tr>
+  </table></div>
+  <figure>
+  <div class="scroll">
+  <svg viewBox="0 0 760 150" role="img" aria-label="Timeline: swatches cut and dispatched, live in stores, then about two weeks later photography, video, post-production and live online" style="min-width: 560px">
+    <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+    <line x1="30" y1="80" x2="740" y2="80" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)"/>
+    <g font-family="Public Sans, sans-serif" font-size="12" fill="var(--ink)" text-anchor="middle">
+      <circle cx="120" cy="80" r="6" fill="var(--production)"/><text x="120" y="60">Dispatched</text><text x="120" y="108" font-size="10.5" fill="var(--ink-3)">swatch desk</text>
+      <circle cx="250" cy="80" r="7" fill="var(--store)"/><text x="250" y="60" font-weight="600">Live in stores</text><text x="250" y="108" font-size="10.5" fill="var(--ink-3)">sells from the swatch</text>
+      <circle cx="400" cy="80" r="6" fill="var(--design)"/><text x="400" y="60">Photography</text>
+      <circle cx="490" cy="80" r="6" fill="var(--design)"/><text x="490" y="60">Video</text>
+      <circle cx="580" cy="80" r="6" fill="var(--design)"/><text x="580" y="60">Post</text>
+      <circle cx="690" cy="80" r="7" fill="var(--store)"/><text x="690" y="60" font-weight="600">Live online</text><text x="690" y="108" font-size="10.5" fill="var(--ink-3)">PDP up</text>
+    </g>
+    <path d="M250,124 L690,124" stroke="var(--ink-3)" stroke-width="1" fill="none" stroke-dasharray="3 3"/>
+    <text x="470" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="var(--ink-3)">≈ 2 weeks · MTM</text>
+  </svg>
+  </div>
+  <figcaption>MTM sells from fabric inventory, so stores can go live the day the swatch lands. The website waits for content. RTW and FOB launches keep the two close, because they are launches.</figcaption>
+  </figure>
+  <p class="where"><b>Where:</b> MTM concepts → open a concept → 6 · Go live · Designs on this fabric · and the same list on the Swatch desk drawer, beside the sticker sheet.</p>
+</section>
+
+<section id="enigma">
+  <div class="eyebrow">04 · Enigma data entry</div>
+  <h2>Enigma stays the master</h2>
+  <p>You were clear: the new system complements Enigma, it does not replace it. So the PLM does not carry the field list. It records that the configuration was done — by whom, when, against which template — and it holds exactly the attributes that change what happens next in the flow.</p>
+  <div class="stays">
+    <div class="eyebrow">Stays in Enigma · flows to the website from there</div>
+    <ul>
+      <li>Fabric colour, wash / no-wash, stretch, ply</li>
+      <li>Construction, pattern, thread count, GSM</li>
+      <li>Exact composition %</li>
+      <li>Website description, PDP filters</li>
+      <li>Product / category mapping</li>
+      <li>MTM customisation — contrast, piping applicability</li>
+    </ul>
+  </div>
+  <div class="scroll"><table class="cmp">
+    <tr><th>Two flags the PLM does hold</th><th>Why</th></tr>
+    <tr><td><b>Large check / pattern</b> (over about 2 in)</td><td>Has to be matched in cutting, so fabric consumption goes up. If it is not flagged, the BOM and the order sheet under-count the cloth. The flag sits beside the consumption rule on the concept.</td></tr>
+    <tr><td><b>Composition family</b> (e.g. "bamboo blend")</td><td>The website filter, beside the exact composition. It decides where the product appears; design is the team that knows it.</td></tr>
+  </table></div>
+  <p class="where"><b>Where:</b> the concept → 6 · Go live → Configured in Enigma, and Enigma flags that drive the flow. Detailed field mapping is for the Bombay visit with your project manager and developer.</p>
+</section>
+
+<section id="books">
+  <div class="eyebrow">05 · Swatch books &amp; MTM inventory planning</div>
+  <h2>The assortment gap is what raises a request</h2>
+  <p>The tracker is a picture of the physical swatch books — which fabric sits where, left and right — and you plan around roughly thirty active options. When some run low or come off, you count the gap and source replacements. That count is the real beginning of an option request, so the PLM starts it there rather than from a blank form.</p>
+  <div class="scroll"><table class="cmp">
+    <tr><th>Today</th><th>In the PLM</th></tr>
+    <tr><td>Each fabric mapped to a named book; placement kept in the sheet.</td><td>Swatch book on every fabric; the sticker and the swatch desk print it. Placement (left / right) is a field we add after seeing the books.</td></tr>
+    <tr><td>Weekly review; low stock marked by conditional formatting.</td><td>Fabric master → Core · reorder points and Non-core · range gaps: cover in weeks against the mill's lead time, and Enigma's own auto-PO rule for core.</td></tr>
+    <tr><td>The range header carries the count — "Non-Core Structures (29)" — and the gap against ~30 is counted by hand; replacements sourced.</td><td>MTM concepts shows every book against 30: <span class="code tabnum">FORMAL VOL.1 · 21/30</span> <span class="code tabnum">FORMAL VOL.2 · 22/30</span> → <b>raise a request for 17 options</b> — the request opens pre-filled with the count and the books that are short.</td></tr>
+    <tr><td>Fabric taken live → message to stores; tracker highlighted.</td><td>Live in stores is a date on the concept and the desk; the row stops being "on the desk".</td></tr>
+  </table></div>
+  <p class="where"><b>Where:</b> MTM concepts (the strip above the list) · MTM fabric master · Option requests.</p>
+</section>
+
+<section id="rtw">
+  <div class="eyebrow">06 · RTW design → sourcing → sampling → production</div>
+  <h2>RTW, brief to bulk, on one record</h2>
+  <p>A requirement is one bulk style. It carries the numbers planning gives — Charanjeet's ratio and total pieces — the cloth brief, the BOM, and then everything that happens to it, in six numbered steps that read the same way on the list and in the drawer.</p>
+  <div class="scroll"><table class="cmp">
+    <tr><th>Today</th><th>In the PLM</th></tr>
+    <tr><td>Styles and fabrics shortlisted; production emailed the list with costs; factory allocated.</td><td><b>1 · Request</b> — style, qty, ratio, target date and cost, the cloth brief, the BOM. Hand to sourcing is one click; the lead-time clock starts.</td></tr>
+    <tr><td>Sourcing collects quotes; design chooses by mail; someone raises a fabric PO.</td><td><b>2 · Vendors</b> — one vendor with terms. <b>3 · Purchase order</b> — design pushes it; the fabric joins the master; sourcing chases it there. <b>4 · Fabric in</b> — GRN at the unit.</td></tr>
+    <tr><td>Style sheet, BOM and job card typed per style. Factory makes a photo/PP sample; RQC comments; comments to the merchandiser.</td><td><b>5 · Sampling</b> — factory allocated on capacity; PP rounds with RQC's comments on the record. <b>Style sheet · job card</b> prints off the record — change the record and the sheet follows.</td></tr>
+    <tr><td>Bulk starts; status kept in several sheets; vendor updates collected and re-typed.</td><td>RTW production tracker — one status per PO, TNA against the category's milestone template, escalations when a milestone slips. <b>6 · Go live</b> — the launch, display and fit pieces, stores confirming, marketing brief.</td></tr>
+  </table></div>
+  <p class="where"><b>Where:</b> RTW requirements (design/planning) · Fabric sourcing (sourcing) · RTW production tracker (production) · RTW launches (planning). Inventory ready in ~45 days → swatches to stores → live; POS and online close together.</p>
+</section>
+
+<section id="fob">
+  <div class="eyebrow">07 · RTW, FOB and vendor-sourced</div>
+  <h2>Three ways to buy the cloth</h2>
+  <p>Discovery told us there are three, not two. The requirement asks which on day one, and the six steps change shape to match — who acts, and whether there is a PO to push at all.</p>
+  <figure>
+  <div class="scroll">
+  <svg viewBox="0 0 900 250" role="img" aria-label="Three columns comparing who buys the cloth: BSC buys (sourcing quotes, design pushes PO, mill ships to factory), FOB (design names the supplier by email, vendor buys and makes, BSC buys finished garments), vendor sources (vendor finds and buys its own cloth)" style="min-width: 700px">
+    <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+    <g font-family="Bricolage Grotesque, sans-serif" font-size="15" font-weight="700" fill="var(--ink)">
+      <text x="150" y="24" text-anchor="middle">BSC buys it</text><text x="450" y="24" text-anchor="middle">FOB · supplier nominated</text><text x="750" y="24" text-anchor="middle">Vendor sources</text>
+    </g>
+    <g stroke="var(--line)"><line x1="300" y1="10" x2="300" y2="240"/><line x1="600" y1="10" x2="600" y2="240"/></g>
+    <g font-family="Public Sans, sans-serif" font-size="12" fill="var(--ink)" text-anchor="middle">
+      <!-- col 1 -->
+      <rect x="40" y="48" width="100" height="34" rx="4" fill="var(--sourcing-soft)" stroke="var(--sourcing)"/><text x="90" y="69">Sourcing</text>
+      <rect x="160" y="48" width="100" height="34" rx="4" fill="var(--design-soft)" stroke="var(--design)"/><text x="210" y="69">Design</text>
+      <rect x="100" y="120" width="100" height="34" rx="4" fill="var(--paper)" stroke="currentColor"/><text x="150" y="141">Mill</text>
+      <rect x="100" y="190" width="100" height="34" rx="4" fill="var(--production-soft)" stroke="var(--production)"/><text x="150" y="211">Factory</text>
+      <!-- col 2 -->
+      <rect x="400" y="48" width="100" height="34" rx="4" fill="var(--design-soft)" stroke="var(--design)"/><text x="450" y="69">Design</text>
+      <rect x="340" y="120" width="100" height="34" rx="4" fill="var(--paper)" stroke="currentColor"/><text x="390" y="141">Supplier</text>
+      <rect x="460" y="120" width="100" height="34" rx="4" fill="var(--production-soft)" stroke="var(--production)"/><text x="510" y="141">Vendor</text>
+      <rect x="400" y="190" width="100" height="34" rx="4" fill="var(--store-soft)" stroke="var(--store)"/><text x="450" y="211">BSC buys garments</text>
+      <!-- col 3 -->
+      <rect x="700" y="48" width="100" height="34" rx="4" fill="var(--design-soft)" stroke="var(--design)"/><text x="750" y="69">Design</text>
+      <rect x="700" y="120" width="100" height="34" rx="4" fill="var(--production-soft)" stroke="var(--production)"/><text x="750" y="141">Vendor</text>
+      <rect x="700" y="190" width="100" height="34" rx="4" fill="var(--paper)" stroke="currentColor"/><text x="750" y="211">its own mill</text>
+    </g>
+    <g stroke="currentColor" stroke-width="1.2" fill="none" marker-end="url(#ar3)">
+      <line x1="140" y1="65" x2="158" y2="65"/>
+      <path d="M210,82 L210,100 L150,100 L150,118"/>
+      <line x1="150" y1="154" x2="150" y2="188"/>
+      <path d="M450,82 L450,100 L390,100 L390,118"/>
+      <path d="M450,82 L450,100 L510,100 L510,118"/>
+      <line x1="440" y1="137" x2="458" y2="137"/>
+      <line x1="510" y1="154" x2="510" y2="170"/><path d="M510,170 L450,170 L450,188"/>
+      <line x1="750" y1="82" x2="750" y2="118"/>
+      <line x1="750" y1="154" x2="750" y2="188"/>
+    </g>
+    <g font-family="Public Sans, sans-serif" font-size="10.5" fill="var(--ink-3)">
+      <text x="150" y="45" text-anchor="middle">one vendor → push PO</text>
+      <text x="60" y="112">fabric PO</text>
+      <text x="160" y="176">ships cloth</text>
+      <text x="318" y="112">names supplier</text>
+      <text x="470" y="112">emails the nomination</text>
+      <text x="425" y="134" text-anchor="end" font-size="10">buys</text>
+      <text x="520" y="180">finished pieces · labels &amp; trims via BOM</text>
+      <text x="760" y="104">requirement only</text>
+      <text x="760" y="176">buys</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption>In FOB the vendor buys the nominated cloth, funds and makes the garment; BSC buys finished pieces and may send labels and trims, charged through the BOM. The nomination email is the record — the PLM keeps it as a date and a name on step 2, and step 3 reads "no PO to push".</figcaption>
+  </figure>
+  <p class="where"><b>Where:</b> New requirement → "The cloth": BSC buys it · FOB, supplier nominated · Vendor sources. FOB adds a step-2 card: name the supplier, <b>Nomination emailed to the vendor</b>. Works with an existing factory too.</p>
+</section>
+
+<section id="next">
+  <div class="eyebrow">08</div>
+  <h2>Build order, and what to settle in Bombay</h2>
+  <p>Everything above exists in the prototype today. The order below is what we would harden first for a pilot, by value against effort.</p>
+  <ol class="build">
+    <li><div>Swatch desk with sticker generation<span class="why">the flow you described in most detail; mostly dates; removes the channel, the highlight and the Canva file</span></div><span class="eff">small</span></li>
+    <li><div>Designs per fabric with product codes, and the label sheet<span class="why">the master's own rows; one label per design per store</span></div><span class="eff">small</span></li>
+    <li><div>FOB as a first-class sourcing mode<span class="why">a third of bulk styles; the nomination email becomes a record</span></div><span class="eff">small</span></li>
+    <li><div>Assortment gap → option request<span class="why">the request starts from the number you already count</span></div><span class="eff">small</span></li>
+    <li><div>Style sheet · BOM · job card from one record<span class="why">the manual document set, generated</span></div><span class="eff">medium</span></li>
+    <li><div>Enigma link — configured on, by, the two flags; field mapping after the visit<span class="why">complement, never replace</span></div><span class="eff">with PM &amp; dev</span></li>
+  </ol>
+
+  <h3>Open questions for the visit</h3>
+  <ul class="q">
+    <li><b>Product code format</b> — the sheet has <span class="code">BOMSH02CM01310</span> and <span class="code">BOM-SHI-CU-497</span>. Which is current, and what do the segments encode? We mint <span class="code">BOM-SHI-FM-nnnn</span> until told.</li>
+    <li><b>Thirty per book, or thirty overall?</b> We built it per swatch book; the prototype shows FORMAL VOL.1 at 21, LINEN at 67 — one of those numbers is wrong about how you count.</li>
+    <li><b>Swatch book placement</b> — left / right, which page: a field, or a photo of the book?</li>
+    <li><b>Picario</b> — swatches also go to Picario (digital swatch). One more "store" on the desk, or its own step?</li>
+    <li><b>Label stock</b> — the sheet is 3 across; how many down, and which label paper? Line two today is the fabric name and the mill's article — should it become the design name and product code?</li>
+    <li><b>Enigma field ownership</b> — which fields does design own outright, which does sourcing correct? This decides who gets edit rights.</li>
+    <li><b>RQC</b> — the same people as production QC, or a separate desk that needs its own login?</li>
+    <li><b>FOB terms</b> — is the label/trim charge always via BOM, and does BSC ever fund the cloth up front?</li>
+  </ul>
+</section>
+</main>
+</div>
+
+
+</body>
+</html>
