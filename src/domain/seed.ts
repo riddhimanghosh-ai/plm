@@ -1324,6 +1324,17 @@ transfers.forEach((t, i) => { t.purpose = t.stoType === 'Display' || /display/i.
       punchedOn: iso(addDays(TODAY, -2)), promisedOn: iso(addDays(TODAY, -2)), stage:'delivered', remarks:'customer wanted the one in the window', soldDisplay: true, tag:'normal', planId: null, factoryId: null, consumptionM: null,
       scans:[{ stage:'delivered', at: iso(addDays(TODAY, -2)), by:'Pali Hill store' }], spec: null, measurements: null, pattern: null, revisions: [], changeSeenOn: null, changeToldFactoryOn: null, changeFactorySeenOn: null, bespoke: null } as CustomerOrder); } })();
 
+/* the vendor board must have something to show on every new-fabric concept: where the
+   seed chose the cloth straight onto the record, put that mill against it with its terms
+   and a hold, marked chosen once the PO is punched */
+concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions ?? []).length).forEach((c, k) => {
+  const f = fabrics.find(x => x.id === c.fabricId)!; const v = V(f.vendorId);
+  c.fabricOptions = [{ id:`cfo-${c.id}-0`, fabricId: f.id, name: f.name, vendorId: f.vendorId, vendorCode: f.vendorCode ?? `ART-${1200 + k}`, composition: f.composition ?? '100% Cotton', widthIn: f.widthIn ?? 58,
+    book: f.swatchBook ?? 'FORMAL SHIRTS - VOL.1', cpm: f.cpm ?? 285 + k * 7, moq: v.moq ?? 150, leadDays: v.leadDays, holdUntil: c.fabricPo ? null : iso(addDays(TODAY, [9, 14, 21, 4][k % 4])), note: '',
+    selected: !!c.fabricPo, chosenBy: c.fabricPo ? 'Kunal' : null, chosenOn: c.fabricPo ? c.fabricPo.on : null, rationale: '' }];
+  c.optionsSentOn = c.optionsSentOn ?? iso(addDays(new Date(c.raisedOn), 3));
+});
+
 export const SEED: Db = {
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,
   ranges: RANGES.map(x => ({ family: x.family, targetOptions: x.target })),
