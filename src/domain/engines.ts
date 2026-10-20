@@ -930,11 +930,11 @@ export type DesignStepKey = 'request' | 'sampling' | 'vendors' | 'po' | 'fabric-
 export interface DesignStep { key: DesignStepKey; label: string; state: 'done' | 'now' | 'later'; owner: RoleId; note: string; action?: string }
 export type DesignItem = { kind: 'concept'; c: Concept } | { kind: 'order'; o: ProductionOrder };
 
-export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; now: DesignStep; name: string; raisedOn: string; liveBy: string | null; targetCost: number | null; id: string; mtmStage?: 1 | 2 | 3 | 4 } {
+export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; now: DesignStep; name: string; raisedOn: string; liveBy: string | null; targetCost: number | null; id: string; mtmStage?: 1 | 2 | 3 | 4 | 5 } {
   const mk = (key: DesignStepKey, label: string, done: boolean, owner: RoleId, note: string, action?: string): DesignStep => ({ key, label, state: done ? 'done' : 'later', owner, note, action });
   let steps: DesignStep[]; let name: string; let raisedOn: string; let liveBy: string | null; let targetCost: number | null; let id: string;
   /* where an MTM fabric stands — the state it is IN, not the step that comes next */
-  let mtmStage: 1 | 2 | 3 | 4 | undefined;
+  let mtmStage: 1 | 2 | 3 | 4 | 5 | undefined;
 
   if (item.kind === 'concept') {
     const c = item.c; const s = conceptOf(db, c); const nf = c.kind === 'new-fabric';
@@ -962,7 +962,13 @@ export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; n
         fabricIn && !designsDone ? 'Add the designs, push them to Enigma, set consumption' : undefined),
       mk('live', 'Live online', !!c.online?.liveOn, 'design', c.online?.liveOn ? `online ${fmtDate(c.online.liveOn)}${c.liveOn ? ` · stores ${fmtDate(c.liveOn)}` : ''}` : `${onlineGates} of 3 · photos, video, post${c.liveOn ? ` · stores ${fmtDate(c.liveOn)}` : ''}`, onlineGates === 3 ? 'Go live online' : 'Mark photos, video and post as they land'),
     ];
-    mtmStage = c.online?.liveOn ? 4 : (fabricIn && nf && !!c.fabricPo) || (!nf && designsDone) ? (designsDone ? 4 : 3) : offersIn || chosen || (poDone && nf) ? 2 : 1;
+    /* the five states, each one thing:
+       1 Requirement requested — design asked; sourcing has to add a vendor
+       2 Vendor added — a vendor is on it; design has to punch the PO
+       3 PO punched — the cloth is on its way
+       4 Fabric in — the cloth is in; design adds the designs and configures Enigma
+       5 Live online */
+    mtmStage = c.online?.liveOn ? 5 : !nf ? (designsDone ? 5 : 4) : fabricIn && !!c.fabricPo ? 4 : c.fabricPo ? 3 : offersIn || chosen ? 2 : 1;
     name = c.naming.newName ?? c.name; raisedOn = c.raisedOn; liveBy = c.targetMonth ?? null; targetCost = c.naming.mrp ?? null; id = c.id;
   } else {
     const o = item.o; const ss = sourcingStateOf(o); void ss;

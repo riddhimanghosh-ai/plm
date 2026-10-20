@@ -422,10 +422,10 @@ function mtmSourcingRows(db: ReturnType<typeof useApp>['db']): MtmRow[] {
     const s = conceptOf(db, c); const f = designFlowOf(db, { kind:'concept', c }); const v = f.steps.find(x => x.key === 'vendors')!; const fin = f.steps.find(x => x.key === 'fabric-in')!;
     const offers = (c.fabricOptions ?? []).filter(o => !o.rejected);
     /* the same four stages design sees — the row names the state, "Your move" says whose turn */
-    const STAGE = { 1:'Requirement requested', 2:'Vendor added', 3:'Fabric in', 4:'Live online' } as const;
+    const STAGE = { 1:'Requirement requested', 2:'Vendor added', 3:'PO punched', 4:'Fabric in', 5:'Live online' } as const;
     const stage = f.mtmStage ?? 1;
     const extAsked = !!c.optionsExtension && !c.optionsExtension.resolvedOn;
-    if (stage >= 3 || (stage === 2 && !extAsked && !!c.fabricPo)) return;   // from the PO on, nothing for sourcing here
+    if (stage >= 3) return;   // from the PO on, nothing for sourcing here
     const status = extAsked ? `${STAGE[stage]} · more time asked` : STAGE[stage];
     const mine = stage === 1 || extAsked;   // put a vendor against it, or answer the ask for more time
     out.push({ id: c.id, kind:'fabric', name: c.naming.newName ?? c.name, brief: c.brief, book: c.book ?? null, wanted: c.targetMonth ?? null, vendor: s.fabric ? `${db.vendors.find(x => x.id === s.fabric!.vendorId)?.name ?? ''}${s.fabric.cpm ? ` · ₹${s.fabric.cpm}/m` : ''}` : offers.length ? `${offers.length} offer${offers.length === 1 ? '' : 's'}` : '—',
