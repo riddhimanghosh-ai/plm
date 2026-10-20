@@ -484,7 +484,9 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         if (o) log(o, `Design code ${l.designCode} minted`);
       }, 'Design code minted — the style can be set up to sell.');
     },
-    updateLaunch(id, patch) { touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (l) Object.assign(l, patch); }, patch.launchedOn ? 'Launched. It is live in stores and the option book now counts it.' : 'Saved.'); },
+    updateLaunch(id, patch) { touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (!l) return;
+        if (patch.marketingName !== undefined && l.marketingName && patch.marketingName && patch.marketingName !== l.marketingName) l.nameHistory = [...(l.nameHistory ?? []), { name: l.marketingName, until: now(), by: who(), note: 'renamed' }];
+        Object.assign(l, patch); }, patch.launchedOn ? 'Launched. It is live in stores and the option book now counts it.' : 'Saved.'); },
     allocateLaunch(id, pieces) {
       touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (!l) return;
         l.pieces = pieces === 'default' ? defaultLaunchPieces(l.styleName, STORES.filter(s => s.holdsRtwStock).map(s => s.id)) : pieces;

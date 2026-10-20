@@ -128,7 +128,8 @@ function LaunchDetail({ l, editable }: { l: Launch; editable: boolean }) {
         </div>
         {s.briefDue && !l.marketingBriefOn && <div className="pt-2"><Note tone={s.briefLate ? 'risk' : 'warn'}>Marketing needs the name {MARKETING_LEAD_DAYS}–15 days before launch — by {fmtDate(s.briefDue)}. {s.briefLate ? 'That has passed; the Shopify listing is now the bottleneck.' : ''}</Note></div>}
       </> : <>
-        <KV k="Final product name" v={l.marketingName ?? '—'} note={l.marketingBriefOn ? `sent ${fmtDate(l.marketingBriefOn)}` : 'not sent'} />
+        <KV k="Working name" v={l.styleName} note="design's name on the request" />
+        <KV k="Final product name" v={l.marketingName ?? '—'} note={`${l.marketingBriefOn ? `sent ${fmtDate(l.marketingBriefOn)}` : 'not sent'}${(l.nameHistory ?? []).length ? ` · earlier ${(l.nameHistory ?? []).map(h => `“${h.name}”`).join(', ')}` : ''}`} />
         <KV k="Launch date" v={l.launchOn ? fmtDate(l.launchOn) : '—'} />
         <KV k="Key pointers" v={l.keyPointers || '—'} />
       </>}

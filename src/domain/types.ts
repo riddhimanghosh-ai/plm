@@ -662,7 +662,8 @@ export interface Launch {
   expectedAtHo: string;          // ISO — Monthly Drops "Expected Date"
   receivedAtHo: string | null;
   pieces: LaunchPiece[];         // display / fit allocation, one line per store × size
-  marketingName: string | null;  // final product name → Shopify, system, website
+  marketingName: string | null;  // final product name → Shopify, system, website; styleName on the order stays the working name
+  nameHistory?: { name: string; until: string; by: string; note: string }[];   // every earlier official name, appended on a rename
   marketingBriefOn: string | null;
   launchOn: string | null;       // planned launch date
   launchedOn: string | null;
