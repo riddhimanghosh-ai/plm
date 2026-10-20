@@ -334,6 +334,7 @@ function Fabric360({ f, canSource, canPlan }: { f: Fabric; canSource: boolean; c
         ? <Button size="sm" variant="primary" onClick={() => setFabricBucket(f.id, 'CORE', '')}>Promote to core →</Button>
         : <Button size="sm" variant="ghost" onClick={() => setFabricBucket(f.id, 'NON_CORE', '')}>Demote to non-core →</Button>}
         note={f.bucket === 'NON_CORE' ? 'core is replenished on a reorder point; non-core is bought once' : 'it stops being replenished and is allowed to sell out'} />}
+      {f.bucket === 'CORE' && f.onHold && f.supply?.status === 'ok' && <div className="pt-2">{canSource ? <Button variant="primary" size="sm" onClick={() => setFabricHold(f.id, false)}>Switch back on — in stock</Button> : <ActsBy role="planning" does="switches it on again once sourcing confirms stock" />}</div>}
       {f.bucket === 'CORE' && <>
         <KV k="Supply block with the mill" v={f.coreBlock ? <b>until {fmtDate(f.coreBlock.until)}</b> : <span style={{ color:'var(--risk)' }}>none agreed</span>}
           note={f.coreBlock ? `${f.coreBlock.metresPerMonth} m a month · agreed ${fmtRel(f.coreBlock.agreedOn)} by ${f.coreBlock.by} over ${f.coreBlock.via}${f.coreBlock.note ? ` · ${f.coreBlock.note}` : ''}${-daysAgo(f.coreBlock.until) <= 60 ? ` · ${-daysAgo(f.coreBlock.until) < 0 ? 'lapsed' : `${-daysAgo(f.coreBlock.until)}d left — renew`}` : ''}` : `${f.promotedOn ? `promoted ${fmtRel(f.promotedOn)} — ` : ''}non-core was a one-time buy; core needs the mill to keep weaving it. Sourcing asks ${mill.name} to hold it for a year or two`} />
@@ -362,35 +363,7 @@ function Fabric360({ f, canSource, canPlan }: { f: Fabric; canSource: boolean; c
       {f.international && <div className="pt-2"><Note tone="warn">International — Enigma's auto-PO does not reach this fabric. Reordering is a person's job, and the reorder point below is what that person should act on.</Note></div>}
     </Section>
 
-    {f.bucket !== 'BESPOKE' ? <Section title="Stock & coverage" right={c.belowRop ? <Pill tone="risk">below reorder point</Pill> : <Pill tone="good">covered</Pill>}>
-      <KV k="Physical stock" v={`${f.stockMetres} m`} />
-      <KV k="Reserved against orders" v={`− ${f.reservedMetres} m`} note="Enigma reserves the moment an order is punched" />
-      <KV k="Threshold (Enigma floor)" v={`− ${f.thresholdMetres} m`} />
-      <KV k="Saleable" v={<b>{c.saleable} m</b>} note={`≈ ${Math.floor(c.saleable / 2.15)} shirts at 2.15 m each`} />
-      <KV k="Incoming on open POs" v={c.incoming ? `+ ${c.incoming} m` : 'nothing on order'} note={c.incoming ? (() => { const ps = (db.fabricPos ?? []).filter(p => p.fabricId === f.id && !p.receivedOn); return ps.map(p => `${p.poNo} · ${p.metres} m · ${fabricPoStatus(p)}${p.vendorConfirmedOn ? ` · mill says ${fmtDate(p.expectedOn)}` : ''}${p.remark ? ` · “${p.remark}”` : ''}`).join(' | ') || 'counts as cover so the same fabric is not ordered twice'; })() : undefined} />
-      <KV k="Available to promise" v={`${c.atp} m`} note="saleable + incoming" />
-      <KV k="Store reads it as" v={live} note={c.lowForStore ? `under ${STORE_LOW_METRES} m — the store's own rule of thumb for low` : undefined} />
-      <KV k="On Shopify & in stores" v={f.paused ? 'Paused by design' : f.onHold ? 'Switched off' : 'Live'} note={f.paused ? `${f.paused.by} · ${fmtRel(f.paused.at)} — “${f.paused.note}”` : f.bucket === 'CORE' && f.onHold && f.supply?.status === 'ok' ? 'sourcing says it is back — nobody has switched it on' : undefined} />
-      {f.paused
-        ? <div className="pt-2"><Note tone="warn">Paused by design — no store and no website can offer it, whatever the shelf or the mill says. {canPlan ? <Button size="sm" variant="primary" onClick={() => resumeFabric(f.id)}>Resume</Button> : <ActsBy role="design" does="resumes it" inline />}</Note></div>
-        : canPlan ? <div className="flex gap-2 items-end pt-2 flex-wrap"><div className="flex-1" style={{ minWidth: 200 }}><Field label="Pause this fabric" hint="the reason goes on the record with your name"><Input value={pnote} onChange={e => setPnote(e.target.value)} placeholder="shade being retired at the end of the book" /></Field></div><Button size="sm" disabled={!pnote.trim()} onClick={() => { pauseFabric(f.id, pnote.trim()); setPnote(''); }}>Pause</Button></div>
-        : null}
-      {f.bucket === 'CORE' && <KV k="Supplier check · weekly" v={f.supply ? `${f.supply.status === 'ok' ? 'In stock, on schedule' : f.supply.status === 'delayed' ? 'Delayed past committed date' : 'Run out at the supplier'} · ${fmtRel(f.supply.reviewedOn)} by ${f.supply.by}` : 'Never checked'} note={f.supply ? `${f.supply.note || ''}${f.supply.backOn ? ` · back ${fmtDate(f.supply.backOn)}` : ''}` || undefined : 'sourcing calls every core supplier once a week'} />}
-      {f.bucket === 'CORE' && f.supply && f.supply.status !== 'ok' && !f.onHold && <div className="pt-2"><Note tone="risk">Sourcing has escalated this: the supplier {f.supply.status === 'out' ? 'has run out' : 'is late past the committed date'}. It is still live — customers keep buying a fabric that cannot be made.</Note>{canPlan ? <div className="mt-2"><Button variant="primary" size="sm" onClick={() => setFabricHold(f.id, true)}>Switch off on Shopify & stores</Button></div> : <ActsBy role="planning" does="switches it off on Shopify and in stores" />}</div>}
-      {f.bucket === 'CORE' && f.onHold && f.supply?.status === 'ok' && <div className="pt-2">{canSource ? <Button variant="primary" size="sm" onClick={() => setFabricHold(f.id, false)}>Switch back on — in stock</Button> : <ActsBy role="planning" does="switches it on again once sourcing confirms stock" />}</div>}
-    </Section> : null}
-
-    {f.bucket !== 'BESPOKE' ? <Section title="Auto-PO threshold · Enigma's rule" right={<Pill tone="good">as BSC described it</Pill>}>
-      <KV k="Sell rate" v={`${c.ros.toFixed(1)} shirts / wk`} note={`${c.baseMpw.toFixed(1)} m / wk at ${METRES_PER_SHIRT} m a shirt · last 8 weeks`} />
-      <KV k="Vendor lead time" v={`${mill.leadDays} days`} note={`${mill.name} · transit from order to the shelf`} />
-      <KV k="Sold during the lead time" v={`${c.leadDemand} m`} note={`${c.baseMpw.toFixed(1)} m / wk × ${mill.leadDays} / 7`} />
-      <KV k="Vendor MOQ" v={`${c.moq} m`} note="the threshold never sits below what the vendor will ship" />
-      <KV k="Threshold" v={<b>{c.rop} m</b>} note="the larger of the two — the minute stock plus what is on order falls under it, the PO goes" />
-      <KV k="Stock against it" v={`${c.atp} m`} note={`${c.saleable} m saleable on the shelf${c.incoming ? ` + ${c.incoming} m already on order` : ''} · ${c.coverDays > 365 ? 'over a year' : `${c.coverDays} days`} of cover`} />
-      <KV k="Auto-PO quantity" v={c.belowRop ? <b>{c.suggestedPo} m</b> : `${c.suggestedPo} m when it trips`} note={f.international ? 'the same number — but Enigma does not reach this vendor, so a person raises it' : 'Enigma sends this to the vendor itself'} />
-      {c.belowRop && (f.international ? (canSource ? <div className="pt-2"><Button variant="primary" size="sm" onClick={() => raiseFabricPo(f.id, c.suggestedPo)}>Raise PO · {c.suggestedPo} m to {mill.name}</Button></div> : <ActsBy role="sourcing" does={`raises the ${c.suggestedPo} m PO to ${mill.name}`} />) : <div className="pt-2"><Note>Domestic — Enigma auto-PO handles this, nothing to do here.</Note></div>)}
-      {!c.belowRop && c.incoming > 0 && <div className="pt-2"><Note tone="good">Covered by what is on order. The row will read "below ROP" again only if the PO is late enough for saleable stock to run out first.</Note></div>}
-    </Section> : <Section title="Mill availability" right={f.millAvailable === false ? <Pill tone="risk">sold out at mill</Pill> : <Pill tone="good">available</Pill>}>
+    {f.bucket === 'BESPOKE' && <Section title="Mill availability" right={f.millAvailable === false ? <Pill tone="risk">sold out at mill</Pill> : <Pill tone="good">available</Pill>}>
       <KV k="Mill last reported" v={f.millAvailable === false ? 'Sold out' : f.millStockMetres != null ? `${f.millStockMetres} m at the mill` : 'Available'} note={`${fmtRel(f.millReportedAt)} · the mill's stock is the inventory; the warehouse enters it from the evening sheet`} />
       <KV k="On Shopify & in stores" v={f.onHold ? 'Switched off' : 'Live'} />
       {f.millAvailable === false && !f.onHold && <div className="pt-2"><Note tone="risk">The mill says gone; the channel still sells it. Every hour this stays live is an order that cannot be made.</Note>{canSource ? <div className="mt-2"><Button variant="primary" size="sm" onClick={() => setFabricHold(f.id, true)}>Switch off on Shopify & stores</Button></div> : <ActsBy role="sourcing" does="switches it off on Shopify and in stores" />}</div>}
@@ -401,10 +374,6 @@ function Fabric360({ f, canSource, canPlan }: { f: Fabric; canSource: boolean; c
       <div className="py-2"><Bars values={f.weeklySalesShirts} ok={inStockWeeks} unit=" shirts" /></div>
       <div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>Shirts made from this fabric per week. Core is replenished off this; non-core is not — when it is gone, the slot is refilled with a new fabric.</div>
     </Section>
-
-    {blocks.length > 0 && <Section title={`Blocks at ${mill.name}`}>
-      {blocks.map(b => { const left = -daysAgo(b.expiresOn); return <div key={b.id} className="kv"><span className="k">{b.fabricName}<div className="text-[11px]">{b.metres} m · agreed {fmtDate(b.agreedOn)} by {b.via}</div></span><span className="v"><Pill tone={b.status !== 'held' ? 'neutral' : left < 7 ? 'risk' : left <= 21 ? 'warn' : 'good'}>{b.status !== 'held' ? b.status : left < 0 ? `expired ${-left}d` : `${left}d left`}</Pill>{canSource && b.status === 'held' && <div className="flex gap-1 mt-1 justify-end"><Button size="sm" onClick={() => convertBlock(b.id)}>Convert</Button><Button size="sm" variant="ghost" onClick={() => releaseBlock(b.id)}>Release</Button></div>}</span></div>; })}
-    </Section>}
 
     <Section title={`In stores · ${swatches.length} swatch dispatch${swatches.length === 1 ? '' : 'es'}`}>
       {swatches.length === 0 ? <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>No swatch of this fabric has been dispatched to a store yet — customers cannot pick it from a book.</div> : <>
@@ -417,13 +386,6 @@ function Fabric360({ f, canSource, canPlan }: { f: Fabric; canSource: boolean; c
     <Files kind="fabric" subjectId={f.id} labels={FILE_LABELS.fabric} editable hint="the swatch image the block sheet has a column for, the mill's stock sheet from WhatsApp, the block confirmation email" />
     <ThreadPanel kind="fabric" subjectId={f.id} />
 
-    <Section title="Lifecycle">
-      <div className="text-[12.5px] py-1" style={{ color:'var(--ink-soft)' }}>
-        {f.bucket === 'CORE' && 'Sourced once → datasheet in Enigma (code minted) → swatch to books → sells → reorder point trips → PO → GRN → stock. Never retired while it sells.'}
-        {f.bucket === 'NON_CORE' && 'Scouted at mill → design selects → blocked (handshake, 2–5 months) → design + tech pack + costing (20–30 days) → PO → GRN → swatch to books → sells once → slot refilled with a new fabric.'}
-        {f.bucket === 'BESPOKE' && 'Listed from the mill\'s catalogue → swatch to books → customer orders → PO fires per order → mill ships cut length → made. Availability is the mill\'s daily word, not BSC stock.'}
-      </div>
-    </Section>
   </>;
 }
 
@@ -519,7 +481,8 @@ function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
   const [q, setQ] = useState('');
   const [show, setShow] = useState<'all' | 'active' | 'hold' | 'coming' | 'paused'>('all');
   const [book, setBook] = useState<string>('all');
-  const [wh, setWh] = useState('factory');   // Enigma's warehouse picker — one stock today; per-warehouse once the read is live
+  const [wh, setWh] = useState('factory');
+  const [bucket, setBucket] = useState<'all' | 'CORE' | 'NON_CORE'>('all');   // Enigma's warehouse picker — one stock today; per-warehouse once the read is live
   const saleable = (f: Fabric) => Math.round((f.stockMetres - f.reservedMetres - f.thresholdMetres) * 10) / 10;
   const STATE = BOOK_STATE;
   /* one flat table, every fabric in every book; the filters do the grouping the
@@ -532,10 +495,10 @@ function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
   const books = MTM_SWATCH_BOOKS.map(bk => { const fs = all.filter(x => x.f.swatchBook === bk); const active = fs.filter(x => x.state === 'active').length;
     return { b: bk, total: fs.length, active, gap: MTM_ACTIVE_TARGET - active, coming: fs.filter(x => x.state === 'coming').length, live: fs.filter(x => x.c?.liveOn).length }; }).filter(x => x.total > 0);
   const rows = all
-    .filter(x => (book === 'all' || x.f.swatchBook === book) && (show === 'all' || x.state === show)
+    .filter(x => (book === 'all' || x.f.swatchBook === book) && (show === 'all' || x.state === show) && (bucket === 'all' || x.f.bucket === bucket)
       && (!q.trim() || q.toLowerCase().split(/\s+/).every(w => `${x.f.name} ${x.f.code} ${x.f.swatchBook} ${(x.c?.designs ?? []).map(d => `${d.name} ${d.finalName ?? ''} ${d.code}`).join(' ')}`.toLowerCase().includes(w))))
     .sort((a, b) => (a.f.swatchBook ?? '').localeCompare(b.f.swatchBook ?? '') || ({ active: 0, coming: 1, hold: 2, paused: 3 })[a.state] - ({ active: 0, coming: 1, hold: 2, paused: 3 })[b.state] || a.f.name.localeCompare(b.f.name));
-  const count = (f: (x: typeof all[number]) => boolean) => all.filter(x => (book === 'all' || x.f.swatchBook === book) && f(x)).length;
+  const count = (f: (x: typeof all[number]) => boolean) => all.filter(x => (book === 'all' || x.f.swatchBook === book) && (bucket === 'all' || x.f.bucket === bucket) && f(x)).length;
   const ex = useExamples(rows, r => `${r.f.swatchBook}·${r.state}`, { noun: 'fabrics', score: r => (r.c ? 1 : 0) + (r.c?.designs?.length ? 1 : 0) + (r.c?.liveOn ? 1 : 0) + (r.c?.swatch ? 1 : 0), done: r => r.state === 'active' && !!r.c?.liveOn });
   const pager = usePager(ex.rows, 25);
   return <>
@@ -548,7 +511,8 @@ function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
         <div className="text-[15px] font-semibold">{bk.active} <span className="text-[11.5px] font-normal" style={{ color:'var(--ink-faint)' }}>/ {MTM_ACTIVE_TARGET}</span> {bk.gap > 0 ? <span className="pill warn" style={{ marginLeft: 4 }}>{bk.gap} short</span> : <span className="pill good" style={{ marginLeft: 4 }}>met</span>}</div></button>)}
     </div>
     <div className="flex items-end gap-3 flex-wrap mb-2">
-      <Seg value={show} onChange={setShow} options={[{ id:'all', label:'Every fabric', count: count(() => true) }, { id:'active', label:'On the shelf', count: count(x => x.state === 'active') }, { id:'coming', label:'Cloth coming', count: count(x => x.state === 'coming') }, { id:'hold', label:'On hold', count: count(x => x.state === 'hold') }, { id:'paused', label:'Paused', count: count(x => x.state === 'paused') }]} />
+      <Seg value={show} onChange={setShow} options={[{ id:'all', label:'Every fabric', count: count(() => true) }, { id:'active', label:'On the shelf', count: count(x => x.state === 'active'), hint:'sellable now — not paused by design, not on hold' }, { id:'coming', label:'Cloth coming', count: count(x => x.state === 'coming') }, { id:'hold', label:'On hold', count: count(x => x.state === 'hold') }, { id:'paused', label:'Paused', count: count(x => x.state === 'paused') }]} />
+      <Seg value={bucket} onChange={v => setBucket(v as typeof bucket)} options={[{ id:'all', label:'Core + non-core' }, { id:'CORE', label:'Core', count: all.filter(x => x.f.bucket === 'CORE' && (book === 'all' || x.f.swatchBook === book)).length }, { id:'NON_CORE', label:'Non-core', count: all.filter(x => x.f.bucket === 'NON_CORE' && (book === 'all' || x.f.swatchBook === book)).length }]} />
       <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name…" style={{ width: 280 }} aria-label="search books" />
       <Select value={wh} onChange={setWh} options={[{ value:'factory', label:'Factory Warehouse' }, { value:'ho', label:'HO Warehouse' }]} />
       <ExportButton filename="fabric-inventory" sheetName="Fabric Inventory" rows={rows} cols={[
