@@ -32,7 +32,7 @@
 
   <h2>A · The order — store to customer</h2>
   <div class="mermaid">
-flowchart LR
+flowchart TD
   classDef design fill:#e3dcf0,stroke:#9b8bc4,color:#1a1a13
   classDef sourcing fill:#f3e2c4,stroke:#c9a35a,color:#1a1a13
   classDef prod fill:#d9e7f3,stroke:#6f9cc4,color:#1a1a13
@@ -55,9 +55,22 @@ flowchart LR
   S4["<b>STORE</b><br/>Handed to customer<br/>delivered"]:::store
   S5["<b>STORE</b><br/>Return or alteration case<br/>30-day window · the ladder · credit note · refund approval"]:::store
 
-  S1 --> S2 --> E1 --> P1 --> P2 --> P3 --> F1 --> F2 --> P4 --> P5 --> S4 --> S5
-  S3 -.->|before allocation: freely<br/>after: amendment, Acknowledged by production & factory| P1
-  S2 --> S3
+  subgraph ORDER["At the store"]
+    direction TB
+    S1 --> S2 --> E1
+    S2 --> S3
+  end
+  subgraph MAKE["Made at the unit and the factory"]
+    direction TB
+    P1 --> P2 --> P3 --> F1 --> F2 --> P4 --> P5
+  end
+  subgraph DONE["Back at the store"]
+    direction TB
+    S4 --> S5
+  end
+  E1 --> P1
+  P5 --> S4
+  S3 -.->|before allocation: freely · after: an amendment,<br/>Acknowledged by production and the factory| P1
   </div>
 
   <h2>B · What runs beside the order</h2>
