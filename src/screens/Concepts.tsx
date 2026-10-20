@@ -22,6 +22,7 @@ import { FlowHeader, isMyTurn } from './Flow';
 import { ActsBy, OwnerPill } from './Who';
 import { DesignsOnFabric } from './Designs';
 import { VendorEditor } from './OptionRequests';
+import { MTM_ONLY } from '../domain/edition';
 
 const STAGE_TONE: Record<ConceptStage, Tone> = { Idea:'neutral', Sampling:'warn', 'Shipment sample':'warn', Approved:'info', Fabric:'info', Blocked:'info', 'PO raised':'info', Configured:'info', Named:'info', Ready:'good', Live:'good' };
 
@@ -158,16 +159,13 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
     {(() => { const nowKey: DesignStepKey | null = flow.now.state === 'done' ? null : flow.now.key;
       const bodies: Record<DesignStepKey, ReactNode> = {
         'request': <>
-    <Section title="1 · Request" defaultOpen={nowKey === 'request'} right={<Pill tone="good">sent {fmtDate(c.raisedOn)}</Pill>}>
+    <Section title="1 · Requirement" defaultOpen={nowKey === 'request'} right={<Pill tone="good">sent {fmtDate(c.raisedOn)}</Pill>}>
       <KV k="Why" v={c.brief} note={`${c.raisedBy} · ${fmtDate(c.raisedOn)}`} />
       {c.spec && <KV k="What changes" v={c.spec} note="the construction a customer will be able to pick" />}
       <KV k="Kind" v={c.kind === 'new-fabric' ? 'New fabric or shade' : 'Construction variant'} note={c.baseFabricId ? `sampled on ${db.fabrics.find(f => f.id === c.baseFabricId)?.name ?? 'an inventory fabric'}` : 'sampled on the vendor swatch'} />
       <KV k="Where it goes" v={c.book ?? '—'} note={c.targetMonth ? `wanted on the floor by ${c.targetMonth}` : undefined} />
     </Section>
-        </>,
-        'sampling': <>
-    <Section title="2 · Sampling" defaultOpen={nowKey === 'sampling'}
-      right={<Pill tone={s.ship.state === 'approved' ? 'good' : s.pp.state === 'with production unit' || s.ship.state === 'with production unit' ? 'warn' : 'neutral'}>{s.ship.state === 'approved' ? 'approved' : !c.patSentOn ? 'not started' : s.pp.state !== 'approved' ? `PP · ${s.pp.state}` : `shipment · ${s.ship.state}`}</Pill>}>
+    <Section title="Samples · optional" look="fold" pending={false} ownerRole={null} right={<Pill tone={s.ship.state === 'approved' ? 'good' : s.pp.state === 'with production unit' || s.ship.state === 'with production unit' ? 'warn' : 'neutral'}>{s.ship.state === 'approved' ? 'approved' : !c.patSentOn ? 'not started' : s.pp.state !== 'approved' ? `PP · ${s.pp.state}` : `shipment · ${s.ship.state}`}</Pill>}>
     <Section title="Sample & PAT file" owner={<OwnerPill owner="Production" />} right={<Pill tone={c.patSentOn ? 'good' : 'neutral'}>{c.patSentOn ? `sent ${fmtDate(c.patSentOn)}` : 'not sent'}</Pill>}>
       {c.patSentOn && <KV k="With" v={<VendorLink id={c.factoryId!} />} note={`${daysAgo(c.patSentOn)} days ago — a real-world handoff, now on the record`} />}
       <div className="label pt-1">The files that went with it</div>
@@ -184,9 +182,10 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
     </Section>
     </Section>
         </>,
+        'sampling': null,
         'vendors': <>
     {c.kind === 'new-fabric'
-      ? <Section title="3 · Vendors" defaultOpen={nowKey === 'vendors'}
+      ? <Section title="2 · Vendor added · PO pending" defaultOpen={nowKey === 'vendors'}
           right={s.fabric ? <Pill tone="good">chosen</Pill>
             : c.optionsExtension && !c.optionsExtension.resolvedOn ? <span className="pill role-sourcing">extension asked</span>
             : c.optionsSentOn ? <span className="pill role-design">design to push PO</span>
@@ -220,14 +219,14 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
       {!sourcing && !c.optionsSentOn && c.approvalSentOn && (!s.fabric || s.fabric.cpm == null) && <Who r="Sourcing" does={!s.fabric ? 'goes round the mills for the same cloth and brings the offers back' : 'writes the quoted price against it'} />}
     </>; })()}
         </Section>
-      : <Section title="3 · Vendors" defaultOpen={nowKey === 'vendors'} right={<Pill tone="neutral">nothing to buy</Pill>}>
+      : <Section title="2 · Vendor added · PO pending" defaultOpen={nowKey === 'vendors'} right={<Pill tone="neutral">nothing to buy</Pill>}>
           <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>A construction variant is made on cloth we already hold — no mill to choose, no fabric to buy.</div>
         </Section>}
 
     {/* ── 4 · Purchase order — design raises it, sourcing works against it ─ */}
         </>,
         'po': <>
-    {c.kind === 'new-fabric' && <Section title="4 · Purchase order" defaultOpen={nowKey === 'po'}
+    {c.kind === 'new-fabric' && <Section title="3 · PO punched" defaultOpen={nowKey === 'po'}
       right={<Pill tone={c.fabricPo ? 'good' : s.fabric ? 'accent' : 'neutral'}>{c.fabricPo ? `PO · ${c.fabricPo.metres} m` : s.fabric ? 'design to raise' : 'after design chooses'}</Pill>}>
     <>
       {s.block && <KV k="Block" v={`${s.block.metres} m · ${s.block.status}`} note={s.block.status === 'held' ? `expires ${fmtDate(s.block.expiresOn)} · ${-daysAgo(s.block.expiresOn)}d — the one copy, with a countdown` : `agreed ${fmtDate(s.block.agreedOn)}`} />}
@@ -261,17 +260,10 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
         </>,
         'fabric-in': <>
     {c.kind === 'new-fabric' && (() => { const f2 = designFlowOf(db, { kind:'concept', c }); const st = f2.steps.find(x => x.key === 'fabric-in')!;
-      return <Section title="5 · Fabric in" defaultOpen={nowKey === 'fabric-in'} right={<Pill tone={st.state === 'done' ? 'good' : 'neutral'}>{st.state === 'done' ? 'received' : c.fabricPo ? 'on its way' : 'after the PO'}</Pill>}>
+      return <Section title="4 · Fabric in · design codes" defaultOpen={nowKey === 'fabric-in'} right={<Pill tone={st.state === 'done' ? 'good' : 'neutral'}>{st.state === 'done' ? 'received' : c.fabricPo ? 'on its way' : 'after the PO'}</Pill>}>
         <div className="py-1 text-[12.5px]" style={{ color: st.state === 'done' ? 'var(--good)' : 'var(--ink-soft)' }}>{st.note}</div>
         {c.fabricPo && st.state !== 'done' && <Note>This line turns green the day the warehouse books the metres in.</Note>}
-      </Section>; })()}
-        </>,
-        'live': <>
-    <Section title="6 · Go live · stores, then online" defaultOpen={nowKey === 'live'}
-      right={<span className="flex gap-1 flex-wrap justify-end">
-        <Pill tone={c.liveOn ? 'good' : s.ready ? 'accent' : 'neutral'}>{c.liveOn ? `stores ${fmtDate(c.liveOn)}` : s.ready ? 'stores · design to switch on' : `${s.blockers} step${s.blockers === 1 ? '' : 's'} open`}</Pill>
-        {c.kind === 'new-fabric' && <Pill tone={c.online?.liveOn ? 'good' : 'neutral'}>{c.online?.liveOn ? `online ${fmtDate(c.online.liveOn)}` : 'online later'}</Pill>}
-      </span>}>
+        <div className="pt-2" />
       {/* ── design setup runs in parallel with the swatches: preset + category +
           fabric code = the DESIGN CODE Shopify sells. The name starts temporary. ── */}
       <Section title={`Designs on this fabric · ${(c.designs ?? []).length}`} owner={<OwnerPill owner="Design" />} right={<Pill tone={(c.designs ?? []).length ? 'good' : 'neutral'}>{(c.designs ?? []).length ? `${(c.designs ?? []).length} product code${(c.designs ?? []).length === 1 ? '' : 's'}` : 'none yet'}</Pill>}>
@@ -310,8 +302,24 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
           : design && c.enigma.configuredOn ? <div className="flex gap-2 items-end"><div className="flex-1"><Field label="Final product name"><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Houndstooth Shirt - Light Grey" /></Field></div><div style={{ width:120 }}><Field label="MRP ₹"><Input value={mrp} onChange={e => setMrp(e.target.value)} /></Field></div><Button size="sm" variant="primary" disabled={!newName.trim() || !Number(mrp)} onClick={() => conceptSetName(c.id, newName.trim(), Number(mrp))}>Set</Button></div>
           : <><div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>The bible's REVISED NAME step — old name, new name, price. Follows the Enigma configuration.</div>{c.enigma.configuredOn && !design && <Who r="Design" does="sets the final name and MRP" />}</>}
       </Section>
-
-      {!c.liveOn && <Section title="Story & live in stores" owner={<OwnerPill owner="Design" />} right={<Pill tone={s.ready ? 'good' : 'neutral'}>{s.ready ? 'ready' : `${s.blockers} open`}</Pill>}>
+      </Section>; })()}
+        </>,
+        'live': <>
+    <Section title="5 · Go live online" defaultOpen={nowKey === 'live'}
+      right={<span className="flex gap-1 flex-wrap justify-end">
+        {c.kind === 'new-fabric' && <Pill tone={c.online?.liveOn ? 'good' : 'accent'}>{c.online?.liveOn ? `online ${fmtDate(c.online.liveOn)}` : 'design to switch on'}</Pill>}
+        <Pill tone={c.liveOn ? 'good' : 'neutral'}>{c.liveOn ? `stores ${fmtDate(c.liveOn)}` : 'stores · after the swatch desk'}</Pill>
+      </span>}>
+      {(() => { const on = c.online; const gates: ['photos' | 'video' | 'post', string, string | null | undefined][] = [['photos', 'Swatch photography', on?.photosOn], ['video', 'Video', on?.videoOn], ['post', 'Post-production · PDP ready', on?.postOn]];
+        const allDone = gates.every(g => g[2]);
+        return <Section title="Live online" owner={<OwnerPill owner="Design" />} right={<Pill tone={on?.liveOn ? 'good' : 'accent'}>{on?.liveOn ? `live ${fmtDate(on.liveOn)}` : `${gates.filter(g => g[2]).length} of 3 · design's call, any time`}</Pill>}>
+          <div className="text-[12.5px] pb-1" style={{ color:'var(--ink-soft)' }}>Its own track, not tied to the swatch desk: design can take a fabric live online whenever the photography, video and post are done. Stores need the physical swatch, so going live in stores waits for Yusuf.</div>
+          {gates.map(([k, label, d]) => <div key={k} className="kv"><span className="k">{label}</span><span className="v flex items-center gap-2 justify-end">{d ? <>{fmtDate(d)}<Pill tone="good">done</Pill></> : design ? <Button size="sm" onClick={() => conceptOnline(c.id, k)}>Mark done</Button> : <span style={{ color:'var(--ink-faint)' }}>{c.liveOn ? 'pending' : 'after stores go live'}</span>}</span></div>)}
+          {on?.liveOn ? <KV k="Online" v={`live ${fmtDate(on.liveOn)}`} note={c.liveOn ? `${Math.round((new Date(on.liveOn).getTime() - new Date(c.liveOn).getTime()) / 864e5)} days after stores` : undefined} />
+            : allDone && design ? <div className="pt-2"><Button variant="primary" onClick={() => conceptOnline(c.id, 'live')}>Go live online</Button></div> : null}
+        </Section>; })()}
+      <div className="pt-2" />
+      {!c.liveOn && !MTM_ONLY && <Section title="Story & live in stores" owner={<OwnerPill owner="Design" />} right={<Pill tone={s.ready ? 'good' : 'neutral'}>{s.ready ? 'ready' : `${s.blockers} open`}</Pill>}>
         {/* what the store and the website say on launch day — the last thing
             design decides, and the one the swatch sticker copies */}
         {c.marketing ? <KV k="The story" v={<span className="text-[12.5px]">{c.marketing.blurb}</span>} note={c.marketing.channels.join(' · ')} /> : null}
@@ -325,20 +333,12 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
         {s.ready && !design && <Who r="Design" does="makes it live" />}
       </Section>}
       {c.kind === 'new-fabric' && (() => { const sw = c.swatch; const steps: [string, string | null | undefined][] = [['bulk received', sw?.inwardOn], ['to swatches', sw?.handoverOn], ['cut', sw?.cutOn], ['sticker', sw?.stickerOn], ['dispatched', sw?.dispatchedOn], ['photos', sw?.photosOn], ['stores told', sw?.storesToldOn], ['live', c.liveOn]];
-        const done = steps.filter(x => x[1]).length; const next = steps.find(x => !x[1]);
+        const stepsShown = MTM_ONLY ? steps.slice(0, 2) : steps;
+        const done = stepsShown.filter(x => x[1]).length; const next = stepsShown.find(x => !x[1]);
         return <Section title="Swatch desk" owner={<OwnerPill owner={next && ['stores told', 'live'].includes(next[0]) ? 'Design' : 'Warehouse'} />} right={<Pill tone={done === steps.length ? 'good' : 'neutral'}>{done} of {steps.length}</Pill>}>
-          <div className="flex gap-1.5 flex-wrap py-1">{steps.map(([k, d]) => <span key={k} className={`pill ${d ? 'good' : ''}`} title={d ? fmtDate(d) : 'not yet'}>{d ? '✓ ' : ''}{k}</span>)}</div>
+          <div className="flex gap-1.5 flex-wrap py-1">{stepsShown.map(([k, d]) => <span key={k} className={`pill ${d ? 'good' : ''}`} title={d ? fmtDate(d) : 'not yet'}>{d ? '✓ ' : ''}{k}</span>)}</div>
           <div className="text-[12.5px] pt-1" style={{ color:'var(--ink-soft)' }}>{sw?.priority && next ? <b style={{ color:'var(--info)' }}>Priority — cut first. </b> : null}{next ? `Next: ${next[0]}. ` : 'Every step done. '}{c.fabricPo || sw ? <a className="cta" href={`#/swatches?open=${c.id}`}>open on the swatch desk →</a> : 'appears on the desk once the PO is pushed.'}</div>
           {sw?.dispatchedOn && !sw.storesToldOn && design && <div className="pt-2"><Button size="sm" onClick={() => conceptSwatch(c.id, 'storesTold')}>Stores told to display it</Button></div>}
-        </Section>; })()}
-
-      {(() => { const on = c.online; const gates: ['photos' | 'video' | 'post', string, string | null | undefined][] = [['photos', 'Swatch photography', on?.photosOn], ['video', 'Video', on?.videoOn], ['post', 'Post-production · PDP ready', on?.postOn]];
-        const allDone = gates.every(g => g[2]);
-        return <Section title="Live online" owner={<OwnerPill owner="Design" />} right={<Pill tone={on?.liveOn ? 'good' : 'accent'}>{on?.liveOn ? `live ${fmtDate(on.liveOn)}` : `${gates.filter(g => g[2]).length} of 3 · design's call, any time`}</Pill>}>
-          <div className="text-[12.5px] pb-1" style={{ color:'var(--ink-soft)' }}>Its own track, not tied to the swatch desk: design can take a fabric live online whenever the photography, video and post are done. Stores need the physical swatch, so going live in stores waits for Yusuf.</div>
-          {gates.map(([k, label, d]) => <div key={k} className="kv"><span className="k">{label}</span><span className="v flex items-center gap-2 justify-end">{d ? <>{fmtDate(d)}<Pill tone="good">done</Pill></> : design ? <Button size="sm" onClick={() => conceptOnline(c.id, k)}>Mark done</Button> : <span style={{ color:'var(--ink-faint)' }}>{c.liveOn ? 'pending' : 'after stores go live'}</span>}</span></div>)}
-          {on?.liveOn ? <KV k="Online" v={`live ${fmtDate(on.liveOn)}`} note={c.liveOn ? `${Math.round((new Date(on.liveOn).getTime() - new Date(c.liveOn).getTime()) / 864e5)} days after stores` : undefined} />
-            : allDone && design ? <div className="pt-2"><Button variant="primary" onClick={() => conceptOnline(c.id, 'live')}>Go live online</Button></div> : null}
         </Section>; })()}
     </Section>
         </>

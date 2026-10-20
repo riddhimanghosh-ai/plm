@@ -21,8 +21,16 @@ import { MTM_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
 
 type Kind = 'MTM' | 'RTW' | 'FOB' | 'Options';
 type Stage = 1 | 2 | 3 | 4 | 5;   // 5 = live / done
-const STAGE_LABEL: Record<Stage, string> = { 1:'1 · Requirement', 2:'2 · Sourcing', 3:'3 · Finalised & ordered', 4:'4 · Downstream', 5:'Live' };
-const STAGE_HINT: Record<Stage, string> = {
+const STAGE_LABEL: Record<Stage, string> = MTM_ONLY
+  ? { 1:'Requirement', 2:'Vendor added · PO pending', 3:'PO punched', 4:'Fabric in · design codes', 5:'Go live online' }
+  : { 1:'1 · Requirement', 2:'2 · Sourcing', 3:'3 · Finalised & ordered', 4:'4 · Downstream', 5:'Live' };
+const STAGE_HINT: Record<Stage, string> = MTM_ONLY ? {
+  1:'design has written what it needs; sourcing has not put a vendor against it yet',
+  2:'a vendor is on the table — design pushes the PO, asks for time, or drops it',
+  3:'the fabric PO is punched and the Enigma code minted; the cloth is on its way',
+  4:'the cloth is in — design adds the designs, pushes them to Enigma and sets consumption',
+  5:'photos, video and post, then design switches it on online; stores follow the swatch desk',
+} : {
   1:'design has written what it needs; not yet with sourcing',
   2:'sourcing is finding and blocking a vendor, or design is deciding on the one on the table',
   3:'the vendor is finalised and the PO is out — the cloth is on its way',
@@ -51,7 +59,10 @@ export function DesignHome() {
     (db.concepts ?? []).filter(c => c.kind === 'new-fabric' && !/^cn-req-/.test(c.id)).forEach((c: Concept) => {
       const f = designFlowOf(db, { kind:'concept', c }); const s = conceptOf(db, c);
       /* 3 = finalised and ordered, cloth not yet in; 4 = cloth in, operations executing */
-      const st: Stage = c.liveOn && c.online?.liveOn ? 5 : c.fabricPo ? (c.swatch?.inwardOn || c.liveOn ? 4 : 3) : (c.fabricOptions ?? []).some(o => !o.rejected) || c.optionsSentOn || c.approvalSentOn ? 2 : 1;
+      /* MTM edition: the stage is the step design is on — the five steps of the flow, in order */
+      const mtmIdx = (['request', 'vendors', 'po', 'fabric-in', 'live'] as const).indexOf(f.now.key as 'request');
+      const st: Stage = MTM_ONLY ? (Math.max(1, Math.min(5, (f.now.state === 'done' ? 5 : mtmIdx + 1))) as Stage)
+        : c.liveOn && c.online?.liveOn ? 5 : c.fabricPo ? (c.swatch?.inwardOn || c.liveOn ? 4 : 3) : (c.fabricOptions ?? []).some(o => !o.rejected) || c.optionsSentOn || c.approvalSentOn ? 2 : 1;
       out.push({ id: c.id, kind:'MTM', name: c.naming.newName ?? c.name, brief: c.brief, raisedBy: c.raisedBy, raisedOn: c.raisedOn, stage: st,
         owner: f.now.state === 'done' ? null : f.now.owner, next: f.now.state === 'done' ? 'live' : (f.now.action ?? f.now.label),
         sourcing: c.fabricPo ? 'finalised' : s.offersWithDesign ? 'design to push PO' : c.optionsExtension && !c.optionsExtension.resolvedOn ? 'extension asked' : c.approvalSentOn ? 'sourcing to add vendors' : null,
@@ -125,7 +136,7 @@ export function DesignHome() {
           { id:'all', label:'All', count: base.length },
           ...([1, 2, 3, 4, 5] as Stage[]).map(s => ({ id: String(s), label: STAGE_LABEL[s], count: count(r => r.stage === s), hint: STAGE_HINT[s] })),
         ]} />
-        <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[{ id:'all', label:'Every kind' }, { id:'MTM', label:'MTM fabric', count: count(r => r.kind === 'MTM') }, ...(MTM_ONLY ? [] : [{ id:'RTW', label:'RTW style', count: count(r => r.kind === 'RTW') }]), ...(OPTIONS_OFF ? [] : [{ id:'Options', label:'Several options', count: count(r => r.kind === 'Options') }])]} />
+        {!MTM_ONLY && <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[{ id:'all', label:'Every kind' }, { id:'MTM', label:'MTM fabric', count: count(r => r.kind === 'MTM') }, ...(MTM_ONLY ? [] : [{ id:'RTW', label:'RTW style', count: count(r => r.kind === 'RTW') }]), ...(OPTIONS_OFF ? [] : [{ id:'Options', label:'Several options', count: count(r => r.kind === 'Options') }])]} />}
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search requirement, fabric, style…" style={{ width: 240 }} aria-label="search requirements" />
         <span className="text-[12px] ml-auto" style={{ color:'var(--ink-faint)' }}>{showAll
           ? <>{rows.length} requirements · <button type="button" className="vlink" onClick={() => set('all', null)}>show the {examples.length} examples</button></>
