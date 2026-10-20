@@ -49,12 +49,12 @@ flowchart TD
 
   subgraph REQ["A · Requirement to fabric PO — the same loop for MTM and RTW"]
     direction TB
-    R1["Design raises a requirement<br/>MTM fabric · several options · RTW style"]:::design
-    R2["Sourcing puts ONE vendor against the cloth<br/>price · MOQ · lead · mill article · hold-until"]:::sourcing
-    R3{"Design decides"}:::design
-    R4["Sourcing extends the hold<br/>or withdraws the vendor"]:::sourcing
-    R5["Design pushes the fabric PO"]:::design
-    E1["Enigma mints the fabric code<br/>fabric master row"]:::enigma
+    R1["<b>DESIGN</b><br/>Design raises a requirement<br/>MTM fabric · several options · RTW style"]:::design
+    R2["<b>SOURCING</b><br/>Sourcing puts ONE vendor against the cloth<br/>price · MOQ · lead · mill article · hold-until"]:::sourcing
+    R3{"<b>DESIGN</b><br/>Design decides"}:::design
+    R4["<b>SOURCING</b><br/>Sourcing extends the hold<br/>or withdraws the vendor"]:::sourcing
+    R5["<b>DESIGN</b><br/>Design pushes the fabric PO"]:::design
+    E1["<b>ENIGMA</b><br/>Enigma mints the fabric code<br/>fabric master row"]:::enigma
     R1 --> R2 --> R3
     R3 -->|more time| R4 --> R3
     R3 -->|push| R5 --> E1
@@ -62,32 +62,32 @@ flowchart TD
 
   subgraph MTM["B · MTM fabric — idea to live"]
     direction TB
-    M1["Warehouse GRN · bulk received<br/>Shravani"]:::wh
-    M2["Swatch desk · Yusuf<br/>cut 25×25 for every store · sticker file · photos"]:::wh
-    M3["Design adds designs on the fabric<br/>one fabric, several designs · temp name → marketing name"]:::design
-    E2["Push to Enigma<br/>design row · attributes · MRP"]:::enigma
-    M4["Swatches dispatched · stores confirm"]:::wh
-    M5["Live in stores"]:::design
-    M6["Online ~2 weeks later<br/>shoot · video · post"]:::design
+    M1["<b>WAREHOUSE · SHRAVANI</b><br/>Warehouse GRN · bulk received<br/>Shravani"]:::wh
+    M2["<b>WAREHOUSE · YUSUF</b><br/>Swatch desk · Yusuf<br/>cut 25×25 for every store · sticker file · photos"]:::wh
+    M3["<b>DESIGN</b><br/>Design adds designs on the fabric<br/>one fabric, several designs · temp name → marketing name"]:::design
+    E2["<b>ENIGMA</b><br/>Push to Enigma<br/>design row · attributes · MRP"]:::enigma
+    M4["<b>WAREHOUSE</b><br/>Swatches dispatched · stores confirm"]:::wh
+    M5["<b>DESIGN</b><br/>Live in stores"]:::design
+    M6["<b>DESIGN · MARKETING</b><br/>Online ~2 weeks later<br/>shoot · video · post"]:::design
     M1 --> M2 --> M4 --> M5 --> M6
     M1 --> M3 --> E2 --> M5
   end
 
   subgraph RTW["C · RTW style — the four-section record"]
     direction TB
-    T1["1 · Request from design<br/>style · qty · size ratio · target price & date<br/>job card · trim card · BOM · tech pack"]:::design
-    T2["2 · Factory finalisation<br/>Nitin proposes factory, cost, date"]:::prod
-    T3{"Design accepts?"}:::design
-    T4["Design raises the factory PO<br/>documents travel with it"]:::design
-    T5["3 · Fabric finalisation<br/>fabric PO auto-fills vendor, code, CPM, metres"]:::sourcing
-    T6["Sourcing sends cloth + trims to the factory"]:::sourcing
-    T7["Factory merchandiser confirms receipt<br/>usable · damaged · trims"]:::prod
-    T8{"Short?"}:::prod
-    T9["Modified ratio or cut short<br/>design decides"]:::design
-    T10["4 · TNA milestones & final steps<br/>samples · PPS · cutting · stitching · finishing · FI · dispatch"]:::prod
-    T11["Warehouse receives the lots"]:::wh
-    T12["Design mints the design code"]:::design
-    T13["Go live · the style sells from stock"]:::design
+    T1["<b>DESIGN</b><br/>1 · Request from design<br/>style · qty · size ratio · target price & date<br/>job card · trim card · BOM · tech pack"]:::design
+    T2["<b>PRODUCTION · NITIN</b><br/>2 · Factory finalisation<br/>Nitin proposes factory, cost, date"]:::prod
+    T3{"<b>DESIGN</b><br/>Design accepts?"}:::design
+    T4["<b>DESIGN</b><br/>Design raises the factory PO<br/>documents travel with it"]:::design
+    T5["<b>SOURCING</b><br/>3 · Fabric finalisation<br/>fabric PO auto-fills vendor, code, CPM, metres"]:::sourcing
+    T6["<b>SOURCING</b><br/>Sourcing sends cloth + trims to the factory"]:::sourcing
+    T7["<b>FACTORY MERCHANDISER</b><br/>Factory merchandiser confirms receipt<br/>usable · damaged · trims"]:::prod
+    T8{"<b>FACTORY MERCHANDISER</b><br/>Short?"}:::prod
+    T9["<b>DESIGN</b><br/>Modified ratio or cut short<br/>design decides"]:::design
+    T10["<b>PRODUCTION · FACTORY MERCHANDISER</b><br/>4 · TNA milestones & final steps<br/>samples · PPS · cutting · stitching · finishing · FI · dispatch"]:::prod
+    T11["<b>WAREHOUSE</b><br/>Warehouse receives the lots"]:::wh
+    T12["<b>DESIGN</b><br/>Design mints the design code"]:::design
+    T13["<b>DESIGN</b><br/>Go live · the style sells from stock"]:::design
     T1 --> T2 --> T3
     T3 -->|reject + comment| T2
     T3 -->|accept| T4
@@ -101,33 +101,33 @@ flowchart TD
 
   subgraph SELL["D · Selling and making for the customer"]
     direction TB
-    S1["Store punches the bill<br/>Shopify → Enigma · fit profile · who measured<br/>comments for factory & shipping · trial / urgent"]:::store
-    S2["MTM daily production<br/>allocate to a factory on capacity · plan · floor"]:::prod
-    S3["Factory makes · QC · dispatch"]:::prod
-    S4["Warehouse round · hemming unit if needed"]:::wh
-    S5["Delivered to store or customer"]:::store
-    S6["Returns & alterations ladder<br/>alter · swap · refit · remake · credit note · refund (HO approval)"]:::store
-    S7["RTW sold from stock<br/>size check · store-to-store ask"]:::store
+    S1["<b>STORE</b><br/>Store punches the bill<br/>Shopify → Enigma · fit profile · who measured<br/>comments for factory & shipping · trial / urgent"]:::store
+    S2["<b>PRODUCTION</b><br/>MTM daily production<br/>allocate to a factory on capacity · plan · floor"]:::prod
+    S3["<b>FACTORY</b><br/>Factory makes · QC · dispatch"]:::prod
+    S4["<b>WAREHOUSE</b><br/>Warehouse round · hemming unit if needed"]:::wh
+    S5["<b>STORE</b><br/>Delivered to store or customer"]:::store
+    S6["<b>STORE · FINANCE</b><br/>Returns & alterations ladder<br/>alter · swap · refit · remake · credit note · refund (HO approval)"]:::store
+    S7["<b>STORE</b><br/>RTW sold from stock<br/>size check · store-to-store ask"]:::store
     S1 -->|MTM| S2 --> S3 --> S4 --> S5 --> S6
     S1 -->|RTW| S7 --> S5
   end
 
   subgraph LOOP["E · Keeping the MTM range healthy"]
     direction TB
-    L1["Weekly core stock review · sourcing<br/>supply status per core fabric · out → escalate to design<br/>design puts it on hold, reactivates when back"]:::sourcing
-    E3["Enigma auto-PO stays in Enigma<br/>reorder point = max(lead-time demand, MOQ) · PO at MOQ"]:::enigma
+    L1["<b>SOURCING</b><br/>Weekly core stock review · sourcing<br/>supply status per core fabric · out → escalate to design<br/>design puts it on hold, reactivates when back"]:::sourcing
+    E3["<b>ENIGMA</b><br/>Enigma auto-PO stays in Enigma<br/>reorder point = max(lead-time demand, MOQ) · PO at MOQ"]:::enigma
     E3 -.->|below reorder point| L1
-    L3["Non-core → core promotion<br/>block at the mill for a period"]:::sourcing
-    L4["Bespoke · mill's daily list<br/>store gate · parcel code"]:::wh
+    L3["<b>SOURCING</b><br/>Non-core → core promotion<br/>block at the mill for a period"]:::sourcing
+    L4["<b>WAREHOUSE</b><br/>Bespoke · mill's daily list<br/>store gate · parcel code"]:::wh
     L1 --> L3
   end
 
   subgraph PLAN["F · Planning — separate for now; nothing flows into it except the inventory update"]
     direction TB
-    P0["Inventory update<br/>GRNs, lots received, stock per store"]:::wh
-    P1["RTW stock health · one record per option<br/>size-wise stock · rate of sale · WIP · display reserve<br/>reorder · pull back · leave"]:::design
-    P2["RTW launches · drops<br/>display & fit pieces per store · marketing name · date"]:::design
-    P3["What is selling<br/>weekly report · DSR · stylist KPI, read live"]:::design
+    P0["<b>WAREHOUSE → PLANNING</b><br/>Inventory update<br/>GRNs, lots received, stock per store"]:::wh
+    P1["<b>PLANNING</b><br/>RTW stock health · one record per option<br/>size-wise stock · rate of sale · WIP · display reserve<br/>reorder · pull back · leave"]:::design
+    P2["<b>PLANNING</b><br/>RTW launches · drops<br/>display & fit pieces per store · marketing name · date"]:::design
+    P3["<b>PLANNING</b><br/>What is selling<br/>weekly report · DSR · stylist KPI, read live"]:::design
     P0 --> P1
     P0 --> P2
     P0 --> P3
