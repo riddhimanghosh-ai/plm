@@ -25,9 +25,10 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
   const [v, setV] = useState(blank);
   const start = (d: ConceptDesign) => { setV({ name: d.name, style: d.style ?? SHIRT_STYLES[0], category: d.category, mrp: d.mrp != null ? String(d.mrp) : '', cost: d.cost != null ? String(d.cost) : '', description: d.description ?? '', buzzwords: d.buzzwords ?? '', productType: d.productType ?? 'CUSTOM_DESIGN', weightGrams: d.weightGrams != null ? String(d.weightGrams) : '', region: d.region ?? 'IND', stockMode: d.stockMode ?? 'track-quantity', status: d.status ?? 'ACTIVE', salesChannel: d.salesChannel ?? '', discountedPrice: d.discountedPrice != null ? String(d.discountedPrice) : '', media: (d.media ?? []).join(', '), sizes: d.sizes ?? ['36', '38', '40', '42', '44', '46'], sizeOptionName: d.sizeOptionName ?? 'Size', newSize: '', vprice: Object.fromEntries((d.variants ?? []).map(x => [x.size, x.price != null ? String(x.price) : ''])), vdisc: Object.fromEntries((d.variants ?? []).map(x => [x.size, x.discountedPrice != null ? String(x.discountedPrice) : ''])) }); setEditId(d.id); setAdding(false); };
   const save = () => {
-    const patch = { name: v.name.trim(), style: v.style, category: v.category, mrp: Number(v.mrp) || null, cost: Number(v.cost) || null, description: v.description.trim() || null, buzzwords: v.buzzwords.trim() || null,
+    const prices = v.sizes.map(sz => Number(v.vprice[sz]) || 0).filter(Boolean);
+    const patch = { name: v.name.trim(), style: v.style, category: v.category, mrp: prices.length ? Math.min(...prices) : (Number(v.mrp) || null), cost: Number(v.cost) || null, description: v.description.trim() || null, buzzwords: v.buzzwords.trim() || null,
       productType: v.productType || null, weightGrams: Number(v.weightGrams) || null, region: v.region, stockMode: v.stockMode, status: v.status, salesChannel: v.salesChannel.trim() || null, discountedPrice: Number(v.discountedPrice) || null, media: v.media.split(',').map(x => x.trim()).filter(Boolean), sizes: v.sizes, sizeOptionName: v.sizeOptionName.trim() || 'Size',
-      variants: v.sizes.map(sz => ({ size: sz, price: Number(v.vprice[sz]) || Number(v.mrp) || null, discountedPrice: Number(v.vdisc[sz]) || null, sku: `${editId ? designs.find(d => d.id === editId)?.code : `BOM-SHI-${v.category === 'Formal' ? 'FM' : 'CS'}-nnnn`}-${sz}` })) };
+      variants: v.sizes.map(sz => ({ size: sz, price: Number(v.vprice[sz]) || (prices[0] ?? null) || Number(v.mrp) || null, discountedPrice: Number(v.vdisc[sz]) || null, sku: `${editId ? designs.find(d => d.id === editId)?.code : `BOM-SHI-${v.category === 'Formal' ? 'FM' : 'CS'}-nnnn`}-${sz}` })) };
     if (editId) conceptUpdateDesign(c.id, editId, patch); else conceptAddDesign(c.id, patch);
     setEditId(null); setAdding(false); setV(blank);
   };
@@ -61,15 +62,11 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
         <div style={{ overflowX:'auto' }}><table className="t compact"><thead><tr><th>Variant</th><th className="num">Price ₹</th><th className="num">Discounted price ₹</th><th>SKU code</th></tr></thead>
           <tbody>{v.sizes.map(sz => <tr key={sz}>
             <td className="mono">{sz}</td>
-            <td className="num"><Input type="number" value={v.vprice[sz] ?? ''} placeholder={v.mrp || '—'} onChange={e => setV({ ...v, vprice: { ...v.vprice, [sz]: e.target.value } })} style={{ width: 110, textAlign:'right' }} /></td>
+            <td className="num"><Input type="number" value={v.vprice[sz] ?? ''} placeholder={Object.values(v.vprice).find(Boolean) || v.mrp || '—'} onChange={e => setV({ ...v, vprice: { ...v.vprice, [sz]: e.target.value } })} style={{ width: 110, textAlign:'right' }} /></td>
             <td className="num"><Input type="number" value={v.vdisc[sz] ?? ''} placeholder="—" onChange={e => setV({ ...v, vdisc: { ...v.vdisc, [sz]: e.target.value } })} style={{ width: 110, textAlign:'right' }} /></td>
             <td className="mono text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{editId ? designs.find(d => d.id === editId)?.code : `BOM-SHI-${v.category === 'Formal' ? 'FM' : 'CS'}-nnnn`}-{sz}</td>
           </tr>)}</tbody></table></div>
-        <div className="text-[11px] pt-1" style={{ color:'var(--ink-faint)' }}>blank price = the MRP; blank discounted = none</div></div>}
-      <div className="vgrid-cap">The money</div>
-      <div style={{ gridColumn:'span 3' }}><Field label="MRP ₹" hint="Enigma's Original Price — the default price of every variant; change it here or per variant, any time, and it goes to Enigma"><Input type="number" value={v.mrp} onChange={e => setV({ ...v, mrp: e.target.value })} /></Field></div>
-      <div style={{ gridColumn:'span 3' }}><Field label="Cost ₹" hint="what the shirt costs to make in this fabric and style" hintOn="label"><Input type="number" value={v.cost} onChange={e => setV({ ...v, cost: e.target.value })} /></Field></div>
-      <div style={{ gridColumn:'span 6' }}><Field label="Margin"><div className="input" style={{ background:'var(--surface-2)', color:'var(--ink-faint)' }}>{Number(v.mrp) && Number(v.cost) ? `${Math.round((1 - Number(v.cost) / Number(v.mrp)) * 100)}% on MRP` : 'MRP and cost'}</div></Field></div>
+        <div className="text-[11px] pt-1" style={{ color:'var(--ink-faint)' }}>the price lives here, per variant — a blank copies the first priced variant; blank discounted = none</div></div>}
       <div className="vgrid-cap">What the customer reads</div>
       <div style={{ gridColumn:'span 8' }}><Field label="Description · PDP" ><Input value={v.description} onChange={e => setV({ ...v, description: e.target.value })} placeholder="A soft-washed houndstooth in 100% cotton, cut for the boardroom" /></Field></div>
       <div style={{ gridColumn:'span 4' }}><Field label="Buzzwords" hint="the fabric's speciality, comma-separated — wrinkle-free, stretch, breathable" hintOn="label"><Input value={v.buzzwords} onChange={e => setV({ ...v, buzzwords: e.target.value })} placeholder="wrinkle-free, breathable" /></Field></div>
