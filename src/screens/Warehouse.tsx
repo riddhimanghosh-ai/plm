@@ -21,7 +21,7 @@ import { PoReceiving } from './PoReceiving';
 export function Warehouse() {
   const { db, role, closeTransfer, resolveShortfall } = useApp();
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') ?? 'vehicle';
+  const tab = params.get('tab') ?? 'today';
   const openId = params.get('open');
   const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); v ? n.set(k, v) : n.delete(k); setParams(n, { replace:true }); };
   const mine = role === 'warehouse' || role === 'owner';
@@ -34,16 +34,18 @@ export function Warehouse() {
   const activeCo = (db.customerOrders ?? []).find(o => o.id === openId) ?? null;
   const transferRows = [...ghost, ...inTransit, ...db.transfers.filter(t => t.closedOn)];
   const exInbound = useExamples(inbound, o => new Date(o.milestones.find(m => m.key === 'Dispatch')!.actual!) > new Date(o.targetInhouse) ? 'late' : 'on time', { noun: 'inbound POs', done: o => o.receipts.reduce((a, r) => a + r.qty, 0) >= o.orderQty });
+  const counts: Record<string, number> = {
+    vehicle: inwardOf(db).reduce((a, x) => a + x.waiting.length, 0), bespoke: bespokeQueue(db).awaiting.length + bespokeQueue(db).toCall.length + bespokeQueue(db).notReportedToday.length, fabric: openFabricPos(db).length, inward: inbound.length,
+    prepare: prepQueue(db).orders.length, xfabric: (db.extraFabric ?? []).filter(r => r.status === 'approved').length, outbound: outboundOf(db).totals.stores,
+    transfers: ghost.length, books: swatchMatrix(db).missing + swatchMatrix(db).overdue,
+  };
   const exTransfers = useExamples(transferRows, t => t.closedOn ? 'closed' : t.arrivedOn ? 'open after arrival' : 'in transit', { noun: 'STOs', done: t => !!t.closedOn });
 
   return (
     <Page title="Warehouse & unit" lede="One unit, three directions: what comes in, what goes out, and what the stores hold."
       replaces="a receiving stage with no system visibility, and STOs left open for weeks — the mechanism behind ghost inventory">
-      <WarehouseNav tab={tab} onTab={t => set('tab', t)} counts={{
-        vehicle: inwardOf(db).reduce((a, x) => a + x.waiting.length, 0), bespoke: bespokeQueue(db).awaiting.length + bespokeQueue(db).toCall.length + bespokeQueue(db).notReportedToday.length, fabric: openFabricPos(db).length, inward: inbound.length,
-        prepare: prepQueue(db).orders.length, xfabric: (db.extraFabric ?? []).filter(r => r.status === 'approved').length, outbound: outboundOf(db).totals.stores,
-        transfers: ghost.length, books: swatchMatrix(db).missing + swatchMatrix(db).overdue,
-      }} />
+      <WarehouseNav tab={tab} onTab={t => set('tab', t)} counts={counts} />
+      {tab === 'today' && <TodayCards counts={counts} onTab={t => set('tab', t)} />}
 
       {tab === 'prepare' && <PrepareTab mine={mine} onOpen={id => set('open', id)} />}
       {tab === 'vehicle' && <InwardTab mine={mine} onOpen={id => set('open', id)} />}
@@ -178,20 +180,38 @@ function FabricGrnTab({ mine }: { mine: boolean }) {
 
 
 
-/* ---------- two-level nav: inbound · outbound · stores ---------- */
-const NAV_GROUPS: { id: string; label: string; tabs: { id: string; label: string }[] }[] = [
-  { id:'in', label:'Coming in · every receipt raises a GRN', tabs:[{ id:'vehicle', label:'Vehicle round · finished MTM shirts back' }, { id:'bespoke', label:'Bespoke fabric · mill stock & parcels' }, { id:'fabric', label:'Fabric rolls · against fabric POs' }, ...(MTM_ONLY ? [] : [{ id:'inward', label:'RTW bulk goods · against POs' }]), { id:'grn', label:'GRN register · every goods received note' }] },
-  { id:'out', label:'Going out', tabs:[{ id:'prepare', label:'Cut fabric & send bundles · to factories' }, { id:'xfabric', label:'Extra fabric · approved, pick & send' }, { id:'outbound', label:'Parcels · to stores' }] },
-  { id:'stores', label:'Stores', tabs:[{ id:'transfers', label:'Stock transfers · STOs to stores' }, { id:'books', label:'Swatch books & fit samples · every store' }, { id:'alterations', label:'Alterations via the hemming unit' }] },
+/* ---------- one flat row of short tabs, and a Today landing that says what is waiting ---------- */
+const WH_TABS: { id: string; label: string; title: string; line: string; cta: string; rtw?: boolean }[] = [
+  { id:'vehicle', label:'Shirts back', title:'Finished MTM shirts back from the factories', line:'The vehicle round — count each piece in against what the factory said was ready.', cta:'Count in' },
+  { id:'bespoke', label:'Bespoke cloth', title:'Bespoke fabric from the mills', line:'Call the mill for cut lengths, book the parcels in, enter the evening stock sheet.', cta:'Open' },
+  { id:'fabric', label:'Fabric rolls', title:'Fabric rolls against open POs', line:'Rolls arrive in parts — update the receiving line on each PO; every update raises a GRN.', cta:'Receive' },
+  { id:'inward', label:'RTW inward', title:'RTW bulk from the factories', line:'Dispatched POs to count and close.', cta:'Count & close', rtw: true },
+  { id:'prepare', label:'Cut & send', title:'Cut fabric and send bundles to the factories', line:'Planned MTM orders waiting for their cloth to be cut and bundled.', cta:'Cut list' },
+  { id:'xfabric', label:'Extra fabric', title:'Extra fabric approved for a factory', line:'Pick and send the approved metres.', cta:'Pick & send' },
+  { id:'outbound', label:'Parcels', title:'Parcels to the stores', line:'Finished shirts, launch pieces and books going out today.', cta:'Pack' },
+  { id:'transfers', label:'STOs', title:'Stock transfers still open', line:'STOs that arrived at the store but are open in the system — ghost inventory until closed.', cta:'Close' },
+  { id:'books', label:'Books & samples', title:'Swatch books and fit samples at every store', line:'Missing or unconfirmed books and worn fit samples.', cta:'Open' },
+  { id:'alterations', label:'Alterations', title:'Alterations via the hemming unit', line:'Pieces from the stores on their way to the hemming unit and back.', cta:'Open' },
+  { id:'grn', label:'GRN register', title:'Goods received notes', line:'Every receipt, with the PO it was received against, for finance.', cta:'Open' },
 ];
+const whTabs = () => WH_TABS.filter(t => !(MTM_ONLY && t.rtw));
 function WarehouseNav({ tab, onTab, counts }: { tab: string; onTab: (t: string) => void; counts: Record<string, number> }) {
-  const group = NAV_GROUPS.find(g => g.tabs.some(t => t.id === tab)) ?? NAV_GROUPS[0];
-  return (
-    <div className="mb-3">
-      <div className="flex gap-1 mb-2">{NAV_GROUPS.map(g => { const n = g.tabs.reduce((a, t) => a + (counts[t.id] ?? 0), 0); return <button key={g.id} type="button" className={`btn ${group.id === g.id ? 'primary' : ''}`} onClick={() => onTab(g.tabs[0].id)}>{g.label}{n ? <span className="mono text-[11px]" style={{ opacity:.75 }}> · {n}</span> : null}</button>; })}</div>
-      <Tabs tabs={group.tabs.map(t => ({ id:t.id, label:t.label, count: counts[t.id] || undefined }))} active={tab} onChange={onTab} />
+  return <div className="mb-3"><Tabs tabs={[{ id:'today', label:'Today' }, ...whTabs().map(t => ({ id:t.id, label:t.label, hint:t.title, count: counts[t.id] || undefined }))]} active={tab} onChange={onTab} wrap /></div>;
+}
+function TodayCards({ counts, onTab }: { counts: Record<string, number>; onTab: (t: string) => void }) {
+  const tabs = whTabs().filter(t => t.id !== 'grn');
+  const waiting = tabs.filter(t => counts[t.id] > 0); const clear = tabs.filter(t => !(counts[t.id] > 0));
+  return <>
+    {waiting.length === 0 && <Card><Empty title="Nothing waiting." body="Every queue is clear — new receipts and dispatches land here as they happen." /></Card>}
+    <div className="grid gap-3" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))' }}>
+      {waiting.map(t => <Card key={t.id} className="p-4 flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2"><div className="font-medium" style={{ fontSize: 14 }}>{t.title}</div><Pill tone="warn">{counts[t.id]}</Pill></div>
+        <div className="text-[12.5px] flex-1" style={{ color:'var(--ink-soft)' }}>{t.line}</div>
+        <div><Button size="sm" variant="primary" onClick={() => onTab(t.id)}>{t.cta} →</Button></div>
+      </Card>)}
     </div>
-  );
+    {clear.length > 0 && <div className="mt-4 text-[12px] flex gap-x-3 gap-y-1 flex-wrap items-center" style={{ color:'var(--ink-faint)' }}><span>Nothing waiting:</span>{clear.map(t => <button key={t.id} type="button" className="vlink" onClick={() => onTab(t.id)}>{t.label}</button>)}</div>}
+  </>;
 }
 
 

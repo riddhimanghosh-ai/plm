@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview } from './domain/types';
+import type { Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
 import { storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
@@ -124,7 +124,9 @@ export interface AppState {
   releaseBlock(blockId: string): void;
   setFabricHold(fabricId: string, hold: boolean): void;
   pauseFabric(fabricId: string, note: string): void;   // design: stop offering it, with a reason
-  renameFabric(fabricId: string, newName: string, note: string): void;   // design: the code stays, the name changes, the old name stays on the record
+  renameFabric(fabricId: string, newName: string, note: string): void;
+  updateFabricInfo(fabricId: string, patch: Partial<Pick<Fabric, 'name' | 'category' | 'productType' | 'vendorCode' | 'composition' | 'widthIn' | 'cpm' | 'onHold' | 'mill' | 'attrs' | 'inventory' | 'thresholdMetres'>>): void;   // Enigma's Edit Fabric Info / Edit Inventory
+  adjustFabricStock(fabricId: string, metres: number, reason: string, desc: string, bin: string | null): void;   // a manual inventory adjustment — signed metres, with the reason Enigma asks for   // design: the code stays, the name changes, the old name stays on the record
   resumeFabric(fabricId: string): void;
   reviewCoreStock(fabricId: string, status: 'ok' | 'delayed' | 'out', note: string, backOn: string | null): void;
   raiseFabricPo(fabricId: string, metres: number): void;
@@ -247,7 +249,7 @@ export interface AppState {
      rejected pieces go back to the factory with the reason on the record */
   receiveRound(factoryId: string, round: { received: string[]; short: string[]; rejected: { id: string; reason: string }[]; vehicle: string; note: string }): void;
   closePlan(planId: string): void;
-  updateVendor(id: string, patch: Partial<Pick<Vendor, 'tailors' | 'distanceKm' | 'leadDays' | 'moq' | 'dailyTarget' | 'corporate' | 'urgentReserve' | 'mtm' | 'location' | 'region' | 'blockWindowDays'>>): void;
+  updateVendor(id: string, patch: Partial<Pick<Vendor, 'tailors' | 'distanceKm' | 'leadDays' | 'moq' | 'dailyTarget' | 'corporate' | 'urgentReserve' | 'mtm' | 'location' | 'region' | 'blockWindowDays' | 'enigma' | 'name'>>): void;
   raiseExtraFabric(input: Pick<ExtraFabricRequest, 'orderId' | 'metres' | 'reason' | 'panel' | 'note'>): void;   // one piece of a bundle, never the whole bundle
   decideExtraFabric(id: string, status: 'approved' | 'declined' | 'sent'): void;
   /* warehouse — bespoke */
@@ -796,6 +798,18 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         f.nameHistory = [...(f.nameHistory ?? []), { name: f.name, until: now(), by: who(), note }];
         f.name = newName.trim(); },
         'Renamed. The code is the same fabric; the old name stays on the record, so the numbers stay one line.');
+    },
+    updateFabricInfo(fabricId, patch) {
+      touch(db => { const f = db.fabrics.find(x => x.id === fabricId); if (!f) return;
+        if (patch.name && patch.name.trim() !== f.name) { f.nameHistory = [...(f.nameHistory ?? []), { name: f.name, until: now(), by: who(), note: 'edited in fabric info' }]; f.name = patch.name.trim(); }
+        const { name: _n, ...rest } = patch; Object.assign(f, rest);
+        if (patch.inventory) f.thresholdMetres = patch.inventory.thresholdMetres; }, 'Saved — Enigma keeps the same fields; this is what goes there.');
+    },
+    adjustFabricStock(fabricId, metres, reason, desc, bin) {
+      touch(db => { const f = db.fabrics.find(x => x.id === fabricId); if (!f || !metres) return;
+        f.stockMetres = Math.max(0, Math.round((f.stockMetres + metres) * 100) / 100);
+        f.transactions = [{ on: now(), orderNo: null, poId: null, type: 'ADJUSTMENT', by: who(), warehouse: f.inventory?.warehouse ?? 'Dadar unit', bin, reason, desc: desc || null, metres }, ...(f.transactions ?? [])]; },
+        `${metres > 0 ? '+' : ''}${metres} m — on the shelf and in the transaction log with the reason.`);
     },
     pauseFabric(fabricId, note) { touch(db => { const f = db.fabrics.find(x => x.id === fabricId); if (f) f.paused = { at: now(), by: who(), note }; },
       'Paused — no store or the website can offer it until design resumes it. The reason is on the record.', 'warn'); },
@@ -1539,7 +1553,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 112,
+  version: 114,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1551,7 +1565,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 112 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 114 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

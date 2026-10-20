@@ -9,7 +9,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { Concept, ConceptRound, SampleArea } from '../domain/types';
 import { conceptOf, designFlowOf, type DesignStepKey, fmtDate, fmtMoney, daysAgo, TODAY, addDays, iso, type ConceptStage } from '../domain/engines';
-import { SAMPLE_AREAS, COLLAR_STYLES, PLACKETS, CUFF_STYLES, ROLE_LABEL, MTM_SWATCH_BOOKS, PEOPLE, COMPOSITION_FAMILIES, MTM_ACTIVE_TARGET } from '../domain/reference';
+import { SAMPLE_AREAS, COLLAR_STYLES, PLACKETS, CUFF_STYLES, ROLE_LABEL, MTM_SWATCH_BOOKS, PEOPLE, MTM_ACTIVE_TARGET } from '../domain/reference';
 import type { RoleId } from '../domain/types';
 import { filesOf } from './Files';
 import { Page, Card, Pill, Button, Drawer, KV, Section, Note, Field, Input, Select, Tabs, Empty, dateInput, fromDateInput, useExamples, type Tone } from '../ui';
@@ -123,7 +123,7 @@ export function NewConcept({ onDone }: { onDone: (id: string) => void }) {
 }
 
 export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean; prod: boolean }) {
-  const { db, role, personId, setPerson, conceptSendPat, conceptAcceptAndRaisePo, conceptSendApproval, conceptConfigureEnigma, conceptSetName, conceptSetMarketing, conceptGoLive, conceptBlockFabric, conceptRaiseFabricPo, priceFabric , conceptSetEnigmaFlags, conceptOnline, conceptSwatch } = useApp();
+  const { db, role, personId, setPerson, conceptSendPat, conceptAcceptAndRaisePo, conceptSendApproval, conceptConfigureEnigma, conceptSetName, conceptSetMarketing, conceptGoLive, conceptBlockFabric, conceptRaiseFabricPo, priceFabric , conceptOnline, conceptSwatch } = useApp();
   const s = conceptOf(db, c);
   const sourcing = role === 'sourcing' || role === 'owner';
   const me = PEOPLE.find(p => p.id === personId);
@@ -134,8 +134,6 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
   const factories = db.vendors.filter(v => v.mtm && v.kind !== 'Hemming unit');
   const [factory, setFactory] = useState(factories[0]?.id ?? '');
   const [tpl, setTpl] = useState(c.enigma.template ?? 'Shirt · standard'); const [base, setBase] = useState(String(c.enigma.consumptionBase ?? 1.6)); const [buf, setBuf] = useState(String(c.enigma.consumptionBuffer ?? 0.15)); const [opts, setOpts] = useState((c.enigma.options.length ? c.enigma.options : (c.spec ? c.spec.split(' · ') : [])).join(', '));
-  const [largeCheck, setLargeCheck] = useState(!!c.enigma.largeCheck);
-  const [family, setFamily] = useState(c.enigma.compositionFamily ?? '');
   const [newName, setNewName] = useState(c.naming.newName ?? ''); const [mrp, setMrp] = useState(String(c.naming.mrp ?? (s.fabric?.mrp ?? '')));
   const [apprText, setApprText] = useState(`${c.name} cleared the shipment sample.`);
   const [blurb, setBlurb] = useState(c.marketing?.blurb ?? ''); const [channels, setChannels] = useState<string[]>(c.marketing?.channels ?? ['Stores', 'Website']);
@@ -262,15 +260,6 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
         </> : <><div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Follows the approval. Template, consumption rule, order-sheet options.</div>{c.approvalSentOn && !design && <Who r="Design" does="configures it in Enigma — template, consumption rule, order-sheet options" />}</>}
       </Section>
 
-      <Section title="Enigma flags that drive the flow" owner={<OwnerPill owner="Design" />} right={<span className="flex gap-1">{c.enigma.largeCheck && <Pill tone="warn">large check</Pill>}{c.enigma.compositionFamily && <Pill tone="neutral">{c.enigma.compositionFamily}</Pill>}</span>}>
-        <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Enigma stays the master for every attribute. Two of them change what happens here: a <b>large check</b> (over about two inches) has to be matched in cutting, so consumption goes up; the <b>composition family</b> is the website filter beside the exact composition.</div>
-        {design ? <div className="flex items-end gap-3 flex-wrap">
-          <label className="flex items-center gap-2 text-[13px] pb-2"><input type="checkbox" checked={largeCheck} onChange={e => setLargeCheck(e.target.checked)} /> Large check / pattern — match in cutting</label>
-          <div style={{ width: 200 }}><Field label="Composition family · website filter"><Select value={family} onChange={setFamily} options={[{ value:'', label:'—' }, ...COMPOSITION_FAMILIES.map(x => ({ value:x, label:x }))]} /></Field></div>
-          <Button size="sm" disabled={largeCheck === !!c.enigma.largeCheck && family === (c.enigma.compositionFamily ?? '')} onClick={() => conceptSetEnigmaFlags(c.id, { largeCheck, compositionFamily: family || null })}>Save</Button>
-          {largeCheck && c.enigma.consumptionBase != null && <span className="text-[11.5px]" style={{ color:'var(--warn)' }}>consumption on the order sheet reads {c.enigma.consumptionBase} m + {c.enigma.consumptionBuffer} m + matching</span>}
-        </div> : <><KV k="Large check" v={c.enigma.largeCheck ? 'yes — matched in cutting, consumption up' : 'no'} /><KV k="Composition family" v={c.enigma.compositionFamily ?? '—'} /></>}
-      </Section>
 
       <Section title="Name & price" owner={<OwnerPill owner="Design" />} right={<Pill tone={c.naming.setOn ? 'good' : 'neutral'}>{c.naming.setOn ? 'set' : 'pending'}</Pill>}>
         <KV k="Working name" v={c.naming.oldName ?? c.name} note="design's name on the request — kept, never overwritten" />

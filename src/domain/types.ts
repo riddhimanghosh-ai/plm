@@ -25,6 +25,8 @@ export interface Vendor {
   onTimeRate: number;            // 0..1
   moq: number;
   blockWindowDays: number;       // how long a mill holds a block (fabric vendors only)
+  /* Enigma's Vendor Information block on the fabric master, kept once per mill (20 Oct 2026) */
+  enigma?: { vendorCode: string | null; country: string | null; description: string | null; currency: 'INR' | 'USD' | 'EUR'; tatHours: number | null } | null;
   /* MTM factories — the planning inputs Swati studies by hand today */
   mtm?: boolean;                 // takes single-piece MTM orders
   tailors?: number;              // masters on the floor; × pieces per tailor per day = nominal capacity
@@ -405,7 +407,23 @@ export interface Fabric {
      analytics screen keys on the code and shows the current name, so "ABCD
      sold in July, BCDC sells in August" reads as one fabric, not two. */
   nameHistory?: { name: string; until: string; by: string; note: string }[];
+  /* ---- Enigma's fabric master, as its Edit Fabric Info screen has it (20 Oct 2026) ---- */
+  category?: string | null;        // 'Shirts'
+  productType?: string | null;     // 'Fabric'
+  mill?: FabricMill | null;        // the Vendor Information block
+  attrs?: FabricAttrs | null;      // the Dynamic Attributes for Shirts block
+  inventory?: FabricInventory | null;   // the Edit Inventory block
+  transactions?: FabricTxn[];      // manual adjustments — GRNs and issues are derived from the records that made them
 }
+export interface FabricMill { country: string | null; description: string | null; currency: 'INR' | 'USD' | 'EUR'; costPerUnit: number | null; tatHours: number | null; moq: number | null; mills: string | null }
+export interface FabricAttrs {
+  panna?: number | null; bigChecked?: boolean; threadCount?: string | null; ply?: string | null; wrinkleResistance?: string | null; stretch?: string | null;
+  consumedIn?: string | null; construction?: string | null; compositionFamily?: string | null; washed?: boolean; washcare?: string | null; weightClass?: string | null;
+  weaveDescription?: string | null; pattern?: string | null; colour?: string | null; contrastFabric?: boolean; piping?: boolean; isCutroll?: boolean; isUniform?: boolean; weave?: string | null;
+}
+export interface FabricInventory { warehouse: string; thresholdMetres: number; maxMetres: number | null; autoReplenish: boolean; bins: { bin: string; metres: number }[] }
+export type FabricTxnType = 'GRN' | 'ISSUE' | 'ADJUSTMENT' | 'RETURN';
+export interface FabricTxn { on: string; orderNo: string | null; poId: string | null; type: FabricTxnType; by: string; warehouse: string; bin: string | null; reason: string | null; desc: string | null; metres: number }
 
 /* Trims, labels, buttons and packaging are NOT bought per style — head office
    buys them in bulk against a forecast and the unit holds them. A production

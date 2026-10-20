@@ -1049,6 +1049,26 @@ fabrics.filter(f => f.international && f.bucket === 'NON_CORE').slice(0, 6).forE
   if (i % 2 === 0) { f.stockMetres = int(20, 90); f.incomingMetres = 0; }   // some are already under the line, waiting on a person
 });
 
+/* ---------- Enigma's Vendor Information — once per mill ---------- */
+VENDORS.filter(v => v.kind.endsWith('mill')).forEach((v, i) => {
+  const intl = v.kind === 'International mill';
+  v.enigma = { vendorCode: `${VCODE[v.id] ?? v.name.slice(0, 2).toUpperCase()}-${String(100 + i).padStart(3, '0')}`, country: intl ? (v.location.split(',').pop()?.trim() ?? 'Italy') : 'India', description: `${v.name} · ${v.location}`, currency: intl ? 'EUR' : 'INR', tatHours: v.leadDays * 24 };
+});
+
+/* ---------- Enigma's fabric master — the attribute block its Edit Fabric Info screen shows ---------- */
+fabrics.forEach((f, i) => {
+  const v = V(f.vendorId); const comp = f.composition ?? '100% cotton'; const words = f.name.split(' ');
+  const weave = ['Poplin', 'Twill', 'Oxford', 'Dobby', 'Herringbone', 'Plain'].find(w => f.name.includes(w)) ?? (/linen/i.test(comp) ? 'Plain' : 'Poplin');
+  const pattern = ['Stripes', 'Checks', 'Print'].find(w => f.name.includes(w)) ?? 'Solid';
+  f.category = 'Shirts'; f.productType = 'Fabric';
+  f.mill = { country: v.enigma?.country ?? 'India', description: v.enigma?.description ?? v.name, currency: v.kind === 'International mill' ? 'EUR' : 'INR', costPerUnit: f.cpm ?? null, tatHours: v.leadDays * 24, moq: f.bucket === 'CORE' ? 300 : f.bucket === 'NON_CORE' ? 150 : 1, mills: v.name };
+  f.attrs = { panna: f.widthIn ?? null, bigChecked: pattern === 'Checks' && i % 3 === 0, threadCount: /2-ply|100s/.test(comp) ? '100s' : /linen/i.test(comp) ? '40s' : '60s', ply: /2-ply/i.test(comp) ? '2-Ply' : 'Single', wrinkleResistance: /linen/i.test(comp) ? 'Wrinkle Prone' : i % 4 === 0 ? 'Wrinkle Resistant' : 'Easy Iron', stretch: i % 7 === 0 ? 'Mechanical Stretch' : 'No Stretch',
+    consumedIn: 'Shirts', construction: weave === 'Oxford' ? 'Basket' : 'Plain', compositionFamily: /linen/i.test(comp) ? 'Linen blend' : /lyocell/i.test(comp) ? 'Cotton-lyocell' : /2-ply|100s/.test(comp) ? 'Giza / 2-ply' : 'Cotton', washed: i % 5 === 0, washcare: 'Machine wash cold · do not bleach · iron medium',
+    weightClass: /linen|oxford/i.test(f.name) ? 'Medium' : 'Light', weaveDescription: `${weave} weave`, pattern, colour: words.slice(words.indexOf('-') + 1).join(' ') || null, contrastFabric: false, piping: false, isCutroll: f.bucket === 'BESPOKE', isUniform: false, weave };
+  f.inventory = { warehouse: 'Dadar unit', thresholdMetres: f.thresholdMetres, maxMetres: f.bucket === 'CORE' ? 600 : f.bucket === 'NON_CORE' ? 250 : null, autoReplenish: f.bucket === 'CORE' && !f.international, bins: f.bucket === 'BESPOKE' ? [] : [{ bin: `R${1 + (i % 9)}-${String.fromCharCode(65 + (i % 6))}`, metres: f.stockMetres }] };
+  if (i % 11 === 0 && f.bucket !== 'BESPOKE') f.transactions = [{ on: iso(addDays(TODAY, -int(2, 20))), orderNo: null, poId: null, type: 'ADJUSTMENT', by: 'Shravani', warehouse: 'Dadar unit', bin: f.inventory.bins[0]?.bin ?? null, reason: pick(['Physical count', 'Damaged roll', 'Shade variation']), desc: pick(['count differed from the system by one roll', 'end of roll water-stained', 'last 6 m off-shade — cut for samples']), metres: -pick([4, 6, 12]) }];
+});
+
 /* ---------- core stock status — sourcing's weekly supplier check ------------ */
 fabrics.filter(f => f.bucket === 'CORE').forEach((f, i) => {
   const r = (i * 7919) % 100;

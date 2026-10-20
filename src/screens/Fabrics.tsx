@@ -20,6 +20,7 @@ import { Field, Input, dateInput, fromDateInput } from '../ui';
 import { STORES, STORE_LOW_METRES, METRES_PER_SHIRT, MTM_SWATCH_BOOKS, MTM_ACTIVE_TARGET } from '../domain/reference';
 import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, KV, Section, Bars, usePager, Pager, Seg, useExamples, Select, ExportButton } from '../ui';
 import { ActsBy } from './Who';
+import { FabricInfo } from './FabricInfo';
 
 /* design's own shorthand — one click instead of a sentence typed 35 times */
 const PAUSE_REASONS = ['Shade being retired', 'Quality doubt', 'Book changing', 'Not selling'];
@@ -81,22 +82,6 @@ export function Fabrics() {
 
   /* What the reorder point has already done about it — the auto-PO made visible
      on the row it belongs to, instead of being a sentence about Enigma. */
-  const ReorderCell = ({ f, c }: { f: Fabric; c: ReturnType<typeof coverageOf> }) => {
-    const po = fpoOpen.filter(p => p.fabricId === f.id).sort((a, b) => b.raisedOn.localeCompare(a.raisedOn))[0];
-    if (po) return <div className="text-[11.5px]">
-      <Pill tone={po.vendorConfirmedOn ? 'good' : 'info'}>{po.source === 'auto' ? 'Enigma raised it' : 'raised by hand'}</Pill>
-      <div style={{ color:'var(--ink-soft)' }}>{po.metres} m · {fmtRel(po.raisedOn)}</div>
-      <div style={{ color:'var(--ink-faint)' }}>{po.vendorConfirmedOn ? `mill ships ${fmtDate(po.expectedOn)}` : 'mill has not confirmed'}</div>
-      <button type="button" className="cta" onClick={() => set('tab', 'pos')}>open the PO →</button>
-    </div>;
-    if (!c.belowRop) return <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>above the point — nothing to do</span>;
-    return <div className="text-[11.5px]">
-      {f.international
-        ? <><Pill tone="warn">no automation</Pill><div style={{ color:'var(--ink-soft)' }}>international — a person raises it</div></>
-        : <><Pill tone="info">Enigma fires tonight</Pill><div style={{ color:'var(--ink-soft)' }}>{c.suggestedPo} m — the mill's MOQ</div></>}
-      {(canPlan || canSource) && <div className="mt-1"><Button size="sm" variant="primary" onClick={() => raiseFabricPo(f.id, c.suggestedPo)}>Raise it now · {c.suggestedPo} m</Button></div>}
-    </div>;
-  };
   const lead = (vid: string) => db.vendors.find(v => v.id === vid)?.leadDays ?? 14;
   const vendorName = (id: string) => db.vendors.find(v => v.id === id)?.name ?? '—';
 
@@ -173,50 +158,41 @@ export function Fabrics() {
       {tab === 'trims' && <TrimsTab />}
 
       {tab === 'core' && <>
-        <div className="mb-3"><Note tone={awaitingPo.filter(x => !x.f.international).length ? 'warn' : undefined}>
-          <b>The reorder point is max(what sells while the mill makes it, the mill's MOQ)</b>, and the PO is the MOQ. Under it, a <b>domestic</b> fabric is Enigma's own auto-PO — the one piece of automation in the company; an <b>international</b> one is a person with a spreadsheet, which is why {intlBelow.length} of the {belowRop.length} under the point {intlBelow.length === 1 ? 'is' : 'are'} still waiting. Every row below says what actually happened to its reorder, not what is supposed to happen.</Note></div>
-        <div className="flex gap-1.5 flex-wrap mb-2">
-          {([['all', `All ${core.length}`], ['manual', `Raise the PO by hand ${toRaiseByHand.length}`], ['intl', `International ${core.filter(x => x.f.international).length}`], ['below', `Under the point ${belowRop.length}`], ['soldout', `Sold out, still sellable ${soldOutLive.length}`], ['paused', `Paused by design ${core.filter(x => x.f.paused).length}`], ['off', `Switched off ${core.filter(x => x.f.onHold).length}`], ['unchecked', `Mill check due ${reviewDue.length}`]] as const).map(([k, label]) =>
+        <div className="flex gap-1.5 flex-wrap mb-2 items-center">
+          {([['all', `All ${core.length}`], ['unchecked', `Review due ${reviewDue.length}`], ['below', `Under the reorder point ${belowRop.length}`], ['manual', `PO by hand ${toRaiseByHand.length}`], ['off', `Switched off ${core.filter(x => x.f.onHold).length}`]] as const).map(([k, label]) =>
             <button key={k} type="button" className={`btn sm ${coreFilter === k ? 'primary' : ''}`} onClick={() => setCoreFilter(k)}>{label}</button>)}
           {exCore.strip && <span className="ml-auto self-center">{exCore.strip}</span>}
         </div>
         <Card><div style={{ overflowX:'auto' }}><table className="t compact">
-          <thead><tr><th>Fabric</th><th>Mill</th><th>Stock &amp; cover</th><th>Reorder point</th><th>The reorder — what happened</th><th>What the mill said · weekly</th><th>Can stores sell it?</th></tr></thead>
-          <tbody>{corePager.pageRows.map(({ f, c }) => <tr key={f.id} className="row" onClick={() => set('open', f.id)} style={{ background: review === f.id ? 'var(--accent-soft)' : undefined }}>
-            <td className="font-medium" style={{ whiteSpace:'normal', minWidth: 170 }}>{f.name}<div className="text-[11px] font-normal mono" style={{ color:'var(--ink-faint)' }}>{f.code}{f.swatchBook ? ` · ${f.swatchBook}` : ''}</div>{!f.coreBlock && <div className="mt-1"><Pill tone="risk">no supply block</Pill></div>}</td>
-            <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{vendorName(f.vendorId)}{f.vendorCode && <span className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}> · {f.vendorCode}</span>}<div className="text-[10.5px]" style={{ color: f.international ? 'var(--warn)' : 'var(--ink-faint)' }}>{f.international ? `International · ${lead(f.vendorId)}d lead` : `Domestic · ${lead(f.vendorId)}d lead`}</div></td>
-            {/* one cell, because these four numbers are one sentence: what is left, what is coming, how fast it sells, how long it lasts */}
-            <td style={{ whiteSpace:'normal', minWidth: 150 }}>
-              <div className="mono text-[13px]" style={{ color: c.saleable <= 0 ? 'var(--risk)' : undefined }}>{c.saleable} m saleable</div>
-              <div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{c.incoming ? <span style={{ color:'var(--info)' }}>+{c.incoming} m on order · </span> : null}{c.ros.toFixed(1)} shirts/wk</div>
-              <div className="text-[11px]" style={{ color: c.coverDays < lead(f.vendorId) ? 'var(--risk)' : 'var(--ink-faint)' }}>{c.coverDays > 365 ? 'no sales to measure' : `${c.coverDays} days of cover`}{c.coverDays < lead(f.vendorId) && c.coverDays <= 365 ? ` · mill takes ${lead(f.vendorId)}d` : ''}</div>
+          <thead><tr><th>Fabric</th><th>Mill</th><th className="num">Saleable</th><th>Reorder</th><th>Mill said</th><th>Weekly review</th><th>Selling</th></tr></thead>
+          <tbody>{corePager.pageRows.map(({ f, c }) => { const po = fpoOpen.filter(p => p.fabricId === f.id).sort((a, b) => b.raisedOn.localeCompare(a.raisedOn))[0]; const due = !f.supply || daysAgo(f.supply.reviewedOn) >= 7; const editing = review === f.id; return <tr key={f.id} className="row" onClick={() => set('open', f.id)} style={{ background: editing ? 'var(--accent-soft)' : undefined }}>
+            <td className="font-medium" style={{ whiteSpace:'normal', minWidth: 160 }}>{f.name}<div className="text-[11px] font-normal mono" style={{ color:'var(--ink-faint)' }}>{f.code}</div></td>
+            <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{vendorName(f.vendorId)}<div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{f.international ? 'international' : 'domestic'} · {lead(f.vendorId)}d</div></td>
+            <td className="num mono" style={{ color: c.saleable <= 0 ? 'var(--risk)' : undefined }}>{c.saleable} m{c.incoming ? <div className="text-[10.5px]" style={{ color:'var(--info)' }}>+{c.incoming} m on order</div> : null}</td>
+            <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'normal' }}>
+              {po ? <Pill tone={po.vendorConfirmedOn ? 'good' : 'info'}>PO {po.metres} m · {po.source === 'auto' ? 'Enigma' : 'by hand'}</Pill>
+                : !c.belowRop ? <Pill tone="good">above {c.rop} m</Pill>
+                : f.international ? <span className="flex gap-1 items-center flex-wrap"><Pill tone="risk">under {c.rop} m</Pill>{(canPlan || canSource) && <Button size="sm" variant="primary" onClick={() => raiseFabricPo(f.id, c.suggestedPo)}>Raise PO · {c.suggestedPo} m</Button>}</span>
+                : <Pill tone="info">under {c.rop} m · Enigma fires tonight</Pill>}
             </td>
-            <td style={{ whiteSpace:'normal', minWidth: 120 }}><div className="mono text-[13px]">{c.rop} m</div>
-              <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{c.leadDemand >= c.moq ? `${lead(f.vendorId)} days of sales` : `the mill's MOQ`}</div>
-              {c.belowRop ? <Pill tone="risk">under it</Pill> : c.saleable <= 0 ? <Pill tone="info">covered by the PO</Pill> : <Pill tone="good">above it</Pill>}</td>
-            <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'normal', minWidth: 170 }}><ReorderCell f={f} c={c} /></td>
-            <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'normal', minWidth: 190 }}>
-              {f.supply ? <><Pill tone={f.supply.status === 'ok' ? 'good' : f.supply.status === 'delayed' ? 'warn' : 'risk'}>{f.supply.status === 'ok' ? 'mill has it' : f.supply.status === 'delayed' ? 'mill delayed' : 'mill run out'}</Pill><div className="text-[11px]" style={{ color: daysAgo(f.supply.reviewedOn) >= 7 ? 'var(--warn)' : 'var(--ink-faint)' }}>asked {fmtRel(f.supply.reviewedOn)} · {f.supply.by}{daysAgo(f.supply.reviewedOn) >= 7 ? ' · due again' : ''}</div>{f.supply.note && <div className="text-[11px]" style={{ color:'var(--ink-soft)' }}>“{f.supply.note}”{f.supply.backOn ? ` · back ${fmtDate(f.supply.backOn)}` : ''}</div>}</>
-                : <Pill tone="warn">never asked</Pill>}
-              {canSource && review !== f.id && <div className="mt-1"><Button size="sm" variant={!f.supply || daysAgo(f.supply.reviewedOn) >= 7 ? 'primary' : 'ghost'} onClick={() => beginReview(f)}>Asked the mill…</Button></div>}
+            <td style={{ whiteSpace:'normal' }}>{f.supply ? <><Pill tone={f.supply.status === 'ok' ? 'good' : f.supply.status === 'delayed' ? 'warn' : 'risk'}>{f.supply.status === 'ok' ? 'in stock' : f.supply.status === 'delayed' ? 'delayed' : 'run out'}</Pill><div className="text-[10.5px]" style={{ color: due ? 'var(--warn)' : 'var(--ink-faint)' }}>{fmtRel(f.supply.reviewedOn)}{f.supply.backOn ? ` · back ${fmtDate(f.supply.backOn)}` : ''}</div></> : <Pill tone="warn">never asked</Pill>}</td>
+            <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'normal', minWidth: editing ? 420 : 120 }}>
+              {!canSource ? <span className="text-[11px]" style={{ color:'var(--ink-faint)' }}>sourcing</span>
+                : !editing ? <Button size="sm" variant={due ? 'primary' : 'ghost'} onClick={() => beginReview(f)}>{due ? 'Review' : 'Update'}</Button>
+                : <div className="flex gap-1.5 items-center flex-wrap">
+                  <Select value={rvStatus} onChange={v => setRvStatus(v as 'ok' | 'delayed' | 'out')} options={[{ value:'ok', label:'In stock' }, { value:'delayed', label:'Delayed' }, { value:'out', label:'Run out' }]} />
+                  {rvStatus !== 'ok' && <Input type="date" value={rvBack} onChange={e => setRvBack(e.target.value)} title="back in stock by" style={{ width: 140 }} />}
+                  <Input value={rvNote} onChange={e => setRvNote(e.target.value)} placeholder="note" style={{ width: 150 }} />
+                  <Button size="sm" variant="primary" onClick={saveReview}>Save</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setReview(null)}>Cancel</Button>
+                </div>}
             </td>
-            <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'normal', minWidth: 190 }}><OfferCell f={f} /></td>
-          </tr>)}</tbody>
+            <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'normal', minWidth: 150 }}><OfferCell f={f} /></td>
+          </tr>; })}</tbody>
         </table></div>
         <Pager page={corePager.page} pageCount={corePager.pageCount} onChange={corePager.setPage} from={corePager.from} to={corePager.to} total={corePager.total} noun="core fabrics" />
-        {review && (() => { const f = db.fabrics.find(x => x.id === review)!; return <div className="px-4 py-3" style={{ borderTop:'1px solid var(--line)' }}>
-          <div className="label">{f.name} · {vendorName(f.vendorId)} — what did the supplier say this week?</div>
-          <div className="flex gap-1 mb-2">{([['ok','In stock, on schedule'],['delayed','Delayed past the committed date'],['out','Run out at the supplier']] as const).map(([k, l]) => <button key={k} type="button" className={`btn sm ${rvStatus === k ? 'primary' : ''}`} onClick={() => setRvStatus(k)}>{l}</button>)}</div>
-          <div className="grid gap-2.5 items-end" style={{ gridTemplateColumns: rvStatus === 'ok' ? '1fr auto auto' : '160px 1fr auto auto' }}>
-            {rvStatus !== 'ok' && <Field label="Back in stock by" hint="leave blank if the supplier has no date"><Input type="date" value={rvBack} onChange={e => setRvBack(e.target.value)} /></Field>}
-            <Field label="Note" hint={rvStatus === 'ok' ? 'optional — e.g. 600 m received Tuesday' : 'goes to Neha and design as the reason'}><Input value={rvNote} onChange={e => setRvNote(e.target.value)} placeholder={rvStatus === 'ok' ? 'in stock' : 'e.g. dyeing backlog — dispatch a week past commitment'} /></Field>
-            <Button variant="primary" size="sm" onClick={saveReview}>{rvStatus === 'ok' ? 'Save · in stock' : 'Save · escalate to design'}</Button>
-            <Button size="sm" variant="ghost" onClick={() => setReview(null)}>Cancel</Button>
-          </div>
-        </div>; })()}
         </Card>
-        <div className="mt-3 flex flex-col gap-2"><Note>A supplier delay or run-out becomes the fabric's status here, and design sees "switch it off" on their Today.</Note>
-        <Note>Reorder point = (mill lead time + weekly review) × projected metres per week.</Note></div>
+        <div className="mt-3"><Note>Once a week sourcing asks each mill about every core fabric. Delayed or run out goes to design, who switch the fabric off; back in stock, they switch it on.</Note></div>
       </>}
 
       {tab === 'noncore' && <>
@@ -356,12 +332,11 @@ function Fabric360({ f, canSource, canPlan }: { f: Fabric; canSource: boolean; c
       </>}
       <KV k="Family / range" v={f.family} note={range ? `${familyHealthy} healthy of ${range.targetOptions} planned in this family` : undefined} />
       <KV k="Fabric vendor" v={<VendorLink id={mill.id}>{mill.name}</VendorLink>} note={`${mill.kind} · ${mill.location} · ${mill.leadDays}d measured lead · ${Math.round(mill.onTimeRate * 100)}% on time`} />
-      {f.vendorCode && <KV k="Vendor article" v={<span className="mono">{f.vendorCode}</span>} note="what goes on the PO — the mill does not know our code" />}
-      {(f.composition || f.widthIn) && <KV k="Composition · width" v={`${f.composition ?? '—'}${f.widthIn ? ` · ${f.widthIn}" panna` : ''}`} />}
-      {(f.cpm || f.mrp) && <KV k="Price" v={`${f.cpm ? `₹${f.cpm}/m` : '—'}${f.mrp ? ` · shirt MRP ₹${f.mrp.toLocaleString('en-IN')}` : ''}`} />}
       {f.swatchBook && <KV k="Swatch book" v={f.swatchBook} note="where the store finds it" />}
       {f.international && <div className="pt-2"><Note tone="warn">International — Enigma's auto-PO does not reach this fabric. Reordering is a person's job, and the reorder point below is what that person should act on.</Note></div>}
     </Section>
+
+    <FabricInfo f={f} editable={canDesign || canSource} />
 
     {f.bucket === 'BESPOKE' && <Section title="Mill availability" right={f.millAvailable === false ? <Pill tone="risk">sold out at mill</Pill> : <Pill tone="good">available</Pill>}>
       <KV k="Mill last reported" v={f.millAvailable === false ? 'Sold out' : f.millStockMetres != null ? `${f.millStockMetres} m at the mill` : 'Available'} note={`${fmtRel(f.millReportedAt)} · the mill's stock is the inventory; the warehouse enters it from the evening sheet`} />

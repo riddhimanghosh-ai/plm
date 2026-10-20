@@ -56,9 +56,28 @@ export function VendorDrawer() {
 const GRADE_TONE: Record<string, Tone> = { Reliable:'good', Watch:'warn', Poor:'risk', 'Too new':'neutral' };
 
 function Vendor360({ v, s }: { v: Vendor; s: ReturnType<typeof vendorStatsOf> }) {
-  const { db } = useApp();
+  const { db, role, updateVendor } = useApp();
   const isMill = v.kind.endsWith('mill');
+  const canEdit = role === 'sourcing' || role === 'owner';
+  const [ve, setVe] = useState<null | { name: string; vendorCode: string; country: string; description: string; currency: 'INR' | 'USD' | 'EUR'; tatHours: string; moq: string }>(null);
   return <>
+    {isMill && <Section title="Vendor information · as in Enigma" right={canEdit && !ve ? <Button size="sm" onClick={() => setVe({ name: v.name, vendorCode: v.enigma?.vendorCode ?? '', country: v.enigma?.country ?? '', description: v.enigma?.description ?? '', currency: v.enigma?.currency ?? 'INR', tatHours: v.enigma?.tatHours != null ? String(v.enigma.tatHours) : '', moq: String(v.moq) })}>Edit</Button> : undefined}>
+      {ve ? <>
+        <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+          <Field label="Vendor Name"><Input value={ve.name} onChange={e => setVe({ ...ve, name: e.target.value })} /></Field>
+          <Field label="Vendor Code"><Input value={ve.vendorCode} onChange={e => setVe({ ...ve, vendorCode: e.target.value })} /></Field>
+          <Field label="Mill Country"><Input value={ve.country} onChange={e => setVe({ ...ve, country: e.target.value })} /></Field>
+          <Field label="Mill Description"><Input value={ve.description} onChange={e => setVe({ ...ve, description: e.target.value })} /></Field>
+          <Field label="Currency"><Select value={ve.currency} onChange={x => setVe({ ...ve, currency: x as 'INR' | 'USD' | 'EUR' })} options={['INR', 'USD', 'EUR'].map(x => ({ value: x, label: x }))} /></Field>
+          <Field label="TAT (hours)"><Input type="number" value={ve.tatHours} onChange={e => setVe({ ...ve, tatHours: e.target.value })} /></Field>
+          <Field label="MOQ (m)"><Input type="number" value={ve.moq} onChange={e => setVe({ ...ve, moq: e.target.value })} /></Field>
+        </div>
+        <div className="flex gap-2 pt-3"><Button size="sm" variant="primary" onClick={() => { updateVendor(v.id, { name: ve.name.trim() || v.name, moq: Number(ve.moq) || 0, enigma: { vendorCode: ve.vendorCode || null, country: ve.country || null, description: ve.description || null, currency: ve.currency, tatHours: ve.tatHours === '' ? null : Number(ve.tatHours) } }); setVe(null); }}>Save</Button><Button size="sm" variant="ghost" onClick={() => setVe(null)}>Cancel</Button></div>
+      </> : <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 24 }}>
+        <div><KV k="Vendor Name" v={v.name} /><KV k="Vendor Code" v={<span className="mono">{v.enigma?.vendorCode ?? '—'}</span>} /><KV k="Mill Country" v={v.enigma?.country ?? '—'} /><KV k="Mill Description" v={v.enigma?.description ?? '—'} /></div>
+        <div><KV k="Currency" v={v.enigma?.currency ?? 'INR'} /><KV k="TAT (hours)" v={v.enigma?.tatHours != null ? `${v.enigma.tatHours} h` : '—'} note={`${v.leadDays} days lead`} /><KV k="MOQ" v={`${v.moq} m`} /><KV k="Cost per Unit" v="per fabric — on each fabric's record" /></div>
+      </div>}
+    </Section>}
     {v.mtm && (() => { const l = factoryLoadOf(db, v.id); return <Section title="MTM floor · today" right={<Pill tone={l.load > 2 ? 'warn' : 'good'}>{l.load.toFixed(1)}d load</Pill>}>
       <KV k="Average out / day" v={`${l.avgOut} pcs`} note={`last ${l.daily.length} days: ${l.daily.join(' · ')} · nominal ${l.nominal} (${v.tailors} tailors × 12)`} />
       <KV k="In factory now" v={`${l.wip.length} pcs`} note={l.aging.length ? `${l.aging.length} aging past 5 days` : 'nothing aging'} />

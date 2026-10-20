@@ -203,8 +203,8 @@ export function Pager({ page, pageCount, onChange, from, to, total, noun = 'rows
   );
 }
 
-export function Tabs({ tabs, active, onChange }: { tabs: { id: string; label: string; count?: number; hint?: string }[]; active: string; onChange: (id: string) => void }) {
-  return <div className="tabs" role="tablist">{tabs.map(t => <button key={t.id} role="tab" aria-selected={t.id === active} title={t.hint ?? t.label} className={`tab ${t.id === active ? 'on' : ''}`} onClick={() => onChange(t.id)}>
+export function Tabs({ tabs, active, onChange, wrap }: { tabs: { id: string; label: string; count?: number; hint?: string }[]; active: string; onChange: (id: string) => void; wrap?: boolean }) {
+  return <div className={`tabs${wrap ? ' wrap' : ''}`} role="tablist">{tabs.map(t => <button key={t.id} role="tab" aria-selected={t.id === active} title={t.hint ?? t.label} className={`tab ${t.id === active ? 'on' : ''}`} onClick={() => onChange(t.id)}>
     <span className="tab-l">{t.label}</span>{t.count != null && t.count > 0 && <span className="pill">{t.count}</span>}</button>)}</div>;
 }
 
@@ -351,7 +351,12 @@ export function Section({ title, right, owner, children, collapsible = true, def
         (an owner pill, an action) and a button inside a button is invalid HTML */}
     {collapsible
       ? <div className="sec-head flex items-center justify-between gap-2 pr-4" style={{ borderBottom: shut ? 0 : '1px solid var(--line-soft)' }}>
-          <button type="button" aria-expanded={shown} onClick={() => setOpen(!shown)}
+          <button type="button" aria-expanded={shown} onClick={() => { const next = !shown; setOpen(next);
+              /* opening scrolls the section to the top of the drawer, so it reads from its heading down, not from wherever the click landed */
+              if (next) requestAnimationFrame(() => { const el = card.current; if (!el) return; const d = el.closest('.drawer') as HTMLElement | null;
+                if (!d) { el.scrollIntoView({ block:'start', behavior:'smooth' }); return; }
+                const sticky = [...d.children].filter(x => getComputedStyle(x).position === 'sticky').reduce((a, x) => a + x.getBoundingClientRect().height, 0);
+                d.scrollTo({ top: el.getBoundingClientRect().top - d.getBoundingClientRect().top + d.scrollTop - sticky - 8, behavior:'smooth' }); }); }}
             className="flex-1 flex items-center gap-2 px-4 py-2.5 cursor-pointer min-w-0"
             style={{ background:'transparent', border:0, font:'inherit', textAlign:'left' }}>
             {head}
