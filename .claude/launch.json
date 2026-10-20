@@ -9,6 +9,15 @@
         "dev"
       ],
       "port": 5175
+    },
+    {
+      "name": "bsc-plm-mtm",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:mtm"
+      ],
+      "port": 5176
     }
   ]
 }

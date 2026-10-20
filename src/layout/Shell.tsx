@@ -5,6 +5,7 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../store';
 import { PEOPLE, ROLE_LABEL, STORES } from '../domain/reference';
+import { MTM_ONLY, RTW_PATHS, EDITION_LABEL } from '../domain/edition';
 import type { RoleId } from '../domain/types';
 import { Toasts, Select, Button } from '../ui';
 import { VendorDrawer } from '../screens/Vendors';
@@ -73,7 +74,7 @@ export function Shell() {
   /* design and planning work from the one Design requirements screen; the per-record lists stay reachable by link and drawer */
   /* Walkthrough mode is a super admin: every screen, whoever you are signed in
      as. Off, each team sees only the screens it works in. */
-  const items = demoAll ? NAV : NAV.filter(n => n.roles.includes(role) && !(n.hideFor ?? []).includes(myRole));
+  const items = (demoAll ? NAV : NAV.filter(n => n.roles.includes(role) && !(n.hideFor ?? []).includes(myRole))).filter(n => !MTM_ONLY || !RTW_PATHS.includes(n.path));
   const allowedItems = NAV.filter(n => n.roles.includes(role));
   /* a path that is not a screen at all (the old /concepts, /requests, /requirements redirects) passes through to the router untouched — with its query intact */
   const allowed = loc.pathname === '/' || !NAV.some(n => loc.pathname.startsWith(n.path)) || allowedItems.some(n => loc.pathname.startsWith(n.path));
@@ -95,7 +96,7 @@ export function Shell() {
       <aside className="flex flex-col gap-4 px-3 py-4 sticky top-0 h-screen overflow-y-auto" style={{ background:'var(--sidebar)', color:'var(--sidebar-ink)' }}>
         <div className="px-2">
           <div className="uppercase leading-none" style={{ fontFamily:'var(--display)', fontWeight:700, fontSize:22, letterSpacing:'.08em' }}>BSC <span style={{ color:'var(--sidebar-soft)' }}>PLM</span></div>
-          <div className="text-[11px] uppercase tracking-[.12em] mt-1" style={{ color:'var(--sidebar-soft)' }}>Bombay Shirt Company</div>
+          <div className="text-[11px] uppercase tracking-[.12em] mt-1" style={{ color:'var(--sidebar-soft)' }}>Bombay Shirt Company{EDITION_LABEL ? ` · ${EDITION_LABEL} edition` : ''}</div>
         </div>
 
         <div className="px-1"><SearchHint /></div>
@@ -152,7 +153,7 @@ export function Shell() {
           {!demoAll && <>
             <div className="text-[11px] uppercase tracking-[.1em]" style={{ color:'var(--sidebar-soft)' }}>Signed in as</div>
             <Select value={personId} onChange={setPerson} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
-              groups={(Object.keys(ROLE_LABEL) as RoleId[]).map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
+              groups={(Object.keys(ROLE_LABEL) as RoleId[]).filter(r => !MTM_ONLY || r !== 'planning').map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
           </>}
           {myRole === 'merchandiser' && !demoAll && <Select value={factoryId} onChange={setFactory} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
             options={db.vendors.filter(v => v.mtm && v.kind !== 'Hemming unit').map(v => ({ value:v.id, label:v.name }))} />}

@@ -17,6 +17,7 @@ import { FILE_LABELS } from '../domain/reference';
 
 import { RISK_TONE } from './Tracker';
 import { ActsBy } from './Who';
+import { MTM_ONLY } from '../domain/edition';
 
 /** A vendor name that opens the 360. Keeps whatever click is already on the row from firing. */
 export function VendorLink({ id, children, className }: { id: string | null; children?: React.ReactNode; className?: string }) {
@@ -220,7 +221,7 @@ export function VendorTable({ kind }: { kind: 'factories' | 'mills' }) {
 /* ---------- Factory master — the numbers the rules run on, editable --------- */
 export function FactoryMasterTab({ mine }: { mine: boolean }) {
   const { db, updateVendor } = useApp();
-  const rows = db.vendors.filter(v => v.kind.endsWith('factory') || v.kind === 'Hemming unit').map(v => ({ v, l: factoryLoadOf(db, v.id) }));
+  const rows = db.vendors.filter(v => (v.kind.endsWith('factory') || v.kind === 'Hemming unit') && (!MTM_ONLY || v.mtm || v.kind === 'Hemming unit')).map(v => ({ v, l: factoryLoadOf(db, v.id) }));
   const ex = useExamples(rows, r => r.l.load > 2.5 ? 'heavy load' : r.l.load > 1.5 ? 'busy' : 'light', { noun: 'factories', done: r => r.l.load <= 1.5 && r.l.overdue.length === 0 && r.l.aging.length === 0 });
   const pager = usePager(ex.rows, 20);
   const Num = ({ v, k, step = 1 }: { v: typeof rows[number]['v']; k: 'tailors' | 'distanceKm' | 'leadDays' | 'dailyTarget'; step?: number }) => mine

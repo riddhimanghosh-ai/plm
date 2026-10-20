@@ -9,6 +9,7 @@ import { Page, Card, Pill, Button, Note, Empty, Tabs, useExamples } from '../ui'
 import { FabricOutTab } from './FabricOut';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
+import { MTM_ONLY } from '../domain/edition';
 
 /* One screen, three things that leave the unit for a factory: the order-sheet
    bundles, the extra cloth a factory has asked for, and the RTW bulk materials
@@ -26,7 +27,7 @@ export function OutboundPage() {
       <Tabs active={tab} onChange={set} tabs={[
         { id:'bundles', label:'MTM bundles · cut & dispatch', count: ob.totals.factoryPcs },
         { id:'fabric', label:'Extra fabric · the cut list', count: toPick },
-        { id:'rtw', label:'RTW bulk · materials to issue', count: ob.rtwIssue.length },
+        ...(MTM_ONLY ? [] : [{ id:'rtw', label:'RTW bulk · materials to issue', count: ob.rtwIssue.length }]),
       ]} />
       {tab === 'fabric' ? <FabricOutTab /> : <OutboundTab side="factories" onTab={set} rtw={tab === 'rtw'} />}
     </Page>

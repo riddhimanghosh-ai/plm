@@ -15,6 +15,7 @@ import { outboundOf } from '../domain/engines';
 import { Page, Card, Pill, Input, Button, Drawer, KV, Section, Note, Tabs, Empty, useExamples } from '../ui';
 import { ActsBy, OwnerPill } from './Who';
 import { UnitAlterations } from './HemTrip';
+import { MTM_ONLY } from '../domain/edition';
 
 export function Warehouse() {
   const { db, role, closeTransfer, resolveShortfall } = useApp();
@@ -177,7 +178,7 @@ function FabricGrnTab({ mine }: { mine: boolean }) {
 
 /* ---------- two-level nav: inbound · outbound · stores ---------- */
 const NAV_GROUPS: { id: string; label: string; tabs: { id: string; label: string }[] }[] = [
-  { id:'in', label:'Coming in · every receipt raises a GRN', tabs:[{ id:'vehicle', label:'Vehicle round · finished MTM shirts back' }, { id:'bespoke', label:'Bespoke fabric · mill stock & parcels' }, { id:'fabric', label:'Fabric rolls · against fabric POs' }, { id:'inward', label:'RTW bulk goods · against POs' }, { id:'grn', label:'GRN register · every goods received note' }] },
+  { id:'in', label:'Coming in · every receipt raises a GRN', tabs:[{ id:'vehicle', label:'Vehicle round · finished MTM shirts back' }, { id:'bespoke', label:'Bespoke fabric · mill stock & parcels' }, { id:'fabric', label:'Fabric rolls · against fabric POs' }, ...(MTM_ONLY ? [] : [{ id:'inward', label:'RTW bulk goods · against POs' }]), { id:'grn', label:'GRN register · every goods received note' }] },
   { id:'out', label:'Going out', tabs:[{ id:'prepare', label:'Cut fabric & send bundles · to factories' }, { id:'xfabric', label:'Extra fabric · approved, pick & send' }, { id:'outbound', label:'Parcels · to stores' }] },
   { id:'stores', label:'Stores', tabs:[{ id:'transfers', label:'Stock transfers · STOs to stores' }, { id:'books', label:'Swatch books & fit samples · every store' }, { id:'alterations', label:'Alterations via the hemming unit' }] },
 ];

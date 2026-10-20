@@ -29,6 +29,7 @@ import { GrnPage } from './screens/Warehouse';
 import { Health } from './screens/Health';
 import { Planning } from './screens/Planning';
 import { Fabrics } from './screens/Fabrics';
+import { MTM_ONLY } from './domain/edition';
 
 /* No Today screen: each role lands on the first screen it works in. */
 function Landing() {
@@ -43,19 +44,19 @@ export default function App() {
         <Route element={<Shell />}>
           <Route index element={<Landing />} />
           <Route path="/requests" element={<ToDesign kind="Options" form="options" />} />
-          <Route path="/requirements" element={<ToDesign kind="RTW" form="rtw" />} />
+          <Route path="/requirements" element={MTM_ONLY ? <Navigate to="/design" replace /> : <ToDesign kind="RTW" form="rtw" />} />
           <Route path="/sourcing" element={<Sourcing />} />
-          <Route path="/tracker" element={<Tracker />} />
+          <Route path="/tracker" element={MTM_ONLY ? <Navigate to="/" replace /> : <Tracker />} />
           <Route path="/factory" element={<Factory />} />
           <Route path="/mtm" element={<Mtm />} />
           <Route path="/outbound" element={<OutboundPage />} />
-          <Route path="/otif" element={<Otif />} />
+          <Route path="/otif" element={MTM_ONLY ? <Navigate to="/" replace /> : <Otif />} />
           <Route path="/warehouse" element={<Warehouse />} />
           <Route path="/stores" element={<Stores />} />
-          <Route path="/health" element={<Health />} />
-          <Route path="/planning" element={<Planning />} />
-          <Route path="/launches" element={<Launches />} />
-          <Route path="/insights" element={<Insights />} />
+          <Route path="/health" element={MTM_ONLY ? <Navigate to="/" replace /> : <Health />} />
+          <Route path="/planning" element={MTM_ONLY ? <Navigate to="/" replace /> : <Planning />} />
+          <Route path="/launches" element={MTM_ONLY ? <Navigate to="/" replace /> : <Launches />} />
+          <Route path="/insights" element={MTM_ONLY ? <Navigate to="/" replace /> : <Insights />} />
           <Route path="/grn" element={<GrnPage />} />
           <Route path="/concepts" element={<ToDesign kind="MTM" form="mtm" />} />
           <Route path="/swatches" element={<Swatches />} />

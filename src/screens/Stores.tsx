@@ -16,6 +16,7 @@ import { FILE_LABELS } from '../domain/reference';
 import { SheetChangePanel, SheetEditor, SheetView, SheetHistory, emptyDraft, type SheetDraft } from './OrderSheet';
 import { ActsBy } from './Who';
 import { HemTripSection } from './HemTrip';
+import { MTM_ONLY } from '../domain/edition';
 
 export function Stores() {
   const { db, role, storeId, confirmSwatch, raiseReturn, updateReturn, punchBill, redeemCredit, cancelOrder, requestStock, respondStockRequest, receiveLaunch, fulfilOrder, receiveSwatchBook, } = useApp();
@@ -61,17 +62,17 @@ export function Stores() {
     { id:'customers', label:'Customers', kids: [{ id:'customers', label:'Search & 360' }] },
     { id:'orders', label:'Orders', kids: [
       { id:'mtm-orders', label:'MTM · made to measure', count: openMtm.length },
-      { id:'rtw-orders', label:'RTW · ready-to-wear, sold from stock', count: openRtw.length },
+      ...(MTM_ONLY ? [] : [{ id:'rtw-orders', label:'RTW · ready-to-wear, sold from stock', count: openRtw.length }]),
     ] },
     { id:'sell', label:'What I can sell', kids: [
       { id:'fabrics', label:'MTM fabrics · live today' },
-      { id:'shelves', label:'RTW · every store\'s shelf', count: displaysOwedOf(db, storeId).length, hint:'who sells what off the rack, size by size, and whose window is empty' },
+      ...(MTM_ONLY ? [] : [{ id:'shelves', label:'RTW · every store\'s shelf', count: displaysOwedOf(db, storeId).length, hint:'who sells what off the rack, size by size, and whose window is empty' }]),
       { id:'swatches', label:'Swatches, books & fit samples', count: swatches.length + books.length + fitSetOf(db, storeId).gaps.length },
     ] },
     { id:'stock', label:'Stock in & out', kids: [
       { id:'inward', label:'Received from the unit', count: storeInboundOf(db, storeId).filter(x => x.kind === 'sto' || x.kind === 'mtm' || x.kind === 'rtw').length },
       { id:'requests', label:'Stock asks · other stores', count: toMe.length + mineOpen.length },
-      { id:'launches', label:'Launches · display pieces', count: launchToConfirm },
+      ...(MTM_ONLY ? [] : [{ id:'launches', label:'Launches · display pieces', count: launchToConfirm }]),
       { id:'pullback', label:'Pull back · slow stock', count: pullBack.length },
       { id:'damaged', label:'Damaged & unsellable', count: (db.writeOffs ?? []).filter(w => w.storeId === storeId && daysAgo(w.at) <= 30).length },
     ] },

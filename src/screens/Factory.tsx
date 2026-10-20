@@ -18,6 +18,7 @@ import { ThreadPanel } from './Thread';
 import { SheetView } from './OrderSheet';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
+import { MTM_ONLY } from '../domain/edition';
 
 const STAGE_TONE: Record<string, Tone> = { 'in-transit':'info', 'in-factory':'info', 'out-factory':'good', rts:'good' };
 const stageLabel = (id: string) => MTM_STAGES.find(s => s.id === id)?.label ?? id;
@@ -30,7 +31,7 @@ export function Factory() {
   const tab = params.get('tab') ?? 'today';
   const sideParam = params.get('side');
   const mine = role === 'merchandiser' || role === 'owner';
-  const factories = db.vendors.filter(v => (v.mtm || v.kind.endsWith('factory')) && v.kind !== 'Hemming unit');
+  const factories = db.vendors.filter(v => (v.mtm || (!MTM_ONLY && v.kind.endsWith('factory'))) && v.kind !== 'Hemming unit');
   const v = factories.find(x => x.id === factoryId) ?? factories[0];
   if (!v) return <Page title="My factory"><Card><Empty title="No MTM factory." body="" /></Card></Page>;
   const l = factoryLoadOf(db, v.id);
@@ -41,7 +42,7 @@ export function Factory() {
   const rtw = db.orders.filter(o => o.vendorId === v.id && o.status === 'Open').sort((a, b) => a.targetInhouse.localeCompare(b.targetInhouse));
   const rtwDone = db.orders.filter(o => o.vendorId === v.id && o.status === 'Closed').sort((a, b) => (b.poDate ?? '').localeCompare(a.poDate ?? ''));
   /* two different jobs on one floor: customer shirts by the piece, and bulk POs by the hundred */
-  const side: 'mtm' | 'rtw' = (sideParam as 'mtm' | 'rtw' | null) ?? (v.mtm ? 'mtm' : 'rtw');
+  const side: 'mtm' | 'rtw' = MTM_ONLY ? 'mtm' : ((sideParam as 'mtm' | 'rtw' | null) ?? (v.mtm ? 'mtm' : 'rtw'));
   const setSide = (k: string) => { const n = new URLSearchParams(params); n.set('side', k); n.delete('tab'); n.delete('open'); setParams(n, { replace:true }); };
   const openRtw = rtw.find(o => o.id === params.get('open')) ?? null;
   const keyed = (db.factoryOutputs ?? []).filter(f => f.factoryId === v.id).sort((a, b) => b.date.localeCompare(a.date));
@@ -52,10 +53,10 @@ export function Factory() {
       actions={<div style={{ width: 220 }}><Field label="Factory"><Select value={v.id} onChange={setFactory} options={factories.map(f => ({ value:f.id, label:f.name }))} /></Field></div>}>
       {!mine && <div className="mb-2"><ActsBy role="merchandiser" does="runs this floor — keys in the day's output, reads the changes and asks for cloth" inline /></div>}
 
-      <div className="mb-3"><Seg value={side} onChange={setSide} options={[
+      {!MTM_ONLY && <div className="mb-3"><Seg value={side} onChange={setSide} options={[
         { id:'mtm', label:'MTM · customer shirts, by the piece', count: orders.length, hint: v.mtm ? undefined : 'this factory does not stitch made-to-measure' },
         { id:'rtw', label:'RTW · bulk purchase orders', count: rtw.length },
-      ]} /></div>
+      ]} /></div>}
 
       {side === 'mtm' && <>
         <Tabs active={tab} onChange={t => set('tab', t)} tabs={[

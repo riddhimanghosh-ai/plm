@@ -19,6 +19,7 @@ import { Page, Card, Pill, Button, Drawer, KV, Section, Note, Field, Input, Sele
 import { VendorLink } from './Vendors';
 import { RecordTail } from './RecordTail';
 import { ActsBy, OwnerPill } from './Who';
+import { catLabel } from '../domain/edition';
 
 /* Three things a slot can be waiting on, said the same way everywhere:
    sourcing to add vendors · design to push PO · extension asked.
@@ -67,7 +68,7 @@ export function OptionRequests() {
         </tr></thead>
         <tbody>{rows.map(r => { const s = summarise(r);
           return <tr key={r.id} className="row" onClick={() => set('open', r.id)}>
-            <td><div className="font-medium">{r.reqNo} · {r.category} · {r.optionCount} options</div><div className="text-[11.5px]" style={{ color:'var(--ink-faint)', maxWidth: 420, whiteSpace:'normal' }}>{r.brief}</div><div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{r.raisedBy} · {fmtDate(r.raisedOn)} · {daysAgo(r.raisedOn)}d ago</div></td>
+            <td><div className="font-medium">{r.reqNo} · {catLabel(r.category)} · {r.optionCount} options</div><div className="text-[11.5px]" style={{ color:'var(--ink-faint)', maxWidth: 420, whiteSpace:'normal' }}>{r.brief}</div><div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{r.raisedBy} · {fmtDate(r.raisedOn)} · {daysAgo(r.raisedOn)}d ago</div></td>
             <td>
               {/* a dot per option in the colour of the team holding it — green done, grey closed */}
               <div className="flex gap-1 flex-wrap mb-1">{r.options.map(o => <span key={o.id} title={`Option ${o.index}${o.note ? ` · ${o.note}` : ''} — ${STATUS[o.status].label}`} className="dot" style={{ width: 10, height: 10, background: o.status === 'po-raised' ? 'var(--good)' : o.status === 'closed' ? 'var(--line)' : `var(--role-${STATUS[o.status].owner})` }} />)}</div>

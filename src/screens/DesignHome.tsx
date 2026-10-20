@@ -17,6 +17,7 @@ import { ConceptDetail, NewConcept } from './Concepts';
 import { RequirementDetail, NewRequirement } from './Requirements';
 import { RequestDetail, NewRequest } from './OptionRequests';
 import type { SourcingMode } from '../domain/types';
+import { MTM_ONLY, catLabel } from '../domain/edition';
 
 type Kind = 'MTM' | 'RTW' | 'FOB' | 'Options';
 type Stage = 1 | 2 | 3 | 4 | 5;   // 5 = live / done
@@ -57,7 +58,7 @@ export function DesignHome() {
         href: c.id });
     });
     /* RTW and FOB requirements */
-    db.orders.filter(o => o.status !== 'Cancelled').forEach((o: ProductionOrder) => {
+    db.orders.filter(o => o.status !== 'Cancelled' && !MTM_ONLY).forEach((o: ProductionOrder) => {
       const f = designFlowOf(db, { kind:'order', o }); const mode = sourcingModeOf(o); const ss = sourcingStateOf(o);
       const launch = (db.launches ?? []).find(l => l.orderId === o.id);
       const poDone = mode === 'fob-nominated' ? !!o.fobNomination?.emailedOn : mode === 'vendor-sources' ? o.status !== 'Requirement' : !!o.sourcing?.fabricPo;
@@ -76,7 +77,7 @@ export function DesignHome() {
       const withDesign = live.filter(o => o.status === 'with-design').length, ext = live.filter(o => o.status === 'extension').length, open = live.filter(o => o.status === 'open').length;
       const st: Stage = live.length > 0 && done === live.length ? 3 : done > 0 || withDesign > 0 || ext > 0 || open > 0 ? 2 : 1;   // options: 3 once every option has its PO; their cloth then runs as concepts
       const owner: RoleId | null = withDesign > 0 ? 'design' : (open > 0 || ext > 0) ? 'sourcing' : null;
-      out.push({ id: r.id, kind:'Options', name: `${r.reqNo} · ${r.category}`, brief: `${r.optionCount} options · ${r.brief}`, raisedBy: r.raisedBy, raisedOn: r.raisedOn, stage: st, owner,
+      out.push({ id: r.id, kind:'Options', name: `${r.reqNo} · ${catLabel(r.category)}`, brief: `${r.optionCount} options · ${r.brief}`, raisedBy: r.raisedBy, raisedOn: r.raisedOn, stage: st, owner,
         next: withDesign ? `push PO on ${withDesign} option${withDesign === 1 ? '' : 's'}` : ext ? `${ext} extension${ext === 1 ? '' : 's'} asked` : open ? `sourcing to add vendors on ${open}` : done ? `${done} PO raised · swatches next` : 'send',
         sourcing: `${done} PO raised · ${withDesign} design to push PO · ${open} sourcing to add vendors${ext ? ` · ${ext} extension asked` : ''}`, href: r.id });
     });
@@ -124,7 +125,7 @@ export function DesignHome() {
           { id:'all', label:'All', count: base.length },
           ...([1, 2, 3, 4, 5] as Stage[]).map(s => ({ id: String(s), label: STAGE_LABEL[s], count: count(r => r.stage === s), hint: STAGE_HINT[s] })),
         ]} />
-        <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[{ id:'all', label:'Every kind' }, { id:'MTM', label:'MTM fabric', count: count(r => r.kind === 'MTM') }, { id:'RTW', label:'RTW style', count: count(r => r.kind === 'RTW') }, { id:'Options', label:'Several options', count: count(r => r.kind === 'Options') }]} />
+        <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[{ id:'all', label:'Every kind' }, { id:'MTM', label:'MTM fabric', count: count(r => r.kind === 'MTM') }, ...(MTM_ONLY ? [] : [{ id:'RTW', label:'RTW style', count: count(r => r.kind === 'RTW') }]), { id:'Options', label:'Several options', count: count(r => r.kind === 'Options') }]} />
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search requirement, fabric, style…" style={{ width: 240 }} aria-label="search requirements" />
         <span className="text-[12px] ml-auto" style={{ color:'var(--ink-faint)' }}>{showAll
           ? <>{rows.length} requirements · <button type="button" className="vlink" onClick={() => set('all', null)}>show the {examples.length} examples</button></>
@@ -154,7 +155,7 @@ export function DesignHome() {
           {([
             { k:'MTM' as Kind, go:'mtm', title:'An MTM fabric', body:'One new fabric for the swatch books — a working name, why, the book it fills, when it is wanted, a reference. Sampled first; then sourcing puts one vendor against it.' },
             { k:'Options' as Kind, go:'options', title:'Several fabric options at once', body:'"Ten options for shirts" — a category, a count, a brief, a BOM. Sourcing puts one vendor against each option; design pushes the PO on each.' },
-            { k:'RTW' as Kind, go:'rtw', title:'An RTW style', body:'One bulk style — qty, size ratio, target price and date, the cloth brief, the BOM and tech pack. Production proposes a factory; design accepts and raises the PO; sourcing buys the cloth and sends it to the factory.' },
+            ...(MTM_ONLY ? [] : [{ k:'RTW' as Kind, go:'rtw', title:'An RTW style', body:'One bulk style — qty, size ratio, target price and date, the cloth brief, the BOM and tech pack. Production proposes a factory; design accepts and raises the PO; sourcing buys the cloth and sends it to the factory.' }]),
           ]).map(x => <button key={x.k} type="button" className="card text-left p-4" style={{ cursor:'pointer', font:'inherit', border:'1px solid var(--line)' }} onClick={() => set('new', x.go)}>
             <div className="flex items-center gap-2 mb-1"><span className={`pill role-${KIND_TONE[x.k]}`}>{x.k === 'Options' ? 'options' : x.k}</span><span className="font-semibold">{x.title}</span></div>
             <div className="text-[12.5px]" style={{ color:'var(--ink-soft)' }}>{x.body}</div>
@@ -182,7 +183,7 @@ export function DesignHome() {
         subtitle={activeOrder && activeRow && <><span className={`pill role-${KIND_TONE[activeRow.kind]}`}>{activeRow.kind}</span><Pill tone={activeRow.stage === 5 ? 'good' : 'neutral'}>{STAGE_LABEL[activeRow.stage]}</Pill><span>{activeOrder.category} · {activeOrder.subCategory}</span></>}>
         {activeOrder && <RequirementDetail o={activeOrder} editable={design && activeOrder.status === 'Requirement'} editableAlloc={role === 'planning' || role === 'owner'} />}
       </Drawer>
-      <Drawer open={!!activeRequest} onClose={() => set('open', null)} title={activeRequest ? `${activeRequest.reqNo} · ${activeRequest.category}` : ''}
+      <Drawer open={!!activeRequest} onClose={() => set('open', null)} title={activeRequest ? `${activeRequest.reqNo} · ${catLabel(activeRequest.category)}` : ''}
         subtitle={activeRequest && activeRow && <><span className="pill role-sourcing">options</span><Pill tone={activeRow.stage === 3 ? 'good' : 'neutral'}>{STAGE_LABEL[activeRow.stage]}</Pill><span>{activeRequest.raisedBy} · {fmtDate(activeRequest.raisedOn)}{activeRequest.liveBy ? ` · live by ${activeRequest.liveBy}` : ''}</span></>}>
         {activeRequest && <RequestDetail r={activeRequest} focusOptionId={params.get('slot')} />}
       </Drawer>

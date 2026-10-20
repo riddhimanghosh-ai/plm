@@ -23,6 +23,7 @@ import { ActsBy } from './Who';
 import { MaterialsCoverSection, FabricFinalisationSection, SizeGrid } from './RtwGates';
 import { fabricStateOf, designFlowOf, conceptOf, openFabricPos, rtwDocsOf } from '../domain/engines';
 import type { Concept, OptionRequest } from '../domain/types';
+import { MTM_ONLY, catLabel } from '../domain/edition';
 
 export function Sourcing() {
   const { db } = useApp();
@@ -65,7 +66,7 @@ export function Sourcing() {
   const ex = useExamples(filtered, o => rowState(o).key, { noun:'styles', done: o => rowState(o).key === 'received' });
   const pager = usePager(ex.rows, 20);
   const TONE: Record<string, Tone> = { neutral:'neutral', info:'info', warn:'warn', risk:'risk', good:'good', accent:'accent' };
-  const side = (params.get('side') as 'mtm' | 'rtw' | null) ?? 'rtw';
+  const side = MTM_ONLY ? 'mtm' : ((params.get('side') as 'mtm' | 'rtw' | null) ?? 'rtw');
   const setSide = (k: string) => { const n = new URLSearchParams(params); n.set('side', k); n.delete('open'); setParams(n, { replace:true }); };
   /* one short phrase per state — the long sentence lives on the record */
   const shortLabel = (key: string, label: string) => ({ 'add-vendor':'put a vendor', 'with-design':'with design · push the PO', extension:'extend the hold', 'wait-factory':'fabric PO raised · no factory yet', bought:'fabric PO raised · send it', sent:'at the factory · being counted', received:'received', short:'short at the factory', 'ratio-asked':'short · design deciding the cut', 'ratio-given':'short · new ratio given' } as Record<string, string>)[key] ?? label;
@@ -74,10 +75,10 @@ export function Sourcing() {
   return (
     <Page title="Fabric sourcing" lede="Sourcing's desk: new MTM fabrics to find a mill for, and the cloth to buy and send for every RTW purchase order."
       replaces="five vendor emails a morning, a price remembered from last season, a WhatsApp to design asking 'which one?'">
-      <div className="mb-3"><Seg value={side} onChange={setSide} options={[
+      {!MTM_ONLY && <div className="mb-3"><Seg value={side} onChange={setSide} options={[
         { id:'mtm', label:'MTM · new fabrics for the books', count: mtmRows.filter(r => r.mine).length },
         { id:'rtw', label:'RTW · cloth for bulk styles', count: sorted.filter(o => rowState(o).owner === 'sourcing').length },
-      ]} /></div>
+      ]} /></div>}
 
       {side === 'mtm' && <MtmSourcing rows={mtmRows} onOpen={id => open(id)} />}
 
@@ -117,7 +118,7 @@ export function Sourcing() {
       <Drawer open={!!activeConcept} onClose={() => open(null)} title={activeConcept ? (activeConcept.naming.newName ?? activeConcept.name) : ''} subtitle={activeConcept && <span>MTM fabric · {activeConcept.book ?? 'no book named'}{activeConcept.targetMonth ? ` · wanted by ${activeConcept.targetMonth}` : ''}</span>}>
         {activeConcept && <MtmBrief c={activeConcept} />}
       </Drawer>
-      <Drawer open={!!activeRequest} onClose={() => open(null)} title={activeRequest ? `${activeRequest.reqNo} · ${activeRequest.category}` : ''}>
+      <Drawer open={!!activeRequest} onClose={() => open(null)} title={activeRequest ? `${activeRequest.reqNo} · ${catLabel(activeRequest.category)}` : ''}>
         {activeRequest && <RequestDetail r={activeRequest} focusOptionId={params.get('slot')} />}
       </Drawer>
       <Drawer open={!!active} onClose={() => open(null)} title={active?.styleName ?? ''} subtitle={active && <><Pill tone={TONE[rowState(active).tone]}>{shortLabel(rowState(active).key, rowState(active).label)}</Pill><span>{active.orderQty} pcs · {active.poNo ?? 'no PO yet'} · in-house by {fmtDate(active.targetInhouse)}</span></>}>
@@ -429,7 +430,7 @@ function mtmSourcingRows(db: ReturnType<typeof useApp>['db']): MtmRow[] {
   (db.optionRequests ?? []).forEach((r: OptionRequest) => {
     const live = r.options.filter(o => o.status !== 'closed'); const open = live.filter(o => o.status === 'open').length; const ext = live.filter(o => o.status === 'extension').length; const done = live.filter(o => o.status === 'po-raised').length; const withDesign = live.filter(o => o.status === 'with-design').length;
     if (!live.length || done === live.length) return;
-    out.push({ id: r.id, kind:'options', name: `${r.reqNo} · ${r.category}`, brief: `${r.optionCount} options · ${r.brief}`, book: null, wanted: null, vendor: `${done} of ${live.length} with a PO`,
+    out.push({ id: r.id, kind:'options', name: `${r.reqNo} · ${catLabel(r.category)}`, brief: `${r.optionCount} options · ${r.brief}`, book: null, wanted: null, vendor: `${done} of ${live.length} with a PO`,
       status: ext ? `${ext} extension${ext === 1 ? '' : 's'} asked` : open ? `find mills for ${open}` : `${withDesign} with design`, tone: ext ? 'risk' : open ? 'warn' : 'neutral', mine: open + ext > 0, href: `#/design?open=${r.id}` });
   });
   return out.sort((a, b) => Number(b.mine) - Number(a.mine));
