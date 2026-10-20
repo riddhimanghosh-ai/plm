@@ -134,6 +134,7 @@ export interface AppState {
   confirmFabricPo(id: string, expectedOn: string | null, remark: string): void;
   remarkFabricPo(id: string, expectedOn: string | null, remark: string): void;
   receiveFabricPo(id: string): void;
+  updateFabricPoReceiving(id: string, metres: number, close: boolean): void;   // Enigma's Update Receiving Status: a received quantity, and whether to close the line
   updateCosting(orderId: string, patch: Partial<Costing>): void;
 
   /* everyone */
@@ -1452,6 +1453,17 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     confirmFabricPo(id, expectedOn, remark) { touch(db => { const p = (db.fabricPos ?? []).find(x => x.id === id); if (!p) return; p.vendorConfirmedOn = now(); p.vendorConfirmedBy = who(); if (expectedOn) p.expectedOn = expectedOn; if (remark) p.remark = remark; }, 'Mill confirmed — the incoming metres are real cover now.'); },
     remarkFabricPo(id, expectedOn, remark) { touch(db => { const p = (db.fabricPos ?? []).find(x => x.id === id); if (!p) return; if (expectedOn) p.expectedOn = expectedOn; p.remark = remark; }, expectedOn ? 'New date and remark saved.' : 'Remark saved.'); },
     receiveFabricPo(id) { touch(db => { const p = (db.fabricPos ?? []).find(x => x.id === id); if (!p || p.receivedOn) return; p.receivedOn = now(); const fb = db.fabrics.find(x => x.id === p.fabricId); grn(db, { kind:'fabric', ref: p.poNo, refLabel: fb?.name ?? p.fabricId, vendorId: p.vendorId, qty: p.metres, unit:'m', rejected: 0, remarks: p.remark }); const f = db.fabrics.find(x => x.id === p.fabricId); if (f) { f.stockMetres = Math.round((f.stockMetres + p.metres) * 100) / 100; f.incomingMetres = Math.max(0, Math.round(((f.incomingMetres ?? 0) - p.metres) * 100) / 100); } }, 'GRN done — the metres moved from incoming to the shelf.'); },
+    updateFabricPoReceiving(id, metres, close) {
+      touch(db => { const p = (db.fabricPos ?? []).find(x => x.id === id); if (!p || p.closedOn) return;
+        const m = Math.max(0, Math.min(metres, p.metres - (p.receivedMetres ?? 0)));
+        const f = db.fabrics.find(x => x.id === p.fabricId);
+        if (m > 0) { p.receivedMetres = Math.round(((p.receivedMetres ?? 0) + m) * 100) / 100; p.receipts = [...(p.receipts ?? []), { on: now(), metres: m, by: who() }];
+          grn(db, { kind:'fabric', ref: p.poNo, refLabel: f?.name ?? p.fabricId, vendorId: p.vendorId, qty: m, unit:'m', rejected: 0, remarks: p.remark });
+          if (f) { f.stockMetres = Math.round((f.stockMetres + m) * 100) / 100; f.incomingMetres = Math.max(0, Math.round(((f.incomingMetres ?? 0) - m) * 100) / 100); } }
+        const pending = p.metres - (p.receivedMetres ?? 0);
+        if (pending <= 0 || close) { p.closedOn = now(); p.receivedOn = p.receivedOn ?? now(); p.closedShort = pending > 0; if (close && pending > 0 && f) f.incomingMetres = Math.max(0, Math.round(((f.incomingMetres ?? 0) - pending) * 100) / 100); }
+      }, close ? 'Receiving line closed.' : metres > 0 ? `${metres} m received — the metres moved from incoming to the shelf.` : 'Nothing received.');
+    },
     receiveFabricGrn(fabricId, metres) {
       touch(db => { const f = db.fabrics.find(x => x.id === fabricId); if (!f) return; const m = metres ?? f.incomingMetres ?? 0; grn(db, { kind:'fabric', ref: f.code, refLabel: f.name, vendorId: f.vendorId, qty: m, unit:'m', rejected: 0, remarks: '' }); f.stockMetres = Math.round((f.stockMetres + m) * 100) / 100; f.incomingMetres = Math.max(0, Math.round(((f.incomingMetres ?? 0) - m) * 100) / 100); },
         'GRN done — the metres moved from incoming to the shelf. Saleable just went up in every store.');

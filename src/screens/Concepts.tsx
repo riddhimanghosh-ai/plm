@@ -14,6 +14,7 @@ import type { RoleId } from '../domain/types';
 import { filesOf } from './Files';
 import { Page, Card, Pill, Button, Drawer, KV, Section, Note, Field, Input, Select, Tabs, Empty, dateInput, fromDateInput, useExamples, type Tone } from '../ui';
 import { RecordTail } from './RecordTail';
+import { PoReceiving } from './PoReceiving';
 import { Files } from './Files';
 import { FILE_LABELS } from '../domain/reference';
 
@@ -217,6 +218,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
         return <>
           <KV k="Fabric PO" v={<>{po?.poNo ?? `${c.fabricPo!.metres} m`} <span style={{ color:'var(--ink-faint)' }}>· {c.fabricPo!.metres} m</span></>}
             note={`raised ${fmtDate(c.fabricPo!.on)}${s.fabric?.cpm ? ` · ${fmtMoney(c.fabricPo!.metres * s.fabric.cpm)} at ₹${s.fabric.cpm}/m` : ''}${po ? ` · expected ${fmtDate(po.expectedOn)}` : ''}`} />
+          {po && <PoReceiving po={po} editable={role === 'warehouse' || role === 'owner'} />}
           {po && <KV k="On the fabric master" v={<a className="cta" href="#/fabrics?tab=pos">{po.poNo} · {po.vendorConfirmedOn ? 'mill confirmed' : 'waiting on the mill'} →</a>} note="sourcing chases it there; the warehouse receives it against this number" />}
         </>; })()}
       {false && <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>A concept that fails costs a sample, not a bulk.</div>}

@@ -1,7 +1,7 @@
 /* Warehouse: receive and close what has dispatched, and close the STOs that
    physically arrived but are still open in the system — the mechanism behind
    ghost inventory. */
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { ProductionOrder } from '../domain/types';
@@ -16,6 +16,7 @@ import { Page, Card, Pill, Input, Button, Drawer, KV, Section, Note, Tabs, Empty
 import { ActsBy, OwnerPill } from './Who';
 import { UnitAlterations } from './HemTrip';
 import { MTM_ONLY } from '../domain/edition';
+import { PoReceiving } from './PoReceiving';
 
 export function Warehouse() {
   const { db, role, closeTransfer, resolveShortfall } = useApp();
@@ -154,12 +155,13 @@ function SwatchBooksTab({ mine }: { mine: boolean }) {
 /* ---------- fabric GRN — the rolls land, incoming becomes shelf --------------- */
 function FabricGrnTab({ mine }: { mine: boolean }) {
   const { db, receiveFabricPo } = useApp();
+  const [openPo, setOpenPo] = useState<string | null>(null);
   const rows = openFabricPos(db).map(p => { const f = db.fabrics.find(x => x.id === p.fabricId)!; const v = db.vendors.find(x => x.id === p.vendorId); return { p, f, v, c: coverageOf(f, v?.leadDays ?? 14, v), st: fabricPoStatus(p) }; }).sort((a, b) => a.p.expectedOn.localeCompare(b.p.expectedOn));
   const ex = useExamples(rows, r => r.st, { noun: 'fabric POs', done: r => r.st === 'confirmed' });
   return <>
     {rows.length === 0 ? <Card><Empty title="Nothing on the way." body="Enigma's auto-POs and the manual international POs appear here until the rolls are received." /></Card> : <>{ex.strip && <div className="flex justify-end mb-2">{ex.strip}</div>}<Card><table className="t compact">
       <thead><tr><th>PO</th><th>Fabric</th><th>Mill</th><th className="num">Metres</th><th>Mill's date</th><th>Confirmed</th><th className="num">On shelf</th><th></th></tr></thead>
-      <tbody>{ex.rows.map(({ p, f, v, c, st }) => <tr key={p.id}>
+      <tbody>{ex.rows.map(({ p, f, v, c, st }) => <Fragment key={p.id}><tr>
         <td className="mono text-[12.5px]">{p.poNo}<div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{p.source === 'auto' ? 'auto' : 'manual'}</div></td>
         <td className="font-medium">{f.name}<div className="text-[11px] font-normal mono" style={{ color:'var(--ink-faint)' }}>{f.code} · {f.bucket.toLowerCase().replace('_', '-')}</div></td>
         <td className="text-[12.5px]">{v?.name}<div style={{ color:'var(--ink-faint)' }}>{f.international ? 'international' : 'domestic'} · {v?.leadDays}d lead</div></td>
@@ -167,8 +169,8 @@ function FabricGrnTab({ mine }: { mine: boolean }) {
         <td style={{ color: daysAgo(p.expectedOn) > 0 ? 'var(--risk)' : undefined }}>{fmtDate(p.expectedOn)}{p.remark && <div className="text-[11px]" style={{ color:'var(--warn)', whiteSpace:'normal' }}>“{p.remark}”</div>}</td>
         <td><Pill tone={st === 'confirmed' ? 'good' : st === 'confirmed · overdue' ? 'risk' : st === 'unconfirmed · chase' ? 'warn' : 'neutral'}>{p.vendorConfirmedOn ? `mill · ${fmtRel(p.vendorConfirmedOn)}` : 'not confirmed'}</Pill></td>
         <td className="num">{c.saleable} m</td>
-        <td>{mine && <Button size="sm" variant="primary" onClick={() => receiveFabricPo(p.id)}>Received · GRN {p.metres} m</Button>}</td>
-      </tr>)}</tbody>
+        <td><Button size="sm" variant={openPo === p.id ? undefined : 'primary'} onClick={() => setOpenPo(openPo === p.id ? null : p.id)}>{openPo === p.id ? 'Close' : `Receive · ${Math.max(0, p.metres - (p.receivedMetres ?? 0))} m pending`}</Button></td>
+      </tr>{openPo === p.id && <tr><td colSpan={8} style={{ background:'var(--surface-2)' }}><PoReceiving po={p} editable={mine} /></td></tr>}</Fragment>)}</tbody>
     </table></Card></>}
     <div className="mt-3"><Note>Incoming counts toward cover only once the mill confirms; the GRN is what makes it saleable.</Note></div>
   </>;

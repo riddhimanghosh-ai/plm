@@ -816,7 +816,11 @@ export interface FabricPo {
   expectedOn: string;                            // raisedOn + mill lead, until the mill says otherwise
   vendorConfirmedOn: string | null; vendorConfirmedBy: string | null;
   remark: string;                                // what the mill said — "3 days more, loom down", "shade lot changed"
-  receivedOn: string | null;
+  receivedOn: string | null;            // set when the last metre is in, or the line is closed
+  /* Enigma's receiving line: metres can land in parts; the line is closed when the last part is in, or closed short */
+  receivedMetres?: number;              // total received so far
+  receipts?: { on: string; metres: number; by: string }[];
+  closedOn?: string | null; closedShort?: boolean;   // Close ticked with metres still pending → CANCELLED for the balance
 }
 
 /* ---------- MTM fit samples at the store -------------------------------------
