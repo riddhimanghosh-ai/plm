@@ -146,14 +146,13 @@ export function DesignHome() {
         <thead><tr>
           <Th hint="what design asked for — the working name and the brief">Requirement</Th>
           {!MTM_ONLY && <Th hint="MTM fabric · RTW style">Kind</Th>}
-          <Th hint="where it stands, and under it the next thing to do and whose move it is">Stage</Th>
+          <Th hint="where it stands">Stage</Th>
         </tr></thead>
         <tbody>{shown.length === 0 ? <tr><td colSpan={5} className="text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Nothing here.</td></tr> : shown.map(r => <tr key={r.id} className="row" onClick={() => set('open', r.href)}>
           <td style={{ whiteSpace:'normal', minWidth: 260 }}><span className="font-medium">{r.name}</span><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{r.brief.slice(0, 110)}{r.brief.length > 110 ? '…' : ''}</div><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.raisedBy} · {fmtDate(r.raisedOn)} · {daysAgo(r.raisedOn)}d</div></td>
           {!MTM_ONLY && <td><span className={`pill role-${KIND_TONE[r.kind]}`}>{r.kind === 'Options' ? 'options' : r.kind}</span></td>}
           <td style={{ whiteSpace:'normal', minWidth: 260 }}>
             <Pill tone={r.stage === 5 ? 'good' : r.stage === 4 ? 'info' : 'neutral'}>{STAGE_LABEL[r.stage]}</Pill>
-            <div className="text-[12px] pt-1 flex items-center gap-2 flex-wrap">{r.owner ? <><span className={`pill role-${r.owner}`}>{ROLE_LABEL[r.owner]}</span><span>{r.next}</span></> : <span style={{ color:'var(--ink-faint)' }}>{r.next}</span>}</div>
           </td>
         </tr>)}</tbody>
       </table></div></Card>
