@@ -345,3 +345,21 @@ th:hover .qi, label:hover .qi, header:hover .qi, .qi:hover, .qi:focus-visible, b
 .cta { display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 12px; font-weight: 500; line-height: 1.2; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; text-decoration: none; white-space: nowrap; }
 .cta:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .cta:disabled { opacity: .5; cursor: default; }
+
+
+/* ---------- sidebar: team pills, screen rows ---------- */
+.nav-pill { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 10px 7px 9px; border-radius: 999px; border: 1px solid rgb(255 255 255/.10); background: rgb(255 255 255/.04); color: var(--sidebar-soft); font: inherit; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; text-align: left; transition: background .12s, color .12s; }
+.nav-pill:hover { background: rgb(255 255 255/.09); color: var(--sidebar-ink); }
+.nav-group.open .nav-pill { background: rgb(255 255 255/.12); color: var(--sidebar-ink); border-color: rgb(255 255 255/.18); }
+.nav-group.here .nav-pill { border-color: rgb(255 255 255/.28); }
+.nav-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px rgb(255 255 255/.12); }
+.nav-pill-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-count { font-family: var(--mono); font-size: 10px; letter-spacing: 0; padding: 1px 6px; border-radius: 999px; background: rgb(255 255 255/.10); color: var(--sidebar-ink); opacity: .8; }
+.nav-chev { font-size: 10px; opacity: .6; transform: rotate(-90deg); transition: transform .12s; }
+.nav-group.open .nav-chev { transform: none; opacity: .9; }
+.nav-rail { margin: 4px 0 6px 13px; padding-left: 10px; border-left: 1px solid rgb(255 255 255/.12); display: flex; flex-direction: column; gap: 1px; }
+.nav-item { display: block; padding: 6px 10px; border-radius: 6px; color: var(--sidebar-soft); text-decoration: none; font-size: 13.5px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.nav-item:hover { background: rgb(255 255 255/.06); color: var(--sidebar-ink); }
+.nav-item.on { background: var(--sidebar-active); color: var(--accent-ink); }
+.nav-item-label { display: block; }
+.nav-item .nav-hint { display: block; font-size: 11px; font-weight: 400; line-height: 1.3; opacity: .6; }

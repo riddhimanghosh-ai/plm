@@ -81,6 +81,7 @@ export function Shell() {
   const me = PEOPLE.find(p => p.id === personId)!;
   /* the sidebar's sections, in the order of the flow, with the one you are in marked */
   const here = items.find(n => loc.pathname.startsWith(n.path))?.group;
+  const GROUP_ROLE: Record<string, string> = { Design:'design', Sourcing:'sourcing', Planning:'planning', Production:'production', Merchandiser:'merchandiser', Warehouse:'warehouse', Store:'store', Finance:'finance', Owner:'owner', Company:'owner' };
   const groups = useMemo(() => {
     const out: { name: string; items: typeof items; hasActive: boolean }[] = [];
     items.forEach(n => { const name = n.group ?? '—'; const g = out.find(x => x.name === name) ?? (out.push({ name, items: [], hasActive: false }), out[out.length - 1]); g.items.push(n); });
@@ -103,24 +104,19 @@ export function Shell() {
 
         {/* One section open at a time, by default the one you are standing in —
             eighteen screens under seven headings is a scroll, not a menu. */}
-        <nav className="flex flex-col gap-px px-1">
-          {groups.map(g => { const on = isOpen(g.name); return <div key={g.name}>
-            {/* a group is a heading, not a button that looks like a screen: small caps,
-                no fill, a chevron — the screens under it are the rows you click */}
-            <button type="button" aria-expanded={on} onClick={() => setOpen(o => ({ ...o, [g.name]: !on }))}
-              className="w-full flex items-center justify-between gap-2 px-2.5 pt-[10px] pb-[4px] text-[10.5px] uppercase tracking-[.16em] cursor-pointer"
-              style={{ fontFamily:'inherit', background:'transparent', border: 0, borderTop: '1px solid rgb(255 255 255/.06)', borderRadius: 0,
-                color: on || g.hasActive ? 'var(--sidebar-ink)' : 'var(--sidebar-soft)', opacity: on || g.hasActive ? 1 : .7 }}>
-              <span>{g.name}</span>
-              <span className="flex items-center gap-1.5">
-                <span className="mono" style={{ fontSize: 10, opacity:.6 }}>{g.items.length}</span>
-                <span style={{ display:'inline-block', transform: on ? 'rotate(90deg)' : 'none', transition:'transform .12s', fontSize:8, opacity:.7 }}>▶</span>
-              </span>
+        <nav className="flex flex-col gap-1 px-1">
+          {groups.map(g => { const on = isOpen(g.name); const role = GROUP_ROLE[g.name] ?? 'owner'; return <div key={g.name} className={`nav-group${on ? ' open' : ''}${g.hasActive ? ' here' : ''}`}>
+            {/* the group is a pill you press: a role-coloured dot, the team's name, how many screens, a chevron.
+                Open, it fills; the screens drop out underneath it on a rail, so a team and a screen never look the same */}
+            <button type="button" aria-expanded={on} onClick={() => setOpen(o => ({ ...o, [g.name]: !on }))} className="nav-pill">
+              <span className="nav-dot" style={{ background: `var(--role-${role})` }} />
+              <span className="nav-pill-name">{g.name}</span>
+              <span className="nav-count">{g.items.length}</span>
+              <span className="nav-chev" aria-hidden>▾</span>
             </button>
-            {on && g.items.map(n => <NavLink key={n.path} to={n.path} end={n.path === '/'} className="block px-2.5 py-[6px] my-[1px] rounded-[4px] text-[13.5px] font-medium" title={n.hint}
-              style={({ isActive }) => ({ background: isActive ? 'var(--sidebar-active)' : 'transparent', color: isActive ? 'var(--accent-ink)' : 'var(--sidebar-soft)' })}>
-              <div>{n.label}</div><div className="text-[11px] font-normal leading-snug nav-hint" style={{ opacity:.6 }}>{n.hint}</div>
-            </NavLink>)}
+            {on && <div className="nav-rail">{g.items.map(n => <NavLink key={n.path} to={n.path} end={n.path === '/'} className={({ isActive }) => `nav-item${isActive ? ' on' : ''}`} title={n.hint}>
+              <span className="nav-item-label">{n.label}</span><span className="nav-hint">{n.hint}</span>
+            </NavLink>)}</div>}
           </div>; })}
         </nav>
 
