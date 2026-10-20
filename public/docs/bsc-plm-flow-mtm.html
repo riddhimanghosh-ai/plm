@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BSC PLM — MTM edition, the flow</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+  :root { --ink:#1a1a13; --soft:#5b5a52; --faint:#8a887c; --line:#d8d2c2; --soft-bg:#f4f1ea; --accent:#1f6f4a; --accent-soft:#e1f1e8; --warn:#9a6b1a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#fff; color:var(--ink); font-family: Helvetica, Arial, sans-serif; line-height:1.5; }
+  main { max-width:1180px; margin:0 auto; padding:32px 24px 80px; }
+  h1 { font-size:28px; margin:0 0 4px; letter-spacing:-.01em; }
+  .meta { color:var(--faint); font-size:13px; margin:0 0 20px; }
+  .meta a { color:var(--accent); }
+  h2 { font-size:18px; margin:34px 0 8px; padding-bottom:6px; border-bottom:2px solid var(--line); }
+  p { margin:8px 0; }
+  .lede { color:var(--soft); font-size:14.5px; }
+  .mermaid { margin:14px 0 6px; overflow-x:auto; background:var(--soft-bg); border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--soft); margin:6px 0 0; }
+  .legend span::before { content:""; display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px; vertical-align:-1px; border:1px solid var(--line); }
+  .legend .d::before { background:#e3dcf0; } .legend .s::before { background:#f3e2c4; } .legend .p::before { background:#d9e7f3; } .legend .f::before { background:#d4ecec; } .legend .w::before { background:#dfe9dc; } .legend .st::before { background:#f6d9d5; } .legend .e::before { background:#ececec; }
+  .note { font-size:13px; color:var(--soft); border-left:3px solid var(--line); padding:6px 12px; margin:10px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>BSC PLM — MTM edition, the flow</h1>
+  <p class="meta">20 Oct 2026 · Riddhiman Ghosh · DevX Labs · prototype at <a href="https://plm-xi-green.vercel.app">plm-xi-green.vercel.app</a> · PRD at <a href="https://bsc-plm-prd-mtm.vercel.app">bsc-plm-prd-mtm.vercel.app</a></p>
+  <p class="lede">The made-to-measure business as boxes and arrows, in the order a shirt happens: the customer's order, the day's production and the factory floor, then the cloth behind it. Every box names the team that does it. BSC PLM sits beside Enigma: it reads fabrics, orders, POs and stock from Enigma, keeps everything Enigma does not hold, and writes back where access is agreed. Nothing ready-to-wear is on this page.</p>
+  <div class="legend"><span class="st">Store</span><span class="p">Production unit</span><span class="f">Factory merchandiser</span><span class="s">Sourcing</span><span class="d">Design</span><span class="w">Warehouse (phase 4)</span><span class="e">Enigma</span></div>
+
+  <h2>A · The order — store to customer</h2>
+  <div class="mermaid">
+flowchart LR
+  classDef design fill:#e3dcf0,stroke:#9b8bc4,color:#1a1a13
+  classDef sourcing fill:#f3e2c4,stroke:#c9a35a,color:#1a1a13
+  classDef prod fill:#d9e7f3,stroke:#6f9cc4,color:#1a1a13
+  classDef fac fill:#d4ecec,stroke:#5f9ea0,color:#1a1a13
+  classDef wh fill:#dfe9dc,stroke:#7fa37a,color:#1a1a13
+  classDef store fill:#f6d9d5,stroke:#c98a80,color:#1a1a13
+  classDef enigma fill:#ececec,stroke:#999,color:#1a1a13,stroke-dasharray:4 3
+
+  S1["<b>STORE</b><br/>Customer card<br/>fit profiles · credit · past orders"]:::store
+  S2["<b>STORE</b><br/>Punch the bill<br/>fabric from <i>live today</i> · design · fit profile · who measured<br/>trial / urgent · comments for factory & shipping"]:::store
+  E1["<b>ENIGMA</b><br/>Order sheet · V1<br/>metres reserved on the fabric"]:::enigma
+  S3["<b>STORE</b><br/>Correct the sheet<br/>click a field · V2, V3 · why"]:::store
+  P1["<b>PRODUCTION</b><br/>PP queue<br/>2-hour freeze · urgent first"]:::prod
+  P2["<b>PRODUCTION</b><br/>System proposes · planner confirms<br/>headroom per factory · plan number"]:::prod
+  P3["<b>PRODUCTION UNIT</b><br/>Cut & bundle · scan out<br/>metres off the shelf · job card"]:::prod
+  F1["<b>FACTORY</b><br/>Received at factory<br/>in factory · aging past 5 days"]:::fac
+  F2["<b>FACTORY</b><br/>QC · Ready<br/>log the day"]:::fac
+  P4["<b>PRODUCTION UNIT</b><br/>RTS · back at the unit<br/>vehicle round"]:::prod
+  P5["<b>SHIPPING</b><br/>Dispatch to the store"]:::prod
+  S4["<b>STORE</b><br/>Handed to customer<br/>delivered"]:::store
+  S5["<b>STORE</b><br/>Return or alteration case<br/>30-day window · the ladder · credit note · refund approval"]:::store
+
+  S1 --> S2 --> E1 --> P1 --> P2 --> P3 --> F1 --> F2 --> P4 --> P5 --> S4 --> S5
+  S3 -.->|before allocation: freely<br/>after: amendment, Acknowledged by production & factory| P1
+  S2 --> S3
+  </div>
+
+  <h2>B · What runs beside the order</h2>
+  <div class="mermaid">
+flowchart LR
+  classDef design fill:#e3dcf0,stroke:#9b8bc4,color:#1a1a13
+  classDef sourcing fill:#f3e2c4,stroke:#c9a35a,color:#1a1a13
+  classDef prod fill:#d9e7f3,stroke:#6f9cc4,color:#1a1a13
+  classDef fac fill:#d4ecec,stroke:#5f9ea0,color:#1a1a13
+  classDef enigma fill:#ececec,stroke:#999,color:#1a1a13,stroke-dasharray:4 3
+
+  X1["<b>FACTORY</b><br/>Ask for extra cloth<br/>panel · metres · factory or PP error"]:::fac
+  X2["<b>PRODUCTION</b><br/>Approve or decline<br/>approval is the stock event"]:::prod
+  X3["<b>PRODUCTION UNIT</b><br/>Picked & sent on the next vehicle"]:::prod
+  X1 --> X2 --> X3
+
+  M1["<b>PRODUCTION</b><br/>Factory delayed · move ship-by<br/>one piece or a whole floor · reason kept"]:::prod
+  M2["<b>STORE</b><br/>'moved from 14 Oct, tell the customer'<br/>on the order and the bell"]:::store
+  M1 --> M2
+
+  C1["<b>PRODUCTION</b><br/>Factories screen<br/>capacity inputs · daily output · aging · on-time"]:::prod
+  C2["<b>FACTORY</b><br/>Log the day<br/>keyed count beside the scanned count"]:::fac
+  C2 --> C1
+  </div>
+
+  <h2>C · The cloth — fabric master, purchase orders, supply</h2>
+  <div class="mermaid">
+flowchart LR
+  classDef design fill:#e3dcf0,stroke:#9b8bc4,color:#1a1a13
+  classDef sourcing fill:#f3e2c4,stroke:#c9a35a,color:#1a1a13
+  classDef wh fill:#dfe9dc,stroke:#7fa37a,color:#1a1a13
+  classDef enigma fill:#ececec,stroke:#999,color:#1a1a13,stroke-dasharray:4 3
+
+  E2["<b>ENIGMA</b><br/>Fabric master<br/>Edit Fabric Info · Vendor Information · dynamic attributes<br/>Edit Inventory · transaction & reservation logs"]:::enigma
+  D1["<b>DESIGN · SOURCING</b><br/>Fabric page<br/>Overview · Purchase orders · Fabric info · Inventory & movements · Files & conversation<br/>rename keeps the history · one sell action per state"]:::design
+  E2 <--> D1
+
+  A1{"<b>RULE</b><br/>saleable + on order<br/>under the reorder point?"}:::enigma
+  A2["<b>ENIGMA · AUTO</b><br/>Batch run raises the PO<br/>domestic core · MOQ"]:::enigma
+  A3["<b>SOURCING · BY HAND</b><br/>Needs a PO by hand<br/>international core · Raise PO"]:::sourcing
+  A4["<b>SOURCING</b><br/>Mill confirmed · date · remark<br/>chase after 2 days"]:::sourcing
+  A5["<b>WAREHOUSE</b><br/>Receiving line on the PO<br/>received · pending · close<br/>each update raises a GRN"]:::wh
+  A1 -->|domestic| A2 --> A4
+  A1 -->|international| A3 --> A4
+  A4 --> A5 --> E2
+
+  W1["<b>SOURCING</b><br/>Core · weekly stock review<br/>in stock · delayed · run out"]:::sourcing
+  W2["<b>DESIGN</b><br/>Switch off / switch back on<br/>stores see 'closed for selling'"]:::design
+  W1 -->|delayed or out| W2
+  </div>
+
+  <h2>D · A new fabric — requirement to live online, five states</h2>
+  <div class="mermaid">
+flowchart LR
+  classDef design fill:#e3dcf0,stroke:#9b8bc4,color:#1a1a13
+  classDef sourcing fill:#f3e2c4,stroke:#c9a35a,color:#1a1a13
+  classDef wh fill:#dfe9dc,stroke:#7fa37a,color:#1a1a13
+  classDef enigma fill:#ececec,stroke:#999,color:#1a1a13,stroke-dasharray:4 3
+  classDef state fill:#fff,stroke:#1f6f4a,color:#1f6f4a,stroke-width:2px
+
+  N1(["1 · Requirement requested"]):::state
+  N2(["2 · Vendor added"]):::state
+  N3(["3 · PO punched"]):::state
+  N4(["4 · Fabric in"]):::state
+  N5(["5 · Live online"]):::state
+
+  R1["<b>DESIGN</b><br/>Raise the requirement<br/>working name · why · book · month · files"]:::design
+  R2["<b>SOURCING</b><br/>Add ONE vendor<br/>mill · article · price · MOQ · lead · hold-until"]:::sourcing
+  R3{"<b>DESIGN</b><br/>On the vendor card"}:::design
+  R4["<b>SOURCING</b><br/>Extend the hold<br/>or drop the vendor"]:::sourcing
+  R5["<b>DESIGN</b><br/>Push PO<br/>metres typed · amount follows"]:::design
+  E3["<b>ENIGMA</b><br/>Fabric code · fabric PO<br/>new row on the master, on hold"]:::enigma
+  R6["<b>WAREHOUSE</b><br/>Receiving line<br/>rolls in parts · GRN"]:::wh
+  R7["<b>DESIGN</b><br/>Designs on the fabric<br/>Enigma Product Info · variant option & values · price per variant<br/>Push to Enigma · re-push on a price change"]:::design
+  R8["<b>DESIGN</b><br/>Configured in Enigma<br/>template · base + buffer consumption"]:::design
+  R9["<b>DESIGN</b><br/>Final name<br/>history of every earlier name"]:::design
+  R10["<b>DESIGN</b><br/>Go live online<br/>photos · video · post · product page<br/>stores are not a gate"]:::design
+
+  R1 --> N1 --> R2 --> N2 --> R3
+  R3 -->|more time| R4 --> R3
+  R3 -->|reject| N1
+  R3 -->|push PO| R5 --> E3 --> N3 --> R6 --> N4
+  N4 --> R7 --> R10
+  N4 --> R8 --> R10
+  N4 --> R9 --> R10
+  R10 --> N5
+  </div>
+
+  <h2>E · Swatch desk — phase one</h2>
+  <div class="mermaid">
+flowchart LR
+  classDef design fill:#e3dcf0,stroke:#9b8bc4,color:#1a1a13
+  classDef wh fill:#dfe9dc,stroke:#7fa37a,color:#1a1a13
+  classDef later fill:#fff,stroke:#bbb,color:#8a887c,stroke-dasharray:4 3
+
+  T0["<b>PO RECEIVING LINE</b><br/>Cloth in"]:::wh
+  T1["<b>WAREHOUSE · SHRAVANI</b><br/>Handed to Yusuf<br/>Priority-1 if urgent"]:::wh
+  T2["<b>YUSUF · phase 2</b><br/>Cut swatches for every store"]:::later
+  T3["<b>YUSUF · phase 2</b><br/>Sticker · dispatch · photos"]:::later
+  T4["<b>DESIGN · phase 2</b><br/>Stores told · live in stores"]:::later
+  T0 --> T1 --> T2 --> T3 --> T4
+  </div>
+  <p class="note">Held for phase 4 with the warehouse portal: the vehicle round, the bespoke mill list and parcel inward, the GRN register, STOs, books and fit samples, the hemming round trip. Out of this edition entirely: everything ready-to-wear, several-options requests, FOB.</p>
+</main>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }, themeVariables: { fontFamily: 'Helvetica, Arial, sans-serif', fontSize: '12px' } });
+</script>
+</body>
+</html>

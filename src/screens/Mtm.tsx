@@ -386,10 +386,10 @@ function ExtraFabricForm({ o, onDone }: { o: CustomerOrder; onDone: () => void }
   const [metres, setMetres] = useState(String(PANEL_METRES['Single front']));
   const [note, setNote] = useState('');
   return (
-    <Section title="What the email says today, as a record" right={<Pill tone="accent">Factory merchandiser</Pill>}>
+    <Section title="Ask for extra cloth" right={<Pill tone="accent">Factory merchandiser</Pill>}>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'1fr 1fr' }}>
         <Field label="Panel"><Select value={panel} onChange={v => { setPanel(v as ExtraFabricRequest['panel']); setMetres(String(PANEL_METRES[v])); }} options={EXTRA_FABRIC_PANELS.map(x => ({ value:x, label:x }))} /></Field>
-        <Field label="Metres" hint="80 cm single · 90 cm full width, as the email has it"><Input type="number" step="0.1" value={metres} onChange={e => setMetres(e.target.value)} /></Field>
+        <Field label="Metres" hint="a single panel is 80 cm, a full-width panel 90 cm"><Input type="number" step="0.1" value={metres} onChange={e => setMetres(e.target.value)} /></Field>
         <div style={{ gridColumn:'1 / -1' }}><Field label="Reason — whose error"><Select value={reason} onChange={v => setReason(v as ExtraFabricRequest['reason'])} options={EXTRA_FABRIC_REASONS.map(x => ({ value:x, label:x }))} /></Field></div>
         <div style={{ gridColumn:'1 / -1' }}><Field label="Note"><Input value={note} onChange={e => setNote(e.target.value)} placeholder="optional" /></Field></div>
       </div>
