@@ -363,3 +363,5 @@ th:hover .qi, label:hover .qi, header:hover .qi, .qi:hover, .qi:focus-visible, b
 .nav-item.on { background: var(--sidebar-active); color: var(--accent-ink); }
 .nav-item-label { display: block; }
 .nav-item .nav-hint { display: block; font-size: 11px; font-weight: 400; line-height: 1.3; opacity: .6; }
+
+.alert-row:hover { background: var(--surface-2); }
