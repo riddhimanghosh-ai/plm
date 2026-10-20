@@ -87,7 +87,7 @@ flowchart TD
     T10["4 · TNA milestones & final steps<br/>samples · PPS · cutting · stitching · finishing · FI · dispatch"]:::prod
     T11["Warehouse receives the lots"]:::wh
     T12["Design mints the design code"]:::design
-    T13["Launch · display & fit pieces to stores · go live"]:::design
+    T13["Go live · the style sells from stock"]:::design
     T1 --> T2 --> T3
     T3 -->|reject + comment| T2
     T3 -->|accept| T4
@@ -112,34 +112,44 @@ flowchart TD
     S1 -->|RTW| S7 --> S5
   end
 
-  subgraph LOOP["E · Keeping the range healthy"]
+  subgraph LOOP["E · Keeping the MTM range healthy"]
     direction TB
-    L1["Weekly core stock review<br/>auto-PO = max(lead-time demand, MOQ)"]:::sourcing
-    L2["RTW stock health · size-wise ROS · WIP<br/>reorder · pull back · leave"]:::design
+    L1["Weekly core stock review · sourcing<br/>auto-PO = max(lead-time demand, MOQ)"]:::sourcing
     L3["Non-core → core promotion<br/>block at the mill for a period"]:::sourcing
     L4["Bespoke · mill's daily list<br/>store gate · parcel code"]:::wh
     L1 --> L3
+  end
+
+  subgraph PLAN["F · Planning — separate for now; nothing flows into it except the inventory update"]
+    direction TB
+    P0["Inventory update<br/>GRNs, lots received, stock per store"]:::wh
+    P1["RTW stock health · one record per option<br/>size-wise stock · rate of sale · WIP · display reserve<br/>reorder · pull back · leave"]:::design
+    P2["RTW launches · drops<br/>display & fit pieces per store · marketing name · date"]:::design
+    P3["What is selling<br/>weekly report · DSR · stylist KPI, read live"]:::design
+    P0 --> P1
+    P0 --> P2
+    P0 --> P3
   end
 
   E1 --> M1
   E1 --> T5
   M5 --> S1
   T13 --> S7
-  S5 --> L2
   M5 --> L1
-  L2 --> R1
   L4 --> S1
+  T11 -.->|inventory update| P0
+  M1 -.->|inventory update| P0
   </div>
-  <div class="legend"><span class="d">Design / planning</span><span class="s">Sourcing</span><span class="p">Production / factory</span><span class="w">Warehouse</span><span class="st">Store</span><span class="e">Enigma (connected, not rebuilt)</span></div>
+  <div class="legend"><span class="d">Design / planning</span><span class="s">Sourcing</span><span class="p">Production / factory</span><span class="w">Warehouse</span><span class="st">Store</span><span class="e">Enigma (connected, not rebuilt)</span><span style="margin-left:6px">Dotted arrow = the inventory update, the only feed into planning for now</span></div>
 
   <h2>2 · What the MVP builds first</h2>
-  <p class="lede">The MVP is the minimum that lets each team stop its sheet. Everything marked <span class="tag">MVP</span> ships in the first cut; <span class="tag later">iterate</span> comes after the pilot stores and the first RTW cohort have run on it. The order follows the build order: MTM floor, store, warehouse, requirement to PO, replenishment, RTW production, hardening.</p>
+  <p class="lede">Everything marked <span class="tag">MVP</span> is in the prototype today and is what the first cut builds. <span class="tag later">iterate</span> is not in the prototype; it comes after the pilot stores and the first RTW cohort have run on the tool. The order follows the build order: MTM floor, store, warehouse, requirement to PO, replenishment, RTW production, hardening.</p>
 
   <table>
     <thead><tr><th style="width:36px">#</th><th>Feature</th><th>Who it is for</th><th style="width:92px">Cut</th></tr></thead>
     <tbody>
       <tr><td colspan="4"><b>Foundation</b></td></tr>
-      <tr><td>1</td><td>Read-only connection to Enigma: fabrics, designs, orders, POs, stock per warehouse, refreshed on a schedule. One login per team, one bell of "waiting on you" per role.</td><td>Everyone</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>1</td><td>Enigma's data as the base: fabrics, designs, orders, POs and stock per warehouse (the prototype is seeded from the live Enigma read and the real sheets). One login per team, one bell of "waiting on you" per role, search across every record.</td><td>Everyone</td><td><span class="tag">MVP</span></td></tr>
       <tr><td>2</td><td>Files and a conversation on every record (requirement, fabric, PO, launch, case), so photos, comments and marketing lines stop living in WhatsApp.</td><td>Everyone</td><td><span class="tag">MVP</span></td></tr>
       <tr><td colspan="4"><b>MTM daily production and the floor</b></td></tr>
       <tr><td>3</td><td>Allocate punched orders to factories on capacity, submit the day's plans, see the factory floor; factories and capacity inputs (tailors, feed target, distance, corporate, urgent reserve); daily output and aging on the Factories screen.</td><td>Production, factory merchandiser</td><td><span class="tag">MVP</span></td></tr>
@@ -152,25 +162,25 @@ flowchart TD
       <tr><td colspan="4"><b>Warehouse</b></td></tr>
       <tr><td>9</td><td>One numbered goods-received note for every receipt (fabric rolls, RTW lots, bespoke parcels, the vehicle round), stock transfers to stores, the hemming-unit trip.</td><td>Warehouse (Shravani)</td><td><span class="tag">MVP</span></td></tr>
       <tr><td>10</td><td>The swatch desk: bulk received → to Yusuf → cut → sticker printed off the record → photos → dispatched → stores told, with who did each step and a reprint flag when a name or MRP changes.</td><td>Warehouse (Yusuf), design</td><td><span class="tag">MVP</span></td></tr>
-      <tr><td>11</td><td>Bespoke: the mill's daily list typed in, the store gate, the parcel code.</td><td>Warehouse, store</td><td><span class="tag later">iterate</span></td></tr>
+      <tr><td>11</td><td>Bespoke: the mill's daily list typed in (a fabric reported out goes on hold everywhere), the store gate, the parcel code, inward against the order.</td><td>Warehouse, store</td><td><span class="tag">MVP</span></td></tr>
       <tr><td colspan="4"><b>Requirement to purchase order</b></td></tr>
       <tr><td>12</td><td>One list of every ask (MTM fabric, several options, RTW style) at its stage; one vendor per cloth with hold and extension; design pushes the fabric PO; the Enigma fabric code is minted and fills the RTW record.</td><td>Design, sourcing</td><td><span class="tag">MVP</span></td></tr>
       <tr><td>13</td><td>Several designs on one fabric, each with its own product code, cost and MRP, temporary name until marketing's final name, pushed to Enigma from the record; the sticker file printed per fabric; go live in stores, then online.</td><td>Design</td><td><span class="tag">MVP</span></td></tr>
       <tr><td>14</td><td>Prototype rounds, BOM and tech pack on an RTW request; trims and packaging checked into stock.</td><td>Design, sourcing</td><td><span class="tag">MVP</span></td></tr>
       <tr><td colspan="4"><b>Replenishment and the sales review</b></td></tr>
       <tr><td>15</td><td>Weekly core stock review with the auto-PO rule (max of lead-time demand and MOQ); non-core to core promotion with a block at the mill; escalation to design when a fabric is out.</td><td>Sourcing, design</td><td><span class="tag">MVP</span></td></tr>
-      <tr><td>16</td><td>RTW stock health per option, size-wise: stock, rate of sale, WIP, the display reserve, and the action (reorder, pull back, leave).</td><td>Planning</td><td><span class="tag">MVP</span></td></tr>
-      <tr><td>17</td><td>Forecasting, the weekly sales review, DSR and stylist scorecard read live instead of rebuilt by hand.</td><td>Planning</td><td><span class="tag later">iterate</span></td></tr>
+      <tr><td>16</td><td>Planning, kept separate: RTW stock health per option, size-wise (stock, rate of sale, WIP, display reserve, the action); RTW launches and drops; "What is selling" (the weekly report, DSR and stylist KPI read live). Fed only by the inventory update.</td><td>Planning</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>17</td><td>Forecasting on top of the option record.</td><td>Planning</td><td><span class="tag later">iterate</span></td></tr>
       <tr><td colspan="4"><b>RTW production</b></td></tr>
       <tr><td>18</td><td>The tracker: one record per style in four sections exactly as the sheet (request from design, factory finalisation, fabric finalisation, TNA and final steps), rows from the day of the request, all 22 milestones with NA where the category has none, settings for day offsets and risk thresholds.</td><td>Production (Nitin), design, sourcing</td><td><span class="tag">MVP</span></td></tr>
       <tr><td>19</td><td>Factory merchandiser portal, MTM and RTW sides: the design's documents, cloth on its way, confirm metres and trims, ask for a modified ratio or cut short, update milestones in real time.</td><td>Factory merchandiser</td><td><span class="tag">MVP</span></td></tr>
-      <tr><td>20</td><td>Design code minted by design once the goods are in; the launch checklist (display and fit pieces, marketing name, date).</td><td>Design, planning</td><td><span class="tag">MVP</span></td></tr>
-      <tr><td>21</td><td>RTW production analytics: OTIF by factory and order, the daily monitor, escalations, merchandiser alerts.</td><td>Planning</td><td><span class="tag later">iterate</span></td></tr>
+      <tr><td>20</td><td>Design code minted by design once the goods are in, as a gate before go-live.</td><td>Design</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>21</td><td>RTW production analytics read off the tracker: OTIF by factory and order, the daily monitor, the escalation log, merchandiser alerts.</td><td>Production, planning</td><td><span class="tag">MVP</span></td></tr>
       <tr><td colspan="4"><b>Hardening</b></td></tr>
       <tr><td>22</td><td>Writing back into Enigma where access is agreed: fabric POs, design rows, on-hold flags, GRNs, stock transfers. Phone-sized screens, bulk actions.</td><td>Everyone</td><td><span class="tag later">iterate</span></td></tr>
     </tbody>
   </table>
-  <p class="note">Rule for the cut: a feature is MVP when a team cannot stop its sheet without it. Analytics, forecasting and Enigma write-back are iterations because the teams keep working while they are built; the floor teams have no such fallback.</p>
+  <p class="note">Rule for the cut: MVP is what the prototype already shows; iterate is what it does not. Forecasting, the store's later list and Enigma write-back are iterations because the teams keep working while they are built; the floor teams have no such fallback.</p>
 
   <h2>3 · The sheets we follow, beside Enigma</h2>
   <p class="lede">Enigma stays the master for fabrics, designs, orders, POs and stock. These are the sheets whose columns and logic the tool mirrors; each is retired once its team runs a month on the tool.</p>
