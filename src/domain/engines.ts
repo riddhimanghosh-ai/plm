@@ -948,7 +948,7 @@ export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; n
     /* the MTM fabric's five stages, as design reads them: requirement → a vendor
        against it (PO pending) → PO punched → fabric in, design codes and Enigma →
        go live online. Samples are optional and sit inside the requirement. */
-    const offersIn = offers.length > 0 || !!c.optionsSentOn;
+    const offersIn = offers.length > 0 || !!c.optionsSentOn || !!s.fabric;
     const designsDone = (c.designs?.length ?? 0) > 0 && (c.designs ?? []).every(d => !!d.enigmaOn) && !!c.enigma.configuredOn;
     const onlineGates = [c.online?.photosOn, c.online?.videoOn, c.online?.postOn].filter(Boolean).length;
     steps = [

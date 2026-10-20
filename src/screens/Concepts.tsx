@@ -200,7 +200,6 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
       {s.fabric ? <>
         <KV k="Fabric" v={<>{s.fabric.name} <span className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{s.fabric.code}</span></>} note={`${s.fabric.composition ?? ''}${s.fabric.widthIn ? ` · ${s.fabric.widthIn}" panna` : ''}${s.fabric.swatchBook ? ` · ${s.fabric.swatchBook}` : ''}`} />
         <KV k="Vendor" v={<VendorLink id={s.fabric.vendorId} />} note={s.fabric.vendorCode ? `article ${s.fabric.vendorCode}${s.fabric.cpm ? ` · ₹${s.fabric.cpm}/m` : ''}` : undefined} />
-        <KV k="Swatches at stores" v={s.swatchSent ? `${s.swatchGot} of ${s.swatchSent} confirmed` : '—'} note="the store's own tap, from the swatch tracker's Receiving Date column that nobody fills today" />
         {/* what this concept has actually committed BSC to, in rupees */}
         {s.fabric.cpm != null && (() => { const chosen = (c.fabricOptions ?? []).find(o => o.selected);
           const metres = c.fabricPo?.metres ?? s.block?.metres ?? null;
@@ -343,14 +342,8 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
     </Section>
         </>
       };
-      const others = flow.steps.filter(x => x.key !== nowKey);
-      return <>
-        {nowKey && bodies[nowKey]}
-        <Section title={`${nowKey ? 'Other steps' : 'All steps'} · ${others.length}`} look="fold" pending={false} ownerRole={null}
-          right={<span className="flex gap-1 flex-wrap justify-end">{others.map(x => <span key={x.key} className={`pill ${x.state === 'done' ? 'good' : ''}`} title={x.note}>{x.state === 'done' ? '✓ ' : ''}{x.label}</span>)}</span>}>
-          {others.map(x => <div key={x.key}>{bodies[x.key]}</div>)}
-        </Section>
-      </>; })()}
+      /* the five stages in sequence — the current one opens, the rest sit folded in order */
+      return <>{flow.steps.map(x => <div key={x.key}>{bodies[x.key]}</div>)}</>; })()}
 
     <RecordTail kind="concept" subjectId={c.id} labels={FILE_LABELS.concept} editable={design || prod} steps={['General', 'Fabric', 'PP sample', 'Shipment sample', 'Approval', 'Enigma']} />
   </>;
