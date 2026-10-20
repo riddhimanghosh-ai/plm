@@ -129,7 +129,6 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
   /* who moves this section, said plainly — for whoever is looking and is not that person */
   const Who = ({ r, does }: { r: string; does: string }) =>
     <div className="pt-2 text-[11.5px]" style={{ color:'var(--ink-faint)' }}>→ <b style={{ color:'var(--ink-soft)' }}>{r}</b> {does}.</div>;
-  const [poM, setPoM] = useState('');
   const [price, setPrice] = useState(''); const [article, setArticle] = useState('');
   const factories = db.vendors.filter(v => v.mtm && v.kind !== 'Hemming unit');
   const [factory, setFactory] = useState(factories[0]?.id ?? '');
@@ -205,14 +204,14 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
       {/* the mills' offers: sourcing brings them, design picks the shade and the
           price it is willing to carry — the same handoff as an RTW requirement */}
       <ConceptOptions c={c} sourcing={sourcing} design={design} />
-      {sourcing && s.fabric && s.fabric.cpm == null && <div className="flex gap-2 items-end pt-3 flex-wrap" style={{ borderTop:'1px solid var(--line-soft)' }}>
+      {sourcing && s.fabric && s.fabric.cpm == null && !(c.fabricOptions ?? []).some(o => !o.rejected) && <div className="flex gap-2 items-end pt-3 flex-wrap" style={{ borderTop:'1px solid var(--line-soft)' }}>
         <div style={{ width: 110 }}><Field label="₹ / m quoted"><Input value={price} onChange={e => setPrice(e.target.value)} /></Field></div>
         <div style={{ width: 160 }}><Field label="Vendor article"><Input value={article} onChange={e => setArticle(e.target.value)} placeholder={s.fabric.vendorCode ?? 'FY306849'} /></Field></div>
         <Button size="sm" variant="primary" disabled={!Number(price)} onClick={() => priceFabric(s.fabric!.id, Number(price), article.trim() || null)}>Price it</Button>
         <span className="text-[11px]" style={{ color:'var(--ink-faint)' }}>the swatch is in; the gate closes when the price is written down</span>
       </div>}
       {!sourcing && !c.optionsSentOn && (!s.fabric || s.fabric.cpm == null) && <Who r="Sourcing" does={!s.fabric ? 'goes round the mills for the same cloth and brings the offers back' : 'writes the quoted price against it'} />}
-      <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line)' }}><div className="label">The purchase order</div>
+      {c.fabricPo && <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line)' }}><div className="label">The purchase order</div>
       {s.block && <KV k="Block" v={`${s.block.metres} m · ${s.block.status}`} note={s.block.status === 'held' ? `expires ${fmtDate(s.block.expiresOn)} · ${-daysAgo(s.block.expiresOn)}d — the one copy, with a countdown` : `agreed ${fmtDate(s.block.agreedOn)}`} />}
       {c.fabricPo && (() => { const po = (db.fabricPos ?? []).find(p => p.fabricId === c.fabricId);
         return <>
@@ -222,17 +221,8 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
         </>; })()}
       {false && <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>A concept that fails costs a sample, not a bulk.</div>}
       {!s.fabric && !c.fabricPo && <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Waits for step 2 — a vendor against the cloth, then design pushes the PO from there.</div>}
-      {/* design punches the fabric PO here, against the vendor on the card in step 2 */}
-      {s.fabric && !c.fabricPo && (() => { const q = (c.fabricOptions ?? []).find(o => !o.rejected) ?? null; const left = q?.holdUntil ? -daysAgo(q.holdUntil) : null; const lapsed = left != null && left < 0;
-        return design ? <div className="flex gap-2 items-end pt-1 flex-wrap">
-          <div style={{ width: 120 }}><Field label="Metres" hint={q ? `MOQ ${q.moq} m${q.holdUntil ? ` · held until ${fmtDate(q.holdUntil)}` : ''}` : undefined}><Input type="number" value={poM || String(q?.moq ?? '')} onChange={e => setPoM(e.target.value)} /></Field></div>
-          <Button variant={lapsed ? undefined : 'primary'} disabled={!Number(poM || q?.moq)} title={lapsed ? 'the hold has lapsed — ask for more time in step 2 first' : undefined}
-            onClick={() => q ? conceptAcceptAndRaisePo(c.id, q.id, Number(poM || q.moq), '') : conceptRaiseFabricPo(c.id, Number(poM))}>Punch the PO{s.fabric.cpm || q?.cpm ? ` · ${fmtMoney(Number(poM || q?.moq || 0) * (s.fabric.cpm ?? q!.cpm))}` : ''}</Button>
-          {lapsed && <span className="text-[11.5px]" style={{ color:'var(--risk)' }}>hold lapsed — the price is not promised</span>}
-          <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>the PO number and the Enigma fabric code land here; sourcing then gets the cloth in</span>
-        </div> : <Who r="Design" does="punches the fabric PO against the vendor in step 2" />; })()}
       {c.fabricPo && <div className="pt-2"><Note tone="good">Design raised the PO. <b>Sourcing's turn:</b> chase the mill and book the metres in — they land as incoming on the fabric record.</Note></div>}
-      </div>
+      </div>}
     </>; })()}
         </Section>
       : <Section title="2 · Vendor added" defaultOpen={nowKey === 'vendors'} right={<Pill tone="neutral">nothing to buy</Pill>}>
