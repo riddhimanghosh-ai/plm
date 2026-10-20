@@ -26,7 +26,9 @@ export interface Vendor {
   moq: number;
   blockWindowDays: number;       // how long a mill holds a block (fabric vendors only)
   /* Enigma's Vendor Information block on the fabric master, kept once per mill (20 Oct 2026) */
-  enigma?: { vendorCode: string | null; country: string | null; description: string | null; currency: 'INR' | 'USD' | 'EUR'; tatHours: number | null } | null;
+  enigma?: { vendorCode: string | null; country: string | null; description: string | null; currency: 'INR' | 'USD' | 'EUR'; tatHours: number | null;
+    /* Enigma's vendor master (its /vendor list): type, address, office phone and email, active, categories */
+    vendorType?: string | null; address?: string | null; officePhone?: string | null; officeEmail?: string | null; active?: boolean; categories?: string[] } | null;
   /* MTM factories — the planning inputs Swati studies by hand today */
   mtm?: boolean;                 // takes single-piece MTM orders
   tailors?: number;              // masters on the floor; × pieces per tailor per day = nominal capacity

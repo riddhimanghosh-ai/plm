@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview } from './domain/types';
+import type { VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
 import { storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
@@ -249,7 +249,8 @@ export interface AppState {
      rejected pieces go back to the factory with the reason on the record */
   receiveRound(factoryId: string, round: { received: string[]; short: string[]; rejected: { id: string; reason: string }[]; vehicle: string; note: string }): void;
   closePlan(planId: string): void;
-  updateVendor(id: string, patch: Partial<Pick<Vendor, 'tailors' | 'distanceKm' | 'leadDays' | 'moq' | 'dailyTarget' | 'corporate' | 'urgentReserve' | 'mtm' | 'location' | 'region' | 'blockWindowDays' | 'enigma' | 'name'>>): void;
+  addVendor(v: { name: string; kind: VendorKind; location: string; region: string; leadDays: number; moq: number; enigma: NonNullable<Vendor['enigma']> }): string;   // sourcing: a vendor as Enigma's Add Vendor form takes it
+  updateVendor(id: string, patch: Partial<Pick<Vendor, 'tailors' | 'distanceKm' | 'leadDays' | 'moq' | 'dailyTarget' | 'corporate' | 'urgentReserve' | 'mtm' | 'location' | 'region' | 'blockWindowDays' | 'enigma' | 'name' | 'kind'>>): void;
   raiseExtraFabric(input: Pick<ExtraFabricRequest, 'orderId' | 'metres' | 'reason' | 'panel' | 'note'>): void;   // one piece of a bundle, never the whole bundle
   decideExtraFabric(id: string, status: 'approved' | 'declined' | 'sent'): void;
   /* warehouse — bespoke */
@@ -1425,6 +1426,11 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       }); }, stage === 'in-transit' ? `Scanned out. ${orderIds.length} piece${orderIds.length === 1 ? '' : 's'} in transit — fabric deducted from inventory.` : stage === 'in-factory' ? 'Scanned in at the factory.' : stage === 'out-factory' ? 'Marked ready.' : stage === 'rts' ? 'Back at the production unit.' : stage === 'dispatched' ? 'Dispatched — the shipping table just moved.' : 'Saved.');
     },
     closePlan(planId) { touch(db => { const pl = (db.plans ?? []).find(x => x.id === planId); if (pl) pl.closedOn = now(); }, 'Plan closed.'); },
+    addVendor(v) {
+      const id = `v-${Date.now().toString(36)}`;
+      touch(db => { db.vendors.push({ id, name: v.name, kind: v.kind, location: v.location, region: v.region, leadDays: v.leadDays, onTimeRate: 1, moq: v.moq, blockWindowDays: 45, enigma: v.enigma }); }, `${v.name} added — the same fields Enigma's Add Vendor form takes.`);
+      return id;
+    },
     updateVendor(id, patch) {
       touch(db => { const v = db.vendors.find(x => x.id === id); if (!v) return;
         if (patch.corporate) db.vendors.forEach(x => { if (x.id !== id) x.corporate = false; });
@@ -1553,7 +1559,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 114,
+  version: 115,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1565,7 +1571,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 114 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 115 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

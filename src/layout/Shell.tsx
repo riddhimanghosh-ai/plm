@@ -153,7 +153,7 @@ export function Shell() {
           {!demoAll && <>
             <div className="text-[11px] uppercase tracking-[.1em]" style={{ color:'var(--sidebar-soft)' }}>Signed in as</div>
             <Select value={personId} onChange={setPerson} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
-              groups={(Object.keys(ROLE_LABEL) as RoleId[]).filter(r => !MTM_ONLY || r !== 'planning').map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
+              groups={(Object.keys(ROLE_LABEL) as RoleId[]).filter(r => !MTM_ONLY || (r !== 'planning' && r !== 'warehouse')).map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
           </>}
           {myRole === 'merchandiser' && !demoAll && <Select value={factoryId} onChange={setFactory} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
             options={db.vendors.filter(v => v.mtm && v.kind !== 'Hemming unit').map(v => ({ value:v.id, label:v.name }))} />}

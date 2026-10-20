@@ -1052,7 +1052,10 @@ fabrics.filter(f => f.international && f.bucket === 'NON_CORE').slice(0, 6).forE
 /* ---------- Enigma's Vendor Information — once per mill ---------- */
 VENDORS.filter(v => v.kind.endsWith('mill')).forEach((v, i) => {
   const intl = v.kind === 'International mill';
-  v.enigma = { vendorCode: `${VCODE[v.id] ?? v.name.slice(0, 2).toUpperCase()}-${String(100 + i).padStart(3, '0')}`, country: intl ? (v.location.split(',').pop()?.trim() ?? 'Italy') : 'India', description: `${v.name} · ${v.location}`, currency: intl ? 'EUR' : 'INR', tatHours: v.leadDays * 24 };
+  v.enigma = { vendorCode: `${VCODE[v.id] ?? v.name.slice(0, 2).toUpperCase()}-${String(100 + i).padStart(3, '0')}`, country: intl ? (v.location.split(',').pop()?.trim() ?? 'Italy') : 'India', description: `${v.name} · ${v.location}`, currency: intl ? 'EUR' : 'INR', tatHours: v.leadDays * 24,
+    vendorType: 'FABRIC', address: intl ? `${v.location}` : `${pick(['12', '41', '7', '118', '23'])}, ${pick(['Kalbadevi', 'Mangaldas Market', 'Swadeshi Market', 'Lower Parel', 'Dadar West'])}, ${v.location} 4000${pick(['02', '13', '28', '01'])}`,
+    officePhone: intl ? `+${pick(['39 031', '44 20', '86 512', '34 93'])} ${int(100000, 999999)}` : `+91 22 ${int(2200, 2899)} ${int(1000, 9999)}`, officeEmail: `${pick(['sales', 'orders', 'info', 'export'])}@${v.name.toLowerCase().replace(/[^a-z]+/g, '').slice(0, 12)}.com`,
+    active: i % 9 !== 8, categories: intl ? ['Fabric', 'Bespoke'] : ['Fabric'] };
 });
 
 /* ---------- Enigma's fabric master — the attribute block its Edit Fabric Info screen shows ---------- */

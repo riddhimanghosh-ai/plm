@@ -7,7 +7,7 @@ import { useSearchParams } from 'react-router-dom';
 import { factoryLoadOf as _fl } from '../domain/engines';
 void _fl;
 import { useApp } from '../store';
-import type { Vendor } from '../domain/types';
+import type { Vendor, VendorKind } from '../domain/types';
 import { vendorStatsOf, fmtDate, fmtMoney, daysAgo, riskOf, stageOf, otifOf, coverageOf, factoryLoadOf, agingOf } from '../domain/engines';
 import { OutputTab, AgingTab } from './Mtm';
 import { Card, Pill, Drawer, KV, Section, Note, Empty, Page, Tabs, Seg, Field, Input, Select, Button, ExportButton, usePager, Pager, Th, useExamples, type Tone } from '../ui';
@@ -59,23 +59,13 @@ function Vendor360({ v, s }: { v: Vendor; s: ReturnType<typeof vendorStatsOf> })
   const { db, role, updateVendor } = useApp();
   const isMill = v.kind.endsWith('mill');
   const canEdit = role === 'sourcing' || role === 'owner';
-  const [ve, setVe] = useState<null | { name: string; vendorCode: string; country: string; description: string; currency: 'INR' | 'USD' | 'EUR'; tatHours: string; moq: string }>(null);
+  const [ve, setVe] = useState(false);
   return <>
-    {isMill && <Section title="Vendor information · as in Enigma" right={canEdit && !ve ? <Button size="sm" onClick={() => setVe({ name: v.name, vendorCode: v.enigma?.vendorCode ?? '', country: v.enigma?.country ?? '', description: v.enigma?.description ?? '', currency: v.enigma?.currency ?? 'INR', tatHours: v.enigma?.tatHours != null ? String(v.enigma.tatHours) : '', moq: String(v.moq) })}>Edit</Button> : undefined}>
-      {ve ? <>
-        <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-          <Field label="Vendor Name"><Input value={ve.name} onChange={e => setVe({ ...ve, name: e.target.value })} /></Field>
-          <Field label="Vendor Code"><Input value={ve.vendorCode} onChange={e => setVe({ ...ve, vendorCode: e.target.value })} /></Field>
-          <Field label="Mill Country"><Input value={ve.country} onChange={e => setVe({ ...ve, country: e.target.value })} /></Field>
-          <Field label="Mill Description"><Input value={ve.description} onChange={e => setVe({ ...ve, description: e.target.value })} /></Field>
-          <Field label="Currency"><Select value={ve.currency} onChange={x => setVe({ ...ve, currency: x as 'INR' | 'USD' | 'EUR' })} options={['INR', 'USD', 'EUR'].map(x => ({ value: x, label: x }))} /></Field>
-          <Field label="TAT (hours)"><Input type="number" value={ve.tatHours} onChange={e => setVe({ ...ve, tatHours: e.target.value })} /></Field>
-          <Field label="MOQ (m)"><Input type="number" value={ve.moq} onChange={e => setVe({ ...ve, moq: e.target.value })} /></Field>
-        </div>
-        <div className="flex gap-2 pt-3"><Button size="sm" variant="primary" onClick={() => { updateVendor(v.id, { name: ve.name.trim() || v.name, moq: Number(ve.moq) || 0, enigma: { vendorCode: ve.vendorCode || null, country: ve.country || null, description: ve.description || null, currency: ve.currency, tatHours: ve.tatHours === '' ? null : Number(ve.tatHours) } }); setVe(null); }}>Save</Button><Button size="sm" variant="ghost" onClick={() => setVe(null)}>Cancel</Button></div>
-      </> : <div className="grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 24 }}>
-        <div><KV k="Vendor Name" v={v.name} /><KV k="Vendor Code" v={<span className="mono">{v.enigma?.vendorCode ?? '—'}</span>} /><KV k="Mill Country" v={v.enigma?.country ?? '—'} /><KV k="Mill Description" v={v.enigma?.description ?? '—'} /></div>
-        <div><KV k="Currency" v={v.enigma?.currency ?? 'INR'} /><KV k="TAT (hours)" v={v.enigma?.tatHours != null ? `${v.enigma.tatHours} h` : '—'} note={`${v.leadDays} days lead`} /><KV k="MOQ" v={`${v.moq} m`} /><KV k="Cost per Unit" v="per fabric — on each fabric's record" /></div>
+    {isMill && <Section title="Vendor · as in Enigma" right={<span className="flex gap-1 items-center">{v.enigma?.active === false && <Pill tone="risk">inactive</Pill>}{canEdit && !ve && <Button size="sm" onClick={() => setVe(true)}>Edit Vendor</Button>}</span>}>
+      {ve ? <VendorForm initial={vendorFormOf(v)} saveLabel="Save" onCancel={() => setVe(false)} onSave={f => { updateVendor(v.id, { name: f.name.trim() || v.name, kind: f.kind, moq: Number(f.moq) || 0, enigma: enigmaOfForm(f) }); setVe(false); }} />
+      : <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', columnGap: 24 }}>
+        <div><KV k="Code" v={<span className="mono">{v.enigma?.vendorCode ?? '—'}</span>} /><KV k="Name" v={v.name} /><KV k="Vendor Type" v={v.enigma?.vendorType ?? 'FABRIC'} /><KV k="Address" v={v.enigma?.address ?? v.location} /><KV k="Office Phone" v={v.enigma?.officePhone ?? '—'} /><KV k="Office Email" v={v.enigma?.officeEmail ?? '—'} /><KV k="Categories" v={(v.enigma?.categories ?? []).join(', ') || '—'} /><KV k="Active" v={v.enigma?.active === false ? 'No' : 'Yes'} /></div>
+        <div><KV k="Mill Country" v={v.enigma?.country ?? '—'} /><KV k="Mill Description" v={v.enigma?.description ?? '—'} /><KV k="Currency" v={v.enigma?.currency ?? 'INR'} /><KV k="TAT (hours)" v={v.enigma?.tatHours != null ? `${v.enigma.tatHours} h` : '—'} note={`${v.leadDays} days lead`} /><KV k="MOQ" v={`${v.moq} m`} /><KV k="Cost per Unit" v="per fabric — on each fabric's record" /></div>
       </div>}
     </Section>}
     {v.mtm && (() => { const l = factoryLoadOf(db, v.id); return <Section title="MTM floor · today" right={<Pill tone={l.load > 2 ? 'warn' : 'good'}>{l.load.toFixed(1)}d load</Pill>}>
@@ -163,14 +153,17 @@ export function VendorTable({ kind }: { kind: 'factories' | 'mills' }) {
   const clear = () => { setQ(''); setTypeF('all'); setRegionF('all'); setGradeF('all'); };
   const ex = useExamples(rows, r => r.s.grade, { noun: kind, done: r => r.s.grade === 'Reliable' && r.s.blocksHeld.length === 0 && !r.s.escalations.some(e => e.status === 'Open' || e.status === 'Acknowledged') });
   const pager = usePager(ex.rows, 20);
+  const [adding, setAdding] = useState(false);
   return <>
+    {kind === 'mills' && adding && <AddVendorForm onDone={id => { setAdding(false); if (id) open(id); }} />}
     <div className="flex gap-3 items-end flex-wrap mb-3">
       <div style={{ width: 280 }}><Field label={kind === 'mills' ? 'Search a mill' : 'Search a factory'} hint={kind === 'mills' ? 'name, city, or a fabric this mill makes' : 'name, city, or kind'}>
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder={kind === 'mills' ? 'Sutra, Mumbai, 2-ply poplin…' : 'Mahendra, Tiruppur, CMT…'} /></Field></div>
       <div style={{ width: 180 }}><Field label="Type"><Select value={typeF} onChange={setTypeF} options={[{ value:'all', label:`All · ${all.length}` }, ...kinds.map(k => ({ value:k, label:`${k} · ${all.filter(r => r.v.kind === k).length}` }))]} /></Field></div>
       <div style={{ width: 160 }}><Field label="Region"><Select value={regionF} onChange={setRegionF} options={[{ value:'all', label:'Anywhere' }, ...regions.map(rg => ({ value:rg, label:`${rg} · ${all.filter(r => r.v.region === rg).length}` }))]} /></Field></div>
-      <div style={{ width: 150 }}><Field label="Grade"><Select value={gradeF} onChange={setGradeF} options={[{ value:'all', label:'Any grade' }, ...['Reliable', 'Watch', 'Poor', 'Too new'].map(g => ({ value:g, label:`${g} · ${all.filter(r => r.s.grade === g).length}` }))]} /></Field></div>
+      {kind === 'factories' && <div style={{ width: 150 }}><Field label="Grade"><Select value={gradeF} onChange={setGradeF} options={[{ value:'all', label:'Any grade' }, ...['Reliable', 'Watch', 'Poor', 'Too new'].map(g => ({ value:g, label:`${g} · ${all.filter(r => r.s.grade === g).length}` }))]} /></Field></div>}
       {any && <Button size="sm" variant="ghost" onClick={clear}>Clear · showing {rows.length}</Button>}
+      {kind === 'mills' && canEdit && <Button size="sm" variant="primary" onClick={() => setAdding(a => !a)}>{adding ? 'Close' : '+ Add Vendor'}</Button>}
       <div className="flex-1" />
       <div className="pb-2">{ex.strip}</div>
       <ExportButton filename={kind === 'mills' ? 'fabric-vendors' : 'factories'} sheetName={kind === 'mills' ? 'Mills' : 'Factories'} rows={rows} cols={[
@@ -178,7 +171,7 @@ export function VendorTable({ kind }: { kind: 'factories' | 'mills' }) {
         { label:'Location', get: r => r.v.location }, { label:'Region', get: r => r.v.region },
         { label:'Lead days', get: r => r.v.leadDays }, { label:'On time %', get: r => Math.round(r.v.onTimeRate * 100) },
         ...(kind === 'mills'
-          ? [{ label:'Vendor Code', get: (r: typeof rows[number]) => r.v.enigma?.vendorCode ?? '' }, { label:'Mill Country', get: (r: typeof rows[number]) => r.v.enigma?.country ?? '' }, { label:'Mill Description', get: (r: typeof rows[number]) => r.v.enigma?.description ?? '' }, { label:'Currency', get: (r: typeof rows[number]) => r.v.enigma?.currency ?? 'INR' }, { label:'TAT hours', get: (r: typeof rows[number]) => r.v.enigma?.tatHours ?? '' }, { label:'MOQ', get: (r: typeof rows[number]) => r.v.moq }, { label:'Fabrics', get: (r: typeof rows[number]) => r.s.fabrics.length }]
+          ? [{ label:'Code', get: (r: typeof rows[number]) => r.v.enigma?.vendorCode ?? '' }, { label:'Vendor Type', get: (r: typeof rows[number]) => r.v.enigma?.vendorType ?? 'FABRIC' }, { label:'Address', get: (r: typeof rows[number]) => r.v.enigma?.address ?? '' }, { label:'Office Phone', get: (r: typeof rows[number]) => r.v.enigma?.officePhone ?? '' }, { label:'Office Email', get: (r: typeof rows[number]) => r.v.enigma?.officeEmail ?? '' }, { label:'Categories', get: (r: typeof rows[number]) => (r.v.enigma?.categories ?? []).join(', ') }, { label:'Active', get: (r: typeof rows[number]) => r.v.enigma?.active === false ? 'No' : 'Yes' }, { label:'Mill Country', get: (r: typeof rows[number]) => r.v.enigma?.country ?? '' }, { label:'Currency', get: (r: typeof rows[number]) => r.v.enigma?.currency ?? 'INR' }, { label:'TAT hours', get: (r: typeof rows[number]) => r.v.enigma?.tatHours ?? '' }, { label:'MOQ', get: (r: typeof rows[number]) => r.v.moq }, { label:'Fabrics', get: (r: typeof rows[number]) => r.s.fabrics.length }]
           : [{ label:'OTIF %', get: (r: typeof rows[number]) => r.s.closed.length ? r.s.otifPct : '' }, { label:'Open POs', get: (r: typeof rows[number]) => r.s.open.length }]),
         { label:'Grade', get: r => r.s.grade }]} />
     </div>
@@ -197,16 +190,19 @@ export function VendorTable({ kind }: { kind: 'factories' | 'mills' }) {
             <Th>Grade</Th>
           </tr>
         : <tr>
-            <Th>Vendor Name</Th>
-            <Th hint="Enigma's vendor code.">Vendor Code</Th>
-            <Th hint="Mill Country and Mill Description, as Enigma's Vendor Information block has them.">Mill Country · Description</Th>
-            <Th hint="The currency the mill bills in.">Currency</Th>
-            <Th num hint="Turn-around time in hours, as Enigma keeps it; the lead in days beside it.">TAT (hours)</Th>
-            <Th num hint="Minimum order quantity in metres.">MOQ</Th>
+            <Th>Code</Th>
+            <Th>Name</Th>
+            <Th>Vendor Type</Th>
+            <Th>Address</Th>
+            <Th>Office Phone</Th>
+            <Th>Office Email</Th>
+            <Th>Categories</Th>
+            <Th>Active</Th>
+            <Th num hint="Turn-around time in hours · MOQ in metres — Enigma's Vendor Information block.">TAT · MOQ</Th>
             <Th num hint="How many fabrics in the master are sourced from this mill.">Fabrics</Th>
-            <Th>Grade</Th>
           </tr>}</thead>
       <tbody>{pager.pageRows.map(({ v, s }) => <tr key={v.id} className="row" onClick={() => open(v.id)}>
+        {kind === 'mills' && <td className="mono text-[12px]">{v.enigma?.vendorCode ?? '—'}</td>}
         <td className="font-medium">{v.name}</td>
         {kind === 'factories' ? <>
           <td className="text-[12.5px]">{v.kind}</td>
@@ -217,22 +213,59 @@ export function VendorTable({ kind }: { kind: 'factories' | 'mills' }) {
           <td className="num">{s.quotesWon} / {s.quotesGiven}</td>
           <td className="num">{s.open.length}{s.open.some(o => ['critical', 'delayed'].includes(riskOf(o).risk)) && <span style={{ color:'var(--risk)' }}> · {s.open.filter(o => ['critical', 'delayed'].includes(riskOf(o).risk)).length} critical</span>}</td>
         </> : <>
-          <td className="mono text-[12px]">{v.enigma?.vendorCode ?? '—'}</td>
-          <td className="text-[12.5px]">{v.enigma?.country ?? (v.kind === 'International mill' ? '—' : 'India')}<div style={{ color:'var(--ink-faint)' }}>{v.enigma?.description ?? `${v.location} · ${v.region}`}</div></td>
-          <td className="mono text-[12px]">{v.enigma?.currency ?? 'INR'}</td>
-          <td className="num">{v.enigma?.tatHours != null ? `${v.enigma.tatHours} h` : '—'}<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{v.leadDays}d</div></td>
-          <td className="num" onClick={e => e.stopPropagation()}>{canEdit
-            ? <input className="input mono" type="number" step={50} style={{ width: 80, padding:'3px 6px', textAlign:'right' }} defaultValue={v.moq} onBlur={e => { const n = Number(e.target.value); if (n >= 0 && n !== v.moq) updateVendor(v.id, { moq: n }); }} />
-            : <span className="mono">{v.moq} m</span>}</td>
+          <td className="text-[12px]">{v.enigma?.vendorType ?? 'FABRIC'}<div style={{ color:'var(--ink-faint)' }}>{v.kind}</div></td>
+          <td className="text-[12px]" style={{ whiteSpace:'normal', maxWidth: 220 }}>{v.enigma?.address ?? v.location}</td>
+          <td className="mono text-[12px]">{v.enigma?.officePhone ?? '—'}</td>
+          <td className="text-[12px]">{v.enigma?.officeEmail ?? '—'}</td>
+          <td className="text-[12px]">{(v.enigma?.categories ?? []).map(c => <Pill key={c} tone="neutral">{c}</Pill>)}</td>
+          <td>{v.enigma?.active === false ? <Pill tone="risk">No</Pill> : <Pill tone="good">Yes</Pill>}</td>
+          <td className="num text-[12px]">{v.enigma?.tatHours != null ? `${v.enigma.tatHours} h` : `${v.leadDays * 24} h`} · {v.moq} m</td>
           <td className="num">{s.fabrics.length}{s.fabricsBelowRop ? <div className="text-[11px]" style={{ color:'var(--risk)' }}>{s.fabricsBelowRop} under ROP</div> : null}</td>
         </>}
-        <td><Pill tone={GRADE_TONE[s.grade]}>{s.grade}</Pill></td>
+        {kind === 'factories' && <td><Pill tone={GRADE_TONE[s.grade]}>{s.grade}</Pill></td>}
       </tr>)}</tbody>
     </table>
     <Pager page={pager.page} pageCount={pager.pageCount} onChange={pager.setPage} from={pager.from} to={pager.to} total={pager.total} noun={kind} />
     </Card></>}
-    <div className="mt-3"><Note>{kind === 'mills' ? 'The columns are Enigma\'s Vendor Information block; cost per unit is per fabric, on the fabric\'s record. ' : ''}<b>Reliable</b> holds its dates, <b>Watch</b> is slipping, <b>Poor</b> is late more often than not, all measured from the orders.</Note></div>
+    {kind === 'mills' ? <div className="mt-3"><Note>The same columns as Enigma's vendor list. Mill country, currency, TAT and MOQ sit on the vendor's record; cost per unit is per fabric.</Note></div>
+    : <div className="mt-3"><Note><b>Reliable</b> holds its dates, <b>Watch</b> is slipping, <b>Poor</b> is late more often than not, all measured from the orders.</Note></div>}
   </>;
+}
+
+/* ---------- Enigma's Add Vendor form, field for field ---------- */
+const VENDOR_FORM_BLANK = { code: '', name: '', vendorType: 'FABRIC', kind: 'Domestic mill' as VendorKind, address: '', officePhone: '', officeEmail: '', active: true, categories: 'Fabric', country: 'India', description: '', currency: 'INR' as 'INR' | 'USD' | 'EUR', tatHours: '', moq: '' };
+export function VendorForm({ initial, onSave, onCancel, saveLabel }: { initial: typeof VENDOR_FORM_BLANK; onSave: (f: typeof VENDOR_FORM_BLANK) => void; onCancel: () => void; saveLabel: string }) {
+  const [f, setF] = useState(initial);
+  const up = (patch: Partial<typeof VENDOR_FORM_BLANK>) => setF(x => ({ ...x, ...patch }));
+  return <div>
+    <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+      <Field label="Code"><Input value={f.code} onChange={e => up({ code: e.target.value })} placeholder="SU-100" /></Field>
+      <Field label="Name"><Input value={f.name} onChange={e => up({ name: e.target.value })} /></Field>
+      <Field label="Vendor Type"><Select value={f.vendorType} onChange={v => up({ vendorType: v })} options={['FABRIC', 'TRIMS', 'DESIGN', 'SERVICE'].map(x => ({ value: x, label: x }))} /></Field>
+      <Field label="Mill kind"><Select value={f.kind} onChange={v => up({ kind: v as VendorKind })} options={[{ value: 'Domestic mill', label: 'Domestic mill' }, { value: 'International mill', label: 'International mill' }]} /></Field>
+      <Field label="Address"><Input value={f.address} onChange={e => up({ address: e.target.value })} /></Field>
+      <Field label="Office Phone"><Input value={f.officePhone} onChange={e => up({ officePhone: e.target.value })} /></Field>
+      <Field label="Office Email"><Input value={f.officeEmail} onChange={e => up({ officeEmail: e.target.value })} /></Field>
+      <Field label="Categories" hint="comma-separated" hintOn="label"><Input value={f.categories} onChange={e => up({ categories: e.target.value })} /></Field>
+      <Field label="Active"><Select value={f.active ? 'yes' : 'no'} onChange={v => up({ active: v === 'yes' })} options={[{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]} /></Field>
+      <Field label="Mill Country"><Input value={f.country} onChange={e => up({ country: e.target.value })} /></Field>
+      <Field label="Mill Description"><Input value={f.description} onChange={e => up({ description: e.target.value })} /></Field>
+      <Field label="Currency"><Select value={f.currency} onChange={v => up({ currency: v as 'INR' | 'USD' | 'EUR' })} options={['INR', 'USD', 'EUR'].map(x => ({ value: x, label: x }))} /></Field>
+      <Field label="TAT (hours)"><Input type="number" value={f.tatHours} onChange={e => up({ tatHours: e.target.value })} /></Field>
+      <Field label="MOQ (m)"><Input type="number" value={f.moq} onChange={e => up({ moq: e.target.value })} /></Field>
+    </div>
+    <div className="flex gap-2 pt-3"><Button size="sm" variant="primary" disabled={!f.name.trim()} onClick={() => onSave(f)}>{saveLabel}</Button><Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button></div>
+  </div>;
+}
+export const vendorFormOf = (v: Vendor): typeof VENDOR_FORM_BLANK => ({ code: v.enigma?.vendorCode ?? '', name: v.name, vendorType: v.enigma?.vendorType ?? 'FABRIC', kind: v.kind, address: v.enigma?.address ?? v.location, officePhone: v.enigma?.officePhone ?? '', officeEmail: v.enigma?.officeEmail ?? '', active: v.enigma?.active !== false, categories: (v.enigma?.categories ?? ['Fabric']).join(', '), country: v.enigma?.country ?? '', description: v.enigma?.description ?? '', currency: v.enigma?.currency ?? 'INR', tatHours: v.enigma?.tatHours != null ? String(v.enigma.tatHours) : '', moq: String(v.moq) });
+export const enigmaOfForm = (f: typeof VENDOR_FORM_BLANK): NonNullable<Vendor['enigma']> => ({ vendorCode: f.code.trim() || null, country: f.country.trim() || null, description: f.description.trim() || null, currency: f.currency, tatHours: f.tatHours === '' ? null : Number(f.tatHours), vendorType: f.vendorType, address: f.address.trim() || null, officePhone: f.officePhone.trim() || null, officeEmail: f.officeEmail.trim() || null, active: f.active, categories: f.categories.split(',').map(x => x.trim()).filter(Boolean) });
+function AddVendorForm({ onDone }: { onDone: (id: string | null) => void }) {
+  const { addVendor } = useApp();
+  return <Card className="p-4 mb-3">
+    <div className="label">Add Vendor</div>
+    <VendorForm initial={VENDOR_FORM_BLANK} saveLabel="Save vendor" onCancel={() => onDone(null)}
+      onSave={f => { const tat = Number(f.tatHours) || 0; onDone(addVendor({ name: f.name.trim(), kind: f.kind, location: f.address.split(',').slice(-2, -1)[0]?.trim() || (f.kind === 'International mill' ? f.country : 'Mumbai'), region: f.kind === 'International mill' ? 'Intl' : 'West', leadDays: tat ? Math.max(1, Math.round(tat / 24)) : 14, moq: Number(f.moq) || 0, enigma: enigmaOfForm(f) })); }} />
+  </Card>;
 }
 
 /* ---------- Factory master — the numbers the rules run on, editable --------- */

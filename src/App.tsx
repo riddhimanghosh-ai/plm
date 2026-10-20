@@ -51,13 +51,13 @@ export default function App() {
           <Route path="/mtm" element={<Mtm />} />
           <Route path="/outbound" element={<OutboundPage />} />
           <Route path="/otif" element={MTM_ONLY ? <Navigate to="/" replace /> : <Otif />} />
-          <Route path="/warehouse" element={<Warehouse />} />
+          <Route path="/warehouse" element={MTM_ONLY ? <Navigate to="/" replace /> : <Warehouse />} />
           <Route path="/stores" element={<Stores />} />
           <Route path="/health" element={MTM_ONLY ? <Navigate to="/" replace /> : <Health />} />
           <Route path="/planning" element={MTM_ONLY ? <Navigate to="/" replace /> : <Planning />} />
           <Route path="/launches" element={MTM_ONLY ? <Navigate to="/" replace /> : <Launches />} />
           <Route path="/insights" element={MTM_ONLY ? <Navigate to="/" replace /> : <Insights />} />
-          <Route path="/grn" element={<GrnPage />} />
+          <Route path="/grn" element={MTM_ONLY ? <Navigate to="/" replace /> : <GrnPage />} />
           <Route path="/concepts" element={<ToDesign kind="MTM" form="mtm" />} />
           <Route path="/swatches" element={<Swatches />} />
           <Route path="/design" element={<DesignHome />} />
