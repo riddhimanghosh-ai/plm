@@ -755,6 +755,15 @@ export interface ConceptDesign {
   category: 'Formal' | 'Casual';
   mrp: number | null; cost?: number | null;
   description?: string | null; buzzwords?: string | null;   // PDP copy; the fabric's speciality
+  /* Enigma's Product Info screen, so the push carries everything Enigma asks for */
+  productType?: string | null;              // Enigma "Product Type" — CUSTOM_DESIGN for an MTM shirt
+  weightGrams?: number | null;              // Enigma "Weight (In Grams)"
+  region?: string;                          // Enigma "Region" — IND
+  stockMode?: 'track-quantity' | 'variants';   // Enigma's Track Quantity / Variants switch
+  status?: 'ACTIVE' | 'INACTIVE';           // IND Details → Status
+  salesChannel?: string | null;             // IND Details → Sales Channel
+  discountedPrice?: number | null;          // IND Details → Discounted Price (MRP is the Original Price)
+  media?: string[];                         // Upload Product Media — file names; the images show on the website
   enigmaOn?: string | null;                 // pushed to Enigma from here — the design row is created there over the API
   enigmaBy?: string | null;                 // who pushed it
   liveOn?: string | null;                   // this design live in POS

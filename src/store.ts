@@ -170,7 +170,7 @@ export interface AppState {
   conceptSetName(id: string, newName: string, mrp: number): void;
   conceptSetMarketing(id: string, blurb: string, channels: string[]): void;
   conceptGoLive(id: string): void;                                            // live in stores
-  conceptAddDesign(id: string, d: Pick<ConceptDesign, 'name' | 'category' | 'mrp'> & Partial<Pick<ConceptDesign, 'style' | 'cost' | 'description' | 'buzzwords'>>): void;   // one more design on this fabric, with its product code
+  conceptAddDesign(id: string, d: Pick<ConceptDesign, 'name' | 'category' | 'mrp'> & Partial<Pick<ConceptDesign, 'style' | 'cost' | 'description' | 'buzzwords' | 'productType' | 'weightGrams' | 'region' | 'stockMode' | 'status' | 'salesChannel' | 'discountedPrice' | 'media'>>): void;   // one more design on this fabric, with its product code
   conceptUpdateDesign(id: string, designId: string, patch: Partial<Omit<ConceptDesign, 'id' | 'code'>>): void;
   conceptDesignFlag(id: string, designId: string, flag: 'enigma' | 'live', on: boolean): void;
   pushDesignToEnigma(id: string, designId: string): void;   // design: create the design row in Enigma from here
@@ -979,7 +979,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     conceptAddDesign(id, d) {
       touch(db => { const c = db.concepts.find(x => x.id === id); if (!c) return;
         const seq = 4200 + db.concepts.reduce((a, x) => a + (x.designs?.length ?? 0), 0);
-        c.designs = [...(c.designs ?? []), { id:`dsn-${Date.now().toString(36)}-${seq}`, code:`BOM-SHI-${d.category === 'Formal' ? 'FM' : 'CS'}-${seq}`, name: d.name.trim(), finalName: null, style: d.style ?? null, category: d.category, mrp: d.mrp, cost: d.cost ?? null, description: d.description ?? null, buzzwords: d.buzzwords ?? null, enigmaOn: null, liveOn: null, setOn: now(), by: who() }]; },
+        c.designs = [...(c.designs ?? []), { id:`dsn-${Date.now().toString(36)}-${seq}`, code:`BOM-SHI-${d.category === 'Formal' ? 'FM' : 'CS'}-${seq}`, name: d.name.trim(), finalName: null, style: d.style ?? null, category: d.category, mrp: d.mrp, cost: d.cost ?? null, productType: d.productType ?? 'CUSTOM_DESIGN', weightGrams: d.weightGrams ?? null, region: d.region ?? 'IND', stockMode: d.stockMode ?? 'track-quantity', status: d.status ?? 'ACTIVE', salesChannel: d.salesChannel ?? null, discountedPrice: d.discountedPrice ?? null, media: d.media ?? [], description: d.description ?? null, buzzwords: d.buzzwords ?? null, enigmaOn: null, liveOn: null, setOn: now(), by: who() }]; },
         'Design added — its product code is minted; the sticker sheet gets one more label.');
     },
     conceptUpdateDesign(id, designId, patch) {
