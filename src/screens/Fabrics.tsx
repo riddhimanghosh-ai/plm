@@ -57,7 +57,7 @@ export function Fabrics() {
       {why && <div className="text-[10.5px] mt-0.5" style={{ color:'var(--ink-faint)' }}>{why}</div>}
       {f.paused && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)', fontStyle:'italic' }}>“{f.paused.note}”</div>}
       <div className="mt-1 flex flex-col gap-1 items-start">
-        {canPlan ? (f.paused
+        {canPlan && !f.onHold ? (f.paused
           ? <Button size="sm" variant="primary" onClick={() => resumeFabric(f.id)}>Resume selling</Button>
           : pausing === f.id
             ? <div className="flex flex-col gap-1" style={{ minWidth: 210 }}>
@@ -68,8 +68,8 @@ export function Fabrics() {
                   <Button size="sm" variant="ghost" onClick={() => setPausing(null)}>Cancel</Button>
                   {!pauseNote.trim() && <span className="text-[10px]" style={{ color:'var(--ink-faint)' }}>pick a reason, or write one</span>}</div>
               </div>
-            : <Button size="sm" variant="ghost" onClick={() => { setPausing(f.id); setPauseNote(''); }}>Pause selling…</Button>)
-          : !f.paused && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>design pauses it</div>}
+            : <Button size="sm" onClick={() => { setPausing(f.id); setPauseNote(''); }}>Pause selling…</Button>)
+          : !f.paused && !f.onHold && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>design pauses it</div>}
         {f.onHold && f.supply?.status === 'ok' && <div className="text-[10.5px]" style={{ color:'var(--warn)' }}>the mill says it is back — nothing has switched it on</div>}
         {canSource && !f.paused && (f.onHold
           ? <Button size="sm" variant={f.supply?.status === 'ok' ? 'primary' : undefined} onClick={() => setFabricHold(f.id, false)}>Switch back on</Button>
