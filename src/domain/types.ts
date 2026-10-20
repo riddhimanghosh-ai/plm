@@ -769,6 +769,7 @@ export interface ConceptDesign {
   variants?: { size: string; price: number | null; discountedPrice: number | null; sku: string }[];   // Enigma's variant table: one row a size, its price, discounted price and SKU (code-size)
   enigmaOn?: string | null;                 // pushed to Enigma from here — the design row is created there over the API
   enigmaBy?: string | null;                 // who pushed it
+  enigmaSyncedOn?: string | null;           // last time a change (price, variants, name) was pushed to Enigma after the first push
   liveOn?: string | null;                   // this design live in POS
   setOn: string; by: string;
 }

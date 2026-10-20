@@ -62,15 +62,14 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
           <tbody>{v.sizes.map(sz => <tr key={sz}>
             <td className="mono">{sz}</td>
             <td className="num"><Input type="number" value={v.vprice[sz] ?? ''} placeholder={v.mrp || '—'} onChange={e => setV({ ...v, vprice: { ...v.vprice, [sz]: e.target.value } })} style={{ width: 110, textAlign:'right' }} /></td>
-            <td className="num"><Input type="number" value={v.vdisc[sz] ?? ''} placeholder={v.discountedPrice || '—'} onChange={e => setV({ ...v, vdisc: { ...v.vdisc, [sz]: e.target.value } })} style={{ width: 110, textAlign:'right' }} /></td>
+            <td className="num"><Input type="number" value={v.vdisc[sz] ?? ''} placeholder="—" onChange={e => setV({ ...v, vdisc: { ...v.vdisc, [sz]: e.target.value } })} style={{ width: 110, textAlign:'right' }} /></td>
             <td className="mono text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{editId ? designs.find(d => d.id === editId)?.code : `BOM-SHI-${v.category === 'Formal' ? 'FM' : 'CS'}-nnnn`}-{sz}</td>
           </tr>)}</tbody></table></div>
         <div className="text-[11px] pt-1" style={{ color:'var(--ink-faint)' }}>blank price = the MRP; blank discounted = none</div></div>}
       <div className="vgrid-cap">The money</div>
-      <div style={{ gridColumn:'span 3' }}><Field label="MRP ₹" hint="Enigma's Original Price"><Input type="number" value={v.mrp} onChange={e => setV({ ...v, mrp: e.target.value })} /></Field></div>
-      <div style={{ gridColumn:'span 3' }}><Field label="Discounted price ₹" hint="IND Details · leave blank when there is none"><Input type="number" value={v.discountedPrice} onChange={e => setV({ ...v, discountedPrice: e.target.value })} /></Field></div>
+      <div style={{ gridColumn:'span 3' }}><Field label="MRP ₹" hint="Enigma's Original Price — the default price of every variant; change it here or per variant, any time, and it goes to Enigma"><Input type="number" value={v.mrp} onChange={e => setV({ ...v, mrp: e.target.value })} /></Field></div>
       <div style={{ gridColumn:'span 3' }}><Field label="Cost ₹" hint="what the shirt costs to make in this fabric and style" hintOn="label"><Input type="number" value={v.cost} onChange={e => setV({ ...v, cost: e.target.value })} /></Field></div>
-      <div style={{ gridColumn:'span 3' }}><Field label="Margin"><div className="input" style={{ background:'var(--surface-2)', color:'var(--ink-faint)' }}>{Number(v.mrp) && Number(v.cost) ? `${Math.round((1 - Number(v.cost) / Number(v.mrp)) * 100)}% on MRP` : 'MRP and cost'}</div></Field></div>
+      <div style={{ gridColumn:'span 6' }}><Field label="Margin"><div className="input" style={{ background:'var(--surface-2)', color:'var(--ink-faint)' }}>{Number(v.mrp) && Number(v.cost) ? `${Math.round((1 - Number(v.cost) / Number(v.mrp)) * 100)}% on MRP` : 'MRP and cost'}</div></Field></div>
       <div className="vgrid-cap">What the customer reads</div>
       <div style={{ gridColumn:'span 8' }}><Field label="Description · PDP" ><Input value={v.description} onChange={e => setV({ ...v, description: e.target.value })} placeholder="A soft-washed houndstooth in 100% cotton, cut for the boardroom" /></Field></div>
       <div style={{ gridColumn:'span 4' }}><Field label="Buzzwords" hint="the fabric's speciality, comma-separated — wrinkle-free, stretch, breathable" hintOn="label"><Input value={v.buzzwords} onChange={e => setV({ ...v, buzzwords: e.target.value })} placeholder="wrinkle-free, breathable" /></Field></div>
@@ -95,7 +94,7 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
         <td className="num" style={{ color:'var(--ink-soft)' }}>{money(d.cost)}{d.mrp && d.cost ? <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{Math.round((1 - d.cost / d.mrp) * 100)}%</div> : null}</td>
         <td style={{ whiteSpace:'nowrap' }} onClick={e => e.stopPropagation()}>
           <div className="flex gap-1 flex-wrap">
-            {d.enigmaOn ? <span className="pill good" title={`pushed to Enigma ${fmtDate(d.enigmaOn)}${d.enigmaBy ? ` by ${d.enigmaBy}` : ''}`}>in Enigma</span>
+            {d.enigmaOn ? <span className="pill good" title={`pushed to Enigma ${fmtDate(d.enigmaOn)}${d.enigmaBy ? ` by ${d.enigmaBy}` : ''}${d.enigmaSyncedOn ? ` · last change pushed ${fmtDate(d.enigmaSyncedOn)}` : ''}`}>in Enigma{d.enigmaSyncedOn ? ` · synced ${fmtDate(d.enigmaSyncedOn)}` : ''}</span>
               : canEdit ? <button type="button" className="cta" title="creates the design row in Enigma over the API — product code, name, MRP, attributes" onClick={() => pushDesignToEnigma(c.id, d.id)}>Push to Enigma →</button>
               : <span className="pill">Enigma pending</span>}
             <button type="button" className={`pill ${d.liveOn ? 'good' : c.liveOn ? 'warn' : ''}`} disabled={!canEdit} title={d.liveOn ? `live since ${fmtDate(d.liveOn)} — click to take down` : 'mark this design live in POS'} onClick={() => conceptDesignFlag(c.id, d.id, 'live', !d.liveOn)}>{d.liveOn ? 'live' : 'not live'}</button>

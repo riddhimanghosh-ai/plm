@@ -986,7 +986,10 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { const d = (db.concepts.find(x => x.id === id)?.designs ?? []).find(x => x.id === designId); if (!d) return;
         /* a later rename keeps the old final name on the record, the way the fabric master does */
         if (patch.finalName !== undefined && d.finalName && patch.finalName !== d.finalName) d.nameHistory = [...(d.nameHistory ?? []), { name: d.finalName, until: now(), by: who(), note: 'renamed' }];
-        Object.assign(d, patch); }, 'Design updated.');
+        Object.assign(d, patch);
+        /* already in Enigma: the change goes straight there — design changes a price whenever it likes */
+        if (d.enigmaOn) d.enigmaSyncedOn = now(); },
+      (() => { const d0 = (get().db.concepts.find(x => x.id === id)?.designs ?? []).find(x => x.id === designId); return d0?.enigmaOn ? 'Design updated — and pushed to Enigma: price, variants and name are current there.' : 'Design updated.'; })());
     },
     pushDesignToEnigma(id, designId) {
       const d0 = (get().db.concepts.find(x => x.id === id)?.designs ?? []).find(x => x.id === designId);
