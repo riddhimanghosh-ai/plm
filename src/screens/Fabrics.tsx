@@ -22,6 +22,7 @@ import { STORES, STORE_LOW_METRES, METRES_PER_SHIRT, MTM_SWATCH_BOOKS, MTM_ACTIV
 import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, KV, Section, Bars, usePager, Pager, Seg, useExamples, Select, ExportButton } from '../ui';
 import { ActsBy } from './Who';
 import { FabricInfo } from './FabricInfo';
+import { PoReceiving } from './PoReceiving';
 
 /* design's own shorthand — one click instead of a sentence typed 35 times */
 const PAUSE_REASONS = ['Shade being retired', 'Quality doubt', 'Book changing', 'Not selling'];
@@ -141,8 +142,8 @@ export function Fabrics() {
           { id:'sell', label:'What sells', tabs: [
             { id:'books', label:'Fabric inventory', hint:'every MTM fabric as Enigma lists it — code, name, category, inventory type, saleable, physical, reserved, threshold — filtered by swatch book' },
             { id:'noncore', label:'Ranges · non-core gaps', hint:'each range against its plan of options' } ] },
-          { id:'orders', label:'Cloth on order', tabs: [
-            { id:'pos', label: designSide ? 'Fabric POs' : 'Fabric POs · confirm with mills', count: designSide ? undefined : fpoUnconfirmed },
+          { id:'orders', label:'Purchase orders & supply', tabs: [
+            { id:'pos', label:'Purchase orders', count: designSide ? undefined : fpoUnconfirmed, hint:'every fabric PO — raised by Enigma on its own or by a person — and the fabrics that still need one' },
             ...(designSide ? [] : [
               { id:'core', label:'Core · weekly stock review', count: reviewDue.length, hint:'sourcing reviews every core fabric with its mill once a week; an out fabric is escalated to design' },
               { id:'trims', label:'Trims & packaging', count: (db.trims ?? []).filter(t => trimCoverageOf(db, t).belowThreshold).length } ]) ] },
@@ -266,7 +267,7 @@ export function Fabrics() {
       </>)}
 
       <Drawer open={!!active} onClose={() => set('open', null)} title={active?.name ?? ''} subtitle={active && <><Pill tone="accent">{active.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{active.code}</span><span>· {vendorName(active.vendorId)}{active.international ? ' · International' : ' · Domestic'}</span></>}>
-        {active && <Fabric360 f={active} canSource={canSource} canPlan={canPlan} />}
+        {active && <FabricRecord f={active} view={(params.get('view') as FabricView) ?? 'overview'} setView={v => set('view', v)} />}
       </Drawer>
     </Page>
   );
@@ -274,8 +275,67 @@ export function Fabrics() {
 
 /* ---------- the 360: every fact the tool holds about one fabric ---------- */
 /** The fabric as its own page — `#/fabric/<id>`. Opened from the mills page and any list that names a fabric. */
-export function FabricPage() {
+/** This fabric's purchase orders, and how the next one gets raised — the question
+    "who orders this, Enigma or a person?" answered on the record itself. */
+function FabricPoList({ f, flat, canSource }: { f: Fabric; flat: boolean; canSource: boolean }) {
+  const { db, raiseFabricPo } = useApp();
+  const mill = db.vendors.find(v => v.id === f.vendorId)!;
+  const c = coverageOf(f, mill.leadDays, mill);
+  const pos = (db.fabricPos ?? []).filter(p => p.fabricId === f.id).sort((a, b) => b.raisedOn.localeCompare(a.raisedOn));
+  const open = pos.filter(p => !p.closedOn && !p.receivedOn);
+  const auto = f.inventory?.autoReplenish ?? (f.bucket === 'CORE' && !f.international);
+  const sec = { collapsible: !flat, defaultOpen: flat || undefined };
+  return <>
+    <Section {...sec} title="How this fabric is reordered" right={<Pill tone={auto ? 'info' : 'warn'}>{auto ? 'Enigma raises it' : 'a person raises it'}</Pill>}>
+      <KV k="Rule" v={auto ? 'Automatic' : 'By hand'} note={auto ? `Enigma's batch run raises a PO the moment saleable stock falls under the ${f.thresholdMetres} m threshold — nobody has to remember` : f.international ? 'international mill — Enigma does not auto-PO it; sourcing raises the PO when the reorder point is crossed' : f.bucket === 'BESPOKE' ? 'bespoke — cut from the mill\'s own stock, no PO' : 'non-core is bought once; a new PO is a decision, not a rule'} />
+      <KV k="Reorder point" v={`${c.rop} m`} note={c.leadDemand >= c.moq ? `${mill.leadDays} days of sales at the current rate` : `the mill's MOQ`} />
+      <KV k="Right now" v={c.belowRop ? <Pill tone="risk">under the point</Pill> : <Pill tone="good">above the point</Pill>} note={`${c.saleable} m saleable · ${c.incoming ? `${c.incoming} m on order` : 'nothing on order'}`} />
+      {!auto && c.belowRop && open.length === 0 && f.bucket !== 'BESPOKE' && (canSource
+        ? <div className="pt-2"><Button size="sm" variant="primary" onClick={() => raiseFabricPo(f.id, c.suggestedPo)}>Raise PO now · {c.suggestedPo} m</Button></div>
+        : <div className="pt-2"><ActsBy role="sourcing" does={`raises a PO for ${c.suggestedPo} m`} /></div>)}
+    </Section>
+    <Section {...sec} title={`Purchase orders · ${pos.length}`} right={open.length ? <Pill tone="info">{open.length} open</Pill> : undefined}>
+      {pos.length === 0 ? <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>No PO yet on this fabric.</div>
+        : pos.map(p => { const st = fabricPoStatus(p); return <div key={p.id} className="py-2" style={{ borderBottom:'1px solid var(--line-soft)' }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="mono font-medium">{p.poNo}</span>
+            <Pill tone={p.source === 'auto' ? 'info' : 'neutral'}>{p.source === 'auto' ? 'Enigma · auto' : 'by hand'}</Pill>
+            <span className="mono">{p.metres} m</span>
+            <span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>raised {fmtDate(p.raisedOn)}{p.vendorConfirmedOn ? ` · mill ships ${fmtDate(p.expectedOn)}` : ` · expected ${fmtDate(p.expectedOn)}, mill not confirmed`}</span>
+            <span className="ml-auto"><Pill tone={st === 'confirmed' ? 'good' : st.includes('overdue') ? 'risk' : st.includes('chase') ? 'warn' : 'neutral'}>{p.closedOn ? (p.closedShort ? 'closed short' : 'received') : st}</Pill></span>
+          </div>
+          {p.remark && <div className="text-[12px] pt-0.5" style={{ color:'var(--ink-soft)' }}>“{p.remark}”</div>}
+          <PoReceiving po={p} editable={canSource} />
+        </div>; })}
+    </Section>
+  </>;
+}
+
+/** The fabric record: a facts strip, then tabs. The page keeps the tab in the URL; the drawer keeps it in state. */
+export function FabricRecord({ f, view, setView }: { f: Fabric; view: FabricView; setView: (v: FabricView) => void }) {
   const { db, role } = useApp();
+  const mill = db.vendors.find(v => v.id === f.vendorId)!;
+  const c = coverageOf(f, mill.leadDays, mill);
+  const live = liveStatusOf(f, mill.leadDays);
+  const pos = (db.fabricPos ?? []).filter(p => p.fabricId === f.id);
+  const fact = (k: string, v: React.ReactNode) => <div><div className="label">{k}</div><div className="text-[15px] font-medium">{v}</div></div>;
+  return <>
+    <Card className="px-4 py-3 mb-3"><div className="grid gap-4" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))' }}>
+      {fact('On the shelf', <span style={{ color: f.stockMetres <= f.thresholdMetres ? 'var(--risk)' : undefined }}>{f.stockMetres} m</span>)}
+      {fact('Reserved', `${f.reservedMetres} m`)}
+      {fact('On order', `${f.incomingMetres ?? 0} m`)}
+      {fact('Saleable', `${c.saleable} m`)}
+      {fact('Threshold', `${f.thresholdMetres} m`)}
+      {fact('Cost / m', f.mill?.costPerUnit != null ? `${f.mill.currency} ${f.mill.costPerUnit}` : f.cpm != null ? `INR ${f.cpm}` : '—')}
+      {fact('Sells', `${c.ros.toFixed(1)} / wk`)}
+      {fact('Status', <Pill tone={live === 'Active' ? 'good' : live === 'Low Stock' ? 'warn' : 'risk'}>{live}</Pill>)}
+    </div></Card>
+    <Tabs wrap active={view} onChange={v => setView(v as FabricView)} tabs={[{ id:'overview', label:'Overview' }, { id:'pos', label:'Purchase orders', count: pos.filter(p => !p.closedOn && !p.receivedOn).length || undefined }, { id:'enigma', label:'Fabric info · Enigma' }, { id:'inventory', label:'Inventory & movements' }, { id:'files', label:'Files & conversation' }]} />
+    <Fabric360 f={f} view={view} flat canSource={role === 'sourcing' || role === 'owner'} canPlan={role === 'design' || role === 'owner'} />
+  </>;
+}
+export function FabricPage() {
+  const { db } = useApp();
   const { id } = useParams();
   const [params, setParams] = useSearchParams();
   const view = (params.get('view') ?? 'overview') as FabricView;
@@ -283,26 +343,13 @@ export function FabricPage() {
   const f = db.fabrics.find(x => x.id === id) ?? null;
   const mill = f ? db.vendors.find(v => v.id === f.vendorId) : null;
   if (!f || !mill) return <Page title="Fabric"><Card><Empty title="No such fabric." body="It may have been removed from the master." /></Card></Page>;
-  const c = coverageOf(f, mill.leadDays, mill);
-  const live = liveStatusOf(f, mill.leadDays);
-  const fact = (k: string, v: React.ReactNode) => <div><div className="label">{k}</div><div className="text-[15px] font-medium">{v}</div></div>;
   return <Page title={f.name} actions={<Button size="sm" variant="ghost" onClick={() => history.back()}>← Back</Button>}>
-    <div className="flex items-center gap-2 flex-wrap mb-3 text-[13px]" style={{ color:'var(--ink-soft)' }}><Pill tone={live === 'Active' ? 'good' : live === 'Low Stock' ? 'warn' : 'risk'}>{live}</Pill><Pill tone="accent">{f.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{f.code}</span><span>· <VendorLink id={mill.id}>{mill.name}</VendorLink></span>{f.onHold && <Pill tone="risk">on hold</Pill>}{f.paused && <Pill tone="warn">paused by design</Pill>}</div>
-    <Card className="px-4 py-3 mb-4"><div className="grid gap-4" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))' }}>
-      {fact('On the shelf', <span style={{ color: f.stockMetres <= f.thresholdMetres ? 'var(--risk)' : undefined }}>{f.stockMetres} m</span>)}
-      {fact('Reserved', `${f.reservedMetres} m`)}
-      {fact('On order', `${f.incomingMetres ?? 0} m`)}
-      {fact('Saleable', `${c.saleable} m`)}
-      {fact('Threshold', `${f.thresholdMetres} m`)}
-      {fact('Cost / m', f.mill?.costPerUnit != null ? `${f.mill.currency} ${f.mill.costPerUnit}` : f.cpm != null ? `INR ${f.cpm}` : '—')}
-      {fact('Sells', `${c.ros.toFixed(1)} shirts / wk`)}
-    </div></Card>
-    <Tabs active={view} onChange={setView} tabs={[{ id:'overview', label:'Overview' }, { id:'enigma', label:'Fabric info · Enigma' }, { id:'inventory', label:'Inventory & movements' }, { id:'files', label:'Files & conversation' }]} />
-    <div style={{ maxWidth: 1040 }}><Fabric360 f={f} view={view} flat canSource={role === 'sourcing' || role === 'owner'} canPlan={role === 'design' || role === 'owner'} /></div>
+    <div className="flex items-center gap-2 flex-wrap mb-3 text-[13px]" style={{ color:'var(--ink-soft)' }}><Pill tone="accent">{f.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{f.code}</span><span>· <VendorLink id={mill.id}>{mill.name}</VendorLink></span>{f.onHold && <Pill tone="risk">on hold</Pill>}{f.paused && <Pill tone="warn">paused by design</Pill>}</div>
+    <div style={{ maxWidth: 1040 }}><FabricRecord f={f} view={view} setView={setView} /></div>
   </Page>;
 }
 
-type FabricView = 'all' | 'overview' | 'enigma' | 'inventory' | 'files';
+type FabricView = 'all' | 'overview' | 'pos' | 'enigma' | 'inventory' | 'files';
 function Fabric360({ f, canSource, canPlan, view = 'all', flat = false }: { f: Fabric; canSource: boolean; canPlan: boolean; view?: FabricView; flat?: boolean }) {
   const show = (v: FabricView) => view === 'all' || view === v;
   const [pnote, setPnote] = useState('');
@@ -368,6 +415,7 @@ function Fabric360({ f, canSource, canPlan, view = 'all', flat = false }: { f: F
       {f.international && <div className="pt-2"><Note tone="warn">International — Enigma's auto-PO does not reach this fabric. Reordering is a person's job, and the reorder point below is what that person should act on.</Note></div>}
     </Section>}
 
+    {show('pos') && <FabricPoList f={f} flat={flat} canSource={canSource || canPlan} />}
     {show('enigma') && <FabricInfo f={f} editable={canDesign || canSource} part="info" flat={flat} />}
     {show('inventory') && <FabricInfo f={f} editable={canDesign || canSource} part="inventory" flat={flat} />}
 
@@ -430,12 +478,16 @@ function TrimsTab() {
 function FabricPosTab({ canSource }: { canSource: boolean }) {
   const { db, confirmFabricPo, remarkFabricPo } = useApp();
   const [q, setQ] = useState('');
-  const [only, setOnly] = useState<'all' | 'chase' | 'confirmed' | 'design'>('all');
+  const [only, setOnly] = useState<'all' | 'auto' | 'hand' | 'needs' | 'chase' | 'confirmed'>('all');
+  /* fabrics under their reorder point that Enigma will NOT order — a person has to */
+  const needs = db.fabrics.filter(f => f.bucket === 'CORE' && f.international).map(f => { const m = db.vendors.find(v => v.id === f.vendorId); return { f, m, c: coverageOf(f, m?.leadDays ?? 30, m) }; })
+    .filter(x => x.c.belowRop && !openFabricPos(db).some(p => p.fabricId === x.f.id));
+  const { raiseFabricPo } = useApp();
   const allPos = openFabricPos(db).sort((a, b) => Number(!!a.vendorConfirmedOn) - Number(!!b.vendorConfirmedOn) || a.raisedOn.localeCompare(b.raisedOn));
   /* search by PO number, fabric name or code, mill, remark — anything on the row */
   const hay = (p: typeof allPos[number]) => { const f = db.fabrics.find(x => x.id === p.fabricId); const v = db.vendors.find(x => x.id === p.vendorId); return `${p.poNo} ${f?.name ?? ''} ${f?.code ?? ''} ${f?.bucket ?? ''} ${v?.name ?? ''} ${p.remark ?? ''}`.toLowerCase(); };
   const pos = allPos.filter(p => (!q.trim() || q.toLowerCase().split(/\s+/).every(w => hay(p).includes(w)))
-    && (only === 'all' || (only === 'chase' && !p.vendorConfirmedOn) || (only === 'confirmed' && !!p.vendorConfirmedOn) || (only === 'design' && /concept|RTW bulk|REQ-\d/i.test(p.remark))));
+    && (only === 'all' || only === 'needs' || (only === 'auto' && p.source === 'auto') || (only === 'hand' && p.source !== 'auto') || (only === 'chase' && !p.vendorConfirmedOn) || (only === 'confirmed' && !!p.vendorConfirmedOn)));
   const ex = useExamples(pos, p => fabricPoStatus(p), { noun: 'fabric POs', score: p => (p.vendorConfirmedOn ? 1 : 0) + (p.remark ? 1 : 0), done: p => fabricPoStatus(p) === 'confirmed' });
   const [edit, setEdit] = useState<string | null>(null);
   const [date, setDate] = useState(''); const [remark, setRemark] = useState('');
@@ -445,15 +497,23 @@ function FabricPosTab({ canSource }: { canSource: boolean }) {
   return <>
     <div className="flex items-end gap-3 flex-wrap mb-3">
       <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search PO, fabric, code, mill, remark…" style={{ width: 300 }} aria-label="search fabric POs" />
-      <Seg value={only} onChange={setOnly} options={[{ id:'all', label:'All open', count: allPos.length }, { id:'chase', label:'Unconfirmed · chase', count: allPos.filter(p => !p.vendorConfirmedOn).length }, { id:'confirmed', label:'Confirmed', count: allPos.filter(p => !!p.vendorConfirmedOn).length }, { id:'design', label:'Raised by design', count: allPos.filter(p => /concept|RTW bulk|REQ-\d/i.test(p.remark)).length, hint:'POs design pushed off a concept, an RTW requirement or an option request' }]} />
+      <Seg value={only} onChange={setOnly} options={[{ id:'all', label:'All open', count: allPos.length }, { id:'auto', label:'Enigma raised · auto', count: allPos.filter(p => p.source === 'auto').length, hint:'Enigma\'s batch run raised these on its own — domestic core under its threshold' }, { id:'hand', label:'Raised by hand', count: allPos.filter(p => p.source !== 'auto').length, hint:'a person pushed these — international core, a design\'s new fabric, an RTW requirement' }, { id:'needs', label:'Needs a PO by hand', count: needs.length, hint:'international core under its reorder point with no PO — Enigma will not raise it' }, { id:'chase', label:'Mill not confirmed', count: allPos.filter(p => !p.vendorConfirmedOn).length }, { id:'confirmed', label:'Confirmed', count: allPos.filter(p => !!p.vendorConfirmedOn).length }]} />
       {q && <span className="text-[12px]" style={{ color:'var(--ink-soft)' }}>{pos.length} of {allPos.length}</span>}
       {ex.strip && <span className="ml-auto">{ex.strip}</span>}
     </div>
-    {pos.length === 0 ? <Card><Empty title={allPos.length ? 'Nothing matches.' : 'No fabric POs open.'} body={allPos.length ? 'Try a shorter word — the search covers PO number, fabric name and code, mill and remark.' : "Enigma's auto-POs and the manual international ones appear here until the rolls are received."} /></Card> : <Card><div style={{ overflowX:'auto' }}><table className="t compact">
+    <div className="mb-3"><Note>Two ways a PO gets raised. <b>Enigma · auto</b>: its batch run orders a domestic core fabric the moment saleable stock falls under the threshold. <b>By hand</b>: a person pushes it — sourcing for international core (Enigma never orders those), design for a new fabric or an RTW requirement.</Note></div>
+    {(only === 'needs' || (only === 'all' && needs.length > 0)) && <Card className="mb-3"><div className="px-4 py-2.5 flex items-center gap-2" style={{ borderBottom:'1px solid var(--line-soft)' }}><h3>Needs a PO by hand · {needs.length}</h3><span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>international core under its reorder point, nothing on order — Enigma will not raise these</span></div>
+      {needs.length === 0 ? <div className="px-4 py-3 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Nothing waiting on a person right now.</div> : <table className="t compact"><thead><tr><th>Fabric</th><th>Mill</th><th className="num">Saleable</th><th className="num">Reorder point</th><th className="num">Suggested PO</th><th></th></tr></thead>
+      <tbody>{needs.map(({ f, m, c }) => <tr key={f.id} className="row" onClick={() => { location.hash = `#/fabric/${f.id}?view=pos`; }}>
+        <td className="font-medium">{f.name}<div className="text-[11px] font-normal mono" style={{ color:'var(--ink-faint)' }}>{f.code}</div></td><td className="text-[12.5px]">{m?.name ?? '—'}<div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{m?.leadDays ?? '—'}d lead</div></td>
+        <td className="num" style={{ color:'var(--risk)' }}>{c.saleable} m</td><td className="num">{c.rop} m</td><td className="num">{c.suggestedPo} m</td>
+        <td onClick={e => e.stopPropagation()}>{canSource ? <Button size="sm" variant="primary" onClick={() => raiseFabricPo(f.id, c.suggestedPo)}>Raise PO · {c.suggestedPo} m</Button> : <ActsBy role="sourcing" does="raises it" inline />}</td>
+      </tr>)}</tbody></table>}</Card>}
+    {only === 'needs' ? null : pos.length === 0 ? <Card><Empty title={allPos.length ? 'Nothing matches.' : 'No fabric POs open.'} body={allPos.length ? 'Try a shorter word — the search covers PO number, fabric name and code, mill and remark.' : "Enigma's auto-POs and the manual international ones appear here until the rolls are received."} /></Card> : <Card><div style={{ overflowX:'auto' }}><table className="t compact">
       <thead><tr><th>PO</th><th>Fabric</th><th>Mill</th><th className="num">Metres</th><th>Mill says</th><th>Status</th><th></th></tr></thead>
       <tbody>{ex.rows.map(p => { const f = fabric(p.fabricId); const st = fabricPoStatus(p); const editing = edit === p.id; return (
         <tr key={p.id} style={{ background: editing ? 'var(--accent-soft)' : undefined }}>
-          <td className="mono text-[12.5px]">{p.poNo}<div className="text-[10.5px]" style={{ color: p.source === 'auto' ? 'var(--info)' : 'var(--ink-faint)' }}>{p.source === 'auto' ? 'Enigma auto' : /concept|RTW bulk|REQ-\d/i.test(p.remark) ? 'raised by design' : db.fabrics.find(f => f.id === p.fabricId)?.international ? 'manual · intl' : 'manual'} · {fmtRel(p.raisedOn)}</div></td>
+          <td className="mono text-[12.5px]">{p.poNo}<div className="pt-0.5"><Pill tone={p.source === 'auto' ? 'info' : 'accent'}>{p.source === 'auto' ? 'Enigma · auto' : /concept|RTW bulk|REQ-\d/i.test(p.remark) ? 'by hand · design' : 'by hand · sourcing'}</Pill></div><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{fmtRel(p.raisedOn)}</div></td>
           <td style={{ whiteSpace:'normal', minWidth: 180 }}>{f?.name}<div className="text-[11px] mono" style={{ color:'var(--ink-faint)' }}>{f?.code} · {f?.bucket.toLowerCase().replace('_', '-')}</div></td>
           <td style={{ whiteSpace:'normal' }}><VendorLink id={p.vendorId} /></td>
           <td className="num">{p.metres} m</td>
