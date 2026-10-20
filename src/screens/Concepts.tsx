@@ -212,18 +212,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
         <span className="text-[11px]" style={{ color:'var(--ink-faint)' }}>the swatch is in; the gate closes when the price is written down</span>
       </div>}
       {!sourcing && !c.optionsSentOn && (!s.fabric || s.fabric.cpm == null) && <Who r="Sourcing" does={!s.fabric ? 'goes round the mills for the same cloth and brings the offers back' : 'writes the quoted price against it'} />}
-    </>; })()}
-        </Section>
-      : <Section title="2 · Vendor added" defaultOpen={nowKey === 'vendors'} right={<Pill tone="neutral">nothing to buy</Pill>}>
-          <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>A construction variant is made on cloth we already hold — no mill to choose, no fabric to buy.</div>
-        </Section>}
-
-    {/* ── 4 · Purchase order — design raises it, sourcing works against it ─ */}
-        </>,
-        'po': <>
-    {c.kind === 'new-fabric' && <Section title="3 · PO punched" defaultOpen={nowKey === 'po'}
-      right={<Pill tone={c.fabricPo ? 'good' : s.fabric ? 'accent' : 'neutral'}>{c.fabricPo ? `PO · ${c.fabricPo.metres} m` : s.fabric ? 'design to raise' : 'after design chooses'}</Pill>}>
-    <>
+      <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line)' }}><div className="label">The purchase order</div>
       {s.block && <KV k="Block" v={`${s.block.metres} m · ${s.block.status}`} note={s.block.status === 'held' ? `expires ${fmtDate(s.block.expiresOn)} · ${-daysAgo(s.block.expiresOn)}d — the one copy, with a countdown` : `agreed ${fmtDate(s.block.agreedOn)}`} />}
       {c.fabricPo && (() => { const po = (db.fabricPos ?? []).find(p => p.fabricId === c.fabricId);
         return <>
@@ -243,12 +232,19 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
           <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>the PO number and the Enigma fabric code land here; sourcing then gets the cloth in</span>
         </div> : <Who r="Design" does="punches the fabric PO against the vendor in step 2" />; })()}
       {c.fabricPo && <div className="pt-2"><Note tone="good">Design raised the PO. <b>Sourcing's turn:</b> chase the mill and book the metres in — they land as incoming on the fabric record.</Note></div>}
-    </>
-    </Section>}
+      </div>
+    </>; })()}
+        </Section>
+      : <Section title="2 · Vendor added" defaultOpen={nowKey === 'vendors'} right={<Pill tone="neutral">nothing to buy</Pill>}>
+          <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>A construction variant is made on cloth we already hold — no mill to choose, no fabric to buy.</div>
+        </Section>}
+
+    {/* ── 4 · Purchase order — design raises it, sourcing works against it ─ */}
         </>,
+        'po': null,
         'fabric-in': <>
     {c.kind === 'new-fabric' && (() => { const f2 = designFlowOf(db, { kind:'concept', c }); const st = f2.steps.find(x => x.key === 'fabric-in')!;
-      return <Section title="4 · Fabric in" defaultOpen={nowKey === 'fabric-in'} right={<Pill tone={st.state === 'done' ? 'good' : 'neutral'}>{st.state === 'done' ? 'received' : c.fabricPo ? 'on its way' : 'after the PO'}</Pill>}>
+      return <Section title="3 · Fabric in" defaultOpen={nowKey === 'fabric-in'} right={<Pill tone={st.state === 'done' ? 'good' : 'neutral'}>{st.state === 'done' ? 'received' : c.fabricPo ? 'on its way' : 'after the PO'}</Pill>}>
         <div className="py-1 text-[12.5px]" style={{ color: st.state === 'done' ? 'var(--good)' : 'var(--ink-soft)' }}>{st.note}</div>
         {c.fabricPo && st.state !== 'done' && <Note>This line turns green the day the warehouse books the metres in.</Note>}
         <div className="pt-2" />
@@ -294,7 +290,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
       </Section>; })()}
         </>,
         'live': <>
-    <Section title="5 · Live online" defaultOpen={nowKey === 'live'}
+    <Section title="4 · Live online" defaultOpen={nowKey === 'live'}
       right={<span className="flex gap-1 flex-wrap justify-end">
         {c.kind === 'new-fabric' && <Pill tone={c.online?.liveOn ? 'good' : 'accent'}>{c.online?.liveOn ? `online ${fmtDate(c.online.liveOn)}` : 'design to switch on'}</Pill>}
         <Pill tone={c.liveOn ? 'good' : 'neutral'}>{c.liveOn ? `stores ${fmtDate(c.liveOn)}` : 'stores · after the swatch desk'}</Pill>

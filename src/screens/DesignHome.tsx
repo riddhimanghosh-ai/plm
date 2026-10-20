@@ -22,14 +22,14 @@ import { MTM_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
 type Kind = 'MTM' | 'RTW' | 'FOB' | 'Options';
 type Stage = 1 | 2 | 3 | 4 | 5;   // 5 = live / done
 const STAGE_LABEL: Record<Stage, string> = MTM_ONLY
-  ? { 1:'Requirement requested', 2:'Vendor added', 3:'PO punched', 4:'Fabric in', 5:'Live online' }
+  ? { 1:'Requirement requested', 2:'Vendor added', 3:'Fabric in', 4:'Live online', 5:'' }
   : { 1:'1 · Requirement', 2:'2 · Sourcing', 3:'3 · Finalised & ordered', 4:'4 · Downstream', 5:'Live' };
 const STAGE_HINT: Record<Stage, string> = MTM_ONLY ? {
   1:'design has written what it needs; sourcing has not put a vendor against it yet',
-  2:'a vendor is on the table — design pushes the PO, asks for time, or drops it',
-  3:'the fabric PO is punched and the Enigma code minted; the cloth is on its way',
-  4:'the cloth is in — design adds the designs, pushes them to Enigma and sets consumption',
-  5:'photos, video and post, then design switches it on online; stores follow the swatch desk',
+  2:'a vendor is on the table — design punches the PO, asks for time, or drops it; once punched, the cloth is on its way',
+  3:'the cloth is in — design adds the designs, pushes them to Enigma and sets consumption',
+  4:'photos, video and post, then design switches it on online; stores follow the swatch desk',
+  5:'',
 } : {
   1:'design has written what it needs; not yet with sourcing',
   2:'sourcing is finding and blocking a vendor, or design is deciding on the one on the table',
@@ -133,7 +133,7 @@ export function DesignHome() {
       <div className="flex items-end gap-3 flex-wrap mb-3">
         <Seg value={stage} onChange={v => setStage(v as typeof stage)} label="Stage" options={[
           { id:'all', label:'All', count: base.length },
-          ...([1, 2, 3, 4, 5] as Stage[]).map(s => ({ id: String(s), label: STAGE_LABEL[s], count: count(r => r.stage === s), hint: STAGE_HINT[s] })),
+          ...([1, 2, 3, 4, 5] as Stage[]).filter(s => STAGE_LABEL[s]).map(s => ({ id: String(s), label: STAGE_LABEL[s], count: count(r => r.stage === s), hint: STAGE_HINT[s] })),
         ]} />
         {!MTM_ONLY && <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[{ id:'all', label:'Every kind' }, { id:'MTM', label:'MTM fabric', count: count(r => r.kind === 'MTM') }, ...(MTM_ONLY ? [] : [{ id:'RTW', label:'RTW style', count: count(r => r.kind === 'RTW') }]), ...(OPTIONS_OFF ? [] : [{ id:'Options', label:'Several options', count: count(r => r.kind === 'Options') }])]} />}
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search requirement, fabric, style…" style={{ width: 240 }} aria-label="search requirements" />
@@ -152,7 +152,7 @@ export function DesignHome() {
           <td style={{ whiteSpace:'normal', minWidth: 260 }}><span className="font-medium">{r.name}</span><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{r.brief.slice(0, 110)}{r.brief.length > 110 ? '…' : ''}</div><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.raisedBy} · {fmtDate(r.raisedOn)} · {daysAgo(r.raisedOn)}d</div></td>
           {!MTM_ONLY && <td><span className={`pill role-${KIND_TONE[r.kind]}`}>{r.kind === 'Options' ? 'options' : r.kind}</span></td>}
           <td style={{ whiteSpace:'normal', minWidth: 260 }}>
-            <Pill tone={r.stage === 5 ? 'good' : r.stage === 4 ? 'info' : 'neutral'}>{STAGE_LABEL[r.stage]}</Pill>
+            <Pill tone={STAGE_LABEL[r.stage] === 'Live online' || r.stage === 5 ? 'good' : r.stage === 4 && !MTM_ONLY ? 'info' : MTM_ONLY && r.stage === 3 ? 'info' : 'neutral'}>{STAGE_LABEL[r.stage]}</Pill>
           </td>
         </tr>)}</tbody>
       </table></div></Card>
