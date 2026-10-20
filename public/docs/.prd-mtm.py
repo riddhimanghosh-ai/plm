@@ -20,10 +20,9 @@ def steps(rows):
 
 # ------------------------------------------------------------------ 1
 h2('1. Purpose and scope')
-p('This is the requirements document for the MTM edition of BSC PLM: the version of the tool that covers Bombay Shirt Company\'s made-to-measure business end to end and nothing else. It is what the MTM prototype (VITE_EDITION=mtm, http://localhost:5176) shows, written down screen by screen so the delivery team can build from it. The workflows run in the order a shirt happens: the customer\'s order at the store, the day\'s production and the factory floor, then the cloth behind it — the fabric master, purchase orders, sourcing, the design loop and the swatch desk. The full prototype remains the reference for the ready-to-wear work; everything that is RTW-only is out of this document and comes in a later phase.')
+p('This is the requirements document for the MTM edition of BSC PLM: the version of the tool that covers Bombay Shirt Company\'s made-to-measure business end to end and nothing else. It is what the MTM prototype shows, written down screen by screen so the delivery team can build from it. The workflows run in the order a shirt happens: the customer\'s order at the store, the day\'s production and the factory floor, then the cloth behind it — the fabric master, purchase orders, sourcing, the design loop and the swatch desk. The full prototype remains the reference for the ready-to-wear work; everything that is RTW-only is out of this document and comes in a later phase.')
 p('BSC PLM is built beside Enigma, not inside it. Enigma stays the system of record for fabrics, vendors, customer orders, purchase orders and stock. BSC PLM reads what it needs over Enigma\'s API and keeps its own records for everything Enigma does not hold: the design loop on a new fabric, the vendor\'s terms and hold, the swatch desk, production plans, scans, changed sheets, cases and conversation. Where BSC PLM shows a field Enigma owns, it shows it under Enigma\'s own name, so what is typed here is what goes there.')
 b('In scope.', 'The customer\'s order first: the store\'s MTM work (bills, fit profiles, trial and express, sheet corrections, returns, credit, refunds); MTM daily production (queue, plan, floor, changed sheets, extra fabric, ship-by moves), the factory merchandiser\'s MTM floor and the Factories screen. Then the cloth: the MTM fabric master as Enigma\'s fabric DB (fabric info, attributes, inventory, transactions, reservations); purchase orders, raised by Enigma or by hand, and the receiving line; the core weekly stock review; the sourcing desk and the vendor master; the MTM fabric requirement from ask to live online (five states); the swatch desk up to the handover to Yusuf; and the conversation and files on every record; and the cross-cutting bell and names rule.')
-b('Out of this edition.', 'Everything RTW: style requests, planning review, launches, the production tracker and TNA, stock health, OTIF. "Several options at once" requests are retired: design raises each option as its own MTM fabric ask. FOB is retired: BSC buys the cloth. The warehouse portal (vehicle round, RTW lots, STOs, books, hemming round trip, GRN register) is held for a later phase; in this edition fabric receiving happens on the purchase order\'s receiving line and the swatch desk stops at the handover. Bespoke\'s daily mill list and parcel inward return with the warehouse portal; the store-side gate on sold-out bespoke cloth stays.')
 b('Conventions.', 'Dates are the record\'s own. Quantities are pieces unless the unit says metres. A state is where a record IS, never the next step. Every rule marked later is specified but not built in the prototype. Field names in italics are Enigma\'s.')
 
 # ------------------------------------------------------------------ 2
@@ -135,7 +134,7 @@ steps([
  ['6.9', 'Live online · design', '1. Section 4 · Live online lists the online gates: photos, video, post-production, product page, and Go live online.\n2. The designer works them in any order and clicks Go live online. Stores are not a gate here.\n3. Story and live in stores are hidden in this edition; stores follow the swatch desk.', 'typed', 'go live blocked until composition and a description are on the record; every other gate is advisory and the skips are kept', 'state 5 · Live online; the fabric comes off hold for the website'],
 ])
 b('Cases.', 'New shade of a known fabric: no sampling. Re-source from another mill: a new ask. Paused before live: hidden from the website and the order form; the record stays until design closes it. Core replenishment and bespoke are never requirements (workflow 4).')
-b('Alerts.', 'Design: a vendor added and waiting for Push PO (urgent at 5 days of hold left); fabric in with no design yet; a design not pushed to Enigma. Sourcing: a requirement with no vendor; an extension asked. Every line in the bell names the workflow and the state (see section 12).')
+b('Alerts.', 'Design: a vendor added and waiting for Push PO (urgent at 5 days of hold left); fabric in with no design yet; a design not pushed to Enigma. Sourcing: a requirement with no vendor; an extension asked.')
 
 # ------------------------------------------------------------------ 10
 h2('10. Workflow 7 — Swatch desk, phase one')
@@ -158,38 +157,8 @@ steps([
 b('Rules.', 'One thread per record, in order, never deleted. Everyone who can open the record can read all of it; there is no private comment. A mention goes to a person or to a team; a team mention lands on every member\'s bell. Resolving is per person and is kept on the comment. Nothing is sent by email or WhatsApp; the record is the only copy.')
 b('Alerts.', 'Messages on the bell: every unresolved mention of me or my team. The count on the bell is things to do plus unresolved mentions.')
 
-# ------------------------------------------------------------------ 12
-h2('12. Cross-cutting behaviour')
-b('The bell · Waiting on you.', 'One bell per person showing their team\'s items, grouped by the job in plain words ("Give a new cut ratio", "Raise the purchase order", "Add a vendor") with a count and how many are urgent. Each line names the record, the workflow it belongs to (MTM fabric ask, Swatch desk, Store floor, MTM production, Fabric master…), where the record stands now ("2 of 5 · Vendor added"), why it is on the list, and an Open button to where the job is done. Lines are recomputed from the records on every change and disappear the moment the record moves. Messages (mentions) are the second tab.')
-b('Sidebar.', 'Teams are pills with a role-coloured dot and a count; a pill opens to its screens on a rail. The team you are in is marked. Saved views keep a screen with its filters by name.')
-b('Records.', 'A fabric is a page with a facts strip and tabs; a mill, a requirement and an order open as drawers whose sections open scrolled to their heading. Every record carries files and a conversation with mentions (workflow 8); nothing is emailed, the record is the thread.')
-b('Names.', 'A fabric, a design and a launch each carry a working name, a final name and a history of every earlier name with who, when and why. The code is the identity; analytics key on the code and show the current name.')
-b('Who acts next.', 'Every record header carries one state. A button appears only for the role that owns the step; others see whose move it is. Fields that can be edited look editable: dashed tiles, a pencil on hover, a chip that says so.')
-b('Colour.', 'One accent (green) for the thing to click: primary buttons, the active tab, the hovered row, the sidebar\'s current screen. Four state tones with a border so they read at a glance: green good or live, amber waiting on you, blue on its way, red a problem. The five requirement states keep one colour each everywhere they appear: grey requirement requested, amber vendor added, blue PO punched, green-tint fabric in, green live online. Team colours (plum design, ochre sourcing, teal production, green store) mark whose hand a record is in, never a state.')
-b('Lists.', 'Paged at 20 to 25; filters and the open record in the URL so a view is shareable and Back works; every list exports to .xlsx; search across requirements, fabrics, mills, orders, customers.')
-b('Undo and audit.', 'The last ten writes can be undone for seven seconds by the person who made them. Every write appends who, when and what; order sheets keep versions V1, V2, V3 with from and to; ship-by moves keep the original date and the reason.')
-
-# ------------------------------------------------------------------ 13
-h2('13. Data model summary')
-table(['Record', 'Key fields', 'Source of the fields', 'Owned by'], [
- ['Fabric', 'code, name (with nameHistory), bucket (core, non-core, bespoke), vendor, vendorCode, composition, widthIn (Panna), cpm, mrp, swatchBook, stockMetres, reservedMetres, incomingMetres, thresholdMetres, onHold, paused, supply review, coreBlock, millAvailable; category, productType; mill {country, description, currency, costPerUnit, tatHours, moq, mills}; attrs {the twenty dynamic attributes}; inventory {warehouse, thresholdMetres, maxMetres, autoReplenish, bins}; transactions', 'Enigma fabric master, inventory and logs; typed (pause, review, block, adjustments)', 'Design, sourcing'],
- ['Vendor (mill)', 'id, name, kind, location, region, leadDays, moq, blockWindowDays, onTimeRate; enigma {vendorCode, vendorType, address, officePhone, officeEmail, active, categories, country, description, currency, tatHours}', 'Enigma vendors; typed', 'Sourcing'],
- ['Concept (MTM fabric ask)', 'kind, name, finalName, nameHistory, brief, book, targetMonth, baseFabricId, fabricOptions (one live vendor with hold, chosenBy, rejected, extensionAsked), fabricId, fabricPo, enigma {template, consumptionBase, consumptionBuffer, configuredOn}, designs, swatch {inwardOn, handoverOn, priority, …}, online {photosOn, videoOn, postOn, liveOn}; derived mtmStage 1–5', 'Typed; PO number and fabric code from Enigma', 'Design, sourcing'],
- ['ConceptDesign', 'code, name, finalName, nameHistory, productType, weightGrams, region, stockMode, status, salesChannel, media, sizeOptionName, sizes, variants {value, price, discountedPrice, sku}, description, buzzwords, enigmaOn, enigmaSyncedOn', 'Typed; pushed to Enigma', 'Design'],
- ['Fabric PO', 'poNo, fabricId, vendorId, metres, raisedOn, source (auto | manual), expectedOn, vendorConfirmedOn, remark, receivedMetres, receipts, closedOn, closedShort', 'Enigma PO or minted; typed confirmation; receiving updates', 'Sourcing'],
- ['Customer order (MTM piece)', 'orderNo, billNo, customer, fabricId, designId, fit, fitProfile, measuredBy, trial, express, factoryComment, logisticComment, qty, punchedOn, promisedOn with revisions, tag, planId, factoryId, consumptionM, scans, spec, measurements, pattern, revisions (each a version)', 'Enigma order sheet; typed at the store; scans', 'Store, production, factory'],
- ['Production plan', 'planNo, factory, orders, forcedOver', 'Computed proposal, confirmed', 'Production'],
- ['Extra fabric request', 'order, cloth, panel, metres, reason, status', 'Typed', 'Factory, production'],
- ['Return case · credit entry', 'caseNo, piece, reason, wants, ladder attempts, refund or credit note; credit amount, note number, valid one year', 'Typed', 'Store, finance'],
- ['GRN', 'number, kind, against PO, quantity, rejected, who counted', 'Receiving line', 'Warehouse (recorded)'],
- ['Trims item', 'item, stock, threshold, incoming, cost', 'Trims Working sheet; receipts', 'Sourcing'],
- ['Thread and comment', 'kind (order, fabric, concept, customer, vendor, return), subjectId; comment {at, who, role, text, step, mentions (person or role ids), resolved [{by, at}]}', 'Typed; system posts', 'Everyone who can open the record'],
- ['Attachment', 'record kind and id, label (per record kind), step, file, who, when', 'Uploaded', 'Everyone who can open the record'],
-])
-p('Identifiers minted by BSC PLM until Enigma supplies them: fabric codes for new cloth, product codes for designs, fabric PO numbers, bill and order numbers, plan numbers, GRN numbers, case numbers, credit note numbers. Each is replaced by Enigma\'s own where write-back is granted.')
-
 # ------------------------------------------------------------------ 14
-h2('14. Business rules and validations')
+h2('12. Business rules and validations')
 table(['Area', 'Rule'], [
  ['Requirements', 'Name and why required. A variant\'s base fabric must be inventory, over 20 m, not bespoke, not paused or on hold. A requirement is in exactly one of five states; the state is derived, never typed.'],
  ['Vendors and holds', 'One live vendor per ask; a second replaces the first and is kept as replaced. Push PO refused on a lapsed hold until sourcing extends it. Reject needs a reason. Extend must be later than the old date (later). The PO amount follows the typed metres at the vendor\'s price.'],
@@ -208,9 +177,9 @@ table(['Area', 'Rule'], [
 ])
 
 # ------------------------------------------------------------------ 15
-h2('15. Non-functional requirements and the Enigma contract')
+h2('13. Non-functional requirements and the Enigma contract')
 table(['Area', 'Requirement'], [
- ['Architecture', 'A separate application beside Enigma. Reads over Enigma\'s API; its own database for every record in section 13; write-back behind per-module flags in the last phase. No build inside Enigma\'s codebase. One codebase builds both editions; the MTM edition is a build flag that hides the RTW screens and the warehouse portal.'],
+ ['Architecture', 'A separate application beside Enigma. Reads over Enigma\'s API; its own database for every record it keeps; write-back behind per-module flags in the last phase. No build inside Enigma\'s codebase. One codebase builds both editions; the MTM edition is a build flag that hides the RTW screens and the warehouse portal.'],
  ['Enigma reads', 'Fabric master (one 3.2 MB call, no change filter): nightly plus on demand. Inventory per warehouse. Transaction and reservation logs per code until a date range is confirmed. Fabric POs with their receiving lines. Orders and order sheets. Vendors. Designs and variants.'],
  ['Enigma writes (last phase, if granted)', 'Fabric info, attribute and inventory edits; On-hold on pause, resume or supplier switch-off; fabric PO at Push PO and Raise PO; Update Receiving Status; Add and Edit Vendor; design push with variants; order-sheet corrections. Until then each is keyed in Enigma and the number recorded in BSC PLM.'],
  ['Other reads', 'Shopify sales by product code daily and the customer profile. Mill lists pasted. Sheets imported once at go-live, idempotent, every skipped row logged.'],
@@ -225,34 +194,6 @@ table(['Area', 'Requirement'], [
  ['Backups · localisation', 'Daily, retained 90 days. English; dates as 12 Sep 26; rupees with Indian grouping; inches for measurements; metres for cloth.'],
  ['Parallel run', 'For every phase the sheet it replaces stays available read-only for one month; a weekly comparison with the owning team before it is switched off.'],
 ])
-
-# ------------------------------------------------------------------ 16
-h2('16. Build order and acceptance')
-p('Five phases, one team at a time, each closed before the next opens. The order below follows the one BSC set for the full tool; it is BSC\'s to confirm for this edition. Before phase 1: Enigma read access confirmed for the fabric master, inventory, logs, POs, orders, vendors and designs; the one-time import of open items from the sheets.')
-table(['Phase', 'Scope (workflows)', 'Done when'], [
- ['1. MTM production and the floor', 'Workflow 2: queue, proposal, plans, scans, changed sheets with versions, extra fabric, ship-by moves, the Factories screen; workflow 8 on the customer order (the conversation that replaces the WhatsApp thread).', 'A planner and every MTM factory\'s merchandiser work from these screens for real orders; the WhatsApp thread for allocation and extra cloth is no longer the record.'],
- ['2. The store floor', 'Workflow 1: bills with fit profiles, trial and express, comments, sheet corrections as versions, cases, the ladder, credit notes, refund approval. Bespoke fabrics gated on the mill\'s last report.', 'A handful of pilot stores run returns and alterations here instead of Slack; store credit has one ledger.'],
- ['3. The fabric, from requirement to live online', 'Workflows 3 to 7: the five-state record, the sourcing desk, the vendor card and Push PO, the receiving line, designs with variants pushed to Enigma, names, go live online; the fabric master as Enigma\'s fabric DB; the mills as Enigma\'s vendor master; purchase orders auto and by hand; the weekly core review; the swatch desk to the handover (workflow 7).', 'Ten fabrics run from raised to live online without the swatch tracker sheet or a hand-typed Enigma datasheet; the international-fabric spreadsheet is retired.'],
- ['4. The warehouse portal', 'Vehicle round, fabric rolls on the portal, bespoke mill list and parcels, GRN register, bundles out, extra fabric out, the rest of the swatch desk (cut, sticker, dispatch, photos, stores told), books and fit samples.', 'A fabric receipt updates saleable stock everywhere within the day; every receipt has a GRN.'],
- ['5. Writing into Enigma, and the edges', 'Write-back where agreed (fabric and inventory edits, POs and receiving, vendors, designs, on-hold, order sheets); narrow layouts; every rule marked later; stickers and barcodes; the daily closing report.', 'Each write-back verified against Enigma for a week; the later list empty or re-planned.'],
-])
-
-# ------------------------------------------------------------------ 17
-h2('17. Open questions and assumptions')
-ul([
- 'Enigma write access per module: fabric info and attributes, inventory and adjustments, fabric PO and Update Receiving Status, vendors, designs and variants, on-hold, order sheet. Decides how much stays "recorded".',
- 'A change filter or feed on the fabric read; a date or code range on the transaction log.',
- 'Whether Enigma\'s auto-PO threshold and Is Auto Replenishment are one flag or two, and whether BSC PLM may edit the threshold.',
- 'Whether the warehouse books rolls on the PO line in BSC PLM in phase 3, or in Enigma with the number copied, until the portal arrives in phase 4.',
- 'The variant option set Enigma accepts (free text, or a fixed Size list) and whether a discounted price per variant is a field or a rule.',
- 'Who owns Big-Checked and composition family in Enigma today (fabric attribute or product flag) — this document puts them on the fabric.',
- 'Whether a required reason on Reject and a later-than-before check on Extend should block.',
- 'Bespoke: the promised date against the MTM default, and where the daily mill list lives until the warehouse portal (phase 4).',
- 'Store: where store credit lives today (Shopify gift card, Enigma, nowhere); store-only fabrics that never go online.',
- 'Production: cap extra-fabric metres at the panel allowance; the freeze window length (2 hours placed).',
-])
-p('Assumed until confirmed: metres per shirt 2.15; the reorder point and MOQ rule as section 7; the fit-sample set; the trim master costs; the vendor hold windows per mill.')
-b('Deliberately out of scope.', 'Everything ready-to-wear; several-options requests; FOB; costing, margin, working capital; customer marketing; store checklists; the MTM visualiser; escalations as a workflow.')
 
 # ===================================================================== HTML
 def esc(t): return H.escape(t)
