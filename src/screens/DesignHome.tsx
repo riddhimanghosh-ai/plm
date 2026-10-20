@@ -24,6 +24,8 @@ type Stage = 1 | 2 | 3 | 4 | 5;   // 5 = live / done
 const STAGE_LABEL: Record<Stage, string> = MTM_ONLY
   ? { 1:'Requirement requested', 2:'Vendor added', 3:'PO punched', 4:'Fabric in', 5:'Live online' }
   : { 1:'1 · Requirement', 2:'2 · Sourcing', 3:'3 · Finalised & ordered', 4:'4 · Downstream', 5:'Live' };
+/* one colour per state, the same everywhere: grey = waiting on sourcing, amber = design's move, blue = on its way, green-tint = cloth in, green = live */
+const STAGE_TONE: Record<Stage, 'neutral' | 'warn' | 'info' | 'accent' | 'good'> = { 1:'neutral', 2:'warn', 3:'info', 4:'accent', 5:'good' };
 const STAGE_HINT: Record<Stage, string> = MTM_ONLY ? {
   1:'design requested it — sourcing has to add a vendor',
   2:'a vendor is on it — design has to punch the PO (or ask for time, or drop the vendor)',
@@ -152,7 +154,7 @@ export function DesignHome() {
           <td style={{ whiteSpace:'normal', minWidth: 260 }}><span className="font-medium">{r.name}</span><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{r.brief.slice(0, 110)}{r.brief.length > 110 ? '…' : ''}</div><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.raisedBy} · {fmtDate(r.raisedOn)} · {daysAgo(r.raisedOn)}d</div></td>
           {!MTM_ONLY && <td><span className={`pill role-${KIND_TONE[r.kind]}`}>{r.kind === 'Options' ? 'options' : r.kind}</span></td>}
           <td style={{ whiteSpace:'normal', minWidth: 260 }}>
-            <Pill tone={r.stage === 5 ? 'good' : r.stage === 4 ? 'info' : 'neutral'}>{STAGE_LABEL[r.stage]}</Pill>
+            <Pill tone={STAGE_TONE[r.stage]}>{STAGE_LABEL[r.stage]}</Pill>
           </td>
         </tr>)}</tbody>
       </table></div></Card>
@@ -184,11 +186,11 @@ export function DesignHome() {
 
       {/* ── every requirement opens here, whatever its kind ── */}
       <Drawer open={!!activeConcept} onClose={() => set('open', null)} title={activeConcept ? (activeConcept.naming.newName ?? activeConcept.name) : ''}
-        subtitle={activeConcept && activeRow && <><span className="pill role-design">MTM</span><Pill tone={activeRow.stage === 5 ? 'good' : 'neutral'}>{STAGE_LABEL[activeRow.stage]}</Pill><span>{activeConcept.raisedBy} · {fmtDate(activeConcept.raisedOn)}</span></>}>
+        subtitle={activeConcept && activeRow && <><span className="pill role-design">MTM</span><Pill tone={STAGE_TONE[activeRow.stage]}>{STAGE_LABEL[activeRow.stage]}</Pill><span>{activeConcept.raisedBy} · {fmtDate(activeConcept.raisedOn)}</span></>}>
         {activeConcept && <ConceptDetail c={activeConcept} design={design} prod={prod} />}
       </Drawer>
       <Drawer open={!!activeOrder} onClose={() => set('open', null)} title={activeOrder?.styleName ?? ''}
-        subtitle={activeOrder && activeRow && <><span className={`pill role-${KIND_TONE[activeRow.kind]}`}>{activeRow.kind}</span><Pill tone={activeRow.stage === 5 ? 'good' : 'neutral'}>{STAGE_LABEL[activeRow.stage]}</Pill><span>{activeOrder.category} · {activeOrder.subCategory}</span></>}>
+        subtitle={activeOrder && activeRow && <><span className={`pill role-${KIND_TONE[activeRow.kind]}`}>{activeRow.kind}</span><Pill tone={STAGE_TONE[activeRow.stage]}>{STAGE_LABEL[activeRow.stage]}</Pill><span>{activeOrder.category} · {activeOrder.subCategory}</span></>}>
         {activeOrder && <RequirementDetail o={activeOrder} editable={design && activeOrder.status === 'Requirement'} editableAlloc={role === 'planning' || role === 'owner'} />}
       </Drawer>
       <Drawer open={!!activeRequest} onClose={() => set('open', null)} title={activeRequest ? `${activeRequest.reqNo} · ${catLabel(activeRequest.category)}` : ''}
