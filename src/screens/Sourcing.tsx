@@ -423,10 +423,13 @@ function mtmSourcingRows(db: ReturnType<typeof useApp>['db']): MtmRow[] {
     const offers = (c.fabricOptions ?? []).filter(o => !o.rejected);
     /* the same four stages design sees — the row names the state, "Your move" says whose turn */
     const STAGE = { 1:'Requirement requested', 2:'Vendor added', 3:'Fabric in', 4:'Live online' } as const;
-    const status = STAGE[f.mtmStage ?? 1];
-    const mine = !c.fabricPo ? (!s.offersWithDesign && !s.fabric) : fin.state !== 'done';
+    const stage = f.mtmStage ?? 1;
+    const extAsked = !!c.optionsExtension && !c.optionsExtension.resolvedOn;
+    if (stage >= 3 || (stage === 2 && !extAsked && !!c.fabricPo)) return;   // from the PO on, nothing for sourcing here
+    const status = extAsked ? `${STAGE[stage]} · more time asked` : STAGE[stage];
+    const mine = stage === 1 || extAsked;   // put a vendor against it, or answer the ask for more time
     out.push({ id: c.id, kind:'fabric', name: c.naming.newName ?? c.name, brief: c.brief, book: c.book ?? null, wanted: c.targetMonth ?? null, vendor: s.fabric ? `${db.vendors.find(x => x.id === s.fabric!.vendorId)?.name ?? ''}${s.fabric.cpm ? ` · ₹${s.fabric.cpm}/m` : ''}` : offers.length ? `${offers.length} offer${offers.length === 1 ? '' : 's'}` : '—',
-      status, tone: (f.mtmStage ?? 1) === 4 ? 'good' : (f.mtmStage ?? 1) === 3 ? 'info' : 'neutral', mine, href: `#/design?open=${c.id}` });
+      status, tone: extAsked ? 'risk' : stage === 1 ? 'warn' : 'neutral', mine, href: `#/design?open=${c.id}` });
     void v;
   });
   (OPTIONS_OFF ? [] : (db.optionRequests ?? [])).forEach((r: OptionRequest) => {
@@ -444,7 +447,7 @@ function MtmSourcing({ rows, onOpen }: { rows: MtmRow[]; onOpen: (id: string) =>
   const unconfirmed = openFabricPos(db).filter(p => !p.vendorConfirmedOn).length;
   return <>
     <div className="flex items-end gap-3 flex-wrap mb-3">
-      <Seg value={only} onChange={v => setOnly(v as 'mine' | 'all')} options={[{ id:'mine', label:'Your move', count: rows.filter(r => r.mine).length }, { id:'all', label:'All open asks', count: rows.length }]} />
+      <Seg value={only} onChange={v => setOnly(v as 'mine' | 'all')} options={[{ id:'mine', label:'Your move', count: rows.filter(r => r.mine).length }, { id:'all', label:'Waiting on design', count: rows.length }]} />
       {unconfirmed > 0 && <a className="cta ml-auto" href="#/fabrics?tab=pos">{unconfirmed} core fabric PO{unconfirmed === 1 ? '' : 's'} to confirm with the mills →</a>}
     </div>
     {shown.length === 0 ? <Card><Empty title="Nothing waiting on sourcing." body="New MTM fabric asks from design land here." /></Card> : <Card><table className="t">
@@ -465,7 +468,6 @@ function MtmBrief({ c }: { c: Concept }) {
   const { db, role } = useApp();
   const base = c.baseFabricId ? db.fabrics.find(f => f.id === c.baseFabricId) : null;
   const sourcing = role === 'sourcing' || role === 'owner'; const design = role === 'design' || role === 'planning' || role === 'owner';
-  const code = c.fabricId ? db.fabrics.find(x => x.id === c.fabricId) : null;
   return <>
     <Section title="What design asked for" defaultOpen right={<Pill tone="neutral">{c.raisedBy} · {fmtDate(c.raisedOn)}</Pill>}>
       <KV k="Working name" v={<b>{c.name}</b>} />
@@ -477,9 +479,8 @@ function MtmBrief({ c }: { c: Concept }) {
       <div className="label pt-3">Files from design</div>
       <Files kind="concept" subjectId={c.id} labels={FILE_LABELS.concept} editable={false} compact title="Files" emptyText="No files on this ask yet." />
     </Section>
-    <Section title="Vendor · terms · fabric PO" defaultOpen right={<Pill tone={c.fabricPo ? 'good' : 'warn'}>{c.fabricPo ? `fabric PO · ${c.fabricPo.metres} m` : 'one vendor against the ask'}</Pill>}>
+    <Section title="The vendor" defaultOpen right={<Pill tone={c.optionsExtension && !c.optionsExtension.resolvedOn ? 'risk' : (c.fabricOptions ?? []).some(o => !o.rejected) ? 'good' : 'warn'}>{c.optionsExtension && !c.optionsExtension.resolvedOn ? 'more time asked' : (c.fabricOptions ?? []).some(o => !o.rejected) ? 'vendor added' : 'put a vendor against it'}</Pill>}>
       <ConceptOptions c={c} sourcing={sourcing} design={design} />
-      {c.fabricPo && code && <KV k="Fabric code" v={<b className="mono">{code.code}</b>} note={`minted on the PO · ${code.name} · on the fabric master`} />}
     </Section>
     <RecordTail kind="concept" subjectId={c.id} labels={FILE_LABELS.concept} editable steps={['General']} />
   </>;
