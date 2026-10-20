@@ -980,7 +980,10 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         'Design added — its product code is minted; the sticker sheet gets one more label.');
     },
     conceptUpdateDesign(id, designId, patch) {
-      touch(db => { const d = (db.concepts.find(x => x.id === id)?.designs ?? []).find(x => x.id === designId); if (!d) return; Object.assign(d, patch); }, 'Design updated.');
+      touch(db => { const d = (db.concepts.find(x => x.id === id)?.designs ?? []).find(x => x.id === designId); if (!d) return;
+        /* a later rename keeps the old final name on the record, the way the fabric master does */
+        if (patch.finalName !== undefined && d.finalName && patch.finalName !== d.finalName) d.nameHistory = [...(d.nameHistory ?? []), { name: d.finalName, until: now(), by: who(), note: 'renamed' }];
+        Object.assign(d, patch); }, 'Design updated.');
     },
     pushDesignToEnigma(id, designId) {
       const d0 = (get().db.concepts.find(x => x.id === id)?.designs ?? []).find(x => x.id === designId);
@@ -1051,7 +1054,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     conceptConfigureEnigma(id, e) { touch(db => { const c = db.concepts.find(x => x.id === id); if (c) c.enigma = { ...e, configuredOn: now(), by: who() }; }, 'Configured — the option exists in Enigma. Still hidden until it is made live.'); },
     conceptSetName(id, newName, mrp) { touch(db => { const c = db.concepts.find(x => x.id === id); if (!c) return; c.naming = { ...c.naming, newName, mrp, setOn: now() };
         /* the first design takes marketing's name; the others keep theirs */
-        const d0 = (c.designs ?? [])[0]; if (d0 && !d0.finalName) d0.finalName = newName; }, 'Name and price set — website, sticker and system read the same thing.'); },
+        const d0 = (c.designs ?? [])[0]; if (d0) { if (d0.finalName && d0.finalName !== newName) d0.nameHistory = [...(d0.nameHistory ?? []), { name: d0.finalName, until: now(), by: who(), note: 'renamed with the fabric' }]; d0.finalName = newName; } }, 'Name and price set — website, sticker and system read the same thing.'); },
     conceptSetMarketing(id, blurb, channels) { touch(db => { const c = db.concepts.find(x => x.id === id); if (c) c.marketing = { blurb, channels, setOn: now() }; }, 'Marketing story saved — the store and the website will say the same thing.'); },
     conceptGoLive(id) { touch(db => { const c = db.concepts.find(x => x.id === id); if (!c) return; c.liveOn = now(); const f = c.fabricId ? db.fabrics.find(x => x.id === c.fabricId) : null; if (f) f.onHold = false; }, 'Live — orderable in every store and on the website from this moment.'); },
     async attachFiles(kind, subjectId, label, step, files) {

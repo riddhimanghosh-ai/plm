@@ -159,7 +159,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
     {(() => { const nowKey: DesignStepKey | null = flow.now.state === 'done' ? null : flow.now.key;
       const bodies: Record<DesignStepKey, ReactNode> = {
         'request': <>
-    <Section title="1 · Requirement" defaultOpen={nowKey === 'request'} right={<Pill tone="good">sent {fmtDate(c.raisedOn)}</Pill>}>
+    <Section title="1 · Requirement requested" defaultOpen={nowKey === 'request'} right={<Pill tone="good">sent {fmtDate(c.raisedOn)}</Pill>}>
       <KV k="Why" v={c.brief} note={`${c.raisedBy} · ${fmtDate(c.raisedOn)}`} />
       {c.spec && <KV k="What changes" v={c.spec} note="the construction a customer will be able to pick" />}
       <KV k="Kind" v={c.kind === 'new-fabric' ? 'New fabric or shade' : 'Construction variant'} note={c.baseFabricId ? `sampled on ${db.fabrics.find(f => f.id === c.baseFabricId)?.name ?? 'an inventory fabric'}` : 'sampled on the vendor swatch'} />

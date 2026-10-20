@@ -748,7 +748,8 @@ export interface Concept {
    Design Type, MRP — hangs off the fabric code. Sourcing creates these. */
 export interface ConceptDesign {
   id: string; code: string;                 // the PRODUCT CODE Shopify sells
-  name: string; finalName?: string | null;  // working name; marketing's final name
+  name: string; finalName?: string | null;  // working name; marketing's final name — the code is the identity, the name is a label with a history
+  nameHistory?: { name: string; until: string; by: string; note: string }[];   // every earlier final name, newest last (the working name stays in `name`)
   style?: string | null;                    // the shirt configuration — Boardroom, French Cuff, Business Casual …
   category: 'Formal' | 'Casual';
   mrp: number | null; cost?: number | null;

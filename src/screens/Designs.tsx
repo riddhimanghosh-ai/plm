@@ -57,7 +57,7 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
       <thead><tr><th>Product code</th><th>Design</th><th>Style</th><th>Type</th><th className="num">MRP</th><th className="num">Cost</th><th>Status</th><th></th></tr></thead>
       <tbody>{designs.map(d => <tr key={d.id} style={{ background: editId === d.id ? 'var(--accent-soft)' : undefined }}>
         <td className="mono text-[12px]">{d.code}</td>
-        <td style={{ whiteSpace:'normal', minWidth: 180 }}><span className="font-medium">{d.finalName ?? d.name}</span>{d.finalName && d.finalName !== d.name && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>was “{d.name}”</div>}{d.description && <div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{d.description}</div>}{d.buzzwords && <div className="text-[10.5px] mono" style={{ color:'var(--ink-faint)' }}>{d.buzzwords}</div>}</td>
+        <td style={{ whiteSpace:'normal', minWidth: 180 }}><span className="font-medium">{d.finalName ?? d.name}</span>{d.finalName && d.finalName !== d.name && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>working name “{d.name}”{(d.nameHistory ?? []).length ? ` · earlier ${(d.nameHistory ?? []).map(h => `“${h.name}”`).join(', ')}` : ''}</div>}{d.description && <div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{d.description}</div>}{d.buzzwords && <div className="text-[10.5px] mono" style={{ color:'var(--ink-faint)' }}>{d.buzzwords}</div>}</td>
         <td className="text-[12px]">{d.style ?? '—'}</td>
         <td className="text-[12px]" style={{ color:'var(--ink-soft)' }}>{d.category}</td>
         <td className="num">{money(d.mrp)}</td>

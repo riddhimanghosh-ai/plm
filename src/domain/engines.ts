@@ -952,7 +952,7 @@ export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; n
     const designsDone = (c.designs?.length ?? 0) > 0 && (c.designs ?? []).every(d => !!d.enigmaOn) && !!c.enigma.configuredOn;
     const onlineGates = [c.online?.photosOn, c.online?.videoOn, c.online?.postOn].filter(Boolean).length;
     steps = [
-      mk('request', 'Requirement', true, 'design', `${c.raisedBy} · ${fmtDate(c.raisedOn)}${c.targetMonth ? ` · wanted by ${c.targetMonth}` : ''}${sampled ? ' · samples approved' : c.patSentOn ? ' · sample with the factory' : ''}`),
+      mk('request', 'Requirement requested', true, 'design', `${c.raisedBy} · ${fmtDate(c.raisedOn)}${c.targetMonth ? ` · wanted by ${c.targetMonth}` : ''}${sampled ? ' · samples approved' : c.patSentOn ? ' · sample with the factory' : ''}`),
       mk('vendors', 'Vendor added', !nf || offersIn || chosen, s.offersWithDesign ? 'design' : 'sourcing',
         !nf ? 'construction variant — made on an inventory fabric, nothing to buy' : chosen ? `${s.fabric!.name} · ${db.vendors.find(v => v.id === s.fabric!.vendorId)?.name} · ₹${s.fabric!.cpm}/m` : offersIn ? `${offers.length} vendor${offers.length === 1 ? '' : 's'} on the table · design to push the PO` : 'sourcing to put a vendor against it',
         !nf ? undefined : s.offersWithDesign ? 'Push the PO, ask for time, or drop the vendor' : offersIn ? undefined : 'Put a vendor against it'),
