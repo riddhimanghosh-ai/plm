@@ -1324,6 +1324,9 @@ transfers.forEach((t, i) => { t.purpose = t.stoType === 'Display' || /display/i.
       punchedOn: iso(addDays(TODAY, -2)), promisedOn: iso(addDays(TODAY, -2)), stage:'delivered', remarks:'customer wanted the one in the window', soldDisplay: true, tag:'normal', planId: null, factoryId: null, consumptionM: null,
       scans:[{ stage:'delivered', at: iso(addDays(TODAY, -2)), by:'Pali Hill store' }], spec: null, measurements: null, pattern: null, revisions: [], changeSeenOn: null, changeToldFactoryOn: null, changeFactorySeenOn: null, bespoke: null } as CustomerOrder); } })();
 
+/* sourcing's desk needs work on it: one ask design raised yesterday with no vendor yet, and one where design asked for more time */
+concepts.push(concept({ id:'cn-10', name:'Olive Linen Slub', kind:'new-fabric', brief:'A slubby olive linen for LINEN SHIRTS — the book has sage and sand but nothing darker; Bandra and Khan Market both asked for it this summer.', raisedBy:'Kunal', raisedOn: iso(addDays(TODAY, -1)), book:'LINEN SHIRTS', targetMonth:'Dec 26' }));
+concepts.push(concept({ id:'cn-11', name:'Chambray - Washed Indigo', kind:'new-fabric', brief:'A light chambray for CASUAL VOL.1 — the denim shirts sell out every drop and there is no lighter option beside them.', raisedBy:'Janak', raisedOn: iso(addDays(TODAY, -4)), book:'CASUAL SHIRTS VOL.1', targetMonth:'Nov 26' }));
 /* the vendor board must have something to show on every new-fabric concept: where the
    seed chose the cloth straight onto the record, put that mill against it with its terms
    and a hold, marked chosen once the PO is punched */
@@ -1334,6 +1337,9 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
     selected: !!c.fabricPo, chosenBy: c.fabricPo ? 'Kunal' : null, chosenOn: c.fabricPo ? c.fabricPo.on : null, rationale: '' }];
   c.optionsSentOn = c.optionsSentOn ?? iso(addDays(new Date(c.raisedOn), 3));
 });
+/* design asked for more time on one of them — the mill's hold is about to lapse */
+{ const c = concepts.find(x => x.id === 'cn-3')!; const q = (c.fabricOptions ?? [])[0]; if (q) { q.holdUntil = iso(addDays(TODAY, 2)); q.extensionAsked = { by:'Kunal', on: iso(addDays(TODAY, -1)) }; }
+  c.optionsExtension = { askedOn: iso(addDays(TODAY, -1)), by:'Kunal', note:'need the shade matched against the approved sample before we commit — a week more', resolvedOn: null }; }
 
 export const SEED: Db = {
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,
