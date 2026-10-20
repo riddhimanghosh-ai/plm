@@ -22,7 +22,7 @@ import { MTM_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
 type Kind = 'MTM' | 'RTW' | 'FOB' | 'Options';
 type Stage = 1 | 2 | 3 | 4 | 5;   // 5 = live / done
 const STAGE_LABEL: Record<Stage, string> = MTM_ONLY
-  ? { 1:'Requirement', 2:'Vendor added · PO pending', 3:'PO punched', 4:'Fabric in · design codes', 5:'Go live online' }
+  ? { 1:'Requirement', 2:'Vendor added', 3:'PO punched', 4:'Fabric in', 5:'Live online' }
   : { 1:'1 · Requirement', 2:'2 · Sourcing', 3:'3 · Finalised & ordered', 4:'4 · Downstream', 5:'Live' };
 const STAGE_HINT: Record<Stage, string> = MTM_ONLY ? {
   1:'design has written what it needs; sourcing has not put a vendor against it yet',

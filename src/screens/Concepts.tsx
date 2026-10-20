@@ -185,7 +185,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
         'sampling': null,
         'vendors': <>
     {c.kind === 'new-fabric'
-      ? <Section title="2 · Vendor added · PO pending" defaultOpen={nowKey === 'vendors'}
+      ? <Section title="2 · Vendor added" defaultOpen={nowKey === 'vendors'}
           right={s.fabric ? <Pill tone="good">chosen</Pill>
             : c.optionsExtension && !c.optionsExtension.resolvedOn ? <span className="pill role-sourcing">extension asked</span>
             : c.optionsSentOn ? <span className="pill role-design">design to push PO</span>
@@ -219,7 +219,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
       {!sourcing && !c.optionsSentOn && c.approvalSentOn && (!s.fabric || s.fabric.cpm == null) && <Who r="Sourcing" does={!s.fabric ? 'goes round the mills for the same cloth and brings the offers back' : 'writes the quoted price against it'} />}
     </>; })()}
         </Section>
-      : <Section title="2 · Vendor added · PO pending" defaultOpen={nowKey === 'vendors'} right={<Pill tone="neutral">nothing to buy</Pill>}>
+      : <Section title="2 · Vendor added" defaultOpen={nowKey === 'vendors'} right={<Pill tone="neutral">nothing to buy</Pill>}>
           <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>A construction variant is made on cloth we already hold — no mill to choose, no fabric to buy.</div>
         </Section>}
 
@@ -260,7 +260,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
         </>,
         'fabric-in': <>
     {c.kind === 'new-fabric' && (() => { const f2 = designFlowOf(db, { kind:'concept', c }); const st = f2.steps.find(x => x.key === 'fabric-in')!;
-      return <Section title="4 · Fabric in · design codes" defaultOpen={nowKey === 'fabric-in'} right={<Pill tone={st.state === 'done' ? 'good' : 'neutral'}>{st.state === 'done' ? 'received' : c.fabricPo ? 'on its way' : 'after the PO'}</Pill>}>
+      return <Section title="4 · Fabric in" defaultOpen={nowKey === 'fabric-in'} right={<Pill tone={st.state === 'done' ? 'good' : 'neutral'}>{st.state === 'done' ? 'received' : c.fabricPo ? 'on its way' : 'after the PO'}</Pill>}>
         <div className="py-1 text-[12.5px]" style={{ color: st.state === 'done' ? 'var(--good)' : 'var(--ink-soft)' }}>{st.note}</div>
         {c.fabricPo && st.state !== 'done' && <Note>This line turns green the day the warehouse books the metres in.</Note>}
         <div className="pt-2" />
@@ -305,7 +305,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
       </Section>; })()}
         </>,
         'live': <>
-    <Section title="5 · Go live online" defaultOpen={nowKey === 'live'}
+    <Section title="5 · Live online" defaultOpen={nowKey === 'live'}
       right={<span className="flex gap-1 flex-wrap justify-end">
         {c.kind === 'new-fabric' && <Pill tone={c.online?.liveOn ? 'good' : 'accent'}>{c.online?.liveOn ? `online ${fmtDate(c.online.liveOn)}` : 'design to switch on'}</Pill>}
         <Pill tone={c.liveOn ? 'good' : 'neutral'}>{c.liveOn ? `stores ${fmtDate(c.liveOn)}` : 'stores · after the swatch desk'}</Pill>

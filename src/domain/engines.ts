@@ -953,14 +953,14 @@ export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; n
     const onlineGates = [c.online?.photosOn, c.online?.videoOn, c.online?.postOn].filter(Boolean).length;
     steps = [
       mk('request', 'Requirement', true, 'design', `${c.raisedBy} · ${fmtDate(c.raisedOn)}${c.targetMonth ? ` · wanted by ${c.targetMonth}` : ''}${sampled ? ' · samples approved' : c.patSentOn ? ' · sample with the factory' : ''}`),
-      mk('vendors', 'Vendor added · PO pending', !nf || offersIn || chosen, s.offersWithDesign ? 'design' : 'sourcing',
+      mk('vendors', 'Vendor added', !nf || offersIn || chosen, s.offersWithDesign ? 'design' : 'sourcing',
         !nf ? 'construction variant — made on an inventory fabric, nothing to buy' : chosen ? `${s.fabric!.name} · ${db.vendors.find(v => v.id === s.fabric!.vendorId)?.name} · ₹${s.fabric!.cpm}/m` : offersIn ? `${offers.length} vendor${offers.length === 1 ? '' : 's'} on the table · design to push the PO` : 'sourcing to put a vendor against it',
         !nf ? undefined : s.offersWithDesign ? 'Push the PO, ask for time, or drop the vendor' : offersIn ? undefined : 'Put a vendor against it'),
       mk('po', 'PO punched', poDone, 'design', !nf ? 'not needed' : c.fabricPo ? `${c.fabricPo.metres} m · ${fmtDate(c.fabricPo.on)}${s.fabric?.cpm ? ` · ${fmtMoney(c.fabricPo.metres * s.fabric.cpm)}` : ''}${s.fabric ? ` · ${s.fabric.code}` : ''}` : 'not punched yet', !nf || c.fabricPo ? undefined : 'Push the PO'),
-      mk('fabric-in', 'Fabric in · design codes', fabricIn && designsDone, fabricIn ? 'design' : 'sourcing',
+      mk('fabric-in', 'Fabric in', fabricIn && designsDone, fabricIn ? 'design' : 'sourcing',
         !nf ? (designsDone ? 'designs in Enigma' : 'add the designs and configure Enigma') : !fabricIn ? (c.fabricPo ? 'sourcing is chasing the mill; the warehouse books the metres in' : 'after the PO') : grn ? `received ${fmtDate(grn.receivedOn)} · ${grn.qty} m${designsDone ? ' · designs in Enigma' : ` · ${(c.designs?.length ?? 0)} design${(c.designs?.length ?? 0) === 1 ? '' : 's'}, ${c.enigma.configuredOn ? 'Enigma configured' : 'Enigma not configured'}`}` : `on the shelf${designsDone ? ' · designs in Enigma' : ' · design codes pending'}`,
         fabricIn && !designsDone ? 'Add the designs, push them to Enigma, set consumption' : undefined),
-      mk('live', 'Go live online', !!c.online?.liveOn, 'design', c.online?.liveOn ? `online ${fmtDate(c.online.liveOn)}${c.liveOn ? ` · stores ${fmtDate(c.liveOn)}` : ''}` : `${onlineGates} of 3 · photos, video, post${c.liveOn ? ` · stores ${fmtDate(c.liveOn)}` : ''}`, onlineGates === 3 ? 'Go live online' : 'Mark photos, video and post as they land'),
+      mk('live', 'Live online', !!c.online?.liveOn, 'design', c.online?.liveOn ? `online ${fmtDate(c.online.liveOn)}${c.liveOn ? ` · stores ${fmtDate(c.liveOn)}` : ''}` : `${onlineGates} of 3 · photos, video, post${c.liveOn ? ` · stores ${fmtDate(c.liveOn)}` : ''}`, onlineGates === 3 ? 'Go live online' : 'Mark photos, video and post as they land'),
     ];
     mtmStage = c.online?.liveOn ? 5 : (fabricIn && nf && !!c.fabricPo) || (!nf && designsDone) ? (designsDone ? 5 : 4) : poDone && nf ? 3 : offersIn || chosen ? 2 : 1;
     name = c.naming.newName ?? c.name; raisedOn = c.raisedOn; liveBy = c.targetMonth ?? null; targetCost = c.naming.mrp ?? null; id = c.id;
