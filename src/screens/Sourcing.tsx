@@ -421,10 +421,12 @@ function mtmSourcingRows(db: ReturnType<typeof useApp>['db']): MtmRow[] {
   (db.concepts ?? []).filter((c: Concept) => c.kind === 'new-fabric' && !/^cn-req-/.test(c.id) && !c.liveOn).forEach((c: Concept) => {
     const s = conceptOf(db, c); const f = designFlowOf(db, { kind:'concept', c }); const v = f.steps.find(x => x.key === 'vendors')!; const fin = f.steps.find(x => x.key === 'fabric-in')!;
     const offers = (c.fabricOptions ?? []).filter(o => !o.rejected);
-    const status = c.fabricPo ? (fin.state === 'done' ? 'cloth in' : 'PO raised · get the cloth in') : s.fabric ? 'mill chosen · design to raise the PO' : s.offersWithDesign ? 'with design to choose' : c.optionsExtension && !c.optionsExtension.resolvedOn ? 'design asked for more time' : c.approvalSentOn || c.kind === 'new-fabric' ? (offers.length ? `${offers.length} offer${offers.length === 1 ? '' : 's'} · send to design` : 'find a mill') : 'not yet with sourcing';
+    /* the same four stages design sees — the row names the state, "Your move" says whose turn */
+    const STAGE = { 1:'Requirement requested', 2:'Vendor added', 3:'Fabric in', 4:'Live online' } as const;
+    const status = STAGE[f.mtmStage ?? 1];
     const mine = !c.fabricPo ? (!s.offersWithDesign && !s.fabric) : fin.state !== 'done';
     out.push({ id: c.id, kind:'fabric', name: c.naming.newName ?? c.name, brief: c.brief, book: c.book ?? null, wanted: c.targetMonth ?? null, vendor: s.fabric ? `${db.vendors.find(x => x.id === s.fabric!.vendorId)?.name ?? ''}${s.fabric.cpm ? ` · ₹${s.fabric.cpm}/m` : ''}` : offers.length ? `${offers.length} offer${offers.length === 1 ? '' : 's'}` : '—',
-      status, tone: c.fabricPo ? (fin.state === 'done' ? 'good' : 'info') : s.offersWithDesign || s.fabric ? 'neutral' : c.optionsExtension && !c.optionsExtension.resolvedOn ? 'risk' : 'warn', mine, href: `#/design?open=${c.id}` });
+      status, tone: (f.mtmStage ?? 1) === 4 ? 'good' : (f.mtmStage ?? 1) === 3 ? 'info' : 'neutral', mine, href: `#/design?open=${c.id}` });
     void v;
   });
   (OPTIONS_OFF ? [] : (db.optionRequests ?? [])).forEach((r: OptionRequest) => {
@@ -446,7 +448,7 @@ function MtmSourcing({ rows, onOpen }: { rows: MtmRow[]; onOpen: (id: string) =>
       {unconfirmed > 0 && <a className="cta ml-auto" href="#/fabrics?tab=pos">{unconfirmed} core fabric PO{unconfirmed === 1 ? '' : 's'} to confirm with the mills →</a>}
     </div>
     {shown.length === 0 ? <Card><Empty title="Nothing waiting on sourcing." body="New MTM fabric asks from design land here." /></Card> : <Card><table className="t">
-      <thead><tr><th>Fabric ask</th><th>Book · wanted</th><th>Mill</th><th>Status</th></tr></thead>
+      <thead><tr><th>Fabric ask</th><th>Book · wanted</th><th>Mill</th><th>Stage</th></tr></thead>
       <tbody>{shown.map(r => <tr key={r.id} className="row" onClick={() => onOpen(r.id)}>
         <td><div className="font-medium">{r.name}{r.kind === 'options' && <span className="pill role-design" style={{ marginLeft: 6 }}>several options</span>}</div><div className="text-[12px]" style={{ color:'var(--ink-faint)', maxWidth: 360, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.brief}</div></td>
         <td className="text-[12.5px]">{r.book ?? '—'}{r.wanted && <div style={{ color:'var(--ink-faint)' }}>by {r.wanted}</div>}</td>
