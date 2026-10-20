@@ -764,7 +764,8 @@ export interface ConceptDesign {
   salesChannel?: string | null;             // IND Details → Sales Channel
   discountedPrice?: number | null;          // IND Details → Discounted Price (MRP is the Original Price)
   media?: string[];                         // Upload Product Media — file names; the images show on the website
-  sizes?: string[];                         // the sizes this design is offered in — Enigma's variants (36–46 for a shirt; XS–4XL for a knit)
+  sizes?: string[];                         // the option values this design is offered in — typed freely, as Enigma's variant option values (36, 40, M, XL …)
+  sizeOptionName?: string;                  // Enigma's "Option Name" for the variant — Size, UK Size, Collar …
   variants?: { size: string; price: number | null; discountedPrice: number | null; sku: string }[];   // Enigma's variant table: one row a size, its price, discounted price and SKU (code-size)
   enigmaOn?: string | null;                 // pushed to Enigma from here — the design row is created there over the API
   enigmaBy?: string | null;                 // who pushed it

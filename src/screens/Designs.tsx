@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { useApp } from '../store';
 import type { Concept, ConceptDesign } from '../domain/types';
-import { SHIRT_STYLES, RTW_SIZES } from '../domain/reference';
+import { SHIRT_STYLES } from '../domain/reference';
 import { fmtDate } from '../domain/engines';
 import { Pill, Button, Field, Input, Select } from '../ui';
 import { ActsBy } from './Who';
@@ -21,12 +21,12 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
   const f = c.fabricId ? db.fabrics.find(x => x.id === c.fabricId) : null;
   const [editId, setEditId] = useState<string | null>(null);
   const [adding, setAdding] = useState(designs.length === 0);
-  const blank = { name:'', style: SHIRT_STYLES[0], category:'Formal' as 'Formal' | 'Casual', mrp: String(c.naming.mrp ?? 2990), cost:'', description:'', buzzwords:'', productType:'CUSTOM_DESIGN', weightGrams:'', region:'IND', stockMode:'track-quantity' as 'track-quantity' | 'variants', status:'ACTIVE' as 'ACTIVE' | 'INACTIVE', salesChannel:'', discountedPrice:'', media:'', sizes: ['36', '38', '40', '42', '44', '46'] as string[], vprice: {} as Record<string, string>, vdisc: {} as Record<string, string> };
+  const blank = { name:'', style: SHIRT_STYLES[0], category:'Formal' as 'Formal' | 'Casual', mrp: String(c.naming.mrp ?? 2990), cost:'', description:'', buzzwords:'', productType:'CUSTOM_DESIGN', weightGrams:'', region:'IND', stockMode:'track-quantity' as 'track-quantity' | 'variants', status:'ACTIVE' as 'ACTIVE' | 'INACTIVE', salesChannel:'', discountedPrice:'', media:'', sizes: ['36', '38', '40', '42', '44', '46'] as string[], sizeOptionName: 'Size', newSize: '', vprice: {} as Record<string, string>, vdisc: {} as Record<string, string> };
   const [v, setV] = useState(blank);
-  const start = (d: ConceptDesign) => { setV({ name: d.name, style: d.style ?? SHIRT_STYLES[0], category: d.category, mrp: d.mrp != null ? String(d.mrp) : '', cost: d.cost != null ? String(d.cost) : '', description: d.description ?? '', buzzwords: d.buzzwords ?? '', productType: d.productType ?? 'CUSTOM_DESIGN', weightGrams: d.weightGrams != null ? String(d.weightGrams) : '', region: d.region ?? 'IND', stockMode: d.stockMode ?? 'track-quantity', status: d.status ?? 'ACTIVE', salesChannel: d.salesChannel ?? '', discountedPrice: d.discountedPrice != null ? String(d.discountedPrice) : '', media: (d.media ?? []).join(', '), sizes: d.sizes ?? ['36', '38', '40', '42', '44', '46'], vprice: Object.fromEntries((d.variants ?? []).map(x => [x.size, x.price != null ? String(x.price) : ''])), vdisc: Object.fromEntries((d.variants ?? []).map(x => [x.size, x.discountedPrice != null ? String(x.discountedPrice) : ''])) }); setEditId(d.id); setAdding(false); };
+  const start = (d: ConceptDesign) => { setV({ name: d.name, style: d.style ?? SHIRT_STYLES[0], category: d.category, mrp: d.mrp != null ? String(d.mrp) : '', cost: d.cost != null ? String(d.cost) : '', description: d.description ?? '', buzzwords: d.buzzwords ?? '', productType: d.productType ?? 'CUSTOM_DESIGN', weightGrams: d.weightGrams != null ? String(d.weightGrams) : '', region: d.region ?? 'IND', stockMode: d.stockMode ?? 'track-quantity', status: d.status ?? 'ACTIVE', salesChannel: d.salesChannel ?? '', discountedPrice: d.discountedPrice != null ? String(d.discountedPrice) : '', media: (d.media ?? []).join(', '), sizes: d.sizes ?? ['36', '38', '40', '42', '44', '46'], sizeOptionName: d.sizeOptionName ?? 'Size', newSize: '', vprice: Object.fromEntries((d.variants ?? []).map(x => [x.size, x.price != null ? String(x.price) : ''])), vdisc: Object.fromEntries((d.variants ?? []).map(x => [x.size, x.discountedPrice != null ? String(x.discountedPrice) : ''])) }); setEditId(d.id); setAdding(false); };
   const save = () => {
     const patch = { name: v.name.trim(), style: v.style, category: v.category, mrp: Number(v.mrp) || null, cost: Number(v.cost) || null, description: v.description.trim() || null, buzzwords: v.buzzwords.trim() || null,
-      productType: v.productType || null, weightGrams: Number(v.weightGrams) || null, region: v.region, stockMode: v.stockMode, status: v.status, salesChannel: v.salesChannel.trim() || null, discountedPrice: Number(v.discountedPrice) || null, media: v.media.split(',').map(x => x.trim()).filter(Boolean), sizes: v.sizes,
+      productType: v.productType || null, weightGrams: Number(v.weightGrams) || null, region: v.region, stockMode: v.stockMode, status: v.status, salesChannel: v.salesChannel.trim() || null, discountedPrice: Number(v.discountedPrice) || null, media: v.media.split(',').map(x => x.trim()).filter(Boolean), sizes: v.sizes, sizeOptionName: v.sizeOptionName.trim() || 'Size',
       variants: v.sizes.map(sz => ({ size: sz, price: Number(v.vprice[sz]) || Number(v.mrp) || null, discountedPrice: Number(v.vdisc[sz]) || null, sku: `${editId ? designs.find(d => d.id === editId)?.code : `BOM-SHI-${v.category === 'Formal' ? 'FM' : 'CS'}-nnnn`}-${sz}` })) };
     if (editId) conceptUpdateDesign(c.id, editId, patch); else conceptAddDesign(c.id, patch);
     setEditId(null); setAdding(false); setV(blank);
@@ -48,10 +48,16 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
       <div style={{ gridColumn:'span 2' }}><Field label="Status"><Select value={v.status} onChange={s => setV({ ...v, status: s as 'ACTIVE' | 'INACTIVE' })} options={[{ value:'ACTIVE', label:'ACTIVE' }, { value:'INACTIVE', label:'INACTIVE' }]} /></Field></div>
       <div style={{ gridColumn:'span 3' }}><Field label="Sales channel"><Select value={v.salesChannel} onChange={s => setV({ ...v, salesChannel: s })} options={[{ value:'', label:'—' }, { value:'Stores + Online', label:'Stores + Online' }, { value:'Stores', label:'Stores' }, { value:'Online', label:'Online' }]} /></Field></div>
       <div style={{ gridColumn:'span 3' }}><Field label="Product media" hint="what appears on the website — file names, comma-separated"><Input value={v.media} onChange={e => setV({ ...v, media: e.target.value })} placeholder="front.jpg, detail.jpg" /></Field></div>
-      <div style={{ gridColumn:'span 12' }}><Field label="Sizes" hint="the sizes this design is sold in — Enigma's variants; tick what applies">
-        <div className="flex gap-1.5 flex-wrap pt-1">{RTW_SIZES.map(sz => { const on = v.sizes.includes(sz); return <button key={sz} type="button" className={`pill ${on ? 'good' : ''}`} style={{ cursor:'pointer' }} onClick={() => setV({ ...v, sizes: on ? v.sizes.filter(x => x !== sz) : [...v.sizes, sz].sort((a, b) => RTW_SIZES.indexOf(a as typeof RTW_SIZES[number]) - RTW_SIZES.indexOf(b as typeof RTW_SIZES[number])) })}>{sz}</button>; })}
-          <span className="text-[11.5px] pl-2 self-center" style={{ color:'var(--ink-faint)' }}>{v.sizes.length ? `${v.sizes.length} sizes · ${v.sizes.join(' ')}` : 'no sizes — one size, made to measure'}</span></div></Field></div>
-      {v.sizes.length > 0 && <div style={{ gridColumn:'span 12' }}><div className="label">Variants · a price per size</div>
+      <div style={{ gridColumn:'span 3' }}><Field label="Variant · option name" hint="as in Enigma — Size, UK Size, Collar"><Input value={v.sizeOptionName} onChange={e => setV({ ...v, sizeOptionName: e.target.value })} placeholder="Size" /></Field></div>
+      <div style={{ gridColumn:'span 9' }}><Field label="Option values" hint="type a value and press Enter or comma — 36, 40, M, XL, anything">
+        <div className="flex gap-1.5 flex-wrap items-center pt-1">
+          {v.sizes.map(sz => <span key={sz} className="pill good" style={{ display:'inline-flex', gap: 6, alignItems:'center' }}>{sz}<button type="button" aria-label={`remove ${sz}`} style={{ border:0, background:'none', cursor:'pointer', color:'inherit', padding:0, lineHeight:1 }} onClick={() => setV({ ...v, sizes: v.sizes.filter(x => x !== sz) })}>×</button></span>)}
+          <Input value={v.newSize} onChange={e => setV({ ...v, newSize: e.target.value })} placeholder="add a value…" style={{ width: 130 }}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); const val = v.newSize.trim().replace(/,$/, ''); if (val && !v.sizes.includes(val)) setV({ ...v, sizes: [...v.sizes, val], newSize: '' }); else setV({ ...v, newSize: '' }); } }}
+            onBlur={() => { const val = v.newSize.trim(); if (val && !v.sizes.includes(val)) setV({ ...v, sizes: [...v.sizes, val], newSize: '' }); }} />
+          <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{v.sizes.length ? `${v.sizes.length} values` : 'no values — one size, made to measure'}</span>
+        </div></Field></div>
+      {v.sizes.length > 0 && <div style={{ gridColumn:'span 12' }}><div className="label">Variants · a price per {v.sizeOptionName.trim() || 'size'}</div>
         <div style={{ overflowX:'auto' }}><table className="t compact"><thead><tr><th>Variant</th><th className="num">Price ₹</th><th className="num">Discounted price ₹</th><th>SKU code</th></tr></thead>
           <tbody>{v.sizes.map(sz => <tr key={sz}>
             <td className="mono">{sz}</td>
