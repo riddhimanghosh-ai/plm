@@ -109,7 +109,7 @@ function Vendor360({ v, s }: { v: Vendor; s: ReturnType<typeof vendorStatsOf> })
     </Section>}
 
     {isMill && <Section title={`Fabrics · ${s.fabrics.length}`}>
-      {s.fabrics.slice(0, 10).map(f => { const c = coverageOf(f, v.leadDays, v); return <div key={f.id} className="kv"><span className="k">{f.name}<div className="text-[11px] mono">{f.code} · {f.bucket.toLowerCase().replace('_', '-')}</div></span><span className="v">{f.bucket === 'BESPOKE' ? <Pill tone={f.millAvailable === false ? 'risk' : 'good'}>{f.millAvailable === false ? 'sold out at mill' : 'available'}</Pill> : <Pill tone={c.belowRop ? 'risk' : 'good'}>{c.belowRop ? 'below ROP' : `${c.coverDays > 365 ? '1y+' : c.coverDays + 'd'} cover`}</Pill>}</span></div>; })}
+      {s.fabrics.slice(0, 10).map(f => { const c = coverageOf(f, v.leadDays, v); return <div key={f.id} className="kv row" style={{ cursor:'pointer' }} onClick={() => { const n = new URLSearchParams(location.hash.split('?')[1] ?? ''); n.set('fabric', f.id); location.hash = `${location.hash.split('?')[0]}?${n}`; }}><span className="k">{f.name}<div className="text-[11px] mono">{f.code} · {f.bucket.toLowerCase().replace('_', '-')}</div></span><span className="v">{f.bucket === 'BESPOKE' ? <Pill tone={f.millAvailable === false ? 'risk' : 'good'}>{f.millAvailable === false ? 'sold out at mill' : 'available'}</Pill> : <Pill tone={c.belowRop ? 'risk' : 'good'}>{c.belowRop ? 'below ROP' : `${c.coverDays > 365 ? '1y+' : c.coverDays + 'd'} cover`}</Pill>}</span></div>; })}
       {s.fabrics.length > 10 && <div className="text-[11.5px] pt-1" style={{ color:'var(--ink-faint)' }}>and {s.fabrics.length - 10} more — all on the MTM fabrics screen</div>}
     </Section>}
 
@@ -345,6 +345,7 @@ export function FabricSourcingTab() {
   const { db } = useApp();
   const [params, setParams] = useSearchParams();
   const openVendor = (id: string) => { const n = new URLSearchParams(params); n.set('vendor', id); setParams(n, { replace:true }); };
+  const openFabric = (id: string) => { const n = new URLSearchParams(params); n.set('fabric', id); setParams(n, { replace:true }); };
   const [q, setQ] = useState(params.get('fq') ?? '');
   const [millF, setMillF] = useState('all');
   const [typeF, setTypeF] = useState('all');          // domestic · international
@@ -447,8 +448,8 @@ export function FabricSourcingTab() {
         const sameFamily = [...byMill.values()];
         const why = f.paused ? `paused by design — ${f.paused.note}` : f.onHold ? 'on hold — switched off for stores and Shopify' : f.supply?.status === 'out' ? `supplier out${f.supply.backOn ? ` — back ${fmtDate(f.supply.backOn)}` : ''}` : f.millAvailable === false ? 'sold out at the mill' : null;
         return <Fragment key={f.id}>
-          <tr className="row" onClick={() => setAlt(alt === f.id ? null : f.id)}>
-            <td><a className="font-medium vlink" href={`#/fabrics?tab=books&open=${f.id}`} onClick={e => e.stopPropagation()} style={{ textDecoration:'none' }}>{f.name}</a><div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.code} · {f.bucket.toLowerCase().replace('_', '-')}{f.swatchBook ? ` · ${f.swatchBook}` : ''}</div></td>
+          <tr className="row" onClick={() => openFabric(f.id)}>
+            <td><span className="font-medium">{f.name}</span><div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.code} · {f.bucket.toLowerCase().replace('_', '-')}{f.swatchBook ? ` · ${f.swatchBook}` : ''}</div></td>
             <td className="text-[12.5px]">{f.composition ?? '—'}<div style={{ color:'var(--ink-faint)' }}>{(f.attrs?.panna ?? f.widthIn) ? `${f.attrs?.panna ?? f.widthIn}" panna` : ''}</div></td>
             <td className="text-[12.5px]"><VendorLink id={f.vendorId} />{m && <div className="mono" style={{ color:'var(--ink-faint)' }}>{f.vendorCode ?? '—'}{held.length > 0 && <span style={{ color:'var(--accent)' }}> · {held.reduce((a, b) => a + b.metres, 0)} m held</span>}</div>}</td>
             <td className="num">{f.mill?.tatHours != null ? `${f.mill.tatHours} h` : m ? `${m.leadDays}d` : '—'}</td>

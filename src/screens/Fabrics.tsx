@@ -272,6 +272,18 @@ export function Fabrics() {
 }
 
 /* ---------- the 360: every fact the tool holds about one fabric ---------- */
+/** Mounted once in the Shell: `?fabric=<id>` opens the fabric record from any screen — the mills page, a PO, a search hit. */
+export function FabricDrawer() {
+  const { db, role } = useApp();
+  const [params, setParams] = useSearchParams();
+  const f = db.fabrics.find(x => x.id === params.get('fabric')) ?? null;
+  const close = () => { const n = new URLSearchParams(params); n.delete('fabric'); setParams(n, { replace:true }); };
+  const mill = f ? db.vendors.find(v => v.id === f.vendorId) : null;
+  return <Drawer open={!!f} onClose={close} title={f?.name ?? ''} subtitle={f && <><Pill tone="accent">{f.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{f.code}</span>{mill && <span>· {mill.name}</span>}</>}>
+    {f && <Fabric360 f={f} canSource={role === 'sourcing' || role === 'owner'} canPlan={role === 'design' || role === 'owner'} />}
+  </Drawer>;
+}
+
 function Fabric360({ f, canSource, canPlan }: { f: Fabric; canSource: boolean; canPlan: boolean }) {
   const [pnote, setPnote] = useState('');
   const { db, role, setFabricHold, pauseFabric, resumeFabric, raiseFabricPo, convertBlock, releaseBlock, setFabricBucket, agreeCoreBlock, endCoreBlock, renameFabric } = useApp();
