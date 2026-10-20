@@ -398,7 +398,7 @@ export function ConceptOptions({ c, sourcing, design }: { c: Concept; sourcing: 
         <div className="text-[11.5px]" style={faint}>{q.composition}{q.widthIn ? ` · ${q.widthIn}" panna` : ''}{q.note ? ` · ${q.note}` : ''}</div>
       </div>
       <div className="flex gap-4 flex-wrap text-[12.5px]" style={{ flex:'2 1 320px' }}>
-        {cell('₹ / m', <b>₹{q.cpm}</b>)}{cell('MOQ', `${q.moq} m`)}{cell('first buy', <b>{fmtMoney(q.cpm * q.moq)}</b>)}{cell('lead', `${q.leadDays}d`)}
+        {cell('₹ / m', <b>₹{q.cpm}</b>)}{cell('MOQ', `${q.moq} m`)}{cell(Number(m) && Number(m) !== q.moq ? `buy · ${m} m` : 'first buy', <b>{fmtMoney(q.cpm * (Number(m) || q.moq))}</b>)}{cell('lead', `${q.leadDays}d`)}
         {cell('holds until', q.holdUntil ? <span style={{ color: left != null && left <= 5 ? 'var(--risk)' : undefined }}>{fmtDate(q.holdUntil)} · {lapsed ? `lapsed ${-left!}d ago` : `${left}d left`}</span> : '—')}
         {q.extensionAsked && cell('extension', <Pill tone="warn">asked {fmtDate(q.extensionAsked.on)}</Pill>)}
       </div>
@@ -408,7 +408,7 @@ export function ConceptOptions({ c, sourcing, design }: { c: Concept; sourcing: 
         : sent && design ? <>
           <span className="text-[11.5px]" style={faint}>metres</span>
           <Input type="number" value={m} onChange={e => setMetres(e.target.value)} style={{ width: 72, padding:'3px 6px' }} />
-          <Button size="sm" variant={lapsed ? undefined : 'primary'} title={lapsed ? 'the hold has lapsed — the price is not promised; ask for more time first' : `push the fabric PO to ${nameOf(q.vendorId)} for ${m} m`} onClick={() => conceptAcceptAndRaisePo(c.id, q.id, Number(m) || q.moq, why.trim())}>Push PO</Button>
+          <Button size="sm" variant={lapsed ? undefined : 'primary'} title={lapsed ? 'the hold has lapsed — the price is not promised; ask for more time first' : `push the fabric PO to ${nameOf(q.vendorId)} for ${m} m`} onClick={() => conceptAcceptAndRaisePo(c.id, q.id, Number(m) || q.moq, why.trim())}>Push PO · {fmtMoney(q.cpm * (Number(m) || q.moq))}</Button>
           {lapsed && <span className="text-[11.5px]" style={{ color:'var(--risk)' }}>hold lapsed — the price is not promised</span>}
           <button type="button" className="btn sm" onClick={() => conceptRejectFabricOption(c.id, q.id, why.trim())}>Reject</button>
           {q.extensionAsked ? null : <button type="button" className="btn sm" onClick={() => conceptAskOptionExtension(c.id, `${nameOf(q.vendorId)}: ${why.trim() || 'need longer than the hold'}`, q.id)}>More time</button>}
