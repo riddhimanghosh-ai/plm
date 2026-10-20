@@ -206,7 +206,7 @@ table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13px}th,td{bor
 td:nth-child(1){white-space:nowrap}ul{margin:8px 0 8px 22px}
 nav{font-size:13px;columns:2;margin:14px 0 24px}nav a{display:block;color:#3c4a30;text-decoration:none;padding:2px 0}"""
 out=[f'<!doctype html><html><head><meta charset="utf-8"><title>{esc(TITLE)}</title><style>{css}</style></head><body>']
-out.append(f'<h1>{esc(TITLE)}</h1><p class="by">{DATE} · Riddhiman Ghosh · DevX Labs · for Bombay Shirt Company · v1.0 · <a href="bsc-plm-flow-mtm.html">the flow as a diagram</a> · <a href="bsc-plm-prd-mtm-v1.0.docx">download .docx</a> · <a href="../">open the prototype</a></p><p class="sub">{esc(SUB)}</p>')
+out.append(f'<h1>{esc(TITLE)}</h1><p class="by">{DATE} · DevX Labs · for Bombay Shirt Company · v1.0 · <a href="bsc-plm-flow-mtm.html">the flow as a diagram</a> · <a href="bsc-plm-prd-mtm-v1.0.docx">download .docx</a> · <a href="../">open the prototype</a></p><p class="sub">{esc(SUB)}</p>')
 heads=[c[1] for c in C if c[0]=='h2']
 out.append('<nav>'+''.join(f'<a href="#s{i}">{esc(h)}</a>' for i,h in enumerate(heads))+'</nav>')
 hi=-1
@@ -227,7 +227,7 @@ d=Document()
 st=d.styles['Normal']; st.font.name='Helvetica'; st.font.size=Pt(10)
 for s in d.sections: s.left_margin=s.right_margin=Cm(2); s.top_margin=s.bottom_margin=Cm(2)
 d.add_heading(TITLE, 0)
-d.add_paragraph(f'{DATE} · Riddhiman Ghosh · DevX Labs · for Bombay Shirt Company · v1.0')
+d.add_paragraph(f'{DATE} · DevX Labs · for Bombay Shirt Company · v1.0')
 d.add_paragraph(SUB)
 def add_cell(cell, text):
     cell.text=''
