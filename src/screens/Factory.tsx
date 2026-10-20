@@ -191,7 +191,7 @@ function ChangesTab({ orders, mine, onOpen }: { orders: CustomerOrder[]; mine: b
           <td className="text-[12px]" style={{ whiteSpace:'normal', minWidth: 150 }}>“{rev.note}”<div style={{ color:'var(--ink-faint)' }}>{rev.by}</div></td>
           <td className="text-[12px]">{fmtRel(rev.at)}</td>
           <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>{needsReprint(o) && <div><Pill tone="risk">sheet not re-issued</Pill></div>}</td>
-          <td onClick={e => e.stopPropagation()}>{mine && <Button size="sm" variant="primary" onClick={() => markFactoryRead([o.id])}>Read</Button>}</td>
+          <td onClick={e => e.stopPropagation()}>{mine && <Button size="sm" variant="primary" onClick={() => markFactoryRead([o.id])}>Acknowledged</Button>}</td>
         </tr>); })}</tbody>
     </table></div></Card>
     <div className="mt-3"><Note>Work to the revision on the order, not the paper in the bundle; marking it read stops the unit chasing.</Note></div>

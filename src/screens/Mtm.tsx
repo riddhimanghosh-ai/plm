@@ -5,6 +5,7 @@
    Fabric: the extra-fabric email as a queue whose approval moves inventory.
    Output: the WhatsApp shipping table and the aging pivot, derived. */
 import { useState } from 'react';
+import type React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { CustomerOrder, ExtraFabricRequest, OrderTag } from '../domain/types';
@@ -102,11 +103,11 @@ function ChangesTab({ onOpen }: { onOpen: (id: string) => void }) {
           <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{side === 'me' ? <Pill tone="warn">{stageLabel(o.stage)} · not allocated</Pill>
             : <>{f ? <VendorLink id={f.id} /> : '—'}<div style={{ color:'var(--ink-faint)' }}>{stageLabel(o.stage)}{needsReprint(o) ? ' · sheet not re-issued' : ''}</div></>}</td>
           <td onClick={e => e.stopPropagation()}>{side === 'me'
-            ? <Button size="sm" variant="primary" onClick={() => markChangeSeen([o.id])}>Read — plan on this</Button>
+            ? <Button size="sm" variant="primary" onClick={() => markChangeSeen([o.id])}>Acknowledged — plan on this</Button>
             : <Button size="sm" variant="primary" onClick={() => markFactoryTold([o.id])}>Told {f?.name?.split(' ')[0] ?? 'the factory'}</Button>}</td>
         </tr>; })}</tbody>
       </table></div></Card>}
-    <div className="mt-3"><Note>{side === 'me' ? 'Not yet allocated, so the correction costs nothing — marking it read tells the store the change landed.' : 'Already at a factory — ring the merchandiser and log the call here so the store can see it was made.'}</Note></div>
+    <div className="mt-3"><Note>{side === 'me' ? 'Not yet allocated, so the correction costs nothing — acknowledging it tells the store the change landed.' : 'Already at a factory — ring the merchandiser and log the call here so the store can see it was made.'}</Note></div>
   </>;
 }
 
@@ -249,25 +250,58 @@ function PlansTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string) => voi
       <thead><tr><th>Plan</th><th>Factory</th><th>Created</th><th className="num">Orders</th><th>Where the pieces are</th><th>Status</th></tr></thead>
       <tbody>{ex.rows.map(p => { const os = ordersOf(p.orderIds); const by: Record<string, number> = {}; os.forEach(o => (by[o.stage] = (by[o.stage] ?? 0) + 1)); return (
         <tr key={p.id} className="row" onClick={() => setOpenPlan(p.id)}>
-          <td className="mono text-[12.5px]">{p.planNo}</td><td><VendorLink id={p.factoryId} /></td><td>{fmtDate(p.createdOn)}</td><td className="num">{os.length}</td>
+          <td className="mono text-[12.5px]">{p.planNo}</td><td>{name(p.factoryId)}</td><td>{fmtDate(p.createdOn)}</td><td className="num">{os.length}</td>
           <td className="text-[11.5px]">{Object.entries(by).map(([st, n]) => <Pill key={st} tone={STAGE_TONE[st] ?? 'neutral'}>{stageLabel(st)} {n}</Pill>)}</td>
           <td><Pill tone={p.closedOn ? 'neutral' : 'good'}>{p.closedOn ? `closed ${fmtDate(p.closedOn)}` : 'open'}</Pill></td>
         </tr>); })}</tbody>
     </table></Card>}
-    <Drawer open={!!pl} onClose={() => setOpenPlan(null)} title={pl ? `Production plan ${pl.planNo}` : ''} subtitle={pl && <><span>{name(pl.factoryId)} · {pl.category} · created {fmtDate(pl.createdOn)}</span></>}>
-      {pl && (() => { const os = ordersOf(pl.orderIds); const at = (st: string) => os.filter(o => o.stage === st); const allBack = os.every(o => ['rts', 'dispatched', 'delivered'].includes(o.stage)); return <>
-        <Section title="Scan the whole plan" right={<Pill tone="neutral">what the QR does today</Pill>}>
-          <div className="flex gap-2 flex-wrap py-1">
-            {mine && at('planned').length > 0 && <Button size="sm" variant="primary" onClick={() => scanOrders(at('planned').map(o => o.id), 'in-transit')}>Out of production unit · {at('planned').length}</Button>}
-            {mine && at('in-transit').length > 0 && <Button size="sm" onClick={() => scanOrders(at('in-transit').map(o => o.id), 'in-factory')}>In at factory · {at('in-transit').length}</Button>}
-            {mine && at('out-factory').length > 0 && <Button size="sm" onClick={() => scanOrders(at('out-factory').map(o => o.id), 'rts')}>RTS received · {at('out-factory').length}</Button>}
-            {mine && at('rts').length > 0 && <Button size="sm" onClick={() => scanOrders(at('rts').map(o => o.id), 'dispatched')}>Dispatch · {at('rts').length}</Button>}
-            {mine && allBack && !pl.closedOn && <Button size="sm" variant="ghost" onClick={() => closePlan(pl.id)}>Close plan</Button>}
+    <Drawer open={!!pl} onClose={() => setOpenPlan(null)} title={pl ? `Plan ${pl.planNo}` : ''} subtitle={pl && <><Pill tone={pl.closedOn ? 'neutral' : 'good'}>{pl.closedOn ? `closed ${fmtDate(pl.closedOn)}` : 'open'}</Pill><span>{name(pl.factoryId)} · created {fmtDate(pl.createdOn)}{pl.forcedOver ? ` · sent ${pl.forcedOver} over capacity by ${pl.forcedBy ?? 'production'}` : ''}</span></>}>
+      {pl && (() => {
+        const os = ordersOf(pl.orderIds); const at = (st: string) => os.filter(o => o.stage === st); const allBack = os.every(o => ['rts', 'dispatched', 'delivered'].includes(o.stage));
+        const STEPS: [string, string][] = [['planned', 'Planned · to cut'], ['in-transit', 'In production · on its way'], ['in-factory', 'In factory'], ['out-factory', 'Out factory · ready'], ['rts', 'RTS · back at unit'], ['dispatched', 'Dispatched']];
+        const metres = Math.round(os.reduce((x, o) => x + (o.consumptionM ?? 0), 0) * 10) / 10;
+        const due = os.map(o => o.promisedOn).sort()[0];
+        const cut = prepQueue(db).cutList(os);
+        const fact = (k: string, v: React.ReactNode) => <div><div className="label">{k}</div><div className="text-[15px] font-medium">{v}</div></div>;
+        return <>
+        <Card className="px-4 py-3"><div className="grid gap-4" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))' }}>
+          {fact('Factory', name(pl.factoryId))}{fact('Pieces', os.length)}{fact('Cloth', `${metres} m`)}{fact('Fabrics', cut.length)}{fact('First ship-by', due ? fmtDate(due) : '—')}{fact('Urgent', os.filter(o => o.tag === 'urgent').length)}
+        </div></Card>
+        {/* where the plan's pieces are, as one strip left to right */}
+        <Card className="px-4 py-3">
+          <div className="label">Where the pieces are</div>
+          <div className="flex gap-1.5 flex-wrap items-stretch pt-1">{STEPS.map(([st, label], i) => { const n = at(st).length; return <div key={st} className="flex items-center gap-1.5">
+            <div className="px-3 py-2 rounded-[6px] text-center" style={{ minWidth: 92, background: n ? (STAGE_TONE[st] === 'good' ? 'var(--good-soft)' : 'var(--info-soft)') : 'var(--surface-2)', border: `1px solid ${n ? (STAGE_TONE[st] === 'good' ? 'var(--good-line)' : 'var(--info-line)') : 'var(--line-soft)'}`, opacity: n ? 1 : .55 }}>
+              <div className="mono text-[18px] font-semibold" style={{ lineHeight: 1.1 }}>{n}</div><div className="text-[10.5px]" style={{ color:'var(--ink-soft)' }}>{label}</div></div>
+            {i < STEPS.length - 1 && <span style={{ color:'var(--ink-faint)' }}>→</span>}
+          </div>; })}</div>
+          {at('delivered').length > 0 && <div className="text-[11.5px] pt-2" style={{ color:'var(--ink-faint)' }}>{at('delivered').length} delivered</div>}
+        </Card>
+        {mine && !pl.closedOn && <Card className="px-4 py-3">
+          <div className="label">Move the whole plan · one scan each</div>
+          <div className="flex gap-2 flex-wrap pt-1">
+            {at('planned').length > 0 && <Button size="sm" variant="primary" onClick={() => scanOrders(at('planned').map(o => o.id), 'in-transit')}>Cut &amp; scan out · {at('planned').length} to {name(pl.factoryId)}</Button>}
+            {at('in-transit').length > 0 && <Button size="sm" onClick={() => scanOrders(at('in-transit').map(o => o.id), 'in-factory')}>Received at factory · {at('in-transit').length}</Button>}
+            {at('out-factory').length > 0 && <Button size="sm" onClick={() => scanOrders(at('out-factory').map(o => o.id), 'rts')}>Back at unit (RTS) · {at('out-factory').length}</Button>}
+            {at('rts').length > 0 && <Button size="sm" onClick={() => scanOrders(at('rts').map(o => o.id), 'dispatched')}>Dispatch to stores · {at('rts').length}</Button>}
+            {allBack && <Button size="sm" variant="ghost" onClick={() => closePlan(pl.id)}>Close plan</Button>}
+            {!at('planned').length && !at('in-transit').length && !at('out-factory').length && !at('rts').length && !allBack && <span className="text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Nothing to scan here — the pieces are on the factory floor; the factory marks them ready.</span>}
           </div>
-          <div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>Marking a piece ready is the factory merchandiser's scan — on the Factory floor tab; QC at the factory happens before it. "Out of production unit" is the scan that deducts the order sheet's metres from inventory.</div>
+          <div className="text-[11.5px] pt-2" style={{ color:'var(--ink-faint)' }}>"Cut &amp; scan out" takes the order sheets' metres off the shelf. The factory's own scans (in, ready) happen on its portal.</div>
+        </Card>}
+        <Section title={`Cut list · ${cut.length} fabric${cut.length === 1 ? '' : 's'}`} defaultOpen>
+          <table className="t compact"><thead><tr><th>Fabric</th><th className="num">Pieces</th><th className="num">Metres</th></tr></thead>
+            <tbody>{cut.map(c => <tr key={c.fabricId}><td>{db.fabrics.find(f => f.id === c.fabricId)?.name ?? c.name}<div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{db.fabrics.find(f => f.id === c.fabricId)?.code}</div></td><td className="num">{c.pcs}</td><td className="num">{c.metres} m</td></tr>)}</tbody></table>
         </Section>
-        <Section title={`Order sheets · ${os.length}`}>
-          <div className="flex flex-col">{os.map(o => <div key={o.id} className="kv" style={{ cursor:'pointer' }} onClick={() => onOpen(o.id)}><span className="k"><b className="mono" style={{ color:'var(--ink)' }}>{o.orderNo}</b> · {o.customer} · {o.styleName}<div className="text-[11px]">{o.consumptionM} m · ship by {fmtDate(o.promisedOn)}{o.tag !== 'normal' ? ` · ${o.tag}` : ''}</div></span><span className="v flex gap-1 items-center justify-end"><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>{needsReprint(o) && <Pill tone="risk">amended</Pill>}{mine && <span onClick={e => e.stopPropagation()}><PullBackButton o={o} /></span>}</span></div>)}</div>
+        <Section title={`Pieces · ${os.length}`} defaultOpen>
+          <table className="t compact"><thead><tr><th>Order</th><th>Customer</th><th>Fabric</th><th>Ship by</th><th>Stage</th><th>Sent to factory</th><th>At factory</th><th>Ready</th><th>Back at unit</th></tr></thead>
+            <tbody>{os.map(o => { const when = (st: string) => { const sc = o.scans.find(x => x.stage === st); return sc ? <span title={`${fmtDate(sc.at)} · ${sc.by}`}>{fmtDate(sc.at)}</span> : <span style={{ color:'var(--ink-faint)' }}>—</span>; }; return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
+              <td className="mono text-[12px]">{o.orderNo}{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}</td><td>{o.customer}<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{STORES.find(st => st.id === o.storeId)?.name}</div></td>
+              <td className="text-[12.5px]">{o.styleName}<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{o.consumptionM} m</div></td><td>{fmtDate(o.promisedOn)}</td>
+              <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>{needsReprint(o) && <> <Pill tone="risk">sheet {sheetVersion(o)}</Pill></>}</td>
+              <td className="text-[12px]">{when('in-transit')}</td><td className="text-[12px]">{when('in-factory')}</td><td className="text-[12px]">{when('out-factory')}</td><td className="text-[12px]">{when('rts')}</td>
+            </tr>; })}</tbody></table>
+          <div className="text-[11.5px] pt-2" style={{ color:'var(--ink-faint)' }}>Dates are the scans. Click a piece for its order sheet and full timeline.</div>
         </Section>
       </>; })()}
     </Drawer>
@@ -322,13 +356,14 @@ function FloorTab({ mine, factoryId, onFactory, onOpen }: { mine: boolean; facto
     </div>
 
     <Card><table className="t">
-      <thead><tr><th>Order</th><th>Customer</th><th>Fabric · m</th><th>Tag</th><th>Ship by</th><th>Stage</th><th>Days in factory</th><th></th></tr></thead>
-      <tbody>{rows.length === 0 ? <tr><td colSpan={8}><Empty title={all.length ? 'Nothing matches that filter.' : 'Nothing on this floor.'} body={all.length ? 'Loosen the stage filter or clear the search.' : ''} /></td></tr> : rows.map(o => { const d = inAt(o) ? daysAgo(inAt(o)!) : null; const late = daysAgo(o.promisedOn) > 0; return (
+      <thead><tr><th>Order</th><th>Customer</th><th>Fabric · m</th><th>Tag</th><th>Ship by</th><th>Stage</th><th>Reached factory</th><th>Days in factory</th><th></th></tr></thead>
+      <tbody>{rows.length === 0 ? <tr><td colSpan={9}><Empty title={all.length ? 'Nothing matches that filter.' : 'Nothing on this floor.'} body={all.length ? 'Loosen the stage filter or clear the search.' : ''} /></td></tr> : rows.map(o => { const d = inAt(o) ? daysAgo(inAt(o)!) : null; const late = daysAgo(o.promisedOn) > 0; return (
         <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
           <td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}</td><td className="text-[12.5px]">{o.styleName} <span style={{ color:'var(--ink-faint)' }}>· {o.consumptionM} m</span></td>
           <td><Pill tone={TAG_TONE[o.tag]}>{o.tag}</Pill></td>
           <td style={{ color: late ? 'var(--risk)' : undefined }}>{fmtDate(o.promisedOn)}{late && <span className="text-[11px]"> · {daysAgo(o.promisedOn)}d late</span>}{(o.promiseRevisions?.length ?? 0) > 0 && <span className="pill warn ml-1">moved</span>}</td>
           <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>{needsReprint(o) && <Pill tone="risk">amended · {sheetVersion(o)}</Pill>}</td>
+          <td className="text-[12px]">{inAt(o) ? fmtDate(inAt(o)!) : <span style={{ color:'var(--ink-faint)' }}>{o.scans.find(x => x.stage === 'in-transit') ? `sent ${fmtDate(o.scans.find(x => x.stage === 'in-transit')!.at)}` : '—'}</span>}</td>
           <td className="num" style={{ color: d != null && d > AGING_DAYS ? 'var(--risk)' : undefined }}>{d != null ? `${d}d` : '—'}</td>
           <td onClick={e => e.stopPropagation()} className="flex gap-1">
             {mine && o.stage === 'in-transit' && <Button size="sm" onClick={() => scanOrders([o.id], 'in-factory')}>Received</Button>}

@@ -360,7 +360,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         else db.factoryOutputs.unshift({ id:`fo-${Date.now().toString(36)}`, factoryId, date: day, pieces, note, by: who(), at: now() });
       }, `Output logged — ${pieces} piece${pieces === 1 ? '' : 's'} for ${date.slice(0, 10)}. The production unit sees it against the scans.`);
     },
-    markFactoryRead(orderIds) { touch(db => orderIds.forEach(id => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (o) o.changeFactorySeenOn = now(); }), 'Marked read — the change is with the floor.'); },
+    markFactoryRead(orderIds) { touch(db => orderIds.forEach(id => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (o) o.changeFactorySeenOn = now(); }), 'Acknowledged — the change is with the floor.'); },
     toast: (text, tone = 'ok', undo = false) => { const id = ++seq; const undoAt = get().undoStack.length;
       set(s => ({ toasts: [...s.toasts, { id, text, tone, undo, undoAt }] }));
       setTimeout(() => set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })), undo ? 7000 : 3800); },
@@ -1376,7 +1376,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         o.revisions.push({ rev: o.revisions.length + 1, at: now(), by: me.name, role: me.role, note, changes, reprint: mode === 'amend' });
       }, 'Order sheet updated — the change is on the record with your name and the time.');
     },
-    markChangeSeen(orderIds) { touch(db => orderIds.forEach(id => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (o) o.changeSeenOn = now(); }), `Marked read — ${orderIds.length} change${orderIds.length === 1 ? '' : 's'} taken into the plan.`); },
+    markChangeSeen(orderIds) { touch(db => orderIds.forEach(id => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (o) o.changeSeenOn = now(); }), `Acknowledged — ${orderIds.length} change${orderIds.length === 1 ? '' : 's'} taken into the plan.`); },
     markFactoryTold(orderIds) { touch(db => orderIds.forEach(id => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (o) { o.changeToldFactoryOn = now(); o.changeSeenOn = now(); } }), `Logged — the factory has been told. It is on the record, not only on the call.`); },
 
     unplanOrders(orderIds, note) {
