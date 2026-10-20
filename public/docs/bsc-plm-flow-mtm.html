@@ -43,16 +43,16 @@ flowchart TD
 
   S1["<b>STORE</b><br/>Customer card<br/>fit profiles · credit · past orders"]:::store
   S2["<b>STORE</b><br/>Punch the bill<br/>fabric from <i>live today</i> · design · fit profile · who measured<br/>trial / urgent · comments for factory & shipping"]:::store
-  E1["<b>ENIGMA</b><br/>Order sheet · V1<br/>metres reserved on the fabric"]:::enigma
+  E1["<b>ORDER</b> · punched<br/>Enigma order sheet · V1<br/>metres reserved on the fabric"]:::enigma
   S3["<b>STORE</b><br/>Correct the sheet<br/>click a field · V2, V3 · why"]:::store
-  P1["<b>PRODUCTION</b><br/>PP queue<br/>2-hour freeze · urgent first"]:::prod
-  P2["<b>PRODUCTION</b><br/>System proposes · planner confirms<br/>headroom per factory · plan number"]:::prod
-  P3["<b>PRODUCTION UNIT</b><br/>Cut & bundle · scan out<br/>metres off the shelf · job card"]:::prod
-  F1["<b>FACTORY</b><br/>Received at factory<br/>in factory · aging past 5 days"]:::fac
-  F2["<b>FACTORY</b><br/>QC · Ready<br/>log the day"]:::fac
-  P4["<b>PRODUCTION UNIT</b><br/>RTS · back at the unit<br/>vehicle round"]:::prod
-  P5["<b>SHIPPING</b><br/>Dispatch to the store"]:::prod
-  S4["<b>STORE</b><br/>Handed to customer<br/>delivered"]:::store
+  P1["<b>PP</b> · production<br/>waiting for a factory<br/>2-hour freeze · urgent first"]:::prod
+  P2["<b>PP · PLANNED</b> · production<br/>system proposes · planner confirms<br/>plan number · job card printed · fabric cut"]:::prod
+  P3["<b>IN PRODUCTION</b> · production unit<br/>bundle scanned out to the factory<br/>metres off the shelf"]:::prod
+  F1["<b>IN FACTORY</b> · factory merchandiser<br/>scanned in · stitching<br/>aging past 5 days"]:::fac
+  F2["<b>OUT FACTORY</b> · factory merchandiser<br/>QC passed · ready for the vehicle<br/>log the day"]:::fac
+  P4["<b>RTS</b> · production unit<br/>back at the unit<br/>vehicle round"]:::prod
+  P5["<b>FITTING / SHIPPING</b> · shipping team<br/>packed · dispatched to the store"]:::prod
+  S4["<b>DELIVERED</b> · store<br/>handed to the customer"]:::store
   S5["<b>STORE</b><br/>Return or alteration case<br/>30-day window · the ladder · credit note · refund approval"]:::store
 
   subgraph ORDER["At the store"]
