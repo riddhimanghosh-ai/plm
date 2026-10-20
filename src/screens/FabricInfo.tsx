@@ -27,7 +27,8 @@ const ATTR_FIELDS: { k: keyof FabricAttrs; label: string; kind: 'text' | 'num' |
 const INV_TYPE = { CORE: 'MTM · core', NON_CORE: 'MTM · non-core', BESPOKE: 'Bespoke' } as const;
 const TXN_TONE: Record<FabricTxn['type'], 'good' | 'info' | 'warn' | 'neutral'> = { GRN: 'good', ISSUE: 'info', ADJUSTMENT: 'warn', RETURN: 'neutral' };
 
-export function FabricInfo({ f, editable }: { f: Fabric; editable: boolean }) {
+export function FabricInfo({ f, editable, part = 'all', flat = false }: { f: Fabric; editable: boolean; part?: 'all' | 'info' | 'inventory'; flat?: boolean }) {
+  const sec = { collapsible: !flat, defaultOpen: flat || undefined };
   const { db, updateFabricInfo, adjustFabricStock } = useApp();
   const vendor = db.vendors.find(v => v.id === f.vendorId);
   const [edit, setEdit] = useState<'info' | 'attrs' | 'inv' | null>(null);
@@ -55,7 +56,7 @@ export function FabricInfo({ f, editable }: { f: Fabric; editable: boolean }) {
   const reservations = (db.customerOrders ?? []).filter(o => o.fabricId === f.id && ['punched', 'pp', 'planned', 'in-transit'].includes(o.stage));
 
   return <>
-    <Section title="Fabric info · as in Enigma" right={<span className="flex gap-1 items-center">{f.onHold && <Pill tone="risk">on hold</Pill>}{editable && edit !== 'info' && <Button size="sm" onClick={beginInfo}>Edit Fabric Info</Button>}</span>}>
+    {part !== 'inventory' && <Section {...sec} title="Fabric info · as in Enigma" right={<span className="flex gap-1 items-center">{f.onHold && <Pill tone="risk">on hold</Pill>}{editable && edit !== 'info' && <Button size="sm" onClick={beginInfo}>Edit Fabric Info</Button>}</span>}>
       {edit === 'info' ? <>
         <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
           <Field label="Fabric Name"><Input value={d.name ?? ''} onChange={e => setD({ ...d, name: e.target.value })} /></Field>
@@ -98,9 +99,9 @@ export function FabricInfo({ f, editable }: { f: Fabric; editable: boolean }) {
           <KV k="Mills" v={mill?.mills ?? vendor?.name ?? '—'} />
         </div>
       </div>}
-    </Section>
+    </Section>}
 
-    <Section title="Dynamic attributes · shirts" right={editable && edit !== 'attrs' ? <Button size="sm" onClick={beginAttrs}>Edit</Button> : undefined}>
+    {part !== 'inventory' && <Section {...sec} title="Dynamic attributes · shirts" right={editable && edit !== 'attrs' ? <Button size="sm" onClick={beginAttrs}>Edit</Button> : undefined}>
       {edit === 'attrs' ? <>
         <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
           {ATTR_FIELDS.map(({ k, label, kind }) => <Field key={k} label={label}>
@@ -117,9 +118,9 @@ export function FabricInfo({ f, editable }: { f: Fabric; editable: boolean }) {
           const v = attrs[k]; const text = kind === 'bool' ? (v ? 'Yes' : 'No') : v == null || v === '' ? '—' : String(v);
           return <KV key={k} k={label} v={k === 'bigChecked' && v ? <Pill tone="warn">Yes · matched in cutting</Pill> : text} />; })}</div>)}
       </div>}
-    </Section>
+    </Section>}
 
-    <Section title="Inventory" right={<span className="flex gap-1 items-center"><Pill tone={f.stockMetres <= f.thresholdMetres ? 'warn' : 'good'}>{f.stockMetres} m</Pill>{editable && edit !== 'inv' && <Button size="sm" onClick={beginInv}>Edit Inventory</Button>}</span>}>
+    {part !== 'info' && <Section {...sec} title="Inventory" right={<span className="flex gap-1 items-center"><Pill tone={f.stockMetres <= f.thresholdMetres ? 'warn' : 'good'}>{f.stockMetres} m</Pill>{editable && edit !== 'inv' && <Button size="sm" onClick={beginInv}>Edit Inventory</Button>}</span>}>
       {edit === 'inv' ? <>
         <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
           <Field label="Warehouse"><Input value={inv.warehouse} onChange={e => setInv({ ...inv, warehouse: e.target.value })} /></Field>
@@ -156,9 +157,9 @@ export function FabricInfo({ f, editable }: { f: Fabric; editable: boolean }) {
             <div className="flex gap-2 pt-2"><Button size="sm" variant="primary" disabled={!Number(adj.metres)} onClick={() => { adjustFabricStock(f.id, Number(adj.metres), adj.reason, adj.desc.trim(), adj.bin || null); setAdj({ open: false, metres: '', reason: 'Physical count', desc: '', bin: '' }); }}>Save adjustment</Button><Button size="sm" variant="ghost" onClick={() => setAdj({ ...adj, open: false })}>Cancel</Button></div>
           </div>}
       </div>}
-    </Section>
+    </Section>}
 
-    <Section title="Fabric transactions" right={<Pill tone="neutral">{txns.length}</Pill>}>
+    {part !== 'info' && <Section {...sec} title="Fabric transactions" right={<Pill tone="neutral">{txns.length}</Pill>}>
       {txns.length === 0 ? <div className="text-[12.5px] py-1" style={{ color: 'var(--ink-faint)' }}>No movement yet — a GRN, a cut or an adjustment writes a line here.</div>
         : <div style={{ overflowX: 'auto' }}><table className="t compact">
           <thead><tr><th>Date</th><th>Order</th><th>PO</th><th>Type</th><th>Created by</th><th>Warehouse · bin</th><th>Reason · description</th><th className="num">Qty</th></tr></thead>
@@ -173,9 +174,9 @@ export function FabricInfo({ f, editable }: { f: Fabric; editable: boolean }) {
             <td className="num mono" style={{ color: t.metres < 0 ? 'var(--risk)' : 'var(--good)' }}>{t.metres > 0 ? '+' : ''}{t.metres} m</td>
           </tr>)}</tbody>
         </table></div>}
-    </Section>
+    </Section>}
 
-    <Section title="Fabric reservations" right={<Pill tone={reservations.length ? 'info' : 'neutral'}>{reservations.length}</Pill>}>
+    {part !== 'info' && <Section {...sec} title="Fabric reservations" right={<Pill tone={reservations.length ? 'info' : 'neutral'}>{reservations.length}</Pill>}>
       {reservations.length === 0 ? <div className="text-[12.5px] py-1" style={{ color: 'var(--ink-faint)' }}>Nothing reserved — no punched order on this fabric is waiting to be cut.</div>
         : <div style={{ overflowX: 'auto' }}><table className="t compact">
           <thead><tr><th>Date</th><th>Order</th><th>Type</th><th>Warehouse · bin</th><th className="num">Qty</th></tr></thead>
@@ -187,6 +188,6 @@ export function FabricInfo({ f, editable }: { f: Fabric; editable: boolean }) {
             <td className="num mono">{o.consumptionM ?? 1.7} m</td>
           </tr>)}</tbody>
         </table></div>}
-    </Section>
+    </Section>}
   </>;
 }

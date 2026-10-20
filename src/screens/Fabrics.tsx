@@ -16,6 +16,7 @@ import { useApp } from '../store';
 import type { Fabric, Concept } from '../domain/types';
 import { coverageOf, liveStatusOf, trimCoverageOf, fmtDate, fmtMoney, daysAgo, fmtRel, openFabricPos, fabricPoStatus, iso, TODAY, addDays, formerNames } from '../domain/engines';
 import { useState } from 'react';
+import type React from 'react';
 import { Field, Input, dateInput, fromDateInput } from '../ui';
 import { STORES, STORE_LOW_METRES, METRES_PER_SHIRT, MTM_SWATCH_BOOKS, MTM_ACTIVE_TARGET } from '../domain/reference';
 import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, KV, Section, Bars, usePager, Pager, Seg, useExamples, Select, ExportButton } from '../ui';
@@ -276,16 +277,34 @@ export function Fabrics() {
 export function FabricPage() {
   const { db, role } = useApp();
   const { id } = useParams();
+  const [params, setParams] = useSearchParams();
+  const view = (params.get('view') ?? 'overview') as FabricView;
+  const setView = (v: string) => { const n = new URLSearchParams(params); n.set('view', v); setParams(n, { replace:true }); };
   const f = db.fabrics.find(x => x.id === id) ?? null;
   const mill = f ? db.vendors.find(v => v.id === f.vendorId) : null;
-  if (!f) return <Page title="Fabric"><Card><Empty title="No such fabric." body="It may have been removed from the master." /></Card></Page>;
+  if (!f || !mill) return <Page title="Fabric"><Card><Empty title="No such fabric." body="It may have been removed from the master." /></Card></Page>;
+  const c = coverageOf(f, mill.leadDays, mill);
+  const live = liveStatusOf(f, mill.leadDays);
+  const fact = (k: string, v: React.ReactNode) => <div><div className="label">{k}</div><div className="text-[15px] font-medium">{v}</div></div>;
   return <Page title={f.name} actions={<Button size="sm" variant="ghost" onClick={() => history.back()}>← Back</Button>}>
-    <div className="flex items-center gap-2 flex-wrap mb-4 text-[13px]" style={{ color:'var(--ink-soft)' }}><Pill tone="accent">{f.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{f.code}</span>{mill && <span>· <VendorLink id={mill.id}>{mill.name}</VendorLink></span>}</div>
-    <div style={{ maxWidth: 960 }}><Fabric360 f={f} canSource={role === 'sourcing' || role === 'owner'} canPlan={role === 'design' || role === 'owner'} /></div>
+    <div className="flex items-center gap-2 flex-wrap mb-3 text-[13px]" style={{ color:'var(--ink-soft)' }}><Pill tone={live === 'Active' ? 'good' : live === 'Low Stock' ? 'warn' : 'risk'}>{live}</Pill><Pill tone="accent">{f.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{f.code}</span><span>· <VendorLink id={mill.id}>{mill.name}</VendorLink></span>{f.onHold && <Pill tone="risk">on hold</Pill>}{f.paused && <Pill tone="warn">paused by design</Pill>}</div>
+    <Card className="px-4 py-3 mb-4"><div className="grid gap-4" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))' }}>
+      {fact('On the shelf', <span style={{ color: f.stockMetres <= f.thresholdMetres ? 'var(--risk)' : undefined }}>{f.stockMetres} m</span>)}
+      {fact('Reserved', `${f.reservedMetres} m`)}
+      {fact('On order', `${f.incomingMetres ?? 0} m`)}
+      {fact('Saleable', `${c.saleable} m`)}
+      {fact('Threshold', `${f.thresholdMetres} m`)}
+      {fact('Cost / m', f.mill?.costPerUnit != null ? `${f.mill.currency} ${f.mill.costPerUnit}` : f.cpm != null ? `INR ${f.cpm}` : '—')}
+      {fact('Sells', `${c.ros.toFixed(1)} shirts / wk`)}
+    </div></Card>
+    <Tabs active={view} onChange={setView} tabs={[{ id:'overview', label:'Overview' }, { id:'enigma', label:'Fabric info · Enigma' }, { id:'inventory', label:'Inventory & movements' }, { id:'files', label:'Files & conversation' }]} />
+    <div style={{ maxWidth: 1040 }}><Fabric360 f={f} view={view} flat canSource={role === 'sourcing' || role === 'owner'} canPlan={role === 'design' || role === 'owner'} /></div>
   </Page>;
 }
 
-function Fabric360({ f, canSource, canPlan }: { f: Fabric; canSource: boolean; canPlan: boolean }) {
+type FabricView = 'all' | 'overview' | 'enigma' | 'inventory' | 'files';
+function Fabric360({ f, canSource, canPlan, view = 'all', flat = false }: { f: Fabric; canSource: boolean; canPlan: boolean; view?: FabricView; flat?: boolean }) {
+  const show = (v: FabricView) => view === 'all' || view === v;
   const [pnote, setPnote] = useState('');
   const { db, role, setFabricHold, pauseFabric, resumeFabric, raiseFabricPo, convertBlock, releaseBlock, setFabricBucket, agreeCoreBlock, endCoreBlock, renameFabric } = useApp();
   const canDesign = role === 'design' || role === 'owner';
@@ -315,7 +334,7 @@ function Fabric360({ f, canSource, canPlan }: { f: Fabric; canSource: boolean; c
         <Button size="sm" variant="ghost" onClick={() => setRenaming(false)}>Cancel</Button>
       </div>}
     </div>
-    <Section title="Where it stands" right={<Pill tone={live === 'Active' ? 'good' : live === 'Low Stock' ? 'warn' : 'risk'}>{live}</Pill>}>
+    {show('overview') && <Section collapsible={!flat} defaultOpen={flat || undefined} title="Where it stands" right={<Pill tone={live === 'Active' ? 'good' : live === 'Low Stock' ? 'warn' : 'risk'}>{live}</Pill>}>
       <KV k="Bucket" v={f.bucket === 'CORE' ? 'Core — must never run out' : f.bucket === 'NON_CORE' ? 'Non-core — one buy, refill the slot' : 'Bespoke — held at the mill, not by BSC'} note={f.bucket === 'NON_CORE' ? 'a non-core that keeps selling is promoted to core — then it is replenished, not left to sell out' : f.bucket === 'CORE' ? 'a core that stops earning its place is moved back to non-core and allowed to sell out' : undefined} />
       {/* an action, not a value — on its own labelled row, so it cannot be read
           as "this core fabric is in non-core" */}
@@ -347,32 +366,33 @@ function Fabric360({ f, canSource, canPlan }: { f: Fabric; canSource: boolean; c
       <KV k="Fabric vendor" v={<VendorLink id={mill.id}>{mill.name}</VendorLink>} note={`${mill.kind} · ${mill.location} · ${mill.leadDays}d measured lead · ${Math.round(mill.onTimeRate * 100)}% on time`} />
       {f.swatchBook && <KV k="Swatch book" v={f.swatchBook} note="where the store finds it" />}
       {f.international && <div className="pt-2"><Note tone="warn">International — Enigma's auto-PO does not reach this fabric. Reordering is a person's job, and the reorder point below is what that person should act on.</Note></div>}
-    </Section>
+    </Section>}
 
-    <FabricInfo f={f} editable={canDesign || canSource} />
+    {show('enigma') && <FabricInfo f={f} editable={canDesign || canSource} part="info" flat={flat} />}
+    {show('inventory') && <FabricInfo f={f} editable={canDesign || canSource} part="inventory" flat={flat} />}
 
-    {f.bucket === 'BESPOKE' && <Section title="Mill availability" right={f.millAvailable === false ? <Pill tone="risk">sold out at mill</Pill> : <Pill tone="good">available</Pill>}>
+    {show('overview') && f.bucket === 'BESPOKE' && <Section collapsible={!flat} defaultOpen={flat || undefined} title="Mill availability" right={f.millAvailable === false ? <Pill tone="risk">sold out at mill</Pill> : <Pill tone="good">available</Pill>}>
       <KV k="Mill last reported" v={f.millAvailable === false ? 'Sold out' : f.millStockMetres != null ? `${f.millStockMetres} m at the mill` : 'Available'} note={`${fmtRel(f.millReportedAt)} · the mill's stock is the inventory; the warehouse enters it from the evening sheet`} />
       <KV k="On Shopify & in stores" v={f.onHold ? 'Switched off' : 'Live'} />
       {f.millAvailable === false && !f.onHold && <div className="pt-2"><Note tone="risk">The mill says gone; the channel still sells it. Every hour this stays live is an order that cannot be made.</Note>{canSource ? <div className="mt-2"><Button variant="primary" size="sm" onClick={() => setFabricHold(f.id, true)}>Switch off on Shopify & stores</Button></div> : <ActsBy role="sourcing" does="switches it off on Shopify and in stores" />}</div>}
       {f.onHold && f.millAvailable && canSource && <div className="pt-2"><Button size="sm" onClick={() => setFabricHold(f.id, false)}>Restore to sale</Button></div>}
     </Section>}
 
-    <Section title="Sales · last 12 weeks">
+    {show('overview') && <Section collapsible={!flat} defaultOpen={flat || undefined} title="Sales · last 12 weeks">
       <div className="py-2"><Bars values={f.weeklySalesShirts} ok={inStockWeeks} unit=" shirts" /></div>
       <div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>Shirts made from this fabric per week. Core is replenished off this; non-core is not — when it is gone, the slot is refilled with a new fabric.</div>
-    </Section>
+    </Section>}
 
-    <Section title={`In stores · ${swatches.length} swatch dispatch${swatches.length === 1 ? '' : 'es'}`}>
+    {show('overview') && <Section collapsible={!flat} defaultOpen={flat || undefined} title={`In stores · ${swatches.length} swatch dispatch${swatches.length === 1 ? '' : 'es'}`}>
       {swatches.length === 0 ? <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>No swatch of this fabric has been dispatched to a store yet — customers cannot pick it from a book.</div> : <>
         <KV k="Confirmed landed" v={storeNames(swatches.filter(s => s.confirmedOn).map(s => s.storeId)).join(', ') || '—'} />
         <KV k="Dispatched, unconfirmed" v={storeNames(swatches.filter(s => !s.confirmedOn).map(s => s.storeId)).join(', ') || '—'} note={swatches.some(s => !s.confirmedOn) ? 'nobody knows if these reached the book' : undefined} />
       </>}
       {live !== 'Active' && swatches.length > 0 && <div className="pt-2"><Note tone="warn">This fabric is {live.toLowerCase()} but its swatch is in {swatches.length} store book{swatches.length === 1 ? '' : 's'} — customers will keep asking for something that cannot be ordered.</Note></div>}
-    </Section>
+    </Section>}
 
-    <Files kind="fabric" subjectId={f.id} labels={FILE_LABELS.fabric} editable hint="the swatch image the block sheet has a column for, the mill's stock sheet from WhatsApp, the block confirmation email" />
-    <ThreadPanel kind="fabric" subjectId={f.id} />
+    {show('files') && <><Files kind="fabric" subjectId={f.id} labels={FILE_LABELS.fabric} editable hint="the swatch image the block sheet has a column for, the mill's stock sheet from WhatsApp, the block confirmation email" />
+    <ThreadPanel kind="fabric" subjectId={f.id} /></>}
 
   </>;
 }
