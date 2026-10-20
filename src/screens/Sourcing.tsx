@@ -443,11 +443,11 @@ function mtmSourcingRows(db: ReturnType<typeof useApp>['db']): MtmRow[] {
 function MtmSourcing({ rows, onOpen }: { rows: MtmRow[]; onOpen: (id: string) => void }) {
   const { db } = useApp();
   const [only, setOnly] = useState<'mine' | 'all'>('mine');
-  const shown = rows.filter(r => only === 'all' || r.mine);
+  const shown = rows.filter(r => only === 'all' ? !r.mine : r.mine);   // two desks: sourcing's move, and what is with design
   const unconfirmed = openFabricPos(db).filter(p => !p.vendorConfirmedOn).length;
   return <>
     <div className="flex items-end gap-3 flex-wrap mb-3">
-      <Seg value={only} onChange={v => setOnly(v as 'mine' | 'all')} options={[{ id:'mine', label:'Your move', count: rows.filter(r => r.mine).length }, { id:'all', label:'Waiting on design', count: rows.length }]} />
+      <Seg value={only} onChange={v => setOnly(v as 'mine' | 'all')} options={[{ id:'mine', label:'Your move', count: rows.filter(r => r.mine).length }, { id:'all', label:'Waiting on design', count: rows.filter(r => !r.mine).length }]} />
       {unconfirmed > 0 && <a className="cta ml-auto" href="#/fabrics?tab=pos">{unconfirmed} core fabric PO{unconfirmed === 1 ? '' : 's'} to confirm with the mills →</a>}
     </div>
     {shown.length === 0 ? <Card><Empty title="Nothing waiting on sourcing." body="New MTM fabric asks from design land here." /></Card> : <Card><table className="t">
