@@ -178,7 +178,7 @@ export function VendorTable({ kind }: { kind: 'factories' | 'mills' }) {
         { label:'Location', get: r => r.v.location }, { label:'Region', get: r => r.v.region },
         { label:'Lead days', get: r => r.v.leadDays }, { label:'On time %', get: r => Math.round(r.v.onTimeRate * 100) },
         ...(kind === 'mills'
-          ? [{ label:'Block window days', get: (r: typeof rows[number]) => r.v.blockWindowDays }, { label:'Fabrics', get: (r: typeof rows[number]) => r.s.fabrics.length }, { label:'Below ROP', get: (r: typeof rows[number]) => r.s.fabricsBelowRop }, { label:'Blocks held', get: (r: typeof rows[number]) => r.s.blocksHeld.length }]
+          ? [{ label:'Vendor Code', get: (r: typeof rows[number]) => r.v.enigma?.vendorCode ?? '' }, { label:'Mill Country', get: (r: typeof rows[number]) => r.v.enigma?.country ?? '' }, { label:'Mill Description', get: (r: typeof rows[number]) => r.v.enigma?.description ?? '' }, { label:'Currency', get: (r: typeof rows[number]) => r.v.enigma?.currency ?? 'INR' }, { label:'TAT hours', get: (r: typeof rows[number]) => r.v.enigma?.tatHours ?? '' }, { label:'MOQ', get: (r: typeof rows[number]) => r.v.moq }, { label:'Fabrics', get: (r: typeof rows[number]) => r.s.fabrics.length }]
           : [{ label:'OTIF %', get: (r: typeof rows[number]) => r.s.closed.length ? r.s.otifPct : '' }, { label:'Open POs', get: (r: typeof rows[number]) => r.s.open.length }]),
         { label:'Grade', get: r => r.s.grade }]} />
     </div>
@@ -197,43 +197,41 @@ export function VendorTable({ kind }: { kind: 'factories' | 'mills' }) {
             <Th>Grade</Th>
           </tr>
         : <tr>
-            <Th>Fabric vendor</Th>
-            <Th hint="Domestic or international mill.">Type</Th>
-            <Th hint="City and the region it ships from.">Location</Th>
-            <Th num hint="Days between raising a fabric PO and the roll landing at the unit.">Lead</Th>
-            <Th num hint="How long this mill will hold fabric before pushing BSC to commit or release it — this vendor's own number, editable here.">Block window · days</Th>
-            <Th num hint="Share of fabric POs that landed on or before the committed date.">On time</Th>
+            <Th>Vendor Name</Th>
+            <Th hint="Enigma's vendor code.">Vendor Code</Th>
+            <Th hint="Mill Country and Mill Description, as Enigma's Vendor Information block has them.">Mill Country · Description</Th>
+            <Th hint="The currency the mill bills in.">Currency</Th>
+            <Th num hint="Turn-around time in hours, as Enigma keeps it; the lead in days beside it.">TAT (hours)</Th>
+            <Th num hint="Minimum order quantity in metres.">MOQ</Th>
             <Th num hint="How many fabrics in the master are sourced from this mill.">Fabrics</Th>
-            <Th num hint="Of this mill's fabrics, how many are currently below their reorder point — stock plus what's on order isn't covering the lead time.">Below ROP</Th>
-            <Th num hint="Fabric currently held at this mill under a supply block, waiting to be converted to a PO or released.">Blocks</Th>
             <Th>Grade</Th>
           </tr>}</thead>
       <tbody>{pager.pageRows.map(({ v, s }) => <tr key={v.id} className="row" onClick={() => open(v.id)}>
         <td className="font-medium">{v.name}</td>
-        <td className="text-[12.5px]">{v.kind}</td>
-        <td className="text-[12.5px]">{v.location} <span style={{ color:'var(--ink-faint)' }}>· {v.region}</span></td>
         {kind === 'factories' ? <>
+          <td className="text-[12.5px]">{v.kind}</td>
+          <td className="text-[12.5px]">{v.location} <span style={{ color:'var(--ink-faint)' }}>· {v.region}</span></td>
           <td className="num">{v.leadDays}d <span style={{ color: s.measuredLead != null && s.measuredLead > v.leadDays ? 'var(--risk)' : 'var(--ink-faint)' }}>· {s.measuredLead != null ? `${s.measuredLead}d` : '—'}</span></td>
           <td className="num">{Math.round(v.onTimeRate * 100)}%</td>
           <td className="num">{s.closed.length ? `${s.otifPct}%` : '—'}</td>
           <td className="num">{s.quotesWon} / {s.quotesGiven}</td>
           <td className="num">{s.open.length}{s.open.some(o => ['critical', 'delayed'].includes(riskOf(o).risk)) && <span style={{ color:'var(--risk)' }}> · {s.open.filter(o => ['critical', 'delayed'].includes(riskOf(o).risk)).length} critical</span>}</td>
         </> : <>
-          <td className="num">{v.leadDays}d</td>
+          <td className="mono text-[12px]">{v.enigma?.vendorCode ?? '—'}</td>
+          <td className="text-[12.5px]">{v.enigma?.country ?? (v.kind === 'International mill' ? '—' : 'India')}<div style={{ color:'var(--ink-faint)' }}>{v.enigma?.description ?? `${v.location} · ${v.region}`}</div></td>
+          <td className="mono text-[12px]">{v.enigma?.currency ?? 'INR'}</td>
+          <td className="num">{v.enigma?.tatHours != null ? `${v.enigma.tatHours} h` : '—'}<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{v.leadDays}d</div></td>
           <td className="num" onClick={e => e.stopPropagation()}>{canEdit
-            ? <input className="input mono" type="number" step={5} style={{ width: 70, padding:'3px 6px', textAlign:'right' }} defaultValue={v.blockWindowDays} onBlur={e => { const n = Number(e.target.value); if (n && n !== v.blockWindowDays) updateVendor(v.id, { blockWindowDays: n }); }} />
-            : <span className="mono">{v.blockWindowDays}</span>}</td>
-          <td className="num">{Math.round(v.onTimeRate * 100)}%</td>
-          <td className="num">{s.fabrics.length}</td>
-          <td className="num" style={{ color: s.fabricsBelowRop ? 'var(--risk)' : undefined }}>{s.fabricsBelowRop || '—'}</td>
-          <td className="num">{s.blocksHeld.length || '—'}</td>
+            ? <input className="input mono" type="number" step={50} style={{ width: 80, padding:'3px 6px', textAlign:'right' }} defaultValue={v.moq} onBlur={e => { const n = Number(e.target.value); if (n >= 0 && n !== v.moq) updateVendor(v.id, { moq: n }); }} />
+            : <span className="mono">{v.moq} m</span>}</td>
+          <td className="num">{s.fabrics.length}{s.fabricsBelowRop ? <div className="text-[11px]" style={{ color:'var(--risk)' }}>{s.fabricsBelowRop} under ROP</div> : null}</td>
         </>}
         <td><Pill tone={GRADE_TONE[s.grade]}>{s.grade}</Pill></td>
       </tr>)}</tbody>
     </table>
     <Pager page={pager.page} pageCount={pager.pageCount} onChange={pager.setPage} from={pager.from} to={pager.to} total={pager.total} noun={kind} />
     </Card></>}
-    <div className="mt-3"><Note>{kind === 'mills' ? 'Searching a mill also searches its cloth — ' : ''}<b>Reliable</b> holds its dates, <b>Watch</b> is slipping, <b>Poor</b> is late more often than not, all measured from the orders.</Note></div>
+    <div className="mt-3"><Note>{kind === 'mills' ? 'The columns are Enigma\'s Vendor Information block; cost per unit is per fabric, on the fabric\'s record. ' : ''}<b>Reliable</b> holds its dates, <b>Watch</b> is slipping, <b>Poor</b> is late more often than not, all measured from the orders.</Note></div>
   </>;
 }
 
@@ -381,8 +379,8 @@ export function FabricSourcingTab() {
         { label:'Fabric', get: r => r.f.name }, { label:'Code', get: r => r.f.code }, { label:'Mill article', get: r => r.f.vendorCode ?? '' },
         { label:'Mill', get: r => r.m?.name ?? '' }, { label:'Where from', get: r => r.f.international ? 'International' : 'Domestic' },
         { label:'Composition', get: r => r.f.composition ?? '' }, { label:'Width in', get: r => r.f.widthIn ?? '' },
-        { label:'Price / m', get: r => r.f.cpm ?? '' }, { label:'Lead days', get: r => r.m?.leadDays ?? '' },
-        { label:'Block window days', get: r => r.m?.blockWindowDays ?? '' }, { label:'Bucket', get: r => r.f.bucket },
+        { label:'Cost per Unit', get: r => r.f.mill?.costPerUnit ?? r.f.cpm ?? '' }, { label:'Currency', get: r => r.f.mill?.currency ?? 'INR' }, { label:'TAT hours', get: r => r.f.mill?.tatHours ?? '' },
+        { label:'MOQ', get: r => r.f.mill?.moq ?? '' }, { label:'Bucket', get: r => r.f.bucket },
         { label:'Cover days', get: r => r.c.coverDays }, { label:'Book', get: r => r.f.swatchBook ?? '' }]} />
     </div>
 
@@ -396,12 +394,12 @@ export function FabricSourcingTab() {
 
     <Card><table className="t">
       <thead><tr>
-        <Th>Fabric</Th>
-        <Th hint="What the cloth is made of, and the width the marker is cut to.">Composition · width</Th>
-        <Th hint="The mill this fabric is bought from, and its article number — what goes on the PO.">Mill · article</Th>
-        <Th num hint="Days from raising the fabric PO to the roll landing at the unit.">Lead</Th>
-        <Th num hint="How long this mill holds cloth before BSC must commit or release it.">Block window</Th>
-        <Th num hint="The Fabric Ordering sheet's own price per metre.">₹ / m</Th>
+        <Th hint="Fabric Name and Fabric Code, as Enigma has them — click the name for the full record.">Fabric</Th>
+        <Th hint="Composition, and the Panna (width) the marker is cut to.">Composition · Panna</Th>
+        <Th hint="Vendor Name and the Vendor Code for fabric — what goes on the PO.">Vendor · Vendor Code</Th>
+        <Th num hint="Turn-around time in hours, as Enigma keeps it.">TAT</Th>
+        <Th num hint="Minimum order quantity for this fabric.">MOQ</Th>
+        <Th num hint="Cost per Unit, in the mill's currency.">Cost / m</Th>
         <Th hint="Whether you can buy it today, and how long the shelf lasts at the current rate of sale.">Can I buy it</Th>
         <Th>Alternatives</Th>
       </tr></thead>
@@ -417,12 +415,12 @@ export function FabricSourcingTab() {
         const why = f.paused ? `paused by design — ${f.paused.note}` : f.onHold ? 'on hold — switched off for stores and Shopify' : f.supply?.status === 'out' ? `supplier out${f.supply.backOn ? ` — back ${fmtDate(f.supply.backOn)}` : ''}` : f.millAvailable === false ? 'sold out at the mill' : null;
         return <Fragment key={f.id}>
           <tr className="row" onClick={() => setAlt(alt === f.id ? null : f.id)}>
-            <td><span className="font-medium">{f.name}</span><div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.code} · {f.bucket.toLowerCase().replace('_', '-')}{f.swatchBook ? ` · ${f.swatchBook}` : ''}</div></td>
-            <td className="text-[12.5px]">{f.composition ?? '—'}<div style={{ color:'var(--ink-faint)' }}>{f.widthIn ? `${f.widthIn}"` : ''}</div></td>
-            <td className="text-[12.5px]"><VendorLink id={f.vendorId} />{m && <div style={{ color:'var(--ink-faint)' }}>{f.international ? 'international' : 'domestic'}{f.vendorCode ? ` · ${f.vendorCode}` : ''}</div>}</td>
-            <td className="num">{m?.leadDays ?? '—'}d</td>
-            <td className="num">{m?.blockWindowDays ?? '—'}d{held.length > 0 && <div className="text-[11px]" style={{ color:'var(--accent)' }}>{held.reduce((a, b) => a + b.metres, 0)} m held</div>}</td>
-            <td className="num mono">{f.cpm != null ? `₹${f.cpm}` : '—'}</td>
+            <td><a className="font-medium vlink" href={`#/fabrics?tab=books&open=${f.id}`} onClick={e => e.stopPropagation()} style={{ textDecoration:'none' }}>{f.name}</a><div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.code} · {f.bucket.toLowerCase().replace('_', '-')}{f.swatchBook ? ` · ${f.swatchBook}` : ''}</div></td>
+            <td className="text-[12.5px]">{f.composition ?? '—'}<div style={{ color:'var(--ink-faint)' }}>{(f.attrs?.panna ?? f.widthIn) ? `${f.attrs?.panna ?? f.widthIn}" panna` : ''}</div></td>
+            <td className="text-[12.5px]"><VendorLink id={f.vendorId} />{m && <div className="mono" style={{ color:'var(--ink-faint)' }}>{f.vendorCode ?? '—'}{held.length > 0 && <span style={{ color:'var(--accent)' }}> · {held.reduce((a, b) => a + b.metres, 0)} m held</span>}</div>}</td>
+            <td className="num">{f.mill?.tatHours != null ? `${f.mill.tatHours} h` : m ? `${m.leadDays}d` : '—'}</td>
+            <td className="num">{f.mill?.moq != null ? `${f.mill.moq} m` : m?.moq ? `${m.moq} m` : '—'}</td>
+            <td className="num mono">{f.mill?.costPerUnit != null ? `${f.mill.currency} ${f.mill.costPerUnit}` : f.cpm != null ? `INR ${f.cpm}` : '—'}</td>
             <td>{stopped ? <><Pill tone="risk">no</Pill><div className="text-[11px]" style={{ color:'var(--risk)' }}>{why}</div></>
               : f.bucket === 'BESPOKE' ? <><Pill tone="good">yes</Pill><div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>bespoke — cut from the mill's own stock</div></>
               : <><Pill tone={c.belowRop ? 'warn' : 'good'}>yes</Pill><div className="text-[11px]" style={{ color: c.belowRop ? 'var(--warn)' : 'var(--ink-faint)' }}>{c.belowRop ? `below ROP · order ${c.suggestedPo} m` : `${c.coverDays > 365 ? '1y+' : `${c.coverDays}d`} cover`}</div></>}</td>
