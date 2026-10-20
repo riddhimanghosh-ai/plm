@@ -54,7 +54,7 @@ export interface AppState {
   reset(): void;
 
   /* planning & design */
-  createRequirement(input: Omit<ProductionOrder, 'id' | 'poNo' | 'quotes' | 'vendorId' | 'poDate' | 'finalFob' | 'costingClosure' | 'merchant' | 'jobCardNo' | 'fabricReady' | 'trimsReady' | 'milestones' | 'cutQty' | 'deliveredQty' | 'rejectedQty' | 'receipts' | 'split' | 'status' | 'activity' | 'bom' | 'costing' | 'sampleVendorId' | 'samples' | 'materials' | 'qcAudits' | 'shipheroName' | 'vendorFabricCode' | 'enigmaCode' | 'fabricBlocked' | 'fabricQuotes' | 'fabricVendorId' | 'fabricMetres' | 'sourcing'>): string;
+  createRequirement(input: Omit<ProductionOrder, 'id' | 'poNo' | 'quotes' | 'vendorId' | 'poDate' | 'finalFob' | 'costingClosure' | 'merchant' | 'jobCardNo' | 'fabricReady' | 'trimsReady' | 'milestones' | 'cutQty' | 'deliveredQty' | 'rejectedQty' | 'receipts' | 'split' | 'status' | 'activity' | 'bom' | 'costing' | 'sampleVendorId' | 'samples' | 'materials' | 'qcAudits' | 'shipheroName' | 'vendorFabricCode' | 'enigmaCode' | 'fabricBlocked' | 'fabricQuotes' | 'fabricVendorId' | 'fabricMetres' | 'sourcing'> & { bom?: BomLine[] }): string;
   updateRequirement(id: string, patch: Partial<Pick<ProductionOrder, 'orderQty' | 'sizeBreakup' | 'targetInhouse' | 'targetCost' | 'fabricNominated' | 'remarks' | 'fabricBrief'>>): void;
   handToSourcing(id: string): void;
   updateBom(id: string, bom: BomLine[]): void;
@@ -378,7 +378,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => db.orders.unshift({
         ...input, id, poNo: null, fabricQuotes: [], fabricVendorId: null, fabricMetres: null, vendorId: null, poDate: null, finalFob: null,
         costingClosure: { revised: null, plan: iso(addDays(TODAY, 10)), actual: null },
-        bom: defaultBom(input.category as GarmentCategory, input.styleName, input.fabricNominated), costing: defaultCosting(input.category as GarmentCategory),
+        bom: (input as { bom?: BomLine[] }).bom?.length ? (input as { bom?: BomLine[] }).bom! : defaultBom(input.category as GarmentCategory, input.styleName, input.fabricNominated), costing: defaultCosting(input.category as GarmentCategory),
         sampleVendorId: null, samples: [], materials: [], qcAudits: [],
         merchant: null, jobCardNo: null, fabricReady: false, trimsReady: false, milestones: [],
         shipheroName: input.styleName, vendorFabricCode: null, enigmaCode: null, fabricBlocked: null,

@@ -275,10 +275,10 @@ export function DocsChecklist({ o, editable }: { o: ProductionOrder; editable: b
   const d = rtwDocsOf(db, o);
   return <div>
     <div className="flex items-center gap-2 flex-wrap pb-1">
-      {([...RTW_DOCS, 'BOM'] as string[]).map(k => { const ok = !d.missing.includes(k); return <Pill key={k} tone={ok ? 'good' : o.poNo ? 'risk' : 'warn'}>{ok ? '✓ ' : ''}{k}{ok ? '' : ' · missing'}</Pill>; })}
+      {([...RTW_DOCS, 'BOM'] as string[]).map(k => { const ok = !d.missing.includes(k); const fromLines = k === 'BOM' || k === 'Trim card'; return <span key={k} title={fromLines ? 'built from the BOM lines on this record' : 'attached as a file'}><Pill tone={ok ? 'good' : o.poNo ? 'risk' : 'warn'}>{ok ? '✓ ' : ''}{k}{ok ? (fromLines ? ' · from the BOM' : '') : ' · missing'}</Pill></span>; })}
       {o.factoryPo && <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>went with the PO: {o.factoryPo.docsSent.join(', ') || 'nothing'}{d.owedAfterPo.length ? ` · still owed: ${d.owedAfterPo.join(', ')}` : ''}</span>}
     </div>
-    <Files kind="order" subjectId={o.id} labels={[...RTW_DOCS, 'PAT / CAD']} onlyLabels editable={editable} compact title="Documents for the factory" emptyText="Nothing attached yet." hint="attach before the PO and they travel with it; attach after and the factory is told" />
+    <Files kind="order" subjectId={o.id} labels={['Tech pack', 'Job card', 'PAT / CAD']} onlyLabels editable={editable} compact title="Documents for the factory" emptyText="Nothing attached yet." hint="attach before the PO and they travel with it; attach after and the factory is told" />
   </div>;
 }
 

@@ -20,6 +20,9 @@ import { RecordTail } from './RecordTail';
 import { FILE_LABELS } from '../domain/reference';
 
 import { BomSection } from './Costing';
+import { BomEditor } from './BomEditor';
+import { defaultBom } from '../domain/engines';
+import type { BomLine } from '../domain/types';
 import { ORDER_STEPS } from '../domain/reference';
 import { ActsBy, OwnerPill } from './Who';
 import { FlowHeader, isMyTurn } from './Flow';
@@ -250,6 +253,8 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const spread = sizes.map((size, i) => ({ size, qty: Math.max(1, Math.round((w[i] / sum) * Number(qty || 0))) }));
   /* the curve starts as a spread over the category's usual sizes; any of the sheet's twenty sizes can be typed over it */
   const [typed, setTyped] = useState<Record<string, number> | null>(null);
+  /* the BOM is built here, line by line from the trims master — not attached as a file */
+  const [bom, setBom] = useState<BomLine[]>(() => defaultBom('RTW CMT shirts', 'new style', true).map(l => l.kind === 'trim' && l.qtyPerPc == null ? { ...l, qtyPerPc: l.item === 'Button' ? 12 : 1 } : l));
   const curve = typed ? Object.entries(typed).filter(([, n]) => n > 0).map(([size, q]) => ({ size, qty: q })) : spread;
 
   return <>
@@ -285,11 +290,16 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
     <Section title="Order qty break-up" collapsible={false} right={typed ? <Button size="sm" variant="ghost" onClick={() => setTyped(null)}>Spread {qty || 0} over the usual sizes again</Button> : <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>spread over the usual sizes — type over any of them</span>}>
       <SizeGrid breakup={curve} edit onChange={(sz, n) => setTyped(t => { const base = t ?? Object.fromEntries(spread.map(x => [x.size, x.qty])); return { ...base, [sz]: n }; })} />
     </Section>
+    <Section title="Bill of materials — built here, from the trims master" collapsible={false}>
+      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Pick each trim and packaging line from the master so the names match stock, the trim card and the COGS sheet. Each line shows whether the unit holds enough for {typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty) || 0} pieces; what is short is what sourcing buys.</div>
+      <BomEditor lines={bom} onChange={setBom} orderQty={typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty) || 0} />
+    </Section>
     <Note>Handing over starts the lead-time clock; the category picks the TNA milestone template.</Note>
     <div className="flex gap-2"><Button variant="primary" disabled={!style.trim() || !Number(qty)} onClick={() => { const id = createRequirement({
       category, subCategory: sub, styleName: style.trim(), program: null, launchMonth: null, fit: category.includes('hirt') ? 'Tailored Fit' : null,
       orderQty: typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty), sizeBreakup: curve, targetInhouse: fromDateInput(target)!, targetCost: Number(cost), styleHandover: iso(TODAY), fabricNominated: nominated, remarks: '',
       fabricBrief: mode !== 'vendor-sources' ? { look: look.trim() || style.trim(), composition: comp.trim() || null, colour: colour.trim() || null, weightGsm: null, referenceFabricId: refId || null, notes: notes.trim() } : null,
+      bom: bom.map(l => l.kind === 'fabric' ? { ...l, item: (look.trim() || style.trim()) } : l).filter(l => l.item.trim()),
     }); if (mode !== 'bsc-buys') setSourcingMode(id, mode, null, undefined); onDone(id); }}>Create requirement</Button></div>
   </>;
 }

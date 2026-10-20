@@ -7,6 +7,7 @@ import type { BomLine, Costing, ProductionOrder } from '../domain/types';
 import { costingOf, fmtMoney } from '../domain/engines';
 import { DISCOUNT_BAU, DISCOUNT_ADDITIONAL } from '../domain/reference';
 import { Section, Pill, Button, Input, KV, Note } from '../ui';
+import { BomEditor } from './BomEditor';
 import { ActsBy, OwnerPill } from './Who';
 
 const KIND_LABEL: Record<BomLine['kind'], string> = { fabric:'Fabric', trim:'Trim card', packaging:'Packaging' };
@@ -20,22 +21,14 @@ export function BomSection({ o, editable }: { o: ProductionOrder; editable: bool
   const groups = (['fabric', 'trim', 'packaging'] as const).map(k => ({ k, rows: (editing ? lines : o.bom).map((l, i) => ({ l, i })).filter(x => x.l.kind === k) }));
   return (
     <Section title={`BOM · ${o.bom.length} lines`} right={<div className="flex gap-2 items-center"><OwnerPill editable={editable} owner="Design" />{!editable && <ActsBy role="design" does="edits the BOM" inline />}{editable && !editing && <Button size="sm" onClick={() => { setLines(o.bom); setEditing(true); }}>Edit</Button>}</div>}>
-      {groups.map(g => g.rows.length > 0 && <div key={g.k} className="py-1">
+      {editing ? <BomEditor lines={lines} onChange={setLines} orderQty={o.orderQty} /> : groups.map(g => g.rows.length > 0 && <div key={g.k} className="py-1">
         <div className="label">{KIND_LABEL[g.k]}</div>
-        {g.rows.map(({ l, i }) => editing ? (
-          <div key={i} className="grid gap-1.5 py-1" style={{ gridTemplateColumns:'1.2fr 2fr .6fr .5fr' }}>
-            <Input value={l.item} onChange={e => upd(i, { item: e.target.value })} />
-            <Input value={l.spec ?? ''} placeholder="spec — mill, composition, size, finish" onChange={e => upd(i, { spec: e.target.value || null })} />
-            <Input type="number" step="0.01" value={l.qtyPerPc ?? ''} placeholder="qty" onChange={e => upd(i, { qtyPerPc: e.target.value === '' ? null : Number(e.target.value) })} />
-            <Input value={l.unit} onChange={e => upd(i, { unit: e.target.value })} />
-          </div>
-        ) : <KV key={i} k={l.item} v={l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit} / pc` : '—'} note={l.spec ?? undefined} />)}
+        {g.rows.map(({ l, i }) => <KV key={i} k={l.item} v={l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit} / pc` : '—'} note={l.spec ?? undefined} />)}
       </div>)}
       {!editing && c.fabricMetres != null && <KV k="Fabric for the order" v={<b>{c.fabricMetres} {o.bom[0]?.unit ?? 'm'}</b>} note={`${o.costing.consumption} × ${o.orderQty} pcs — what the job card issues${o.fabricNominated ? '; deducted against the vendor invoice (CMT)' : ''}`} />}
       {editing && <div className="flex gap-2 pt-2">
         <Button variant="primary" size="sm" onClick={() => { updateBom(o.id, lines); setEditing(false); }}>Save BOM</Button>
         <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
-        <Button size="sm" variant="ghost" onClick={() => setLines(ls => [...ls, { kind:'trim', item:'', spec:null, qtyPerPc:null, unit:'pc' }])}>+ line</Button>
       </div>}
     </Section>
   );

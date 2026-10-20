@@ -1030,8 +1030,11 @@ export function materialsCoverOf(db: Db, o: ProductionOrder) {
 export const RTW_DOCS = ['Tech pack', 'Job card', 'Trim card'] as const;
 export function rtwDocsOf(db: Db, o: ProductionOrder) {
   const have = (label: string) => (db.attachments ?? []).some(a => a.kind === 'order' && a.subjectId === o.id && a.label === label);
-  const missing = RTW_DOCS.filter(d => !have(d)) as string[]; if (!o.bom.length) missing.push('BOM');
-  return { missing, complete: missing.length === 0, sent: o.factoryPo?.docsSent ?? [], owedAfterPo: (o.factoryPo?.docsMissing ?? []).filter(d => !have(d) && !(d === 'BOM' && o.bom.length)) };
+  /* the BOM is built on the record from the trims master; the trim card is its trim lines. Only the tech pack and job card are still files. */
+  const trimCard = o.bom.some(l => l.kind === 'trim' && l.item.trim());
+  const missing = RTW_DOCS.filter(d => !have(d) && !(d === 'Trim card' && trimCard)) as string[]; if (!o.bom.length) missing.push('BOM');
+  const satisfied = (d: string) => have(d) || (d === 'BOM' && o.bom.length > 0) || (d === 'Trim card' && trimCard);
+  return { missing, complete: missing.length === 0, sent: o.factoryPo?.docsSent ?? [], owedAfterPo: (o.factoryPo?.docsMissing ?? []).filter(d => !satisfied(d)) };
 }
 export function factoryStateOf(o: ProductionOrder) {
   const ps = o.factoryProposals ?? []; const last = ps[ps.length - 1] ?? null; const accepted = [...ps].reverse().find(p => p.decision?.accepted) ?? null;
