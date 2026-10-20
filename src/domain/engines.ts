@@ -943,7 +943,8 @@ export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; n
     const poDone = !nf || !!c.fabricPo;
     /* the cloth has landed when a GRN names this fabric after the PO went out */
     const grn = nf && c.fabricPo && s.fabric ? (db.grns ?? []).find(g => g.kind === 'fabric' && g.receivedOn >= c.fabricPo!.on && (g.ref === s.fabric!.code || g.refLabel === s.fabric!.name)) : null;
-    const fabricIn = !nf || !!grn || (!!s.fabric && s.fabric.stockMetres > 0 && !!c.fabricPo);
+    /* the cloth is in when the warehouse booked it (a GRN after the PO, or the desk's bulk-received date) — not merely because the master shows metres */
+    const fabricIn = !nf || !!grn || !!c.swatch?.inwardOn;
     const offers = s.offers;
     /* the MTM fabric's five stages, as design reads them: requirement → a vendor
        against it (PO pending) → PO punched → fabric in, design codes and Enigma →
