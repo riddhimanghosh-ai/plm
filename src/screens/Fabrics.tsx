@@ -18,7 +18,7 @@ import { coverageOf, liveStatusOf, trimCoverageOf, fmtDate, fmtMoney, daysAgo, f
 import { useState } from 'react';
 import { Field, Input, dateInput, fromDateInput } from '../ui';
 import { STORES, STORE_LOW_METRES, METRES_PER_SHIRT, MTM_SWATCH_BOOKS, MTM_ACTIVE_TARGET } from '../domain/reference';
-import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, KV, Section, Bars, usePager, Pager, Seg, useExamples } from '../ui';
+import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, KV, Section, Bars, usePager, Pager, Seg, useExamples, Select, ExportButton } from '../ui';
 import { ActsBy } from './Who';
 
 /* design's own shorthand — one click instead of a sentence typed 35 times */
@@ -153,16 +153,13 @@ export function Fabrics() {
         type T = { id: string; label: string; count?: number; hint?: string };
         const groups: { id: string; label: string; tabs: T[] }[] = [
           { id:'sell', label:'What sells', tabs: [
-            { id:'books', label:'Swatch books', hint:'every MTM fabric by the book it sits in — on the shelf, coming, on hold, what it sells as, when it went live' },
+            { id:'books', label:'Fabric inventory', hint:'every MTM fabric as Enigma lists it — code, name, category, inventory type, saleable, physical, reserved, threshold — filtered by swatch book' },
             { id:'noncore', label:'Ranges · non-core gaps', hint:'each range against its plan of options' } ] },
-          ...(designSide ? [{ id:'orders', label:'Cloth on order', tabs: [{ id:'pos', label:'Fabric POs' }] }] : [
-            { id:'buy', label:'What to buy', tabs: [
-              { id:'core', label:'Core · reorder points', count: belowRop.length, hint:'core fabrics under their reorder point' },
-              { id:'bespoke', label:'Bespoke · mill availability', count: gateOpen.length },
-              { id:'blocks', label:'Vendor blocks · countdown', count: blocks.length } ] },
-            { id:'orders', label:'Cloth on order', tabs: [
-              { id:'pos', label:'Fabric POs · confirm with mills', count: fpoUnconfirmed },
-              { id:'trims', label:'Trims & packaging', count: (db.trims ?? []).filter(t => trimCoverageOf(db, t).belowThreshold).length } ] } ]),
+          { id:'orders', label:'Cloth on order', tabs: [
+            { id:'pos', label: designSide ? 'Fabric POs' : 'Fabric POs · confirm with mills', count: designSide ? undefined : fpoUnconfirmed },
+            ...(designSide ? [] : [
+              { id:'core', label:'Core · weekly stock review', count: reviewDue.length, hint:'sourcing reviews every core fabric with its mill once a week; an out fabric is escalated to design' },
+              { id:'trims', label:'Trims & packaging', count: (db.trims ?? []).filter(t => trimCoverageOf(db, t).belowThreshold).length } ]) ] },
         ];
         const group = groups.find(g => g.tabs.some(t => t.id === tab)) ?? groups[0];
         return <>
@@ -522,6 +519,8 @@ function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
   const [q, setQ] = useState('');
   const [show, setShow] = useState<'all' | 'active' | 'hold' | 'coming' | 'paused'>('all');
   const [book, setBook] = useState<string>('all');
+  const [wh, setWh] = useState('factory');   // Enigma's warehouse picker — one stock today; per-warehouse once the read is live
+  const saleable = (f: Fabric) => Math.round((f.stockMetres - f.reservedMetres - f.thresholdMetres) * 10) / 10;
   const STATE = BOOK_STATE;
   /* one flat table, every fabric in every book; the filters do the grouping the
      old one-card-per-book layout did with a page of scroll */
@@ -550,23 +549,32 @@ function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
     </div>
     <div className="flex items-end gap-3 flex-wrap mb-2">
       <Seg value={show} onChange={setShow} options={[{ id:'all', label:'Every fabric', count: count(() => true) }, { id:'active', label:'On the shelf', count: count(x => x.state === 'active') }, { id:'coming', label:'Cloth coming', count: count(x => x.state === 'coming') }, { id:'hold', label:'On hold', count: count(x => x.state === 'hold') }, { id:'paused', label:'Paused', count: count(x => x.state === 'paused') }]} />
-      <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search fabric, code, design, product code…" style={{ width: 280 }} aria-label="search books" />
-      <span className="ml-auto flex items-center gap-3">{ex.strip}{book !== 'all' && books.find(x => x.b === book)!.gap > 0 && <a className="cta" href={`#/design?new=options&category=${encodeURIComponent(book)}&count=${books.find(x => x.b === book)!.gap}`}>raise a request for the {books.find(x => x.b === book)!.gap} short →</a>}</span>
+      <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name…" style={{ width: 280 }} aria-label="search books" />
+      <Select value={wh} onChange={setWh} options={[{ value:'factory', label:'Factory Warehouse' }, { value:'ho', label:'HO Warehouse' }]} />
+      <ExportButton filename="fabric-inventory" sheetName="Fabric Inventory" rows={rows} cols={[
+        { label:'Code', get: r => r.f.code }, { label:'Name', get: r => r.f.name }, { label:'Category', get: r => r.f.family }, { label:'Inventory Type', get: r => r.f.bucket }, { label:'Product Type', get: () => 'CUSTOM_DESIGN' },
+        { label:'Saleable Stock', get: r => saleable(r.f) }, { label:'Physical Stock', get: r => r.f.stockMetres }, { label:'Reserved Stock', get: r => r.f.reservedMetres }, { label:'Threshold', get: r => r.f.thresholdMetres }, { label:'Swatch book', get: r => r.f.swatchBook ?? '' }]} />
+      <span className="ml-auto flex items-center gap-3">{ex.strip}{book !== 'all' && books.find(x => x.b === book)!.gap > 0 && <a className="cta" href="#/design?new=mtm">raise an MTM fabric ask for the {books.find(x => x.b === book)!.gap} short →</a>}</span>
     </div>
     {rows.length === 0 ? <Card><Empty title="Nothing matches." body="Widen the filter or the search." /></Card> : <Card><div className="tbox" style={{ maxHeight:'calc(100vh - 380px)' }}><table className="t compact frozen">
-      <thead><tr><th>Fabric</th><th>Book</th><th>Sells as</th><th>Status</th><th className="num">On the shelf</th><th>Swatches</th><th>Live</th></tr></thead>
-      <tbody>{pager.pageRows.map(({ f, c, state }) => { const ds = c?.designs ?? []; const sw = c?.swatch;
+      <thead><tr><th>Image</th><th>Code</th><th>Name</th><th>Category</th><th>Inventory Type</th><th>Product Type</th><th className="num">Saleable Stock</th><th className="num">Physical Stock</th><th className="num">Reserved Stock</th><th className="num">Threshold</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>{pager.pageRows.map(({ f, c, state }) => { const ds = c?.designs ?? []; const sal = saleable(f);
         return <tr key={f.id} className="row" onClick={() => onOpen(f.id)}>
-          <td style={{ whiteSpace:'normal', minWidth: 200 }}><span className="font-medium">{f.name}</span><div className="text-[11px] mono" style={{ color:'var(--ink-faint)' }}>{f.code}{formerNames(f).length ? <span style={{ fontFamily:'var(--body)' }}> · formerly {formerNames(f)[0]}</span> : null}</div></td>
-          <td className="text-[11.5px]" style={{ color:'var(--ink-soft)', whiteSpace:'nowrap' }}>{f.swatchBook}</td>
-          <td style={{ whiteSpace:'normal', minWidth: 220 }}>{ds.length ? <>{ds.slice(0, 2).map(d => <div key={d.id} className="text-[12px]"><span className="mono" style={{ color:'var(--ink-faint)' }}>{d.code}</span> {d.finalName ?? d.name}{d.mrp ? <span style={{ color:'var(--ink-faint)' }}> · ₹{d.mrp.toLocaleString('en-IN')}</span> : null}</div>)}{ds.length > 2 && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>+{ds.length - 2} more</div>}</> : <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>sold as the fabric</span>}</td>
+          <td><span aria-hidden style={{ display:'inline-block', width: 34, height: 34, borderRadius: 4, background: `hsl(${[...f.code].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 360} 30% 78%)`, border:'1px solid var(--line)' }} title={ds[0] ? (ds[0].finalName ?? ds[0].name) : f.name} /></td>
+          <td className="mono text-[12px]" style={{ whiteSpace:'nowrap' }}>{f.code}</td>
+          <td style={{ whiteSpace:'normal', minWidth: 200 }}><span className="font-medium">{f.name}</span>{formerNames(f).length ? <div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>formerly {formerNames(f)[0]}</div> : null}<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.swatchBook}{ds.length ? ` · ${ds.length} design${ds.length === 1 ? '' : 's'}` : ''}</div></td>
+          <td className="text-[12px]">{f.family}</td>
+          <td className="mono text-[11.5px]">{f.bucket}</td>
+          <td className="mono text-[11.5px]">CUSTOM_DESIGN</td>
+          <td className="num" style={{ color: sal < 0 ? 'var(--risk)' : undefined }}>{sal}</td>
+          <td className="num">{f.stockMetres}{f.incomingMetres ? <div className="text-[10.5px]" style={{ color:'var(--info)' }}>+{f.incomingMetres} coming</div> : null}</td>
+          <td className="num">{f.reservedMetres}</td>
+          <td className="num">{f.thresholdMetres}</td>
           <td><Pill tone={STATE[state].tone}>{STATE[state].label}</Pill></td>
-          <td className="num">{f.stockMetres} m{f.incomingMetres ? <div className="text-[10.5px]" style={{ color:'var(--info)' }}>+{f.incomingMetres} m coming</div> : null}</td>
-          <td className="text-[12px]" style={{ whiteSpace:'nowrap' }}>{sw ? (sw.storesToldOn ? `stores told ${fmtDate(sw.storesToldOn)}` : sw.dispatchedOn ? `dispatched ${fmtDate(sw.dispatchedOn)}` : sw.cutOn ? 'cut, not dispatched' : sw.inwardOn ? 'cloth in, not cut' : 'on the desk') : <span style={{ color:'var(--ink-faint)' }}>—</span>}</td>
-          <td className="text-[12px]" style={{ whiteSpace:'nowrap' }}>{c?.liveOn ? <>stores {fmtDate(c.liveOn)}{c.online?.liveOn ? <div style={{ color:'var(--ink-faint)' }}>online {fmtDate(c.online.liveOn)}</div> : <div style={{ color:'var(--ink-faint)' }}>online pending</div>}</> : state === 'active' ? <span style={{ color:'var(--ink-faint)' }}>on the shelf</span> : <span style={{ color:'var(--ink-faint)' }}>—</span>}</td>
+          <td onClick={e => e.stopPropagation()}><button type="button" className="cta" onClick={() => onOpen(f.id)}>Open →</button></td>
         </tr>; })}</tbody>
     </table></div><Pager {...pager} onChange={pager.setPage} noun="fabrics" /></Card>}
-    <div className="mt-3"><Note>Click a book to filter; open a fabric to rename, pause or resume it, or see its POs and stock.</Note></div>
+    <div className="mt-3"><Note>The columns are Enigma's Fabric Inventory, metres. Saleable = physical − reserved − threshold, the number a store can sell against. Click a book to filter; open a fabric to rename, pause or resume it, or see its POs and stock.</Note></div>
   </>;
 }
 

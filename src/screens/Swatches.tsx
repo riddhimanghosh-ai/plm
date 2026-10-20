@@ -94,7 +94,7 @@ export function Swatches() {
                   : isNext ? (can(st.key) ? <Button size="sm" variant={pri ? 'primary' : undefined} onClick={() => conceptSwatch(c.id, st.key)}>{st.key === 'sticker' ? 'Print & mark' : `Mark ${st.label.toLowerCase()}`}</Button> : <span className={`pill role-${st.owner}`}>{st.owner}</span>)
                   : <span style={{ color:'var(--line)' }}>·</span>}
               </td>; })}
-            {!MTM_ONLY && <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'nowrap' }}>{c.liveOn ? <Pill tone="good">live {fmtDate(c.liveOn)}</Pill> : design ? <Button size="sm" variant="primary" title="switch it on in stores — whenever you decide" onClick={() => conceptGoLive(c.id)}>Go live</Button> : <span className="pill role-design">design</span>}</td>}
+            {!MTM_ONLY && <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'nowrap' }}>{c.liveOn ? <Pill tone="good">live {fmtDate(c.liveOn)}</Pill> : design && c.swatch?.storesToldOn ? <Button size="sm" variant="primary" title="switch it on in stores" onClick={() => conceptGoLive(c.id)}>Go live</Button> : design ? <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>after stores told</span> : <span className="pill role-design">design</span>}</td>}
             <td className="text-[12px]"><span className="cta">Open →</span></td>
           </tr>; })}</tbody>
       </table></div></Card>}
