@@ -9,16 +9,18 @@
    labels, which read as barely-there on the bone ground; this pass keeps the
    same warm, heritage feel but darkens every "soft" tone until it holds up. */
 :root {
-  --ground:#f3efe6; --surface:#ffffff; --surface-2:#f6f2ea; --surface-3:#ece5d5;
-  --ink:#1a1a13; --ink-soft:#4a4740; --ink-faint:#6b6759;
-  --line:#dad2c0; --line-soft:#e8e1d1;
-  --accent:#3c4a30; --accent-soft:#e2e8d7; --accent-ink:#ffffff;
+  --ground:#f4f0e7; --surface:#ffffff; --surface-2:#f7f3eb; --surface-3:#ebe4d3;
+  --ink:#17170f; --ink-soft:#45423a; --ink-faint:#6b6759;
+  --line:#d6cdb8; --line-soft:#e9e2d2;
+  --accent:#3f5a2e; --accent-soft:#e3ebd6; --accent-ink:#ffffff; --accent-2:#b8822a; --accent-2-soft:#f5e7cc;
   --warn:#7a5a0a; --warn-soft:#f3e8cc;
   --risk:#8a2f1f; --risk-soft:#f6ddd3;
   --good:#2c5934; --good-soft:#dcebdd;
   --info:#1f3a52; --info-soft:#dce6ed;
   --sidebar:#1a1a13; --sidebar-ink:#f7f4ea; --sidebar-soft:#c9c3ae; --sidebar-active:#4c5c3e;
-  --shadow:0 1px 2px rgb(22 22 15/.08), 0 8px 24px -12px rgb(22 22 15/.28);
+  --shadow:0 1px 2px rgb(22 22 15/.06), 0 10px 28px -14px rgb(22 22 15/.30);
+  --shadow-lift:0 2px 6px rgb(22 22 15/.10), 0 16px 32px -14px rgb(22 22 15/.35);
+  --radius:8px;
   --display:'Barlow Condensed', 'Arial Narrow', sans-serif;
   --body:'Barlow', 'IBM Plex Sans', system-ui, sans-serif;
   --mono:'IBM Plex Mono', ui-monospace, monospace;
@@ -28,7 +30,7 @@
     --ground:#16160f; --surface:#212317; --surface-2:#282a1d; --surface-3:#323524;
     --ink:#f3f1e6; --ink-soft:#c7c3b0; --ink-faint:#9d9884;
     --line:#3a3d2c; --line-soft:#2d3021;
-    --accent:#b3c69a; --accent-soft:#2b331f; --accent-ink:#14160d;
+    --accent:#b3c69a; --accent-soft:#2b331f; --accent-ink:#14160d; --accent-2:#e0b060; --accent-2-soft:#3a2f17;
     --warn:#e2bd76; --warn-soft:#362c17;
     --risk:#e2a091; --risk-soft:#3a2119;
     --good:#9cc797; --good-soft:#213524;
@@ -47,27 +49,29 @@ h3 { font-family: var(--body); font-size: 14px; font-weight: 600; letter-spacing
 ::selection { background: var(--accent-soft); }
 
 /* component classes — one look, applied everywhere */
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; box-shadow: var(--shadow); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); transition: box-shadow .15s; }
 /* a card inside a card is a group, not another box: no shadow, a soft border,
    and inside a drawer just a rule down the left */
 .card .card { box-shadow: none; border-color: var(--line-soft); }
 .drawer .card .card { border: 0; border-left: 2px solid var(--line); border-radius: 0; background: transparent; }
 .drawer .card .card.role-tint { border-left-width: 2px; }
 .pad { padding: 14px 16px; }
-.btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 3px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background .12s, border-color .12s; }
-.btn:hover { background: var(--surface-2); border-color: var(--ink-faint); }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 6px; box-shadow: 0 1px 1px rgb(22 22 15/.05); transition: background .12s, border-color .12s, transform .08s, box-shadow .12s; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background .12s, border-color .12s; }
+.btn:hover { background: var(--surface-2); border-color: var(--ink-faint); transform: translateY(-1px); box-shadow: 0 3px 8px -2px rgb(22 22 15/.18); }
+.btn:active { transform: none; box-shadow: none; }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.btn.primary:hover { filter: brightness(1.08); }
+.btn.primary { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff) 0%, var(--accent) 100%); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; box-shadow: 0 1px 2px rgb(22 22 15/.18); }
+.btn.primary:hover { filter: brightness(1.08); box-shadow: 0 4px 12px -3px rgb(63 90 46/.55); }
 .btn.danger { color: var(--risk); border-color: var(--risk); }
-.btn.ghost { border-color: transparent; background: transparent; color: var(--ink-soft); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--ink-soft); box-shadow: none; }
 /* …but it still has to answer the cursor: this rule sits after .btn:hover and
    was cancelling it, so every secondary button in the app felt dead */
 .btn.ghost:hover { background: var(--surface-2); border-color: var(--line); }
 .btn.sm { padding: 4px 9px; font-size: 12px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
-.input, .select { font: inherit; font-size: 13px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); color: var(--ink); width: 100%; }
-.input:focus, .select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.input, .select { font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); width: 100%; box-shadow: inset 0 1px 2px rgb(22 22 15/.04); transition: border-color .12s, box-shadow .12s; }
+.input:hover, .select:hover { border-color: var(--ink-faint); }
+.input:focus, .select:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .label { display: block; font-family: var(--body); font-size: 11.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-faint); margin-bottom: 4px; }
 /* Pills say a state in plain words — sentence case, body face. Mono caps is
    reserved for codes (BOM-SHI-FM-4200) and numbers; a pill with a verb in it
@@ -123,12 +127,14 @@ h3 { font-family: var(--body); font-size: 14px; font-weight: 600; letter-spacing
 .kv .k { color: var(--ink-faint); }
 .kv .v { text-align: right; font-weight: 500; }
 table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
-table.t th { text-align: left; font-family: var(--body); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.t th { text-align: left; font-family: var(--body); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft); font-weight: 700; background: var(--surface-2); padding: 9px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 table.t td { padding: 8px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; line-height: 1.4; }
 /* the name in a row is the thing to land on; its second and third lines fall back */
 table.t td .font-medium, table.t td .font-semibold { font-size: 13.5px; color: var(--ink); }
 table.t tr:last-child td { border-bottom: 0; }
-table.t tr.row:hover td { background: var(--surface-2); cursor: pointer; }
+table.t tr.row:hover td { background: var(--accent-soft); cursor: pointer; }
+table.t tr.row td:first-child { box-shadow: inset 3px 0 0 transparent; transition: box-shadow .1s; }
+table.t tr.row:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 table.t td.num, table.t th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 /* Tabs are the top-level move on most screens, so they read like one: a single
    line each (they used to wrap mid-label), full-contrast text, and an active
@@ -140,10 +146,10 @@ table.t td.num, table.t th.num { text-align: right; font-family: var(--mono); fo
 .tabs.wrap { flex-wrap: wrap; overflow: visible; }
 .tabs.wrap .tab { flex: none; padding: 8px 12px; font-size: 13.5px; }
 .tab:hover:not(.on) { color: var(--ink); background: var(--surface-2); }
-.tab.on { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+.tab.on { color: var(--accent); font-weight: 700; border-bottom-color: var(--accent); border-bottom-width: 3px; }
 .tab .pill { background: var(--surface-3); color: var(--ink-soft); }
 .tab.on .pill { background: var(--accent); color: var(--accent-ink); }
-.note { padding: 10px 14px; border-radius: 3px; font-size: 12.5px; color: var(--ink-soft); background: var(--surface-2); border-left: 2px solid var(--line); }
+.note { padding: 10px 14px; border-radius: 6px; font-size: 12.5px; color: var(--ink-soft); background: var(--surface-2); border-left: 2px solid var(--line); }
 .note.warn { background: var(--warn-soft); border-left-color: var(--warn); }
 .note.risk { background: var(--risk-soft); border-left-color: var(--risk); }
 .note.good { background: var(--good-soft); border-left-color: var(--good); }
@@ -202,7 +208,7 @@ table.t td.num, table.t th.num { text-align: right; font-family: var(--mono); fo
 
 /* Segmented filter — one question answered at a time. These screens used to
    stack six tables down a page; now the page asks which cut you want. */
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: var(--surface); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); box-shadow: 0 1px 1px rgb(22 22 15/.05); }
 .seg button { font: inherit; font-size: 12.5px; font-weight: 500; padding: 5px 11px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--ink-faint); cursor: pointer; white-space: nowrap; }
 .seg button:last-child { border-right: 0; }
 .seg button:hover:not(.on) { background: var(--surface-2); color: var(--ink); }
@@ -365,3 +371,22 @@ th:hover .qi, label:hover .qi, header:hover .qi, .qi:hover, .qi:focus-visible, b
 .nav-item .nav-hint { display: block; font-size: 11px; font-weight: 400; line-height: 1.3; opacity: .6; }
 
 .alert-row:hover { background: var(--surface-2); }
+
+
+/* ---------- editable tiles: a field you can correct looks like one ---------- */
+.tile { position: relative; background: var(--surface); border: 1px solid var(--line-soft); border-radius: 6px; padding: 6px 9px; transition: border-color .12s, background .12s, box-shadow .12s; }
+.tile .tile-k { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+.tile.editable { cursor: pointer; border-style: dashed; border-color: var(--line); }
+.tile.editable::after { content: '✎'; position: absolute; top: 5px; right: 7px; font-size: 11px; color: var(--accent); opacity: 0; transition: opacity .12s; }
+.tile.editable:hover { border-style: solid; border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 2px 8px -3px rgb(63 90 46/.4); }
+.tile.editable:hover::after { opacity: 1; }
+.tile.active { border-style: solid; border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); }
+.tile.active::after { opacity: 1; }
+.tile.changed { border-style: solid; border-color: var(--warn); background: var(--warn-soft); }
+.tile.changed .tile-k { color: var(--warn); }
+.edit-hint { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--accent); background: var(--accent-soft); border: 1px dashed var(--accent); border-radius: 999px; padding: 2px 10px; }
+.sec-head { border-top-left-radius: var(--radius); border-top-right-radius: var(--radius); }
+.sec-head button:hover h3 { color: var(--accent); }
+h1 { position: relative; padding-bottom: 6px; }
+h1::after { content: ''; position: absolute; left: 0; bottom: 0; width: 36px; height: 3px; background: var(--accent-2); border-radius: 2px; }
+.label { font-weight: 600; letter-spacing: .02em; text-transform: uppercase; font-size: 10.5px; }

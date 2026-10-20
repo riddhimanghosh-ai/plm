@@ -27,23 +27,23 @@ export const emptyDraft = (): SheetDraft => ({ spec: defaultSpec(), measurements
 /* ---- read view: Enigma's layout — measurements, pattern details, option tiles ---- */
 export function SheetView({ o, onField, changed, active }: { o: CustomerOrder; onField?: (k: string) => void; changed?: Set<string>; active?: string | null }) {
   const m = o.measurements; const p = o.pattern; const s = o.spec;
-  const hot = (k: string): React.CSSProperties => ({ ...(changed?.has(k) ? { outline:'2px solid var(--warn)', outlineOffset: 1 } : {}), ...(active === k ? { outline:'2px solid var(--accent)', outlineOffset: 1 } : {}), cursor: onField ? 'pointer' : undefined });
-  const click = (k: string) => onField ? { onClick: () => onField(k), title: 'Click to correct this field' } : {};
+  const cls = (k: string) => `tile${onField ? ' editable' : ''}${changed?.has(k) ? ' changed' : ''}${active === k ? ' active' : ''}`;
+  const click = (k: string) => onField ? { onClick: () => onField(k), title: 'Click to correct this field', role: 'button', tabIndex: 0 } : {};
   return <div>
     {m && <>
       <div className="label">Measurements · inches</div>
       <div className="grid gap-1 py-1" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(118px, 1fr))' }}>
-        {MEASUREMENTS.map(x => <div key={x.key} className="rounded-[3px] px-2 py-1" style={{ background:'var(--surface-2)', ...hot(x.key) }} {...click(x.key)}><div className="text-[9.5px] uppercase tracking-[.06em]" style={{ color:'var(--ink-faint)' }}>{x.label}</div><div className="mono text-[13px] font-medium">{m[x.key]}{x.unit === 'in' ? '"' : ''}</div></div>)}
+        {MEASUREMENTS.map(x => <div key={x.key} className={cls(x.key)} {...click(x.key)}><div className="tile-k">{x.label}</div><div className="mono text-[13px] font-medium">{m[x.key]}{x.unit === 'in' ? '"' : ''}</div></div>)}
       </div>
     </>}
     {p && <>
       <div className="label pt-2">Pattern details</div>
-      <div className="flex gap-3 flex-wrap py-1 text-[12.5px]">{PATTERN_FLAGS.map(f => <span key={f.key} className="rounded-[3px] px-1.5" style={hot(f.key)} {...click(f.key)}>{f.label}: <b>{p[f.key] ? 'Yes' : 'No'}</b></span>)}</div>
+      <div className="flex gap-1.5 flex-wrap py-1 text-[12.5px]">{PATTERN_FLAGS.map(f => <span key={f.key} className={cls(f.key)} style={{ paddingRight: onField ? 22 : undefined }} {...click(f.key)}>{f.label}: <b>{p[f.key] ? 'Yes' : 'No'}</b></span>)}</div>
     </>}
     {s && <>
       <div className="label pt-2">Options</div>
       <div className="grid gap-1 py-1" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(138px, 1fr))' }}>
-        {SHEET_OPTIONS.map(x => <div key={x.key} className="rounded-[3px] px-2 py-1.5" style={{ background:'var(--surface-2)', ...hot(x.key) }} {...click(x.key)}><div className="text-[9.5px] uppercase tracking-[.06em]" style={{ color:'var(--ink-faint)' }}>{x.label}</div><div className="text-[12.5px] font-medium" style={{ color: /^(none|no)$/i.test(s[x.key]) ? 'var(--ink-faint)' : undefined }}>{s[x.key]}</div></div>)}
+        {SHEET_OPTIONS.map(x => <div key={x.key} className={cls(x.key)} {...click(x.key)}><div className="tile-k">{x.label}</div><div className="text-[12.5px] font-medium" style={{ color: /^(none|no)$/i.test(s[x.key]) ? 'var(--ink-faint)' : undefined }}>{s[x.key]}</div></div>)}
       </div>
     </>}
   </div>;
@@ -100,7 +100,7 @@ export function SheetChangePanel({ o, who }: { o: CustomerOrder; who: 'store' | 
     <Section title={`Order sheet · ${sheetVersion(o)}${(o.revisions ?? []).length ? ` · changed ${(o.revisions ?? []).length === 1 ? 'once' : `${(o.revisions ?? []).length} times`}` : ' · as punched'}`} right={<div className="flex gap-2 items-center">
       {needsReprint(o) && <Pill tone="risk">amended · re-issue to factory</Pill>}
       <Pill tone="neutral">as ordered by the customer</Pill>
-      <Pill tone={mode === 'free' ? 'good' : mode === 'amend' ? 'warn' : mode === 'remarks' ? 'info' : 'neutral'}>{mode === 'free' ? (canEdit ? 'click a field to correct it' : 'correctable by the unit') : mode === 'amend' ? 'corrections re-issue the sheet' : mode === 'remarks' ? 'allocated — remarks only' : 'closed'}</Pill>
+      {canEdit ? <span className="edit-hint">✎ click any field to correct it</span> : <Pill tone={(mode as string) === 'free' ? 'good' : mode === 'amend' ? 'warn' : mode === 'remarks' ? 'info' : 'neutral'}>{(mode as string) === 'free' ? (canEdit ? 'click a field to correct it' : 'correctable by the unit') : mode === 'amend' ? 'corrections re-issue the sheet' : mode === 'remarks' ? 'allocated — remarks only' : 'closed'}</Pill>}
     </div>}>
       <div className="text-[11.5px] pb-1" style={{ color:'var(--ink-faint)' }}>Every value below came in with the order from {db.stores.find(x => x.id === o.storeId)?.name ?? 'the store'} — Enigma's sheet, measurement for measurement. Nothing here is chosen by production; a change is a correction the customer asked for, and it goes on the record.</div>
       <SheetView o={o} onField={canEdit ? pickField : undefined} changed={changedKeys} active={field} />
