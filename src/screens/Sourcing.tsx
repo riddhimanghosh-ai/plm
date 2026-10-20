@@ -23,7 +23,7 @@ import { ActsBy } from './Who';
 import { MaterialsCoverSection, FabricFinalisationSection, SizeGrid } from './RtwGates';
 import { fabricStateOf, designFlowOf, conceptOf, openFabricPos, rtwDocsOf } from '../domain/engines';
 import type { Concept, OptionRequest } from '../domain/types';
-import { MTM_ONLY, catLabel } from '../domain/edition';
+import { MTM_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
 
 export function Sourcing() {
   const { db } = useApp();
@@ -427,7 +427,7 @@ function mtmSourcingRows(db: ReturnType<typeof useApp>['db']): MtmRow[] {
       status, tone: c.fabricPo ? (fin.state === 'done' ? 'good' : 'info') : s.offersWithDesign || s.fabric ? 'neutral' : c.optionsExtension && !c.optionsExtension.resolvedOn ? 'risk' : 'warn', mine, href: `#/design?open=${c.id}` });
     void v;
   });
-  (db.optionRequests ?? []).forEach((r: OptionRequest) => {
+  (OPTIONS_OFF ? [] : (db.optionRequests ?? [])).forEach((r: OptionRequest) => {
     const live = r.options.filter(o => o.status !== 'closed'); const open = live.filter(o => o.status === 'open').length; const ext = live.filter(o => o.status === 'extension').length; const done = live.filter(o => o.status === 'po-raised').length; const withDesign = live.filter(o => o.status === 'with-design').length;
     if (!live.length || done === live.length) return;
     out.push({ id: r.id, kind:'options', name: `${r.reqNo} · ${catLabel(r.category)}`, brief: `${r.optionCount} options · ${r.brief}`, book: null, wanted: null, vendor: `${done} of ${live.length} with a PO`,

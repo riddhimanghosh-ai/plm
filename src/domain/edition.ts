@@ -12,3 +12,6 @@ export const isRtwHref = (h: string | undefined | null) => !!h && (RTW_PATHS.som
 
 /* an option request's category is a garment category name; in the MTM edition the "RTW" prefix only confuses */
 export const catLabel = (c: string) => MTM_ONLY ? c.replace(/^RTW (CMT |FOB )?/i, '') : c;
+
+/* 20 Oct 2026: a "several options" request is no longer a flow. Design raises each option as its own MTM fabric ask. */
+export const OPTIONS_OFF = true;

@@ -6,7 +6,7 @@
 
 import type { ReturnCase, ResolutionStep, Concept, BomLine, Costing, CustomerOrder, Db, Fabric, FabricQuote, Launch, LaunchPiece, MaterialLine, OrderTag, TrimItem, GarmentCategory, Milestone, ProductionOrder, RoleId, RtwAction, RtwOption, ThreadKind, Vendor, SourcingMode , TrackerConfig, PlanningReview, PlanningKind } from './types';
 import { FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, MILESTONES, MILESTONE_OWNER, OFFSETS, OTIF_TOLERANCE, PRE_PRODUCTION, RISK, MID_SIZES, VELOCITY, WOF_CLEAR, WOF_EXIT, WOF_URGENT, STORE_LOW_METRES, GROWTH_UPLIFT, METRES_PER_SHIRT, RTW_REORDER_TRIGGER_DAYS, RTW_MOQ, STORES, SHEET_FREE_EDIT, SHEET_STORE_EDIT, SHEET_AMEND, REALLOCATING_FIELDS, BOOK_EDITION, BOOK_CONFIRM_DAYS, SWATCH_KINDS, MARKETING_LEAD_DAYS, DISPLAY_PLAN, isBottoms, PP_FREEZE_HOURS, PIECES_PER_TAILOR_DAY, AGING_DAYS, CORPORATE_FACTORY, URGENT_FACTORY, COSTING_DEFAULTS, DISCOUNT_BAU, DISCOUNT_ADDITIONAL, gstFor, PACKAGING_BOM, TRIM_CARD, CONSUMPTION_DEFAULT, HEMMED, PEOPLE, ROLE_LABEL } from './reference';
-import { MTM_ONLY, isRtwHref } from './edition';
+import { MTM_ONLY, isRtwHref, OPTIONS_OFF } from './edition';
 
 export const TODAY = new Date('2026-09-12T09:00:00+05:30');
 export const iso = (d: Date) => d.toISOString();
@@ -1251,7 +1251,7 @@ export function alertsFor(db: Db, role: RoleId, opts?: { storeId?: string; all?:
   });
 
   /* option requests — each slot is its own small decision */
-  (db.optionRequests ?? []).forEach(r => {
+  (OPTIONS_OFF ? [] : (db.optionRequests ?? [])).forEach(r => {
     r.options.forEach(opt => {
       const live = opt.offers.filter(o => !o.rejected);
       const hold = live.map(o => o.holdUntil).filter(Boolean).sort()[0] as string | undefined; const hd = hold ? -daysAgo(hold) : null;

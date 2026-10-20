@@ -16,12 +16,13 @@ import { Page, Card, Pill, Seg, Th, Button, Drawer, KV, Section, Note, Input, us
 import { ActsBy, OwnerPill } from './Who';
 import { DesignsOnFabric } from './Designs';
 import { RecordTail } from './RecordTail';
+import { MTM_ONLY } from '../domain/edition';
 
 type Step = 'inward' | 'handover' | 'cut' | 'sticker' | 'dispatched' | 'photos' | 'storesTold';
 /* The warehouse is two people. Shravani receives the cloth, ships, and keeps the
    tracker. Yusuf runs the swatch desk: he gets the design codes and the sticker
    file, cuts the 25 × 25 swatches for every store, and sends the photos. */
-const STEPS: { key: Step; label: string; owner: 'warehouse' | 'design'; who: string; hint: string }[] = [
+const ALL_STEPS: { key: Step; label: string; owner: 'warehouse' | 'design'; who: string; hint: string }[] = [
   { key:'inward',     label:'Bulk received', owner:'warehouse', who:'Shravani', hint:'the tracker’s "Fabric Bulk Received date" — the cloth is in the warehouse' },
   { key:'handover',   label:'To Yusuf',      owner:'warehouse', who:'Shravani', hint:'"Fabric Team handover date for swatches" — the cloth, the design codes and the sticker file go to Yusuf' },
   { key:'cut',        label:'Cut',           owner:'warehouse', who:'Yusuf',    hint:'25 × 25 swatches cut and prepared, one set per store' },
@@ -30,6 +31,9 @@ const STEPS: { key: Step; label: string; owner: 'warehouse' | 'design'; who: str
   { key:'dispatched', label:'Dispatched',    owner:'warehouse', who:'Shravani', hint:'handed to shipping — one dispatch row per store, tracking and receiving underneath' },
   { key:'storesTold', label:'Stores told',   owner:'design',    who:'Design',   hint:'stores told to display it' },
 ];
+/* phase one of the MTM edition runs the desk only up to the handover to Yusuf; the cut, sticker, dispatch and go-live come in the next phase */
+const STEPS = MTM_ONLY ? ALL_STEPS.filter(x => x.key === 'inward' || x.key === 'handover') : ALL_STEPS;
+
 const dateOf = (c: Concept, k: Step): string | null => c.swatch?.[`${k}On` as const] ?? null;
 const nextStep = (c: Concept): Step | null => STEPS.find(s => !dateOf(c, s.key))?.key ?? null;
 const designName = (c: Concept) => c.naming.newName ?? c.name;
@@ -57,12 +61,14 @@ export function Swatches() {
     <Page title="Swatch desk" lede="The MTM swatches tracker as a screen: the warehouse writes the dates, design switches it on."
       replaces="the MTM_Swatches tracker, the blue highlight, the swatch Slack channel, and the sticker file made by hand in Word or Canva">
       <div className="flex items-end gap-3 flex-wrap mb-3">
-        <Seg value={show} onChange={setShow} options={[
+        <Seg value={show} onChange={v => setShow(v as typeof show)} options={[
           { id:'all', label:'All', count: all.length },
-          { id:'cut', label:'To cut & sticker', count: count(x => !x.live && (x.n === 'inward' || x.n === 'handover' || x.n === 'cut' || x.n === 'sticker')), hint:'cloth in, swatches or sticker not yet done — priority first' },
+          { id:'cut', label: MTM_ONLY ? 'Cloth in · to hand to Yusuf' : 'To cut & sticker', count: count(x => !x.live && (x.n === 'inward' || x.n === 'handover' || x.n === 'cut' || x.n === 'sticker')), hint:'cloth in, swatches or sticker not yet done — priority first' },
+          ...(MTM_ONLY ? [] : [
           { id:'dispatch', label:'To dispatch', count: count(x => !x.live && (x.n === 'dispatched' || x.n === 'photos')), hint:'cut and stickered, not yet out to the stores' },
           { id:'tell', label:'To tell stores', count: count(x => !x.live && x.n === 'storesTold'), hint:'out to the stores — tell them' },
           { id:'live', label:'Live in stores', count: count(x => x.live) },
+          ]),
         ]} />
         <div className="ml-auto pb-1">{ex.strip}</div>
       </div>
@@ -72,7 +78,7 @@ export function Swatches() {
           <Th hint="the fabric — its code, its swatch book, and how many designs hang off it">Fabric</Th>
           <Th hint="Priority-1 in the tracker — cut this one first; sorts to the top">Priority</Th>
           {STEPS.map(s => <Th key={s.key} hint={s.hint}>{s.label}</Th>)}
-          <Th hint="design's switch — whenever it decides, not after a gate">Live</Th>
+          {!MTM_ONLY && <Th hint="design's switch — whenever it decides, not after a gate">Live</Th>}
           <th></th>
         </tr></thead>
         <tbody>{ex.rows.map(({ c, next, s }) => {
@@ -88,7 +94,7 @@ export function Swatches() {
                   : isNext ? (can(st.key) ? <Button size="sm" variant={pri ? 'primary' : undefined} onClick={() => conceptSwatch(c.id, st.key)}>{st.key === 'sticker' ? 'Print & mark' : `Mark ${st.label.toLowerCase()}`}</Button> : <span className={`pill role-${st.owner}`}>{st.owner}</span>)
                   : <span style={{ color:'var(--line)' }}>·</span>}
               </td>; })}
-            <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'nowrap' }}>{c.liveOn ? <Pill tone="good">live {fmtDate(c.liveOn)}</Pill> : design ? <Button size="sm" variant="primary" title="switch it on in stores — whenever you decide" onClick={() => conceptGoLive(c.id)}>Go live</Button> : <span className="pill role-design">design</span>}</td>
+            {!MTM_ONLY && <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'nowrap' }}>{c.liveOn ? <Pill tone="good">live {fmtDate(c.liveOn)}</Pill> : design ? <Button size="sm" variant="primary" title="switch it on in stores — whenever you decide" onClick={() => conceptGoLive(c.id)}>Go live</Button> : <span className="pill role-design">design</span>}</td>}
             <td className="text-[12px]"><span className="cta">Open →</span></td>
           </tr>; })}</tbody>
       </table></div></Card>}
@@ -155,7 +161,7 @@ function SwatchDetail({ c, wh, design }: { c: Concept; wh: boolean; design: bool
     </Section>
 
     {/* ── the sticker page: one box per design ── */}
-    <Section title="The sticker page" collapsible={false} ownerRole="warehouse" pending={false} right={<Pill tone={c.swatch?.stickerOn ? 'good' : 'neutral'}>{c.swatch?.stickerOn ? `printed ${fmtDate(c.swatch.stickerOn)}` : 'not printed'}</Pill>}>
+    {!MTM_ONLY && <Section title="The sticker page" collapsible={false} ownerRole="warehouse" pending={false} right={<Pill tone={c.swatch?.stickerOn ? 'good' : 'neutral'}>{c.swatch?.stickerOn ? `printed ${fmtDate(c.swatch.stickerOn)}` : 'not printed'}</Pill>}>
       <div className="my-2" style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', borderTop:'1px solid var(--ink-soft)', borderLeft:'1px solid var(--ink-soft)', background:'var(--surface)', maxWidth: 560 }}>
         {labels.map((l, i) => <div key={i} className="text-center" style={{ borderRight:'1px solid var(--ink-soft)', borderBottom:'1px solid var(--ink-soft)', padding:'10px 6px', fontSize: 11.5, lineHeight: 1.4 }}>
           <div className="mono">{l.l1 || '—'}</div><div>{l.l2}</div><div>{l.l3 || <span style={{ color:'var(--warn)' }}>no swatch book</span>}</div><div style={{ color: l.l4 === 'MRP —' ? 'var(--warn)' : undefined }}>{l.l4}</div><div style={{ fontSize: 9, color:'var(--ink-faint)' }}>{l.l5}</div>
@@ -167,7 +173,7 @@ function SwatchDetail({ c, wh, design }: { c: Concept; wh: boolean; design: bool
         <Button variant="primary" onClick={printSticker}>Print {layout === 'pages' ? `${labels.length} sticker page${labels.length === 1 ? '' : 's'}` : 'sticker sheet'}{c.swatch?.stickerOn ? '' : ' & mark'}</Button>
         <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{labels.length} design{labels.length === 1 ? '' : 's'} × {Math.max(1, Number(copies) || 1)} = {labels.length * Math.max(1, Number(copies) || 1)} labels · {Math.ceil(labels.length * Math.max(1, Number(copies) || 1) / perPage)} sheet{Math.ceil(labels.length * Math.max(1, Number(copies) || 1) / perPage) === 1 ? '' : 's'} of 21 · one label a store, a design</span>
       </div>
-    </Section>
+    </Section>}
 
     {/* ── the desk ── */}
     <Section title="The desk · where it is" pending={false} right={c.liveOn ? <Pill tone="good">live in stores</Pill> : next ? <span className={`pill role-${STEPS.find(x => x.key === next)!.owner}`}>next · {STEPS.find(x => x.key === next)!.label}</span> : <Pill tone="neutral">every date written</Pill>}>
@@ -180,16 +186,16 @@ function SwatchDetail({ c, wh, design }: { c: Concept; wh: boolean; design: bool
           <span className="v flex items-center gap-2 justify-end">{d ? <><span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{c.swatch?.by?.[st.key] ?? st.who}</span>{fmtDate(d)}{st.key === 'sticker' && c.naming.setOn && c.naming.setOn > d ? <Button size="sm" onClick={printSticker} title={`name or MRP changed ${fmtDate(c.naming.setOn)} — after this sticker was printed`}>Out of date · reprint</Button> : <Pill tone="good">done</Pill>}</>
             : isNext ? (canMark(st.key) ? <Button size="sm" variant="primary" onClick={() => st.key === 'sticker' ? printSticker() : conceptSwatch(c.id, st.key)}>{st.key === 'sticker' ? 'Print & mark' : `Mark ${st.label.toLowerCase()} · today`}</Button> : <ActsBy role={st.owner} does={`marks "${st.label.toLowerCase()}"`} inline />)
             : <span style={{ color:'var(--ink-faint)' }}>later</span>}{!d && <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{st.who}</span>}</span></div>; })}
-      <div className="kv" style={{ borderTop:'1px solid var(--line)', marginTop: 6, paddingTop: 8 }}><span className="k"><b>Live in stores</b><div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>design's switch — whenever design decides, before or after the dates above</div></span>
-        <span className="v flex items-center gap-2 justify-end">{c.liveOn ? <>{fmtDate(c.liveOn)}<Pill tone="good">live</Pill></> : design ? <Button size="sm" variant="primary" onClick={() => conceptGoLive(c.id)}>Go live in stores</Button> : <ActsBy role="design" does="switches it on" inline />}<OwnerPill owner="Design" /></span></div>
+      {!MTM_ONLY && <div className="kv" style={{ borderTop:'1px solid var(--line)', marginTop: 6, paddingTop: 8 }}><span className="k"><b>Live in stores</b><div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>design's switch — whenever design decides, before or after the dates above</div></span>
+        <span className="v flex items-center gap-2 justify-end">{c.liveOn ? <>{fmtDate(c.liveOn)}<Pill tone="good">live</Pill></> : design ? <Button size="sm" variant="primary" onClick={() => conceptGoLive(c.id)}>Go live in stores</Button> : <ActsBy role="design" does="switches it on" inline />}<OwnerPill owner="Design" /></span></div>}
     </Section>
 
     {/* ── the tracker's per-store columns ── */}
-    <Section title={`Stores · ${dispatches.length ? `${dispatches.filter(x => x.confirmedOn).length} of ${dispatches.length} received` : 'not dispatched'}`} pending={false}>
+    {!MTM_ONLY && <Section title={`Stores · ${dispatches.length ? `${dispatches.filter(x => x.confirmedOn).length} of ${dispatches.length} received` : 'not dispatched'}`} pending={false}>
       {dispatches.length === 0 ? <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Mark "dispatched" and one row per store appears here — the tracker's dispatch date and receiving date, without the tracking-number columns typed by hand.</div>
         : <div style={{ overflowX:'auto' }}><table className="t compact"><thead><tr><th>Store</th><th>Dispatched</th><th>Received</th></tr></thead>
           <tbody>{dispatches.map(x => <tr key={x.id}><td>{storeName(x.storeId)}</td><td className="text-[12px]">{fmtDate(x.dispatchedOn)}</td><td>{x.confirmedOn ? <span className="text-[12px]">{fmtDate(x.confirmedOn)}</span> : <Pill tone="warn">not yet</Pill>}</td></tr>)}</tbody></table></div>}
-    </Section>
+    </Section>}
 
     <Section title="Fabric" pending={false}>
       {f ? <>

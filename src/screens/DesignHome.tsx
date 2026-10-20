@@ -17,7 +17,7 @@ import { ConceptDetail, NewConcept } from './Concepts';
 import { RequirementDetail, NewRequirement } from './Requirements';
 import { RequestDetail, NewRequest } from './OptionRequests';
 import type { SourcingMode } from '../domain/types';
-import { MTM_ONLY, catLabel } from '../domain/edition';
+import { MTM_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
 
 type Kind = 'MTM' | 'RTW' | 'FOB' | 'Options';
 type Stage = 1 | 2 | 3 | 4 | 5;   // 5 = live / done
@@ -71,7 +71,7 @@ export function DesignHome() {
         href: o.id });
     });
     /* option requests — several fabrics at once */
-    (db.optionRequests ?? []).forEach((r: OptionRequest) => {
+    (OPTIONS_OFF ? [] : (db.optionRequests ?? [])).forEach((r: OptionRequest) => {
       const live = r.options.filter(o => o.status !== 'closed');
       const done = live.filter(o => o.status === 'po-raised').length;
       const withDesign = live.filter(o => o.status === 'with-design').length, ext = live.filter(o => o.status === 'extension').length, open = live.filter(o => o.status === 'open').length;
@@ -125,7 +125,7 @@ export function DesignHome() {
           { id:'all', label:'All', count: base.length },
           ...([1, 2, 3, 4, 5] as Stage[]).map(s => ({ id: String(s), label: STAGE_LABEL[s], count: count(r => r.stage === s), hint: STAGE_HINT[s] })),
         ]} />
-        <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[{ id:'all', label:'Every kind' }, { id:'MTM', label:'MTM fabric', count: count(r => r.kind === 'MTM') }, ...(MTM_ONLY ? [] : [{ id:'RTW', label:'RTW style', count: count(r => r.kind === 'RTW') }]), { id:'Options', label:'Several options', count: count(r => r.kind === 'Options') }]} />
+        <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[{ id:'all', label:'Every kind' }, { id:'MTM', label:'MTM fabric', count: count(r => r.kind === 'MTM') }, ...(MTM_ONLY ? [] : [{ id:'RTW', label:'RTW style', count: count(r => r.kind === 'RTW') }]), ...(OPTIONS_OFF ? [] : [{ id:'Options', label:'Several options', count: count(r => r.kind === 'Options') }])]} />
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search requirement, fabric, style…" style={{ width: 240 }} aria-label="search requirements" />
         <span className="text-[12px] ml-auto" style={{ color:'var(--ink-faint)' }}>{showAll
           ? <>{rows.length} requirements · <button type="button" className="vlink" onClick={() => set('all', null)}>show the {examples.length} examples</button></>
@@ -154,7 +154,7 @@ export function DesignHome() {
         <div className="grid gap-3 py-2" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))' }}>
           {([
             { k:'MTM' as Kind, go:'mtm', title:'An MTM fabric', body:'One new fabric for the swatch books — a working name, why, the book it fills, when it is wanted, a reference. Sampled first; then sourcing puts one vendor against it.' },
-            { k:'Options' as Kind, go:'options', title:'Several fabric options at once', body:'"Ten options for shirts" — a category, a count, a brief, a BOM. Sourcing puts one vendor against each option; design pushes the PO on each.' },
+            ...(OPTIONS_OFF ? [] : [{ k:'Options' as Kind, go:'options', title:'Several fabric options at once', body:'"Ten options for shirts" — a category, a count, a brief, a BOM. Sourcing puts one vendor against each option; design pushes the PO on each.' }]),
             ...(MTM_ONLY ? [] : [{ k:'RTW' as Kind, go:'rtw', title:'An RTW style', body:'One bulk style — qty, size ratio, target price and date, the cloth brief, the BOM and tech pack. Production proposes a factory; design accepts and raises the PO; sourcing buys the cloth and sends it to the factory.' }]),
           ]).map(x => <button key={x.k} type="button" className="card text-left p-4" style={{ cursor:'pointer', font:'inherit', border:'1px solid var(--line)' }} onClick={() => set('new', x.go)}>
             <div className="flex items-center gap-2 mb-1"><span className={`pill role-${KIND_TONE[x.k]}`}>{x.k === 'Options' ? 'options' : x.k}</span><span className="font-semibold">{x.title}</span></div>

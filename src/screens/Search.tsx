@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { useOverlay } from '../ui';
 import { STORES } from '../domain/reference';
-import { MTM_ONLY, isRtwHref } from '../domain/edition';
+import { MTM_ONLY, isRtwHref, OPTIONS_OFF } from '../domain/edition';
 
 type Hit = { kind: string; title: string; detail: string; href: string };
 
@@ -52,7 +52,7 @@ export function CommandSearch() {
     (db.launches ?? []).forEach(l => out.push({ kind:'Launch', title: l.styleName, detail: `${l.dropMonth} drop`, href: `#/launches?open=${l.id}` }));
     [...new Set((db.customerOrders ?? []).map(o => o.customer))].forEach(c => out.push({ kind:'Customer', title: c, detail: 'every order, measurements, returns', href: `#/stores?tab=customers&open=cust:${encodeURIComponent(c)}` }));
     STORES.forEach(st => out.push({ kind:'Store', title: st.name, detail: st.region, href: `#/stores` }));
-    return out.filter(r => !MTM_ONLY || (!isRtwHref(r.href) && r.kind !== 'Bulk PO' && r.kind !== 'RTW option' && r.kind !== 'RTW order' && r.kind !== 'Launch'));
+    return out.filter(r => !MTM_ONLY || (!isRtwHref(r.href) && r.kind !== 'Bulk PO' && r.kind !== 'RTW option' && r.kind !== 'RTW order' && r.kind !== 'Launch')).filter(r => !OPTIONS_OFF || r.kind !== 'Request');
   }, [db]);
 
   const hits = useMemo(() => {

@@ -29,7 +29,7 @@ import { GrnPage } from './screens/Warehouse';
 import { Health } from './screens/Health';
 import { Planning } from './screens/Planning';
 import { Fabrics } from './screens/Fabrics';
-import { MTM_ONLY } from './domain/edition';
+import { MTM_ONLY, OPTIONS_OFF } from './domain/edition';
 
 /* No Today screen: each role lands on the first screen it works in. */
 function Landing() {
@@ -43,7 +43,7 @@ export default function App() {
       <Routes>
         <Route element={<Shell />}>
           <Route index element={<Landing />} />
-          <Route path="/requests" element={<ToDesign kind="Options" form="options" />} />
+          <Route path="/requests" element={OPTIONS_OFF ? <Navigate to="/design" replace /> : <ToDesign kind="Options" form="options" />} />
           <Route path="/requirements" element={MTM_ONLY ? <Navigate to="/design" replace /> : <ToDesign kind="RTW" form="rtw" />} />
           <Route path="/sourcing" element={<Sourcing />} />
           <Route path="/tracker" element={MTM_ONLY ? <Navigate to="/" replace /> : <Tracker />} />
