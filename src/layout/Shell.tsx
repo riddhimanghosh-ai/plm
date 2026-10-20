@@ -9,7 +9,6 @@ import { MTM_ONLY, RTW_PATHS, EDITION_LABEL } from '../domain/edition';
 import type { RoleId } from '../domain/types';
 import { Toasts, Select, Button } from '../ui';
 import { VendorDrawer } from '../screens/Vendors';
-import { FabricDrawer } from '../screens/Fabrics';
 import { MentionBar } from '../screens/Mentions';
 import { CommandSearch, SearchHint } from '../screens/Search';
 
@@ -185,7 +184,6 @@ export function Shell() {
       {/* a screen this role does not work in is not reachable, even by URL — it lands on the role's own first screen */}
       <main className="px-7 py-6 max-w-[1280px] w-full"><MentionBar /><ScreenOwner /> {allowed ? <Outlet /> : <Navigate to={homeFor(role)} replace />}</main>
       <VendorDrawer />
-      <FabricDrawer />
       <CommandSearch />
       <Toasts />
     </div>

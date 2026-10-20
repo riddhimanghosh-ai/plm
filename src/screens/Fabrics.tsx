@@ -6,7 +6,7 @@
    a customer orders it. Blocks: the handshake, with a countdown.
    Click any fabric for its 360 — identity, stock, sales with conditions,
    range, blocks, stores. */
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { ThreadPanel } from './Thread';
 import { Files } from './Files';
 import { FILE_LABELS } from '../domain/reference';
@@ -272,16 +272,17 @@ export function Fabrics() {
 }
 
 /* ---------- the 360: every fact the tool holds about one fabric ---------- */
-/** Mounted once in the Shell: `?fabric=<id>` opens the fabric record from any screen — the mills page, a PO, a search hit. */
-export function FabricDrawer() {
+/** The fabric as its own page — `#/fabric/<id>`. Opened from the mills page and any list that names a fabric. */
+export function FabricPage() {
   const { db, role } = useApp();
-  const [params, setParams] = useSearchParams();
-  const f = db.fabrics.find(x => x.id === params.get('fabric')) ?? null;
-  const close = () => { const n = new URLSearchParams(params); n.delete('fabric'); setParams(n, { replace:true }); };
+  const { id } = useParams();
+  const f = db.fabrics.find(x => x.id === id) ?? null;
   const mill = f ? db.vendors.find(v => v.id === f.vendorId) : null;
-  return <Drawer open={!!f} onClose={close} title={f?.name ?? ''} subtitle={f && <><Pill tone="accent">{f.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{f.code}</span>{mill && <span>· {mill.name}</span>}</>}>
-    {f && <Fabric360 f={f} canSource={role === 'sourcing' || role === 'owner'} canPlan={role === 'design' || role === 'owner'} />}
-  </Drawer>;
+  if (!f) return <Page title="Fabric"><Card><Empty title="No such fabric." body="It may have been removed from the master." /></Card></Page>;
+  return <Page title={f.name} actions={<Button size="sm" variant="ghost" onClick={() => history.back()}>← Back</Button>}>
+    <div className="flex items-center gap-2 flex-wrap mb-4 text-[13px]" style={{ color:'var(--ink-soft)' }}><Pill tone="accent">{f.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{f.code}</span>{mill && <span>· <VendorLink id={mill.id}>{mill.name}</VendorLink></span>}</div>
+    <div style={{ maxWidth: 960 }}><Fabric360 f={f} canSource={role === 'sourcing' || role === 'owner'} canPlan={role === 'design' || role === 'owner'} /></div>
+  </Page>;
 }
 
 function Fabric360({ f, canSource, canPlan }: { f: Fabric; canSource: boolean; canPlan: boolean }) {

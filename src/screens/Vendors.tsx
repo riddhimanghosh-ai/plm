@@ -109,7 +109,7 @@ function Vendor360({ v, s }: { v: Vendor; s: ReturnType<typeof vendorStatsOf> })
     </Section>}
 
     {isMill && <Section title={`Fabrics · ${s.fabrics.length}`}>
-      {s.fabrics.slice(0, 10).map(f => { const c = coverageOf(f, v.leadDays, v); return <div key={f.id} className="kv row" style={{ cursor:'pointer' }} onClick={() => { const n = new URLSearchParams(location.hash.split('?')[1] ?? ''); n.set('fabric', f.id); location.hash = `${location.hash.split('?')[0]}?${n}`; }}><span className="k">{f.name}<div className="text-[11px] mono">{f.code} · {f.bucket.toLowerCase().replace('_', '-')}</div></span><span className="v">{f.bucket === 'BESPOKE' ? <Pill tone={f.millAvailable === false ? 'risk' : 'good'}>{f.millAvailable === false ? 'sold out at mill' : 'available'}</Pill> : <Pill tone={c.belowRop ? 'risk' : 'good'}>{c.belowRop ? 'below ROP' : `${c.coverDays > 365 ? '1y+' : c.coverDays + 'd'} cover`}</Pill>}</span></div>; })}
+      {s.fabrics.slice(0, 10).map(f => { const c = coverageOf(f, v.leadDays, v); return <div key={f.id} className="kv row" style={{ cursor:'pointer' }} onClick={() => { location.hash = `#/fabric/${f.id}`; }}><span className="k">{f.name}<div className="text-[11px] mono">{f.code} · {f.bucket.toLowerCase().replace('_', '-')}</div></span><span className="v">{f.bucket === 'BESPOKE' ? <Pill tone={f.millAvailable === false ? 'risk' : 'good'}>{f.millAvailable === false ? 'sold out at mill' : 'available'}</Pill> : <Pill tone={c.belowRop ? 'risk' : 'good'}>{c.belowRop ? 'below ROP' : `${c.coverDays > 365 ? '1y+' : c.coverDays + 'd'} cover`}</Pill>}</span></div>; })}
       {s.fabrics.length > 10 && <div className="text-[11.5px] pt-1" style={{ color:'var(--ink-faint)' }}>and {s.fabrics.length - 10} more — all on the MTM fabrics screen</div>}
     </Section>}
 
@@ -345,7 +345,7 @@ export function FabricSourcingTab() {
   const { db } = useApp();
   const [params, setParams] = useSearchParams();
   const openVendor = (id: string) => { const n = new URLSearchParams(params); n.set('vendor', id); setParams(n, { replace:true }); };
-  const openFabric = (id: string) => { const n = new URLSearchParams(params); n.set('fabric', id); setParams(n, { replace:true }); };
+  const openFabric = (id: string) => { location.hash = `#/fabric/${id}`; };
   const [q, setQ] = useState(params.get('fq') ?? '');
   const [millF, setMillF] = useState('all');
   const [typeF, setTypeF] = useState('all');          // domestic · international
@@ -428,14 +428,13 @@ export function FabricSourcingTab() {
 
     <Card><table className="t">
       <thead><tr>
-        <Th hint="Fabric Name and Fabric Code, as Enigma has them — click the name for the full record.">Fabric</Th>
-        <Th hint="Composition, and the Panna (width) the marker is cut to.">Composition · Panna</Th>
-        <Th hint="Vendor Name and the Vendor Code for fabric — what goes on the PO.">Vendor · Vendor Code</Th>
-        <Th num hint="Turn-around time in hours, as Enigma keeps it.">TAT</Th>
-        <Th num hint="Minimum order quantity for this fabric.">MOQ</Th>
+        <Th hint="Click a row for the full record.">Fabric</Th>
+        <Th>Composition</Th>
+        <Th>Vendor</Th>
+        <Th num hint="Turn-around time in hours · minimum order in metres.">TAT · MOQ</Th>
         <Th num hint="Cost per Unit, in the mill's currency.">Cost / m</Th>
-        <Th hint="Whether you can buy it today, and how long the shelf lasts at the current rate of sale.">Can I buy it</Th>
-        <Th>Alternatives</Th>
+        <Th hint="Can it be bought today? Hover for why not.">Buy</Th>
+        <Th hint="Other mills that make this cloth.">Compare</Th>
       </tr></thead>
       <tbody>{pager.pageRows.length === 0 ? <tr><td colSpan={8}><Empty title="No fabric matches that." body="Try the mill's article number, the composition, or clear the filters." /></td></tr>
         : pager.pageRows.map(({ f, m, c, held, stopped }) => {
@@ -449,16 +448,13 @@ export function FabricSourcingTab() {
         const why = f.paused ? `paused by design — ${f.paused.note}` : f.onHold ? 'on hold — switched off for stores and Shopify' : f.supply?.status === 'out' ? `supplier out${f.supply.backOn ? ` — back ${fmtDate(f.supply.backOn)}` : ''}` : f.millAvailable === false ? 'sold out at the mill' : null;
         return <Fragment key={f.id}>
           <tr className="row" onClick={() => openFabric(f.id)}>
-            <td><span className="font-medium">{f.name}</span><div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.code} · {f.bucket.toLowerCase().replace('_', '-')}{f.swatchBook ? ` · ${f.swatchBook}` : ''}</div></td>
-            <td className="text-[12.5px]">{f.composition ?? '—'}<div style={{ color:'var(--ink-faint)' }}>{(f.attrs?.panna ?? f.widthIn) ? `${f.attrs?.panna ?? f.widthIn}" panna` : ''}</div></td>
-            <td className="text-[12.5px]"><VendorLink id={f.vendorId} />{m && <div className="mono" style={{ color:'var(--ink-faint)' }}>{f.vendorCode ?? '—'}{held.length > 0 && <span style={{ color:'var(--accent)' }}> · {held.reduce((a, b) => a + b.metres, 0)} m held</span>}</div>}</td>
-            <td className="num">{f.mill?.tatHours != null ? `${f.mill.tatHours} h` : m ? `${m.leadDays}d` : '—'}</td>
-            <td className="num">{f.mill?.moq != null ? `${f.mill.moq} m` : m?.moq ? `${m.moq} m` : '—'}</td>
+            <td><span className="font-medium">{f.name}</span><div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.code}</div></td>
+            <td className="text-[12.5px]">{f.composition ?? '—'}{(f.attrs?.panna ?? f.widthIn) ? <span style={{ color:'var(--ink-faint)' }}> · {f.attrs?.panna ?? f.widthIn}"</span> : null}</td>
+            <td className="text-[12.5px]"><VendorLink id={f.vendorId} />{held.length > 0 && <div className="text-[11px]" style={{ color:'var(--accent)' }}>{held.reduce((a, b) => a + b.metres, 0)} m held</div>}</td>
+            <td className="num text-[12.5px]">{f.mill?.tatHours != null ? `${f.mill.tatHours} h` : m ? `${m.leadDays * 24} h` : '—'} · {f.mill?.moq ?? m?.moq ?? '—'} m</td>
             <td className="num mono">{f.mill?.costPerUnit != null ? `${f.mill.currency} ${f.mill.costPerUnit}` : f.cpm != null ? `INR ${f.cpm}` : '—'}</td>
-            <td>{stopped ? <><Pill tone="risk">no</Pill><div className="text-[11px]" style={{ color:'var(--risk)' }}>{why}</div></>
-              : f.bucket === 'BESPOKE' ? <><Pill tone="good">yes</Pill><div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>bespoke — cut from the mill's own stock</div></>
-              : <><Pill tone={c.belowRop ? 'warn' : 'good'}>yes</Pill><div className="text-[11px]" style={{ color: c.belowRop ? 'var(--warn)' : 'var(--ink-faint)' }}>{c.belowRop ? `below ROP · order ${c.suggestedPo} m` : `${c.coverDays > 365 ? '1y+' : `${c.coverDays}d`} cover`}</div></>}</td>
-            <td className="text-[12px]"><button type="button" className="vlink" onClick={e => { e.stopPropagation(); setAlt(alt === f.id ? null : f.id); }}>{sameFamily.length ? `${sameFamily.length} other mill${sameFamily.length === 1 ? '' : 's'} do this cloth` : 'only mill for this'}{sameFamily.length ? (alt === f.id ? ' · hide' : ' · compare') : ''}</button></td>
+            <td><span title={why ?? (f.bucket === 'BESPOKE' ? 'bespoke — cut from the mill\'s own stock' : c.belowRop ? `below the reorder point — order ${c.suggestedPo} m` : `${c.coverDays > 365 ? '1y+' : `${c.coverDays}d`} of cover`)}>{stopped ? <Pill tone="risk">no</Pill> : <Pill tone={c.belowRop && f.bucket !== 'BESPOKE' ? 'warn' : 'good'}>yes</Pill>}</span></td>
+            <td className="text-[12px]">{sameFamily.length ? <button type="button" className="vlink" onClick={e => { e.stopPropagation(); setAlt(alt === f.id ? null : f.id); }}>{alt === f.id ? 'hide' : `${sameFamily.length} mill${sameFamily.length === 1 ? '' : 's'}`}</button> : <span style={{ color:'var(--ink-faint)' }}>—</span>}</td>
           </tr>
           {alt === f.id && sameFamily.length > 0 && <tr><td colSpan={8} style={{ background:'var(--surface-2)' }}>
             <div className="text-[12px] mb-1.5" style={{ color:'var(--ink-soft)' }}>{f.family}{f.composition ? ` · ${f.composition}` : ''} from another mill — one line per mill, its cheapest article, dearest last. This is the choice: price against lead time against whether that mill holds its dates.</div>
