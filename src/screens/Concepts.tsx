@@ -237,8 +237,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
       {sourcing && s.fabric && <>
       {!s.block && !c.fabricPo && <div className="flex gap-2 items-end pt-3 flex-wrap" style={{ borderTop:'1px solid var(--line-soft)' }}>
         <div style={{ width: 110 }}><Field label="Block · metres"><Input value={blockM} onChange={e => setBlockM(e.target.value)} /></Field></div>
-        <div style={{ width: 130 }}><Field label="Agreed over"><Select value={blockVia} onChange={v => setBlockVia(v as typeof blockVia)} options={[{ value:'email', label:'email' }, { value:'whatsapp', label:'WhatsApp' }, { value:'call', label:'phone call' }]} /></Field></div>
-        <Button size="sm" variant="primary" disabled={!Number(blockM)} onClick={() => conceptBlockFabric(c.id, Number(blockM), blockVia)}>Vendor has blocked it</Button>
+        <Button size="sm" variant="primary" disabled={!Number(blockM)} onClick={() => conceptBlockFabric(c.id, Number(blockM), 'email')}>Vendor has blocked it</Button>
         <span className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{db.vendors.find(v => v.id === s.fabric!.vendorId)?.blockWindowDays ?? 60}-day window for this vendor — the countdown starts now</span>
       </div>}
       </>}
