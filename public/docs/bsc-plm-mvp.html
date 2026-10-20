@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BSC PLM — The flow, the MVP, the sheets</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+  :root { --ink:#1a1a13; --soft:#5b5a52; --faint:#8a887c; --line:#d8d2c2; --soft-bg:#f4f1ea; --accent:#3d5a3a; --accent-soft:#e6ecdf; --warn:#9a6b1a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#fff; color:var(--ink); font-family: Helvetica, Arial, sans-serif; line-height:1.5; }
+  main { max-width:1180px; margin:0 auto; padding:32px 24px 80px; }
+  h1 { font-size:28px; margin:0 0 4px; letter-spacing:-.01em; }
+  .meta { color:var(--faint); font-size:13px; margin:0 0 28px; }
+  h2 { font-size:20px; margin:44px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--line); }
+  h3 { font-size:15px; margin:22px 0 6px; }
+  p { margin:8px 0; }
+  .lede { color:var(--soft); font-size:14.5px; }
+  .mermaid { margin:14px 0 6px; overflow-x:auto; background:var(--soft-bg); border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--soft); margin:6px 0 0; }
+  .legend span::before { content:""; display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px; vertical-align:-1px; border:1px solid var(--line); }
+  .legend .d::before { background:#e3dcf0; } .legend .s::before { background:#f3e2c4; } .legend .p::before { background:#d9e7f3; } .legend .w::before { background:#dfe9dc; } .legend .st::before { background:#f6d9d5; } .legend .e::before { background:#ececec; }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; margin:10px 0 4px; }
+  th, td { border:1px solid var(--line); padding:7px 10px; vertical-align:top; text-align:left; }
+  th { background:var(--soft-bg); font-weight:600; }
+  .tag { display:inline-block; font-size:11px; font-weight:600; letter-spacing:.04em; padding:2px 7px; border-radius:4px; background:var(--accent-soft); color:var(--accent); white-space:nowrap; }
+  .tag.later { background:#f1ede4; color:var(--warn); }
+  .note { font-size:13px; color:var(--soft); border-left:3px solid var(--line); padding:6px 12px; margin:10px 0; }
+  code { background:var(--soft-bg); padding:1px 5px; border-radius:3px; font-size:12.5px; }
+  ol li, ul li { margin:4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>BSC PLM — the flow, the MVP, the sheets</h1>
+  <p class="meta">20 Oct 2026 · Riddhiman Ghosh · DevX Labs · prototype at <a href="https://plm-xi-green.vercel.app">plm-xi-green.vercel.app</a></p>
+  <p class="lede">One page for the build team: the whole process as boxes and arrows, the features that make the MVP, and the sheets BSC runs on today that the tool replaces, beside Enigma.</p>
+
+  <h2>1 · The whole process, boxes and arrows</h2>
+  <p class="lede">Every box is a step someone owns. BSC PLM sits beside Enigma: it reads fabrics, orders, POs and stock from Enigma, keeps everything Enigma does not hold, and writes back where access is agreed.</p>
+  <div class="mermaid">
+flowchart TD
+  classDef design fill:#e3dcf0,stroke:#9b8bc4,color:#1a1a13
+  classDef sourcing fill:#f3e2c4,stroke:#c9a35a,color:#1a1a13
+  classDef prod fill:#d9e7f3,stroke:#6f9cc4,color:#1a1a13
+  classDef wh fill:#dfe9dc,stroke:#7fa37a,color:#1a1a13
+  classDef store fill:#f6d9d5,stroke:#c98a80,color:#1a1a13
+  classDef enigma fill:#ececec,stroke:#999,color:#1a1a13,stroke-dasharray:4 3
+
+  subgraph REQ["A · Requirement to fabric PO — the same loop for MTM and RTW"]
+    direction TB
+    R1["Design raises a requirement<br/>MTM fabric · several options · RTW style"]:::design
+    R2["Sourcing puts ONE vendor against the cloth<br/>price · MOQ · lead · mill article · hold-until"]:::sourcing
+    R3{"Design decides"}:::design
+    R4["Sourcing extends the hold<br/>or withdraws the vendor"]:::sourcing
+    R5["Design pushes the fabric PO"]:::design
+    E1["Enigma mints the fabric code<br/>fabric master row"]:::enigma
+    R1 --> R2 --> R3
+    R3 -->|more time| R4 --> R3
+    R3 -->|push| R5 --> E1
+  end
+
+  subgraph MTM["B · MTM fabric — idea to live"]
+    direction TB
+    M1["Warehouse GRN · bulk received<br/>Shravani"]:::wh
+    M2["Swatch desk · Yusuf<br/>cut 25×25 for every store · sticker file · photos"]:::wh
+    M3["Design adds designs on the fabric<br/>one fabric, several designs · temp name → marketing name"]:::design
+    E2["Push to Enigma<br/>design row · attributes · MRP"]:::enigma
+    M4["Swatches dispatched · stores confirm"]:::wh
+    M5["Live in stores"]:::design
+    M6["Online ~2 weeks later<br/>shoot · video · post"]:::design
+    M1 --> M2 --> M4 --> M5 --> M6
+    M1 --> M3 --> E2 --> M5
+  end
+
+  subgraph RTW["C · RTW style — the four-section record"]
+    direction TB
+    T1["1 · Request from design<br/>style · qty · size ratio · target price & date<br/>job card · trim card · BOM · tech pack"]:::design
+    T2["2 · Factory finalisation<br/>Nitin proposes factory, cost, date"]:::prod
+    T3{"Design accepts?"}:::design
+    T4["Design raises the factory PO<br/>documents travel with it"]:::design
+    T5["3 · Fabric finalisation<br/>fabric PO auto-fills vendor, code, CPM, metres"]:::sourcing
+    T6["Sourcing sends cloth + trims to the factory"]:::sourcing
+    T7["Factory merchandiser confirms receipt<br/>usable · damaged · trims"]:::prod
+    T8{"Short?"}:::prod
+    T9["Modified ratio or cut short<br/>design decides"]:::design
+    T10["4 · TNA milestones & final steps<br/>samples · PPS · cutting · stitching · finishing · FI · dispatch"]:::prod
+    T11["Warehouse receives the lots"]:::wh
+    T12["Design mints the design code"]:::design
+    T13["Launch · display & fit pieces to stores · go live"]:::design
+    T1 --> T2 --> T3
+    T3 -->|reject + comment| T2
+    T3 -->|accept| T4
+    T1 --> T5
+    T4 --> T6
+    T5 --> T6 --> T7 --> T8
+    T8 -->|yes| T9 --> T10
+    T8 -->|no| T10
+    T10 --> T11 --> T12 --> T13
+  end
+
+  subgraph SELL["D · Selling and making for the customer"]
+    direction TB
+    S1["Store punches the bill<br/>Shopify → Enigma · fit profile · who measured<br/>comments for factory & shipping · trial / urgent"]:::store
+    S2["MTM daily production<br/>allocate to a factory on capacity · plan · floor"]:::prod
+    S3["Factory makes · QC · dispatch"]:::prod
+    S4["Warehouse round · hemming unit if needed"]:::wh
+    S5["Delivered to store or customer"]:::store
+    S6["Returns & alterations ladder<br/>alter · swap · refit · remake · credit note · refund (HO approval)"]:::store
+    S7["RTW sold from stock<br/>size check · store-to-store ask"]:::store
+    S1 -->|MTM| S2 --> S3 --> S4 --> S5 --> S6
+    S1 -->|RTW| S7 --> S5
+  end
+
+  subgraph LOOP["E · Keeping the range healthy"]
+    direction TB
+    L1["Weekly core stock review<br/>auto-PO = max(lead-time demand, MOQ)"]:::sourcing
+    L2["RTW stock health · size-wise ROS · WIP<br/>reorder · pull back · leave"]:::design
+    L3["Non-core → core promotion<br/>block at the mill for a period"]:::sourcing
+    L4["Bespoke · mill's daily list<br/>store gate · parcel code"]:::wh
+    L1 --> L3
+  end
+
+  E1 --> M1
+  E1 --> T5
+  M5 --> S1
+  T13 --> S7
+  S5 --> L2
+  M5 --> L1
+  L2 --> R1
+  L4 --> S1
+  </div>
+  <div class="legend"><span class="d">Design / planning</span><span class="s">Sourcing</span><span class="p">Production / factory</span><span class="w">Warehouse</span><span class="st">Store</span><span class="e">Enigma (connected, not rebuilt)</span></div>
+
+  <h2>2 · What the MVP builds first</h2>
+  <p class="lede">The MVP is the minimum that lets each team stop its sheet. Everything marked <span class="tag">MVP</span> ships in the first cut; <span class="tag later">iterate</span> comes after the pilot stores and the first RTW cohort have run on it. The order follows the build order: MTM floor, store, warehouse, requirement to PO, replenishment, RTW production, hardening.</p>
+
+  <table>
+    <thead><tr><th style="width:36px">#</th><th>Feature</th><th>Who it is for</th><th style="width:92px">Cut</th></tr></thead>
+    <tbody>
+      <tr><td colspan="4"><b>Foundation</b></td></tr>
+      <tr><td>1</td><td>Read-only connection to Enigma: fabrics, designs, orders, POs, stock per warehouse, refreshed on a schedule. One login per team, one bell of "waiting on you" per role.</td><td>Everyone</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>2</td><td>Files and a conversation on every record (requirement, fabric, PO, launch, case), so photos, comments and marketing lines stop living in WhatsApp.</td><td>Everyone</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td colspan="4"><b>MTM daily production and the floor</b></td></tr>
+      <tr><td>3</td><td>Allocate punched orders to factories on capacity, submit the day's plans, see the factory floor; factories and capacity inputs (tailors, feed target, distance, corporate, urgent reserve); daily output and aging on the Factories screen.</td><td>Production, factory merchandiser</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>4</td><td>Changed order sheets after punch, with revision history and the reprint rule; extra-fabric asks from the floor.</td><td>Production, store</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td colspan="4"><b>The store floor</b></td></tr>
+      <tr><td>5</td><td>Punch a bill with several pieces: fit profile per customer (more than one), who measured, comment for the factory, comment for shipping, trial shirt first, urgent with the express charge.</td><td>Store</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>6</td><td>Returns and alterations: raise a case by name or number, the six-rung ladder, the 30-day window, the hemming-unit and factory round trips, store credit with a one-year validity, refund with HO approval.</td><td>Store, finance</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>7</td><td>Store stock in and out: parcels to count in, store-to-store asks, write-offs, fabric-closed alert.</td><td>Store</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>8</td><td>Live per-store RTW stock by size, barcodes and price stickers printed from the system, the daily closing report read off the bills, measurement changes cascading to open orders.</td><td>Store</td><td><span class="tag later">iterate</span></td></tr>
+      <tr><td colspan="4"><b>Warehouse</b></td></tr>
+      <tr><td>9</td><td>One numbered goods-received note for every receipt (fabric rolls, RTW lots, bespoke parcels, the vehicle round), stock transfers to stores, the hemming-unit trip.</td><td>Warehouse (Shravani)</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>10</td><td>The swatch desk: bulk received → to Yusuf → cut → sticker printed off the record → photos → dispatched → stores told, with who did each step and a reprint flag when a name or MRP changes.</td><td>Warehouse (Yusuf), design</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>11</td><td>Bespoke: the mill's daily list typed in, the store gate, the parcel code.</td><td>Warehouse, store</td><td><span class="tag later">iterate</span></td></tr>
+      <tr><td colspan="4"><b>Requirement to purchase order</b></td></tr>
+      <tr><td>12</td><td>One list of every ask (MTM fabric, several options, RTW style) at its stage; one vendor per cloth with hold and extension; design pushes the fabric PO; the Enigma fabric code is minted and fills the RTW record.</td><td>Design, sourcing</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>13</td><td>Several designs on one fabric, each with its own product code, cost and MRP, temporary name until marketing's final name, pushed to Enigma from the record; the sticker file printed per fabric; go live in stores, then online.</td><td>Design</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>14</td><td>Prototype rounds, BOM and tech pack on an RTW request; trims and packaging checked into stock.</td><td>Design, sourcing</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td colspan="4"><b>Replenishment and the sales review</b></td></tr>
+      <tr><td>15</td><td>Weekly core stock review with the auto-PO rule (max of lead-time demand and MOQ); non-core to core promotion with a block at the mill; escalation to design when a fabric is out.</td><td>Sourcing, design</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>16</td><td>RTW stock health per option, size-wise: stock, rate of sale, WIP, the display reserve, and the action (reorder, pull back, leave).</td><td>Planning</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>17</td><td>Forecasting, the weekly sales review, DSR and stylist scorecard read live instead of rebuilt by hand.</td><td>Planning</td><td><span class="tag later">iterate</span></td></tr>
+      <tr><td colspan="4"><b>RTW production</b></td></tr>
+      <tr><td>18</td><td>The tracker: one record per style in four sections exactly as the sheet (request from design, factory finalisation, fabric finalisation, TNA and final steps), rows from the day of the request, all 22 milestones with NA where the category has none, settings for day offsets and risk thresholds.</td><td>Production (Nitin), design, sourcing</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>19</td><td>Factory merchandiser portal, MTM and RTW sides: the design's documents, cloth on its way, confirm metres and trims, ask for a modified ratio or cut short, update milestones in real time.</td><td>Factory merchandiser</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>20</td><td>Design code minted by design once the goods are in; the launch checklist (display and fit pieces, marketing name, date).</td><td>Design, planning</td><td><span class="tag">MVP</span></td></tr>
+      <tr><td>21</td><td>RTW production analytics: OTIF by factory and order, the daily monitor, escalations, merchandiser alerts.</td><td>Planning</td><td><span class="tag later">iterate</span></td></tr>
+      <tr><td colspan="4"><b>Hardening</b></td></tr>
+      <tr><td>22</td><td>Writing back into Enigma where access is agreed: fabric POs, design rows, on-hold flags, GRNs, stock transfers. Phone-sized screens, bulk actions.</td><td>Everyone</td><td><span class="tag later">iterate</span></td></tr>
+    </tbody>
+  </table>
+  <p class="note">Rule for the cut: a feature is MVP when a team cannot stop its sheet without it. Analytics, forecasting and Enigma write-back are iterations because the teams keep working while they are built; the floor teams have no such fallback.</p>
+
+  <h2>3 · The sheets we follow, beside Enigma</h2>
+  <p class="lede">Enigma stays the master for fabrics, designs, orders, POs and stock. These are the sheets whose columns and logic the tool mirrors; each is retired once its team runs a month on the tool.</p>
+  <table>
+    <thead><tr><th>Sheet</th><th>Owner today</th><th>What the tool takes from it</th><th>Replaced by</th></tr></thead>
+    <tbody>
+      <tr><td><b>Production Tracker Final V2.xlsx</b> — tabs Production Tracker, Instructions &amp; Legend, Config, Auto Plan Logic, OTIF Dashboard, Daily Monitor, Escalation Log, Merchandiser Alerts</td><td>Nitin, RTW production</td><td>The four sections and every column of the RTW record; the 22 milestones with plan, revised and actual; day offsets per category, risk thresholds and OTIF tolerance; the four report tabs</td><td>RTW production tracker, its settings, RTW production analytics</td></tr>
+      <tr><td><b>STO Swatches Tracker.xlsx</b> (with <b>Copy NEW Swatch Books Weekly Stock Update.xlsx</b>)</td><td>Warehouse, design</td><td>Bulk received date, handover date, cut, sticker link, dispatch and receiving per store; the weekly metres per fabric in each book</td><td>Swatch desk, swatch dispatches, the MTM fabric master</td></tr>
+      <tr><td><b>Copy of Fabric ordering.xlsx</b></td><td>Sourcing</td><td>Vendor, article, price per metre, MOQ, lead, metres ordered; the fabric PO line</td><td>Fabric sourcing (one vendor per cloth, the fabric PO)</td></tr>
+      <tr><td><b>BSC_ Merchandise Master Bottoms_Jackets.xlsx</b> and <b>RTW_Shirts_Concise_Updated 10.xlsx</b></td><td>Planning</td><td>The option list, sizes, vendor, PO status columns, 45- and 60-day sales and ROS</td><td>RTW stock health, the option book</td></tr>
+      <tr><td><b>Replenishment Sample.xlsx</b> and <b>ROS Health Report.xlsx</b></td><td>Planning, sourcing</td><td>The reorder rule, cover days, the health actions per option</td><td>Replenishment and stock health</td></tr>
+      <tr><td><b>Monthly Drops Products Sample.xlsx</b> and <b>Display Fit Sample Allocation Sample.xlsx</b></td><td>Planning</td><td>Expected at HO, received, display and fit pieces per store, marketing name, launch date</td><td>RTW launches</td></tr>
+      <tr><td><b>Trims Working Sample.xlsx</b> and <b>Fabric Trims Deduction Tracker Sample.xlsx</b></td><td>Sourcing, production</td><td>The trim card lines on a BOM, consumption per piece, what the factory is charged</td><td>BOM and trims cover on the RTW record</td></tr>
+      <tr><td><b>Product Weekly Report.xlsx</b>, <b>Option Count Summary Sample.xlsx</b>, <b>category Penetration MOM.xlsx</b></td><td>Planning</td><td>The weekly review, option counts per book, category mix</td><td>What is selling (iteration)</td></tr>
+      <tr><td><b>Ageing ... AMAN AGEING Sample.xlsx</b></td><td>Production</td><td>Pieces sitting in a factory past the ship-by date</td><td>Aging on the Factories screen</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Not followed: New Cogs Working, AUG26 Margin Working, Working Capital, Inventory Value and Stock Report are finance's and stay as they are; the tool keeps a COGS line on a PO and nothing more.</p>
+</main>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }, themeVariables: { fontFamily: 'Helvetica, Arial, sans-serif', fontSize: '12px' } });
+</script>
+</body>
+</html>
