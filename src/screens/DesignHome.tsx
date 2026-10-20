@@ -60,8 +60,7 @@ export function DesignHome() {
       const f = designFlowOf(db, { kind:'concept', c }); const s = conceptOf(db, c);
       /* 3 = finalised and ordered, cloth not yet in; 4 = cloth in, operations executing */
       /* MTM edition: the stage is the step design is on — the five steps of the flow, in order */
-      const mtmIdx = (['request', 'vendors', 'po', 'fabric-in', 'live'] as const).indexOf(f.now.key as 'request');
-      const st: Stage = MTM_ONLY ? (Math.max(1, Math.min(5, (f.now.state === 'done' ? 5 : mtmIdx + 1))) as Stage)
+      const st: Stage = MTM_ONLY ? (f.mtmStage ?? 1)
         : c.liveOn && c.online?.liveOn ? 5 : c.fabricPo ? (c.swatch?.inwardOn || c.liveOn ? 4 : 3) : (c.fabricOptions ?? []).some(o => !o.rejected) || c.optionsSentOn || c.approvalSentOn ? 2 : 1;
       out.push({ id: c.id, kind:'MTM', name: c.naming.newName ?? c.name, brief: c.brief, raisedBy: c.raisedBy, raisedOn: c.raisedOn, stage: st,
         owner: f.now.state === 'done' ? null : f.now.owner, next: f.now.state === 'done' ? 'live' : (f.now.action ?? f.now.label),
@@ -147,16 +146,15 @@ export function DesignHome() {
         <thead><tr>
           <Th hint="what design asked for — the working name and the brief">Requirement</Th>
           <Th hint="MTM fabric · RTW style · several fabric options at once">Kind</Th>
-          <Th hint="one of the four stages every requirement passes through">Stage</Th>
-          <Th hint="the sourcing decision, in the words everyone uses: sourcing to add vendors · design to push PO · extension asked · finalised">Sourcing</Th>
-          <Th hint="the next thing to do, and whose move it is">Next</Th>
+          <Th hint="where it stands, and under it the next thing to do and whose move it is">Stage</Th>
         </tr></thead>
         <tbody>{shown.length === 0 ? <tr><td colSpan={5} className="text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Nothing here.</td></tr> : shown.map(r => <tr key={r.id} className="row" onClick={() => set('open', r.href)}>
           <td style={{ whiteSpace:'normal', minWidth: 260 }}><span className="font-medium">{r.name}</span><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{r.brief.slice(0, 110)}{r.brief.length > 110 ? '…' : ''}</div><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.raisedBy} · {fmtDate(r.raisedOn)} · {daysAgo(r.raisedOn)}d</div></td>
           <td><span className={`pill role-${KIND_TONE[r.kind]}`}>{r.kind === 'Options' ? 'options' : r.kind}</span></td>
-          <td style={{ whiteSpace:'nowrap' }}><Pill tone={r.stage === 5 ? 'good' : r.stage === 4 ? 'info' : 'neutral'}>{STAGE_LABEL[r.stage]}</Pill></td>
-          <td className="text-[12px]" style={{ whiteSpace:'normal', minWidth: 180 }}>{r.sourcing ? (r.sourcing === 'finalised' ? <Pill tone="good">finalised</Pill> : /^(sourcing to add vendors|extension asked)$/.test(r.sourcing) ? <span className="pill role-sourcing">{r.sourcing}</span> : /^design to/.test(r.sourcing) ? <span className="pill role-design">{r.sourcing}</span> : <span style={{ color:'var(--ink-soft)' }}>{r.sourcing}</span>) : <span style={{ color:'var(--ink-faint)' }}>—</span>}</td>
-          <td style={{ whiteSpace:'normal', minWidth: 200 }}><b className="text-[12.5px]">{r.next}</b>{r.owner && <div className="text-[11px]"><span className={`pill role-${r.owner}`}>{ROLE_LABEL[r.owner]}</span></div>}</td>
+          <td style={{ whiteSpace:'normal', minWidth: 260 }}>
+            <Pill tone={r.stage === 5 ? 'good' : r.stage === 4 ? 'info' : 'neutral'}>{STAGE_LABEL[r.stage]}</Pill>
+            <div className="text-[12px] pt-1 flex items-center gap-2 flex-wrap">{r.owner ? <><span className={`pill role-${r.owner}`}>{ROLE_LABEL[r.owner]}</span><span>{r.next}</span></> : <span style={{ color:'var(--ink-faint)' }}>{r.next}</span>}</div>
+          </td>
         </tr>)}</tbody>
       </table></div></Card>
 

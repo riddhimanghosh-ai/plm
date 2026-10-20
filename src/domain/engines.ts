@@ -930,9 +930,11 @@ export type DesignStepKey = 'request' | 'sampling' | 'vendors' | 'po' | 'fabric-
 export interface DesignStep { key: DesignStepKey; label: string; state: 'done' | 'now' | 'later'; owner: RoleId; note: string; action?: string }
 export type DesignItem = { kind: 'concept'; c: Concept } | { kind: 'order'; o: ProductionOrder };
 
-export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; now: DesignStep; name: string; raisedOn: string; liveBy: string | null; targetCost: number | null; id: string } {
+export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; now: DesignStep; name: string; raisedOn: string; liveBy: string | null; targetCost: number | null; id: string; mtmStage?: 1 | 2 | 3 | 4 | 5 } {
   const mk = (key: DesignStepKey, label: string, done: boolean, owner: RoleId, note: string, action?: string): DesignStep => ({ key, label, state: done ? 'done' : 'later', owner, note, action });
   let steps: DesignStep[]; let name: string; let raisedOn: string; let liveBy: string | null; let targetCost: number | null; let id: string;
+  /* where an MTM fabric stands — the state it is IN, not the step that comes next */
+  let mtmStage: 1 | 2 | 3 | 4 | 5 | undefined;
 
   if (item.kind === 'concept') {
     const c = item.c; const s = conceptOf(db, c); const nf = c.kind === 'new-fabric';
@@ -960,6 +962,7 @@ export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; n
         fabricIn && !designsDone ? 'Add the designs, push them to Enigma, set consumption' : undefined),
       mk('live', 'Go live online', !!c.online?.liveOn, 'design', c.online?.liveOn ? `online ${fmtDate(c.online.liveOn)}${c.liveOn ? ` · stores ${fmtDate(c.liveOn)}` : ''}` : `${onlineGates} of 3 · photos, video, post${c.liveOn ? ` · stores ${fmtDate(c.liveOn)}` : ''}`, onlineGates === 3 ? 'Go live online' : 'Mark photos, video and post as they land'),
     ];
+    mtmStage = c.online?.liveOn ? 5 : (fabricIn && nf && !!c.fabricPo) || (!nf && designsDone) ? (designsDone ? 5 : 4) : poDone && nf ? 3 : offersIn || chosen ? 2 : 1;
     name = c.naming.newName ?? c.name; raisedOn = c.raisedOn; liveBy = c.targetMonth ?? null; targetCost = c.naming.mrp ?? null; id = c.id;
   } else {
     const o = item.o; const ss = sourcingStateOf(o); void ss;
@@ -996,7 +999,7 @@ export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; n
   const i = steps.findIndex(s => s.state !== 'done');
   if (i >= 0) steps[i].state = 'now';
   const now = steps[i >= 0 ? i : steps.length - 1];
-  return { steps, now, name, raisedOn, liveBy, targetCost, id };
+  return { steps, now, name, raisedOn, liveBy, targetCost, id, mtmStage };
 }
 
 /* ---------- RTW before sourcing: proto · BOM & tech pack · shortlist ----------------
