@@ -887,7 +887,11 @@ export const changePendingOf = (o: CustomerOrder): 'me' | 'others' | null => {
   return o.changeToldFactoryOn && o.changeToldFactoryOn >= last.at ? null : 'others';
 };
 export const lastRevision = (o: CustomerOrder) => (o.revisions ?? [])[(o.revisions ?? []).length - 1];
+/** the sheet's version: V1 as punched, V2 after the first change, V3 after the second — what the store and the factory both call it */
 export const sheetRev = (o: CustomerOrder) => (o.revisions ?? []).length + 1;
+export const sheetVersion = (o: CustomerOrder) => `V${sheetRev(o)}`;
+/** the version the factory last had in hand — every unissued amendment is one version behind */
+export const factoryVersion = (o: CustomerOrder) => `V${Math.max(1, sheetRev(o) - (o.revisions ?? []).filter(r => r.reprint).length)}`;
 /** an amended sheet the factory has not been re-issued with yet */
 export const needsReprint = (o: CustomerOrder) => (o.revisions ?? []).some(r => r.reprint);
 export const reallocationRisk = (o: CustomerOrder) => { const r = lastRevision(o); return !!r && !!o.planId && r.changes.some(c => REALLOCATING_FIELDS.has(c.field)); };

@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { CustomerOrder, ExtraFabricRequest, OrderTag } from '../domain/types';
-import { changePendingOf, ppQueue, proposeAllocation, factoryLoadOf, agingOf, shippingTable, prepQueue, inwardOf, bespokeQueue, agingReport, needsReprint, sheetRev, fmtDate, fmtRel, fmtTime, daysAgo, iso, TODAY, MTM_OPEN, addDays } from '../domain/engines';
+import { sheetVersion, changePendingOf, ppQueue, proposeAllocation, factoryLoadOf, agingOf, shippingTable, prepQueue, inwardOf, bespokeQueue, agingReport, needsReprint, sheetRev, fmtDate, fmtRel, fmtTime, daysAgo, iso, TODAY, MTM_OPEN, addDays } from '../domain/engines';
 import { MTM_STAGES, PP_FREEZE_HOURS, PLAN_HORIZON_DAYS, AGING_DAYS, ORDER_TAGS, EXTRA_FABRIC_REASONS, EXTRA_FABRIC_PANELS, PANEL_METRES, STORES } from '../domain/reference';
 import { Page, Card, Pill, Button, Note, Tabs, Seg, Empty, Drawer, KV, Section, Field, Input, Select, useExamples, dateInput, fromDateInput, type Tone } from '../ui';
 import { ThreadPanel } from './Thread';
@@ -328,7 +328,7 @@ function FloorTab({ mine, factoryId, onFactory, onOpen }: { mine: boolean; facto
           <td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}</td><td className="text-[12.5px]">{o.styleName} <span style={{ color:'var(--ink-faint)' }}>· {o.consumptionM} m</span></td>
           <td><Pill tone={TAG_TONE[o.tag]}>{o.tag}</Pill></td>
           <td style={{ color: late ? 'var(--risk)' : undefined }}>{fmtDate(o.promisedOn)}{late && <span className="text-[11px]"> · {daysAgo(o.promisedOn)}d late</span>}{(o.promiseRevisions?.length ?? 0) > 0 && <span className="pill warn ml-1">moved</span>}</td>
-          <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>{needsReprint(o) && <Pill tone="risk">amended · rev {sheetRev(o) - 1}</Pill>}</td>
+          <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>{needsReprint(o) && <Pill tone="risk">amended · {sheetVersion(o)}</Pill>}</td>
           <td className="num" style={{ color: d != null && d > AGING_DAYS ? 'var(--risk)' : undefined }}>{d != null ? `${d}d` : '—'}</td>
           <td onClick={e => e.stopPropagation()} className="flex gap-1">
             {mine && o.stage === 'in-transit' && <Button size="sm" onClick={() => scanOrders([o.id], 'in-factory')}>Received</Button>}
@@ -501,7 +501,7 @@ export function PrepareTab({ mine, onOpen }: { mine: boolean; onOpen: (id: strin
           </div>
           <div className="px-4 py-2">
             <div className="label">Order sheets</div>
-            {os.map(o => <div key={o.id} className="kv" style={{ cursor:'pointer' }} onClick={() => onOpen(o.id)}><span className="k"><b className="mono" style={{ color:'var(--ink)' }}>{o.orderNo}</b> · {o.customer} · {o.styleName}{o.bespoke && <Pill tone="info">bespoke · {o.bespoke.code}</Pill>}{(o.revisions ?? []).length > 0 && <Pill tone="warn">changed · print rev {sheetRev(o) - 1}</Pill>}</span><span className="v flex gap-1 items-center justify-end">{o.consumptionM} m{mine && <Button size="sm" variant="ghost" onClick={e => { e.stopPropagation(); scanOrders([o.id], 'in-transit'); }}>scan out</Button>}</span></div>)}
+            {os.map(o => <div key={o.id} className="kv" style={{ cursor:'pointer' }} onClick={() => onOpen(o.id)}><span className="k"><b className="mono" style={{ color:'var(--ink)' }}>{o.orderNo}</b> · {o.customer} · {o.styleName}{o.bespoke && <Pill tone="info">bespoke · {o.bespoke.code}</Pill>}{(o.revisions ?? []).length > 0 && <Pill tone="warn">changed · print {sheetVersion(o)}</Pill>}</span><span className="v flex gap-1 items-center justify-end">{o.consumptionM} m{mine && <Button size="sm" variant="ghost" onClick={e => { e.stopPropagation(); scanOrders([o.id], 'in-transit'); }}>scan out</Button>}</span></div>)}
           </div>
         </div>
       </Card>); })}

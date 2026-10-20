@@ -9,7 +9,7 @@ import type { CustomerOrder, ExtraFabricRequest, ProductionOrder } from '../doma
 import { FabricFinalisationSection, DocsChecklist, SizeGrid } from './RtwGates';
 import { MilestoneGrid } from './Tracker';
 import { fabricStateOf, riskOf, rtwDocsOf, factoryStateOf, fmtMoney } from '../domain/engines';
-import { factoryLoadOf, factoryUnread, needsReprint, sheetRev, fmtDate, fmtRel, daysAgo, iso, TODAY } from '../domain/engines';
+import { factoryLoadOf, factoryUnread, needsReprint, sheetRev, sheetVersion, fmtDate, fmtRel, daysAgo, iso, TODAY } from '../domain/engines';
 import { EXTRA_FABRIC_PANELS, EXTRA_FABRIC_REASONS, PANEL_METRES, AGING_DAYS, MTM_STAGES, STORES } from '../domain/reference';
 import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, Field, Input, Select, useExamples, Seg, Section, KV, type Tone } from '../ui';
 import { RecordTail } from './RecordTail';
@@ -163,7 +163,7 @@ function OrdersTab({ orders, mine, onOpen }: { orders: CustomerOrder[]; mine: bo
           <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{o.customer}<div style={{ color:'var(--ink-faint)' }}>{store(o.storeId)}</div></td>
           <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{o.styleName}<div className="mono text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{f?.code} · {o.consumptionM} m</div></td>
           <td style={{ color: late ? 'var(--risk)' : undefined }}>{fmtDate(o.promisedOn)}{(o.promiseRevisions?.length ?? 0) > 0 && <span className="pill warn ml-1">moved</span>}{late && <div className="text-[11px]">{daysAgo(o.promisedOn)}d late</div>}</td>
-          <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>{needsReprint(o) && <div><Pill tone="risk">rev {sheetRev(o) - 1} — new sheet</Pill></div>}</td>
+          <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>{needsReprint(o) && <div><Pill tone="risk">{sheetVersion(o)} — new sheet</Pill></div>}</td>
           <td className="num" style={{ color: d != null && d > AGING_DAYS ? 'var(--risk)' : undefined }}>{d != null ? `${d}d` : '—'}</td>
           <td onClick={e => e.stopPropagation()}>{mine && (o.stage === 'in-transit' ? <Button size="sm" onClick={() => scanOrders([o.id], 'in-factory')}>Received</Button>
             : o.stage === 'in-factory' ? <Button size="sm" variant="primary" onClick={() => scanOrders([o.id], 'out-factory')}>Out</Button> : null)}</td>
@@ -304,7 +304,7 @@ function OrderPanel({ o, mine }: { o: CustomerOrder; mine: boolean }) {
     </Card>}
     {revs.length > 0 && <Card className="mt-3"><div className="px-4 py-2.5" style={{ borderBottom:'1px solid var(--line-soft)' }}><h3 className="m-0">Every change the store made</h3></div>
       <table className="t compact"><tbody>{[...revs].reverse().map(r => <tr key={r.rev}>
-        <td className="text-[12px]" style={{ whiteSpace:'normal' }}>rev {r.rev} · {fmtRel(r.at)}<div style={{ color:'var(--ink-faint)' }}>{r.by}</div></td>
+        <td className="text-[12px]" style={{ whiteSpace:'normal' }}>V{r.rev + 1} · {fmtRel(r.at)}<div style={{ color:'var(--ink-faint)' }}>{r.by}</div></td>
         <td style={{ whiteSpace:'normal' }}>{r.changes.map((c, i) => <div key={i} className="text-[12.5px]"><b>{c.field}</b> <span style={{ color:'var(--ink-faint)' }}>{c.from}</span> → <span style={{ color:'var(--accent)' }}>{c.to}</span></div>)}
           <div className="text-[11px]" style={{ color:'var(--ink-soft)' }}>“{r.note}”</div></td>
         <td>{r.reprint && <Pill tone="risk">new sheet</Pill>}</td>

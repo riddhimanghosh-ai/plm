@@ -10,7 +10,7 @@ import { useState } from 'react';
 import type React from 'react';
 import { useApp } from '../store';
 import type { CustomerOrder, OrderTag, OrderSpec, OrderMeasurements, PatternFlags } from '../domain/types';
-import { sheetEditMode, sheetRev, needsReprint, reallocationRisk, lastRevision, fmtRel, fmtDate } from '../domain/engines';
+import { sheetEditMode, sheetRev, sheetVersion, factoryVersion, needsReprint, reallocationRisk, lastRevision, fmtRel, fmtDate } from '../domain/engines';
 import { MTM_FITS, ORDER_TAGS, ROLE_LABEL, MEASUREMENTS, PATTERN_FLAGS, SHEET_OPTIONS, defaultSpec, defaultMeasurements, defaultPattern } from '../domain/reference';
 import { Section, Pill, Button, Input, Select, Field, KV, Note } from '../ui';
 
@@ -97,7 +97,7 @@ export function SheetChangePanel({ o, who }: { o: CustomerOrder; who: 'store' | 
   const saveHead = () => { editOrderSheet(o.id, { fabricId: head.fabricId || undefined, fit: head.fit || undefined, tag: head.tag as OrderTag, remarks: head.remarks }, why, who); setHeadOpen(false); setNote(''); };
 
   return (
-    <Section title={`Order sheet · rev ${sheetRev(o) - 1 || 1}`} right={<div className="flex gap-2 items-center">
+    <Section title={`Order sheet · ${sheetVersion(o)}${(o.revisions ?? []).length ? ` · changed ${(o.revisions ?? []).length === 1 ? 'once' : `${(o.revisions ?? []).length} times`}` : ' · as punched'}`} right={<div className="flex gap-2 items-center">
       {needsReprint(o) && <Pill tone="risk">amended · re-issue to factory</Pill>}
       <Pill tone="neutral">as ordered by the customer</Pill>
       <Pill tone={mode === 'free' ? 'good' : mode === 'amend' ? 'warn' : mode === 'remarks' ? 'info' : 'neutral'}>{mode === 'free' ? (canEdit ? 'click a field to correct it' : 'correctable by the unit') : mode === 'amend' ? 'corrections re-issue the sheet' : mode === 'remarks' ? 'allocated — remarks only' : 'closed'}</Pill>
@@ -125,7 +125,7 @@ export function SheetChangePanel({ o, who }: { o: CustomerOrder; who: 'store' | 
         <KV k="Remarks" v={o.remarks || '—'} /></div>
       {!field && changedKeys.size > 0 && <div className="text-[11px] pt-1" style={{ color:'var(--warn)' }}>Outlined fields were corrected in the last revision.</div>}
 
-      {needsReprint(o) && <div className="pt-2"><Note tone="risk">The factory is holding rev {sheetRev(o) - 2 || 1}. Re-issue the amended sheet before they cut to the old one.{who === 'unit' && <> <Button size="sm" variant="primary" onClick={() => reissueSheet([o.id])}>Re-issue to factory</Button></>}</Note></div>}
+      {needsReprint(o) && <div className="pt-2"><Note tone="risk">The factory is holding {factoryVersion(o)}; this is {sheetVersion(o)}. Re-issue the amended sheet before they cut to the old one.{who === 'unit' && <> <Button size="sm" variant="primary" onClick={() => reissueSheet([o.id])}>Re-issue to factory</Button></>}</Note></div>}
       {reallocationRisk(o) && <div className="pt-2"><Note tone="warn">{last!.changes.map(c => c.field).join(' and ')} changed after this was planned to {db.vendors.find(v => v.id === o.factoryId)?.name} — it may belong at a different factory. Pull it back to PP or leave it.</Note></div>}
 
       {canEdit && !headOpen && <div className="pt-3"><Button size="sm" onClick={() => setHeadOpen(true)}>Change fabric, fit block{who === 'unit' ? ', tag' : ''} or remarks</Button> <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{MODE_NOTE[mode]}</span></div>}
@@ -170,7 +170,7 @@ export function SheetHistory({ o }: { o: CustomerOrder }) {
       : <div style={{ overflowX:'auto' }}><table className="t compact">
         <thead><tr><th>When</th><th>Who</th><th>Field</th><th>From</th><th>To</th><th>Why</th></tr></thead>
         <tbody>{revs.map(r => r.changes.map((c, i) => <tr key={`${r.rev}-${i}`}>
-          {i === 0 && <td rowSpan={r.changes.length} style={{ whiteSpace:'nowrap', verticalAlign:'top' }}><span className="mono text-[11px]">rev {r.rev}</span><div className="text-[11.5px]">{fmtDate(r.at)}</div><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{fmtRel(r.at)}{r.reprint ? ' · sheet re-issued' : ''}</div></td>}
+          {i === 0 && <td rowSpan={r.changes.length} style={{ whiteSpace:'nowrap', verticalAlign:'top' }}><span className="mono text-[11px]">V{r.rev + 1}</span><div className="text-[11.5px]">{fmtDate(r.at)}</div><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{fmtRel(r.at)}{r.reprint ? ' · sheet re-issued' : ''}</div></td>}
           {i === 0 && <td rowSpan={r.changes.length} style={{ verticalAlign:'top' }}><b>{r.by}</b><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{ROLE_LABEL[r.role]}</div></td>}
           <td className="font-medium text-[12.5px]">{c.field}</td>
           <td className="text-[12.5px]" style={{ color:'var(--ink-faint)', textDecoration:'line-through' }}>{c.from || '—'}</td>
