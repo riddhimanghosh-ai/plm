@@ -23,17 +23,10 @@ export function Stepper({ steps, compact = false }: { steps: DesignStep[]; compa
 
 /** The header itself: the six dots, then the one thing that happens next. */
 export function FlowHeader({ item }: { item: DesignItem }) {
-  const { db, myRole, demoAll } = useApp();
+  const { db } = useApp();
   const f = designFlowOf(db, item);
-  const mine = f.now.state === 'now' && (f.now.owner === myRole || myRole === 'owner' || demoAll);   // walkthrough is a super admin: every step is open to you
   return <div className="px-1 pb-2">
     <Stepper steps={f.steps} />
-    {f.now.state !== 'done' && <div className="mt-1.5 text-[12.5px] flex gap-2 items-baseline flex-wrap">
-      <span style={{ color:'var(--ink-faint)' }}>Next:</span>
-      <b>{f.now.action ?? f.now.label}</b>
-      <span className={`pill role-${f.now.owner}`}>{ROLE_LABEL[f.now.owner] ?? f.now.owner}</span>
-      <span style={{ color:'var(--ink-faint)' }}>{f.now.note}</span>
-    </div>}
   </div>;
 }
 

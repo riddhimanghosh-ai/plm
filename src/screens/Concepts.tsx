@@ -144,7 +144,6 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
     {/* the whole journey in six dots, over the record itself */}
     <FlowHeader item={{ kind:'concept', c }} />
     <div className="px-1 pb-1">
-      <div className="text-[13px]" style={{ color:'var(--ink)' }}>{c.brief}</div>
       <div className="text-[11.5px] mt-1 flex gap-2 flex-wrap items-center" style={{ color:'var(--ink-faint)' }}>
         <span>{c.raisedBy} · {fmtDate(c.raisedOn)} · {s.ageDays} days ago</span>
         {c.spec && <span>· {c.spec}</span>}
