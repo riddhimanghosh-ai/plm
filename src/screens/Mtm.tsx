@@ -239,8 +239,11 @@ function PlansTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string) => voi
   const [showClosed, setShowClosed] = useState(true);   // closed plans in by default, so the worked examples include a finished one
   const plans = (db.plans ?? []).filter(p => showClosed || !p.closedOn).sort((a, b) => b.createdOn.localeCompare(a.createdOn));
   const name = (id: string) => db.vendors.find(v => v.id === id)?.name ?? id;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
-  const pl = plans.find(p => p.id === openPlan) ?? null;
+  /* a plan can be opened by link (?plan=<id>), e.g. from the outbound load */
+  const [params, setParams] = useSearchParams();
+  const openPlan = params.get('plan');
+  const setOpenPlan = (id: string | null) => { const n = new URLSearchParams(params); id ? n.set('plan', id) : n.delete('plan'); setParams(n, { replace: true }); };
+  const pl = (db.plans ?? []).find(p => p.id === openPlan) ?? null;
   const ordersOf = (ids: string[]) => ids.map(id => (db.customerOrders ?? []).find(o => o.id === id)).filter((o): o is CustomerOrder => !!o);
   /* an open plan and a closed one, when both are showing */
   const ex = useExamples(plans, p => (p.closedOn ? 'closed' : 'open'), { noun:'plans', done: p => !!p.closedOn });

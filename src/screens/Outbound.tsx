@@ -64,14 +64,14 @@ export function OutboundTab({ side, onTab, rtw }: { side: 'factories' | 'stores'
                 {f.fabric.length > 0 && <> · <span style={{ color:'var(--warn)' }}>{f.fabric.length} extra-fabric line{f.fabric.length === 1 ? '' : 's'} · {Math.round(f.fabric.reduce((a, r) => a + r.metres, 0) * 10) / 10} m</span> <button type="button" className="cta" onClick={() => onTab('fabric')}>Cut list →</button></>}
               </td>
             </tr>
-            {f.bundles.map(b => <tr key={b.planId}>
+            {f.bundles.map(b => <tr key={b.planId} className="row" title="Open the plan: every order in this bundle" onClick={() => (window.location.hash = `#/mtm?tab=plans&plan=${b.planId}`)}>
               <td className="mono text-[12.5px]" style={{ paddingLeft: 22 }}>{b.planNo}{b.forcedOver ? <div><Pill tone="risk">{b.forcedOver} past capacity</Pill></div> : null}</td>
               <td className="text-[12px]">{fmtDate(b.createdOn)}<div style={{ color:'var(--ink-faint)' }}>{fmtRel(b.createdOn)}</div></td>
-              <td className="num">{b.pcs}{b.urgent > 0 && <div><Pill tone="risk">{b.urgent} urgent</Pill></div>}</td>
+              <td className="num"><span className="vlink">{b.pcs} orders</span>{b.urgent > 0 && <div><Pill tone="risk">{b.urgent} urgent</Pill></div>}</td>
               <td className="num" style={{ color:'var(--ink-faint)' }} title={b.fabrics === b.pcs ? 'every piece is a different cloth — no two sheets share a roll' : `${b.pcs - b.fabrics} piece(s) share a roll with another`}>{b.fabrics}</td>
               <td className="num mono">{b.metres} m</td>
               <td className="text-[12px]" style={{ color: daysAgo(b.due) > 0 ? 'var(--risk)' : undefined }}>{fmtDate(b.due)}</td>
-              <td><button type="button" className="cta" onClick={() => (window.location.hash = '#/warehouse?tab=prepare')}>Cut &amp; dispatch →</button></td>
+              <td><button type="button" className="cta" onClick={e => { e.stopPropagation(); window.location.hash = `#/mtm?tab=plans&plan=${b.planId}`; }}>View the orders →</button></td>
             </tr>)}
           </Fragment>)}</tbody>
         </table></div>}
