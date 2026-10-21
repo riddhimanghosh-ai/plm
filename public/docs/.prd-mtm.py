@@ -5,7 +5,7 @@ from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 DATE = '20 Oct 2026'
-TITLE = 'BSC PLM — Product Requirements · MTM edition'
+TITLE = 'BSC PLM: Product Requirements, MTM edition'
 SUB = 'Made-to-measure end to end: the design loop, sourcing, the fabric master as Enigma holds it, purchase orders, the store, daily production and the factory floor. Workflows, user flows step by step, data sources, rules, build order.'
 
 # content: list of ('h2', text) | ('p', text) | ('b', 'Bold lead.', 'rest') | ('table', headers, rows) | ('ul', items)
@@ -195,63 +195,160 @@ table(['Area', 'Requirement'], [
  ['Parallel run', 'For every phase the sheet it replaces stays available read-only for one month; a weekly comparison with the owning team before it is switched off.'],
 ])
 
-# ===================================================================== HTML
+# ===================================================================== HTML · devx Doctrine
+import re
+def nd(t):
+    """The doctrine allows no em dashes: a dash between clauses becomes a comma, an empty cell says None."""
+    t=t.strip()
+    if t in ('—', '-'): return 'None'
+    t=re.sub(r'\s+—\s+', ', ', t)
+    t=t.replace('—', ', ')
+    return t
+def split_head(t):
+    """'4. Workflow 1 — Store' -> ('04', 'Workflow 1', 'Store'); '12. Business rules' -> ('12', None, 'Business rules')"""
+    m=re.match(r'(\d+)\.\s+(.*)$', t); num, rest = (m.group(1).zfill(2), m.group(2)) if m else ('', t)
+    m2=re.match(r'(Workflow \d+)\s+—\s+(.*)$', rest)
+    return (num, m2.group(1), m2.group(2)) if m2 else (num, None, rest)
 def esc(t): return H.escape(t)
-def para_html(t):
-    return '<br>'.join(esc(x) for x in t.split('\n'))
-css = """body{max-width:1180px;margin:32px auto;padding:0 24px;font-family:Helvetica,Arial,sans-serif;line-height:1.5;color:#1a1a13;background:#fff}
-h1{font-size:30px;margin:0 0 6px}h2{font-size:20px;margin:36px 0 10px;padding-top:12px;border-top:1px solid #dad2c0}
-p{margin:8px 0}.by{color:#6b6759;font-size:13px}.sub{color:#4a4740;font-size:15px;margin-bottom:18px}
-table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13px}th,td{border:1px solid #dad2c0;padding:7px 9px;vertical-align:top;text-align:left}th{background:#f6f2ea;font-weight:600}
-td:nth-child(1){white-space:nowrap}ul{margin:8px 0 8px 22px}
-nav{font-size:13px;columns:2;margin:14px 0 24px}nav a{display:block;color:#3c4a30;text-decoration:none;padding:2px 0}"""
-out=[f'<!doctype html><html><head><meta charset="utf-8"><title>{esc(TITLE)}</title><style>{css}</style></head><body>']
-out.append(f'<h1>{esc(TITLE)}</h1><p class="by">{DATE} · DevX Labs · for Bombay Shirt Company · v1.0 · <a href="bsc-plm-flow-mtm.html">the flow as a diagram</a> · <a href="bsc-plm-prd-mtm-v1.0.docx">download .docx</a> · <a href="../">open the prototype</a></p><p class="sub">{esc(SUB)}</p>')
-heads=[c[1] for c in C if c[0]=='h2']
-out.append('<nav>'+''.join(f'<a href="#s{i}">{esc(h)}</a>' for i,h in enumerate(heads))+'</nav>')
-hi=-1
+def para_html(t): return '<br>'.join(esc(nd(x)) for x in t.split('\n'))
+
+FONTS='<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />'
+css = """
+:root{--ink:#0A0A0A;--ink-2:#1A1A1A;--muted:#5C6066;--muted-2:#8A8F96;--rule:#E5E5E5;--rule-2:#F0F0F0;--paper:#FFFFFF;--paper-2:#FAFAF8;--paper-3:#F4F4F1;--accent:#1E6FFF;--accent-soft:#E8F0FF;--warn:#C0392B;--ok:#0A7C53;
+--f-display:'Inter Tight',-apple-system,BlinkMacSystemFont,sans-serif;--f-serif:'Source Serif 4',Georgia,serif;--f-mono:'JetBrains Mono','SFMono-Regular',monospace}
+*{box-sizing:border-box}
+html{background:var(--paper)}
+body{margin:0;font-family:var(--f-display);color:var(--ink);background:var(--paper);font-feature-settings:"ss01","cv11","tnum";-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-size:15px;line-height:1.5}
+.page{max-width:960px;margin:0 auto;background:var(--paper);padding:64px 32px 96px}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+.eyebrow b{color:var(--accent);font-weight:500}
+h1{font-family:var(--f-display);font-weight:500;font-size:48px;line-height:1.05;letter-spacing:-.025em;margin:0 0 24px;color:var(--ink)}
+h1 em,h2 em{font-family:var(--f-serif);font-style:italic;font-weight:400;color:var(--accent);letter-spacing:-.01em}
+.lede{font-size:17px;color:var(--ink-2);max-width:720px;margin:0 0 32px}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--ink);border-radius:999px;padding:4px 12px;margin-left:12px;vertical-align:middle;color:var(--ink)}
+.meta{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin:0 0 48px}
+.meta a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--rule)}
+.meta a:hover{color:var(--accent);border-color:var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--ink);margin:0 0 64px}
+.stats > div{padding:16px 24px 8px;border-right:1px solid var(--rule)}
+.stats > div:first-child{padding-left:0}.stats > div:last-child{border-right:0}
+.stats .n{font-size:48px;font-weight:400;letter-spacing:-.035em;line-height:1}
+.stats .l{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+nav.toc{border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:16px 0;margin:0 0 64px;columns:2;column-gap:48px}
+nav.toc a{display:flex;gap:12px;padding:4px 0;color:var(--ink-2);text-decoration:none;font-size:14px;break-inside:avoid}
+nav.toc a span{font-family:var(--f-mono);font-size:11px;color:var(--muted-2);min-width:24px;padding-top:2px}
+nav.toc a:hover{color:var(--accent)}
+section{margin:0 0 64px}
+section > .eyebrow{margin-bottom:8px}
+h2{font-weight:500;font-size:30px;letter-spacing:-.02em;line-height:1.15;margin:0 0 8px}
+.rule-accent{width:64px;height:0;border-top:2px solid var(--accent);margin:0 0 24px}
+p{margin:0 0 16px;color:var(--ink-2);max-width:720px}
+p strong{font-weight:600;color:var(--ink)}
+ul{margin:0 0 16px;padding-left:16px;max-width:720px;color:var(--ink-2)}
+li{margin:0 0 8px}
+table{border-collapse:collapse;width:100%;margin:8px 0 24px;font-size:13px}
+th{font-family:var(--f-mono);font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 12px 8px 0;border-bottom:1px solid var(--ink);vertical-align:bottom}
+td{padding:12px 12px 12px 0;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--ink-2);line-height:1.5}
+td:first-child{font-family:var(--f-mono);font-size:12px;color:var(--muted);white-space:nowrap}
+table.steps td:nth-child(2){font-weight:500;color:var(--ink);min-width:130px}
+table.steps td:nth-child(3){min-width:260px}
+a{color:var(--accent)}
+.foot{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);border-top:1px solid var(--rule);padding-top:16px;margin-top:96px;display:flex;justify-content:space-between}
+@media (max-width:760px){.page{padding:32px 16px 64px;margin:0}.stats{grid-template-columns:repeat(2,1fr)}nav.toc{columns:1}h1{font-size:34px}table{display:block;overflow-x:auto}}
+@media print{html,body{background:#fff}.page{box-shadow:none;margin:0;padding:0}}
+"""
+heads=[split_head(c[1]) for c in C if c[0]=='h2']
+nwf=sum(1 for h in heads if h[1])
+out=[f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BSC PLM · MTM PRD</title>{FONTS}<style>{css}</style></head><body><div class="page">']
+out.append('<p class="eyebrow"><b>Product requirements</b> · Bombay Shirt Company · v1.0<span class="pill">Confidential</span></p>')
+out.append('<h1>BSC PLM, the <em>made-to-measure</em> edition</h1>')
+out.append(f'<p class="lede">{esc(nd(SUB))}</p>')
+out.append(f'<p class="meta">{DATE} · devx Labs · <a href="bsc-plm-flow-mtm.html">View the flow diagram</a> · <a href="bsc-plm-prd-mtm-v1.0.docx">Download the Word file</a> · <a href="../">Open the prototype</a></p>')
+out.append(f'<div class="stats"><div><div class="n">{nwf}</div><div class="l">Workflows</div></div><div><div class="n">6</div><div class="l">Roles</div></div><div><div class="n">5</div><div class="l">States per new fabric</div></div><div><div class="n">1</div><div class="l">Record per order</div></div></div>')
+out.append('<nav class="toc">'+''.join(f'<a href="#s{i}"><span>{h[0]}</span>{esc((h[1]+": " if h[1] else "")+h[2])}</a>' for i,h in enumerate(heads))+'</nav>')
+hi=-1; open_sec=False
 for c in C:
-    if c[0]=='h2': hi+=1; out.append(f'<h2 id="s{hi}">{esc(c[1])}</h2>')
+    if c[0]=='h2':
+        if open_sec: out.append('</section>')
+        hi+=1; num,wf,title=heads[hi]; open_sec=True
+        out.append(f'<section id="s{hi}"><p class="eyebrow"><b>Section {num}</b>{" / "+esc(wf) if wf else ""}</p><h2>{esc(title)}</h2><div class="rule-accent"></div>')
     elif c[0]=='p': out.append(f'<p>{para_html(c[1])}</p>')
-    elif c[0]=='b': out.append(f'<p><strong>{esc(c[1])}</strong> {para_html(c[2])}</p>')
-    elif c[0]=='ul': out.append('<ul>'+''.join(f'<li>{esc(x)}</li>' for x in c[1])+'</ul>')
+    elif c[0]=='b': out.append(f'<p><strong>{esc(nd(c[1]))}</strong> {para_html(c[2])}</p>')
+    elif c[0]=='ul': out.append('<ul>'+''.join(f'<li>{esc(nd(x))}</li>' for x in c[1])+'</ul>')
     elif c[0]=='table':
-        out.append('<table><thead><tr>'+''.join(f'<th>{esc(h)}</th>' for h in c[1])+'</tr></thead><tbody>')
+        cls=' class="steps"' if c[1][0]=='#' else ''
+        out.append(f'<table{cls}><thead><tr>'+''.join(f'<th>{esc(nd(h))}</th>' for h in c[1])+'</tr></thead><tbody>')
         for r in c[2]: out.append('<tr>'+''.join(f'<td>{para_html(x)}</td>' for x in r)+'</tr>')
         out.append('</tbody></table>')
-out.append('</body></html>')
-open(sys.argv[1],'w').write('\n'.join(out))
+if open_sec: out.append('</section>')
+out.append(f'<div class="foot"><span>BSC PLM · MTM PRD</span><span>devx Labs · Confidential</span></div></div></body></html>')
+html_out='\n'.join(out)
+assert '—' not in re.sub(r'<style>.*?</style>','',html_out,flags=re.S), 'em dash left in output'
+open(sys.argv[1],'w').write(html_out)
 
-# ===================================================================== DOCX
+# ===================================================================== DOCX · devx Doctrine
+from docx.shared import RGBColor
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
+INK=RGBColor(0x0A,0x0A,0x0A); INK2=RGBColor(0x1A,0x1A,0x1A); MUTED=RGBColor(0x5C,0x60,0x66); ACCENT=RGBColor(0x1E,0x6F,0xFF)
+def font(run, name, size=None, color=None, bold=None, italic=None):
+    run.font.name=name; rpr=run._element.get_or_add_rPr(); rf=rpr.find(qn('w:rFonts'))
+    if rf is None: rf=OxmlElement('w:rFonts'); rpr.append(rf)
+    for a in ('w:ascii','w:hAnsi','w:cs','w:eastAsia'): rf.set(qn(a), name)
+    if size: run.font.size=Pt(size)
+    if color is not None: run.font.color.rgb=color
+    if bold is not None: run.bold=bold
+    if italic is not None: run.italic=italic
+def borders(el, **sides):
+    pr=el._element.get_or_add_tcPr() if hasattr(el._element,'get_or_add_tcPr') else None
+    b=OxmlElement('w:tcBorders')
+    for side,(sz,col) in sides.items():
+        e=OxmlElement(f'w:{side}'); e.set(qn('w:val'),'single'); e.set(qn('w:sz'),str(sz)); e.set(qn('w:color'),col); b.append(e)
+    for side in ('top','left','bottom','right'):
+        if side not in sides:
+            e=OxmlElement(f'w:{side}'); e.set(qn('w:val'),'nil'); b.append(e)
+    pr.append(b)
+def spacing(par, before=0, after=8):
+    par.paragraph_format.space_before=Pt(before); par.paragraph_format.space_after=Pt(after)
 d=Document()
-st=d.styles['Normal']; st.font.name='Helvetica'; st.font.size=Pt(10)
-for s in d.sections: s.left_margin=s.right_margin=Cm(2); s.top_margin=s.bottom_margin=Cm(2)
-d.add_heading(TITLE, 0)
-d.add_paragraph(f'{DATE} · DevX Labs · for Bombay Shirt Company · v1.0')
-d.add_paragraph(SUB)
-def add_cell(cell, text):
+st=d.styles['Normal']; st.font.name='Inter Tight'; st.font.size=Pt(10); st.font.color.rgb=INK2
+st.element.rPr.rFonts.set(qn('w:eastAsia'),'Inter Tight')
+for s in d.sections: s.left_margin=s.right_margin=Cm(2.2); s.top_margin=s.bottom_margin=Cm(2.2)
+pp=d.add_paragraph(); font(pp.add_run('PRODUCT REQUIREMENTS · BOMBAY SHIRT COMPANY · V1.0 · CONFIDENTIAL'),'JetBrains Mono',7.5,MUTED); spacing(pp,0,12)
+pp=d.add_paragraph(); font(pp.add_run('BSC PLM, the '),'Inter Tight',28,INK,False); font(pp.add_run('made-to-measure'),'Source Serif 4',28,ACCENT,False,True); font(pp.add_run(' edition'),'Inter Tight',28,INK,False); spacing(pp,0,12)
+pp=d.add_paragraph(); font(pp.add_run(nd(SUB)),'Inter Tight',11,INK2); spacing(pp,0,12)
+pp=d.add_paragraph(); font(pp.add_run(f'{DATE.upper()} · DEVX LABS'),'JetBrains Mono',7.5,MUTED); spacing(pp,0,24)
+def add_cell(cell, text, head=False, first=False):
     cell.text=''
-    lines=text.split('\n')
-    cell.paragraphs[0].text=lines[0]
-    for l in lines[1:]: cell.add_paragraph(l)
-    for pp in cell.paragraphs:
-        for r in pp.runs: r.font.size=Pt(8.5)
+    lines=nd(text).split('\n') if text else ['']
+    for k,l in enumerate(lines):
+        par=cell.paragraphs[0] if k==0 else cell.add_paragraph()
+        spacing(par,0,2)
+        if head: font(par.add_run(l.upper()),'JetBrains Mono',6.5,MUTED)
+        elif first: font(par.add_run(l),'JetBrains Mono',7.5,MUTED)
+        else: font(par.add_run(l),'Inter Tight',8.5,INK2)
+    borders(cell, bottom=(8,'0A0A0A') if head else (4,'E5E5E5'))
+hi=-1
 for c in C:
-    if c[0]=='h2': d.add_heading(c[1], 2)
+    if c[0]=='h2':
+        hi+=1; num,wf,title=heads[hi]
+        pp=d.add_paragraph(); font(pp.add_run(f'SECTION {num}'),'JetBrains Mono',7.5,ACCENT)
+        if wf: font(pp.add_run(f' / {wf.upper()}'),'JetBrains Mono',7.5,MUTED)
+        spacing(pp,24,4)
+        pp=d.add_paragraph(); font(pp.add_run(title),'Inter Tight',18,INK,False); spacing(pp,0,10)
     elif c[0]=='p':
-        for l in c[1].split('\n'): d.add_paragraph(l)
+        for l in c[1].split('\n'): pp=d.add_paragraph(); font(pp.add_run(nd(l)),'Inter Tight',10,INK2)
     elif c[0]=='b':
-        pp=d.add_paragraph(); r=pp.add_run(c[1]+' '); r.bold=True; pp.add_run(c[2])
+        pp=d.add_paragraph(); font(pp.add_run(nd(c[1])+' '),'Inter Tight',10,INK,True); font(pp.add_run(nd(c[2])),'Inter Tight',10,INK2)
     elif c[0]=='ul':
-        for x in c[1]: d.add_paragraph(x, style='List Bullet')
+        for x in c[1]: pp=d.add_paragraph(style='List Bullet'); font(pp.add_run(nd(x)),'Inter Tight',10,INK2)
     elif c[0]=='table':
-        t=d.add_table(rows=1, cols=len(c[1])); t.style='Table Grid'
-        for i,h in enumerate(c[1]):
-            add_cell(t.rows[0].cells[i], h)
-            for r in t.rows[0].cells[i].paragraphs[0].runs: r.bold=True
+        t=d.add_table(rows=1, cols=len(c[1]))
+        for i,h in enumerate(c[1]): add_cell(t.rows[0].cells[i], h, head=True)
         for row in c[2]:
             cells=t.add_row().cells
-            for i,x in enumerate(row): add_cell(cells[i], x)
+            for i,x in enumerate(row): add_cell(cells[i], x, first=(i==0))
         d.add_paragraph()
+pp=d.add_paragraph(); font(pp.add_run('BSC PLM · MTM PRD · DEVX LABS · CONFIDENTIAL'),'JetBrains Mono',7,MUTED); spacing(pp,36,0)
 d.save(sys.argv[2])
 print('ok', len(C), 'blocks')
