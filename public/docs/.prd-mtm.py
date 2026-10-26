@@ -27,13 +27,13 @@ b('Conventions.', 'Dates are the record\'s own. Quantities are pieces unless the
 
 # ------------------------------------------------------------------ 2
 h2('2. Users and roles')
-p('Six roles in this edition, one login per team; colleagues in a team appear by name on what they wrote. Each role lands on the first screen it works in. The sidebar lists teams as pills; a team opens to its screens.')
+p('Six roles in this edition, five of them with screens in BSC PLM (store managers stay in RetailOS), one login per team; colleagues in a team appear by name on what they wrote. Each role lands on the first screen it works in. The sidebar lists teams as pills; a team opens to its screens.')
 table(['Role', 'People today', 'Owns in BSC PLM', 'Lands on', 'Reads but does not edit'], [
  ['Design', 'Kunal, Janak', 'Every MTM fabric requirement; Push PO, More time or Reject on the vendor; the designs on a fabric and their push to Enigma; working, final and changed names; price per variant; go live online; pause and resume a fabric; promote to core; the fabric\'s Enigma fields', 'Requirements', 'Sourcing\'s desk, the swatch desk, purchase orders'],
  ['Sourcing', 'Sreekanth, Srikanth', 'One vendor against every ask; extension asks; the mills (Enigma\'s vendor master, Add Vendor, Edit Vendor); purchase orders raised by hand; mill confirmation and remarks; the receiving line; the weekly core stock review; trims and packaging', 'Fabric sourcing', 'Requirements'],
  ['Production (MTM)', 'Vishnu, Swati', 'Allocate pieces to factories, plans, the factory floor, changed sheets, extra fabric, ship-by moves; the Factories screen inputs', 'MTM daily production', 'Store orders'],
  ['Factory merchandiser', 'Abhin M, Bhupendra, the floor at each unit', 'MTM floor: receive, out, request cloth, log the day, read changed sheets', 'My factory', 'The order sheet and job card'],
- ['Store', 'Store managers (34 stores)', 'Bills, customer profiles, order-sheet corrections, returns and credit notes, refund requests', 'Store', 'Fabrics live today'],
+ ['Store', 'Store managers (34 stores)', 'No screen in BSC PLM. Bills, customer profiles, order-sheet corrections, returns and credit notes and refund requests stay in RetailOS, which gains anything additional; the prototype shows these for demonstration only', 'Store', 'Fabrics live today'],
  ['Owner', 'Akshay, Parag', 'Everything, read and write', 'Any', '—'],
 ])
 b('Warehouse people in this edition.', 'Shravani and Yusuf do not have a portal here. Their work appears where it happens: Shravani books rolls on the purchase order\'s receiving line; Yusuf is the handover on the swatch desk. Both return as a role when the warehouse portal is added.')
@@ -60,7 +60,7 @@ b('Freshness.', 'Enigma\'s fabric read is one call of about 3.2 MB with no chang
 
 # ------------------------------------------------------------------ 4
 h2('4. Workflow 1 — Store')
-p('The MTM side of the store page: customers, orders, what I can sell, returns and alterations. Anyone not from that store can read it but not act.')
+p('The MTM side of the store page: customers, orders, what I can sell, returns and alterations. Anyone not from that store can read it but not act. Store managers will not have a screen in BSC PLM. They already work in RetailOS, and anything additional they need is added to RetailOS itself. The flows below are written down so RetailOS and BSC PLM agree on what passes between them; the store screens in the prototype are there only to demonstrate those flows end to end.')
 steps([
  ['1.1', 'Look up the customer · store', '1. Store → Customers: search by name or phone. The card shows home store, visits, spend, store credit with every note, measurements on file by fit profile, usual fabrics, past orders, open cases.\n2. Punch MTM order, measurements pre-filled starts a bill with the last profile loaded.', 'profile and spend from Shopify; orders, cases, credit from BSC PLM', 'none', 'nothing is written until a bill is punched'],
  ['1.2', 'Punch a bill · store', '1. + Punch a bill, pick the customer, + Piece per item.\n2. For each MTM piece: the fabric from "fabrics live today" (only fabrics open for selling, with the metres the store can still reserve), the design on it, the fit profile (a customer keeps several), who took the measurements, quantity. The order sheet opens pre-filled from the last order on that profile.\n3. Above the pieces: Trial shirt first for a new customer (about 25 days) or Urgent (7 to 8 days, ₹600); a comment for the factory; a comment for shipping.\n4. Apply store credit nets off up to the balance. Punch bill shows one bill number and one order number per piece with the promise date.', 'fabric list and metres from Enigma; credit from the ledger', 'only live fabrics can be picked; a sold-out bespoke fabric cannot be picked; credit capped at the balance', 'metres are reserved; the pieces join production\'s queue after the freeze window (workflow 2)'],

@@ -141,7 +141,7 @@ export function Fabrics() {
         const groups: { id: string; label: string; tabs: T[] }[] = [
           { id:'sell', label:'What sells', tabs: [
             { id:'books', label:'Fabric inventory', hint:'every MTM fabric as Enigma lists it — code, name, category, inventory type, saleable, physical, reserved, threshold — filtered by swatch book' },
-            { id:'noncore', label:'Ranges · non-core gaps', hint:'each range against its plan of options' } ] },
+            { id:'noncore', label:'Ranges', hint:'each range against its plan of options' } ] },
           { id:'orders', label:'Purchase orders & supply', tabs: [
             { id:'pos', label:'Purchase orders', count: designSide ? undefined : fpoUnconfirmed, hint:'every fabric PO — raised by Enigma on its own or by a person — and the fabrics that still need one' },
             ...(designSide ? [] : [
@@ -197,23 +197,24 @@ export function Fabrics() {
         <div className="mt-3"><Note>Once a week sourcing asks each mill about every core fabric. Delayed or run out goes to design, who switch the fabric off; back in stock, they switch it on.</Note></div>
       </>}
 
-      {tab === 'noncore' && <>
-        <Card><table className="t">
-          <thead><tr><th>Family</th><th className="num">Plan (from the label)</th><th className="num">Listed</th><th className="num">Healthy</th><th className="num">Slots to source</th></tr></thead>
-          <tbody>{ranges.map(r => <tr key={r.family}><td className="font-medium">{r.family}</td><td className="num">{r.targetOptions}</td><td className="num">{r.listed}</td><td className="num" style={{ color:'var(--good)' }}>{r.healthy}</td><td className="num" style={{ color: r.gap > 0 ? 'var(--risk)' : 'var(--good)' }}>{r.gap > 0 ? r.gap : 'full'}</td></tr>)}</tbody>
-        </table></Card>
-        <div className="flex items-baseline mt-5 mb-2"><h3 className="m-0">Options in the ranges</h3>{exNonCore.strip && <span className="ml-auto">{exNonCore.strip}</span>}</div>
-        <Card><table className="t">
-          <thead><tr><th>Fabric</th><th>Family</th><th>Mill</th><th className="num">Saleable</th><th>Can stores sell it?</th></tr></thead>
-          <tbody>{nonCorePager.pageRows.map(f => { const c = coverageOf(f, lead(f.vendorId)); return <tr key={f.id} className="row" onClick={() => set('open', f.id)}>
-            <td className="font-medium">{f.name}<div className="text-[11px] font-normal mono" style={{ color:'var(--ink-faint)' }}>{f.code}{(f.nameHistory ?? []).length ? <span style={{ fontFamily:'var(--body)' }}> · formerly {f.nameHistory![f.nameHistory!.length - 1].name}</span> : null}</div></td><td className="text-[12.5px]">{f.family}</td><td className="text-[12.5px]">{vendorName(f.vendorId)}{f.international && <span className="pill ml-1">intl</span>}</td>
-            <td className="num">{c.saleable} m</td>
-            <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'normal', minWidth: 170 }}><OfferCell f={f} /></td></tr>; })}</tbody>
-        </table>
-        <Pager page={nonCorePager.page} pageCount={nonCorePager.pageCount} onChange={nonCorePager.setPage} from={nonCorePager.from} to={nonCorePager.to} total={nonCorePager.total} noun="fabrics" />
-        </Card>
-        <div className="mt-3"><Note>Non-core is never re-bought — when a family thins, the slot is refilled with a new fabric.</Note></div>
-      </>}
+      {tab === 'noncore' && (() => { const fam = params.get('family'); const famFabrics = fam ? nonCore.filter(f => f.family === fam) : []; return <>
+        <div className="text-[12.5px] mb-3" style={{ color:'var(--ink-soft)' }}>Each non-core range has a planned number of options; a range below plan has slots to fill with new fabrics. Click a range to see its fabrics.</div>
+        <div className="grid gap-3 mb-4" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(210px, 1fr))' }}>
+          {ranges.map(r => { const pct = Math.min(100, Math.round(r.healthy / Math.max(1, r.targetOptions) * 100)); const on = fam === r.family; return <button key={r.family} type="button" className="card text-left px-4 py-3" onClick={() => set('family', on ? null : r.family)} style={{ cursor:'pointer', outline: on ? '2px solid var(--accent)' : undefined }}>
+            <div className="flex items-baseline justify-between gap-2"><span className="font-semibold">{r.family}</span>{r.gap > 0 ? <Pill tone="warn">{r.gap} to fill</Pill> : <Pill tone="good">full</Pill>}</div>
+            <div className="mono text-[13px] pt-1">{r.healthy} selling · plan {r.targetOptions}</div>
+            <div style={{ height: 4, background:'var(--surface-3)', borderRadius: 2, marginTop: 6 }}><div style={{ width: `${pct}%`, height: 4, borderRadius: 2, background: r.gap > 0 ? 'var(--warn)' : 'var(--good)' }} /></div>
+          </button>; })}
+        </div>
+        {fam && <Card><div className="px-4 py-2.5 flex items-center gap-2" style={{ borderBottom:'1px solid var(--line-soft)' }}><h3 className="m-0">{fam} · {famFabrics.length} fabric{famFabrics.length === 1 ? '' : 's'}</h3><span className="flex-1" /><button type="button" className="vlink text-[12px]" onClick={() => set('family', null)}>close</button></div>
+          <table className="t">
+            <thead><tr><th>Fabric</th><th className="num">Saleable</th><th>Selling</th></tr></thead>
+            <tbody>{famFabrics.map(f => { const c = coverageOf(f, lead(f.vendorId)); return <tr key={f.id} className="row" onClick={() => set('open', f.id)}>
+              <td className="font-medium">{f.name}<div className="text-[11px] font-normal mono" style={{ color:'var(--ink-faint)' }}>{f.code}</div></td>
+              <td className="num">{c.saleable} m</td>
+              <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'normal', minWidth: 170 }}><OfferCell f={f} /></td></tr>; })}</tbody>
+          </table></Card>}
+      </>; })()}
 
       {tab === 'pos' && <FabricPosTab canSource={canSource || canPlan} />}
 
