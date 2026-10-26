@@ -578,8 +578,6 @@ export interface CustomerOrder {
   express?: boolean;                 // urgent: 7–8 days instead of 10–12, ₹600 express charge
   factoryComment?: string | null;    // "styling comment" — reaches the factory with the sheet
   logisticComment?: string | null;   // for the shipping team: "suit · sold together, match the trouser"
-  repunchOf?: string | null;         // 21 Oct 2026: measurements changed after production started; this piece replaces that one
-  repunchedAs?: string | null;       // and that one was cancelled and replaced by this id
   /* MTM production */
   tag: OrderTag;
   planId: string | null;

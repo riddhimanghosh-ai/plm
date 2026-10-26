@@ -867,14 +867,13 @@ export type SheetEdit = 'free' | 'logistics' | 'remarks' | 'amend' | 'closed';
     single-field amend that re-issues the sheet. */
 /* 21 Oct 2026, the production discussion: before production starts the sheet can be edited; once it starts
    (the piece is on a plan) measurements and styling are locked and no change remarks go to the factory, only
-   a logistics remark (ship to the store or to the customer's home). A measurement change after that is a repunch. */
+   a logistics remark (ship to the store or to the customer's home). */
 export const sheetEditMode = (o: CustomerOrder, _who: 'store' | 'unit' = 'unit'): SheetEdit => {
   void _who;
   if (o.stage === 'punched' || o.stage === 'pp') return 'free';
   if (o.stage === 'planned' || o.stage === 'in-transit' || o.stage === 'in-factory') return 'logistics';
   return 'closed';
 };
-export const canRepunch = (o: CustomerOrder) => o.kind === 'MTM' && ['planned', 'in-transit', 'in-factory'].includes(o.stage);
 /** A sheet change nobody has acted on — before allocation it is production's own
     to read; after it, production has to ring the factory that is holding it. */
 /** The factory's own view of the same thing: a piece on my floor whose sheet

@@ -10,13 +10,13 @@ import { useState } from 'react';
 import type React from 'react';
 import { useApp } from '../store';
 import type { CustomerOrder, OrderTag, OrderSpec, OrderMeasurements, PatternFlags } from '../domain/types';
-import { canRepunch, sheetEditMode, sheetRev, sheetVersion, factoryVersion, needsReprint, reallocationRisk, lastRevision, fmtRel, fmtDate } from '../domain/engines';
+import { sheetEditMode, sheetRev, sheetVersion, factoryVersion, needsReprint, reallocationRisk, lastRevision, fmtRel, fmtDate } from '../domain/engines';
 import { MTM_FITS, ORDER_TAGS, ROLE_LABEL, MEASUREMENTS, PATTERN_FLAGS, SHEET_OPTIONS, defaultSpec, defaultMeasurements, defaultPattern } from '../domain/reference';
 import { Section, Pill, Button, Input, Select, Field, KV, Note } from '../ui';
 
 const MODE_NOTE: Record<string, string> = {
   free: 'Production has not started, so the sheet can be corrected.',
-  logistics: 'Production has started. Measurements and styling are locked and no change remarks go to the factory. Only where it ships can change. If the measurements must change, repunch the order.',
+  logistics: 'Production has started. Measurements and styling are locked and no change remarks go to the factory. Only a logistics remark can change.',
   remarks: 'Production has started. Only a logistics remark can change.',
   amend: 'Production has started. Only a logistics remark can change.',
   closed: 'The piece is made. A change now is an alteration or a remake, not a sheet edit.',
@@ -72,11 +72,11 @@ export function SheetEditor({ d, onChange, compact = false }: { d: SheetDraft; o
 /* ---- the panel on an order: what came in with the order, one-field corrections under the rules, history ---- */
 type FieldKey = keyof OrderSpec | keyof OrderMeasurements | keyof PatternFlags;
 export function SheetChangePanel({ o, who }: { o: CustomerOrder; who: 'store' | 'unit' }) {
-  const { db, editOrderSheet, reissueSheet, repunchOrder } = useApp();
+  const { db, editOrderSheet, reissueSheet } = useApp();
   const mode = sheetEditMode(o, who);
   const canEdit = mode === 'free';
   const [ship, setShip] = useState(o.logisticComment ?? '');
-  const [rp, setRp] = useState<string | null>(null);
+
   const [remark, setRemark] = useState('');
   const [field, setField] = useState<FieldKey | null>(null);
   const [val, setVal] = useState<string>('');
@@ -137,18 +137,6 @@ export function SheetChangePanel({ o, who }: { o: CustomerOrder; who: 'store' | 
         <div className="flex-1" style={{ minWidth: 240 }}><Field label="Logistics remark" hint="where it ships, not what is made"><Input value={ship} onChange={e => setShip(e.target.value)} placeholder="ship to the customer's home, not the store" /></Field></div>
         <Button size="sm" variant="primary" disabled={ship.trim() === (o.logisticComment ?? '')} onClick={() => editOrderSheet(o.id, { logisticComment: ship.trim() }, 'Logistics remark', who)}>Save logistics remark</Button>
       </div>}
-      {canRepunch(o) && rp === null && <div className="pt-2"><Button size="sm" onClick={() => setRp('')}>Repunch with new measurements…</Button>
-        {o.stage === 'planned' && <span className="text-[11.5px] pl-2" style={{ color:'var(--ink-faint)' }}>check with production whether the cloth is cut; if not, production can pull it back to PP instead</span>}</div>}
-      {canRepunch(o) && rp !== null && <div className="mt-2 px-3 py-2" style={{ background:'var(--warn-soft)', borderRadius: 6 }}>
-        <div className="text-[12.5px] pb-1">{o.orderNo} is cancelled and a new order {o.orderNo}-R is punched with the same customer, fabric and sheet, for you to correct. {o.stage === 'planned' ? 'The cloth held for this piece is released.' : 'The cloth already cut for this piece stays spent.'}</div>
-        <div className="flex gap-2 items-end flex-wrap">
-          <div className="flex-1" style={{ minWidth: 240 }}><Field label="Why"><Input value={rp} onChange={e => setRp(e.target.value)} placeholder="customer re-measured: chest 42 to 43" /></Field></div>
-          <Button size="sm" variant="primary" disabled={!rp.trim()} onClick={() => { repunchOrder(o.id, rp.trim()); setRp(null); }}>Cancel and repunch</Button>
-          <Button size="sm" variant="ghost" onClick={() => setRp(null)}>Keep the order</Button>
-        </div>
-      </div>}
-      {o.repunchOf && <div className="pt-2"><Note>Repunched from {(db.customerOrders ?? []).find(x => x.id === o.repunchOf)?.orderNo ?? 'an earlier order'}.</Note></div>}
-      {o.repunchedAs && <div className="pt-2"><Note tone="warn">Cancelled and replaced by {(db.customerOrders ?? []).find(x => x.id === o.repunchedAs)?.orderNo ?? 'a new order'}.</Note></div>}
       {/* once production has allocated a factory the sheet is frozen to the store —
           what is left is a remark, which lands on the production unit's changed-sheets list */}
       {mode === 'remarks' && <div className="pt-2 flex gap-2 items-end flex-wrap">

@@ -236,7 +236,6 @@ export interface AppState {
   punchBill(inputs: PunchInput[]): string[];   // one customer, several pieces, one bill — each piece is punched as its own order
   /* MTM production */
   setOrderTag(id: string, tag: OrderTag): void;
-  repunchOrder(id: string, note: string): string | null;   // store: measurements changed after production started; cancel this piece, punch a new one
   routeExtraFabricPo(id: string, step: 'hand' | 'raised' | 'cloth-in', poNo?: string): void;   // bespoke extra fabric: to Shravani for a PO, PO raised, cloth in
   editOrderSheet(id: string, patch: { logisticComment?: string; fabricId?: string; fit?: string; qty?: number; tag?: OrderTag; remarks?: string; spec?: Partial<OrderSpec>; measurements?: Partial<OrderMeasurements>; pattern?: Partial<PatternFlags> }, note: string, who?: 'store' | 'unit'): void;
   /* production's two answers to a changed sheet */
@@ -1446,24 +1445,6 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         db.extraFabric = db.extraFabric ?? [];
         db.extraFabric.unshift({ ...input, id:`xf-${Date.now().toString(36)}`, fabricId: o.fabricId, factoryId: o.factoryId, planId: o.planId ?? null, raisedBy: who(), raisedOn: now(), status:'requested', decidedOn: null });
       }, 'Asked. It is on the production unit\'s queue here — no email, no phone call.');
-    },
-    repunchOrder(id, note) {
-      const o = (get().db.customerOrders ?? []).find(x => x.id === id); if (!o) return null;
-      const nid = `${o.id}-r${Date.now().toString(36).slice(-4)}`;
-      touch(db => {
-        const x = (db.customerOrders ?? []).find(y => y.id === id); if (!x) return;
-        const lead = Math.max(1, Math.round((new Date(x.promisedOn).getTime() - new Date(x.punchedOn).getTime()) / 864e5));
-        const n: typeof x = JSON.parse(JSON.stringify(x));
-        Object.assign(n, { id: nid, orderNo: `${x.orderNo}-R`, stage: 'punched', punchedOn: now(), promisedOn: iso(addDays(TODAY, lead)), planId: null, factoryId: null, scans: [], revisions: [], promiseRevisions: [],
-          repunchOf: x.id, repunchedAs: null, changeSeenOn: null, changeFactorySeenOn: null, changeToldFactoryOn: null, remarks: `Repunched from ${x.orderNo}${note ? `: ${note}` : ''}` });
-        /* the old piece's cloth: cut and gone is spent; still on the shelf is released */
-        const f = db.fabrics.find(y => y.id === x.fabricId);
-        if (f && !MTM_SPENT.includes(x.stage)) f.reservedMetres = Math.max(0, round2(f.reservedMetres - orderMetres(x)));
-        if (f) f.reservedMetres = round2(f.reservedMetres + orderMetres(n));
-        x.stage = 'cancelled'; x.repunchedAs = nid; x.remarks = `${x.remarks ? x.remarks + ' · ' : ''}Replaced by ${n.orderNo}${note ? `: ${note}` : ''}`;
-        db.customerOrders!.unshift(n);
-      }, `Repunched: ${o.orderNo} is cancelled and ${o.orderNo}-R is a new order. Correct its measurements before production picks it up.`);
-      return nid;
     },
     routeExtraFabricPo(id, step, poNo) {
       touch(db => { const r = (db.extraFabric ?? []).find(x => x.id === id); if (!r) return;
