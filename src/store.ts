@@ -136,7 +136,7 @@ export interface AppState {
   confirmFabricPo(id: string, expectedOn: string | null, remark: string): void;
   remarkFabricPo(id: string, expectedOn: string | null, remark: string): void;
   receiveFabricPo(id: string): void;
-  updateFabricPoReceiving(id: string, metres: number, close: boolean): void;   // Enigma's Update Receiving Status: a received quantity, and whether to close the line
+  updateFabricPoReceiving(id: string, metres: number, close: boolean, shrinkPct?: number | null): void;   // washed cloth: the shrinkage is recorded at receiving, once it has been washed   // Enigma's Update Receiving Status: a received quantity, and whether to close the line
   updateCosting(orderId: string, patch: Partial<Costing>): void;
 
   /* everyone */
@@ -147,7 +147,7 @@ export interface AppState {
   attachFiles(kind: AttachmentKind, subjectId: string, label: string, step: string | null, files: File[]): Promise<void>;
   removeAttachment(id: string): void;
   /* concepts — idea to sellable */
-  addConcept(i: { id?: string; name: string; kind: Concept['kind']; brief: string; spec: string | null; baseFabricId: string | null; book?: string | null; targetMonth?: string | null }): string;
+  addConcept(i: { id?: string; name: string; kind: Concept['kind']; brief: string; spec: string | null; baseFabricId: string | null; book?: string | null; targetMonth?: string | null; washed?: boolean }): string;
   conceptChooseFabric(id: string, pick: { fabricId: string } | { name: string; vendorId: string; vendorCode: string; cpm: number; composition: string; widthIn: number; book: string }): void;
   /* the same handoff as RTW, on a concept: sourcing brings mills back, design picks */
   conceptAddFabricOption(id: string, o: Omit<ConceptFabricOption, 'id' | 'selected'>): void;
@@ -835,7 +835,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* ---------- everyone ---------- */
     addConcept(i) {
       const id = i.id ?? `cn-${Date.now().toString(36)}`;
-      touch(db => { db.concepts = db.concepts ?? []; db.concepts.unshift({ id, name: i.name, kind: i.kind, brief: i.brief, raisedBy: who(), raisedOn: now(), spec: i.spec, baseFabricId: i.baseFabricId, book: i.book ?? null, targetMonth: i.targetMonth ?? null, fabricId: null, blockId: null, fabricPo: null, factoryId: null, patSentOn: null, rounds: [], approvalSentOn: null, approvalBy: null,
+      touch(db => { db.concepts = db.concepts ?? []; db.concepts.unshift({ id, name: i.name, kind: i.kind, brief: i.brief, raisedBy: who(), raisedOn: now(), spec: i.spec, baseFabricId: i.baseFabricId, book: i.book ?? null, targetMonth: i.targetMonth ?? null, washed: !!i.washed, fabricId: null, blockId: null, fabricPo: null, factoryId: null, patSentOn: null, rounds: [], approvalSentOn: null, approvalBy: null,
         enigma: { template: null, consumptionBase: null, consumptionBuffer: null, options: [], configuredOn: null, by: null }, naming: { oldName: i.name, newName: null, mrp: null, setOn: null }, liveOn: null }); }, 'Concept logged — with the why, for once.');
       return id;
     },
@@ -899,7 +899,8 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
           const v = db.vendors.find(x => x.id === opt.vendorId);
           f = { id:`fab-${Date.now().toString(36)}`, code:`NO${(v?.name ?? 'XX').slice(0, 2).toUpperCase()}${opt.name.replace(/[^A-Za-z]/g, '').slice(0, 6).toUpperCase().padEnd(6, 'X')}-${1600 + db.fabrics.length}`, name: opt.name, bucket:'NON_CORE', family: /linen/i.test(opt.composition) ? 'Linen' : 'Poplin', vendorId: opt.vendorId, international: v?.kind === 'International mill',
             stockMetres: 0, reservedMetres: 0, thresholdMetres: v?.kind === 'International mill' ? 3 : 7, incomingMetres: 0, millAvailable: null, millStockMetres: null, millReportedAt: null, onHold: true, paused: null, weeklySalesShirts: Array(12).fill(0),
-            vendorCode: opt.vendorCode, composition: opt.composition, widthIn: opt.widthIn, cpm: opt.cpm, mrp: null, swatchBook: opt.book };
+            vendorCode: opt.vendorCode, composition: opt.composition, widthIn: opt.widthIn, cpm: opt.cpm, mrp: null, swatchBook: opt.book,
+            attrs: { washed: !!c.washed, washShrinkagePct: null } };
           db.fabrics.push(f);
         }
         f.onHold = true; f.cpm = f.cpm ?? opt.cpm; c.fabricId = f.id;
@@ -980,6 +981,8 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
           db.fabrics.push(f);
         }
         f.cpm = f.cpm ?? opt.cpm; c.fabricId = f.id; opt.fabricId = f.id;
+        /* washed is said on the requirement; the fabric carries it, and the shrinkage waits for receiving */
+        if (c.washed) f.attrs = { ...(f.attrs ?? {}), washed: true, washShrinkagePct: f.attrs?.washShrinkagePct ?? null };
         opt.chosenBy = who(); opt.chosenOn = now(); opt.rationale = rationale;
         db.fabricPos = db.fabricPos ?? [];
         const poNo = `FPO-${7100 + db.fabricPos.length}`;
@@ -1487,8 +1490,9 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     confirmFabricPo(id, expectedOn, remark) { touch(db => { const p = (db.fabricPos ?? []).find(x => x.id === id); if (!p) return; p.vendorConfirmedOn = now(); p.vendorConfirmedBy = who(); if (expectedOn) p.expectedOn = expectedOn; if (remark) p.remark = remark; }, 'Mill confirmed — the incoming metres are real cover now.'); },
     remarkFabricPo(id, expectedOn, remark) { touch(db => { const p = (db.fabricPos ?? []).find(x => x.id === id); if (!p) return; if (expectedOn) p.expectedOn = expectedOn; p.remark = remark; }, expectedOn ? 'New date and remark saved.' : 'Remark saved.'); },
     receiveFabricPo(id) { touch(db => { const p = (db.fabricPos ?? []).find(x => x.id === id); if (!p || p.receivedOn) return; p.receivedOn = now(); const fb = db.fabrics.find(x => x.id === p.fabricId); grn(db, { kind:'fabric', ref: p.poNo, refLabel: fb?.name ?? p.fabricId, vendorId: p.vendorId, qty: p.metres, unit:'m', rejected: 0, remarks: p.remark }); const f = db.fabrics.find(x => x.id === p.fabricId); if (f) { f.stockMetres = Math.round((f.stockMetres + p.metres) * 100) / 100; f.incomingMetres = Math.max(0, Math.round(((f.incomingMetres ?? 0) - p.metres) * 100) / 100); } }, 'GRN done — the metres moved from incoming to the shelf.'); },
-    updateFabricPoReceiving(id, metres, close) {
+    updateFabricPoReceiving(id, metres, close, shrinkPct) {
       touch(db => { const p = (db.fabricPos ?? []).find(x => x.id === id); if (!p || p.closedOn) return;
+        { const fx = db.fabrics.find(x => x.id === p.fabricId); if (fx?.attrs?.washed && shrinkPct != null) fx.attrs.washShrinkagePct = shrinkPct; }
         const m = Math.max(0, Math.min(metres, p.metres - (p.receivedMetres ?? 0)));
         const f = db.fabrics.find(x => x.id === p.fabricId);
         if (m > 0) { p.receivedMetres = Math.round(((p.receivedMetres ?? 0) + m) * 100) / 100; p.receipts = [...(p.receipts ?? []), { on: now(), metres: m, by: who() }];
@@ -1573,7 +1577,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 117,
+  version: 119,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1585,7 +1589,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 117 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 119 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

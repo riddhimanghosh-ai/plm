@@ -1372,6 +1372,12 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
 { const c = concepts.find(x => x.id === 'cn-3')!; const q = (c.fabricOptions ?? [])[0]; if (q) { q.holdUntil = iso(addDays(TODAY, 2)); q.extensionAsked = { by:'Kunal', on: iso(addDays(TODAY, -1)) }; }
   c.optionsExtension = { askedOn: iso(addDays(TODAY, -1)), by:'Kunal', note:'need the shade matched against the approved sample before we commit — a week more', resolvedOn: null }; }
 
+/* one new fabric marked washed on its requirement, with its PO still open: the shrinkage is entered at receiving */
+/* two requirements marked washed: one waiting for its PO (Linen Lyocell Stripes), and any with a PO still open */
+{ const w = concepts.find(x => x.name === 'Linen Lyocell Stripes - Grey'); if (w) w.washed = true;
+  const c = concepts.find(x => x.kind === 'new-fabric' && x.fabricId && fabricPos.some(p => p.fabricId === x.fabricId && !p.closedOn && !p.receivedOn));
+  if (c) { c.washed = true; const f = fabrics.find(x => x.id === c.fabricId); if (f) f.attrs = { ...(f.attrs ?? {}), washed: true, washShrinkagePct: null }; } }
+
 export const SEED: Db = {
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,
   ranges: RANGES.map(x => ({ family: x.family, targetOptions: x.target })),

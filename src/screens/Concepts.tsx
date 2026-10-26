@@ -93,7 +93,7 @@ export function NewConcept({ onDone }: { onDone: (id: string) => void }) {
   const [id] = useState(() => `cn-${Date.now().toString(36)}`);   // minted now so files can be attached before the record is saved
   const [kind, setKind] = useState<Concept['kind']>('construction');
   const [book, setBook] = useState(MTM_SWATCH_BOOKS[0]); const [target, setTarget] = useState('Nov 26');
-  const [name, setName] = useState(''); const [brief, setBrief] = useState('');
+  const [name, setName] = useState(''); const [brief, setBrief] = useState(''); const [washed, setWashed] = useState(false);
   const [collar, setCollar] = useState(COLLAR_STYLES[3]); const [placket, setPlacket] = useState(PLACKETS[0]); const [cuff, setCuff] = useState(CUFF_STYLES[0]);
   const inventory = db.fabrics.filter(f => f.bucket !== 'BESPOKE' && !f.paused && !f.onHold && f.stockMetres > 20);
   const [base, setBase] = useState(inventory[0]?.id ?? '');
@@ -103,6 +103,7 @@ export function NewConcept({ onDone }: { onDone: (id: string) => void }) {
       <Field label="Kind"><Select value={kind} onChange={v => setKind(v as Concept['kind'])} options={[{ value:'construction', label:'Construction variant on an existing fabric' }, { value:'new-fabric', label:'New fabric or shade' }]} /></Field>
       <Field label="Working name"><Input value={name} onChange={e => setName(e.target.value)} placeholder={kind === 'new-fabric' ? 'Linen Lyocell Stripes - Sage' : 'Cutaway collar on Cotton Poplin'} /></Field>
       <div style={{ gridColumn:'1 / -1' }}><Field label="Why — the sentence the meeting never writes down" hint="stores, trainers and whoever picks this up in six months read this first"><Input value={brief} onChange={e => setBrief(e.target.value)} placeholder="Three stores asked for a softer collar on the Giza poplin; the Cutaway sells 2:1 on bespoke" /></Field></div>
+      {kind === 'new-fabric' && <Field label="Will this fabric be washed?" hint="the shrinkage is recorded at receiving, once the cloth has been washed"><Select value={washed ? 'yes' : 'no'} onChange={v => setWashed(v === 'yes')} options={[{ value:'no', label:'No' }, { value:'yes', label:'Yes, washed before cutting' }]} /></Field>}
       {!more && <div style={{ gridColumn:'1 / -1' }}><button type="button" className="vlink text-[12px]" onClick={() => setMore(true)}>more · book, wanted-by{kind === 'construction' ? ', construction' : ''}</button></div>}
       {more && <>
       <Field label="Swatch book / range" hint="which book it fills a gap in"><Select value={book} onChange={setBook} options={[...MTM_SWATCH_BOOKS, 'Leggiuno Bespoke'].map(x => ({ value:x, label:x }))} /></Field>
@@ -118,7 +119,7 @@ export function NewConcept({ onDone }: { onDone: (id: string) => void }) {
       </>}
     </div>
     <div className="pt-3"><div className="label">Files — sketch, reference image, PAT or CAD if it already exists</div><Files kind="concept" subjectId={id} labels={['Sketch / reference image', 'PAT file', 'CAD / pattern', 'Fabric swatch image', 'Tech pack']} editable compact emptyText="Nothing attached yet. A sketch or a reference photo is what the meeting actually looked at." /></div>
-    <div className="pt-3"><Button variant="primary" disabled={!name.trim() || !brief.trim()} onClick={() => onDone(addConcept({ id, name: name.trim(), kind, brief: brief.trim(), spec: kind === 'construction' ? `${collar} · ${placket} · ${cuff}` : null, baseFabricId: kind === 'construction' ? base : null, book, targetMonth: target }))}>Log it</Button></div>
+    <div className="pt-3"><Button variant="primary" disabled={!name.trim() || !brief.trim()} onClick={() => onDone(addConcept({ id, name: name.trim(), kind, brief: brief.trim(), washed: kind === 'new-fabric' && washed, spec: kind === 'construction' ? `${collar} · ${placket} · ${cuff}` : null, baseFabricId: kind === 'construction' ? base : null, book, targetMonth: target }))}>Log it</Button></div>
     {kind === 'new-fabric' && <div className="pt-2"><Note>Production samples on the vendor swatch first; bulk fabric is bought only after the shipment sample is approved.</Note></div>}
   </Section>;
 }
@@ -159,6 +160,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
         'request': <>
     <Section title="1 · Requirement requested" defaultOpen={nowKey === 'request'} right={<Pill tone="good">sent {fmtDate(c.raisedOn)}</Pill>}>
       <KV k="Why" v={c.brief} note={`${c.raisedBy} · ${fmtDate(c.raisedOn)}`} />
+      {c.kind === 'new-fabric' && <KV k="Washed" v={c.washed ? 'Yes, washed before cutting' : 'No'} note={c.washed ? 'the shrinkage % is recorded at receiving, once the cloth has been washed' : undefined} />}
       {c.spec && <KV k="What changes" v={c.spec} note="the construction a customer will be able to pick" />}
       <KV k="Kind" v={c.kind === 'new-fabric' ? 'New fabric or shade' : 'Construction variant'} note={c.baseFabricId ? `sampled on ${db.fabrics.find(f => f.id === c.baseFabricId)?.name ?? 'an inventory fabric'}` : 'sampled on the vendor swatch'} />
       <KV k="Where it goes" v={c.book ?? '—'} note={c.targetMonth ? `wanted on the floor by ${c.targetMonth}` : undefined} />

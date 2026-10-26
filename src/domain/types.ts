@@ -741,6 +741,7 @@ export interface Concept {
   spec: string | null;           // construction variant: 'Cutaway collar · French placket' — what changes
   book?: string | null;          // which swatch book / range it fills a gap in
   targetMonth?: string | null;   // when design wants it on the floor
+  washed?: boolean;              // design says on the requirement whether the cloth is washed; the shrinkage is only known after receiving
   baseFabricId: string | null;   // construction variant is sampled on a fabric already in inventory
   fabricOptions?: ConceptFabricOption[];   // the mills sourcing brought back, for design to choose between
   optionsSentOn?: string | null;           // when sourcing handed those options to design
