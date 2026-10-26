@@ -22,6 +22,7 @@ import { VendorLink } from './Vendors';
 import { FlowHeader, isMyTurn } from './Flow';
 import { ActsBy, OwnerPill } from './Who';
 import { DesignsOnFabric } from './Designs';
+import { StickerSheet } from './Swatches';
 import { VendorEditor } from './OptionRequests';
 import { MTM_ONLY } from '../domain/edition';
 
@@ -242,6 +243,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
       <Section title={`Designs on this fabric · ${(c.designs ?? []).length}`} owner={<OwnerPill owner="Design" />} right={<Pill tone={(c.designs ?? []).length ? 'good' : 'neutral'}>{(c.designs ?? []).length ? `${(c.designs ?? []).length} product code${(c.designs ?? []).length === 1 ? '' : 's'}` : 'none yet'}</Pill>}>
         <DesignsOnFabric c={c} canEdit={sourcing || design} />
       </Section>
+      <StickerSheet c={c} canMark={false} title={(c.designs ?? []).length ? "Design stickers" : "Design stickers · fabric only until designs are added"} />
       <Section title="Configured in Enigma" owner={<OwnerPill owner="Design" />} right={<Pill tone={c.enigma.configuredOn ? 'good' : 'neutral'}>{c.enigma.configuredOn ? `done ${fmtDate(c.enigma.configuredOn)}` : 'pending'}</Pill>}>
         {c.enigma.configuredOn ? <>
           <KV k="Template" v={c.enigma.template ?? ''} />

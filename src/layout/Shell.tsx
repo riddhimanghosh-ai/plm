@@ -56,6 +56,33 @@ export const homeFor = (role: RoleId) => NAV.find(n => n.roles.includes(role))?.
 /* Walkthrough mode opens every screen, which makes it easy to forget whose
    desk you are standing at. One strip at the top of a screen that is not your
    team's says so, and offers the switch. */
+/** Where you are: team / screen / record, and the screen you came from when it is somewhere else. */
+const PREV_KEY = 'bsc-prev-screen';
+function Crumbs() {
+  const { db } = useApp();
+  const loc = useLocation();
+  const navPath = loc.pathname.startsWith('/fabric/') ? '/fabrics' : loc.pathname;
+  const entry = NAV.filter(n => n.path !== '/' && navPath.startsWith(n.path)).sort((a, b) => b.path.length - a.path.length)[0];
+  const fabric = loc.pathname.startsWith('/fabric/') ? db.fabrics.find(f => f.id === loc.pathname.split('/')[2]) : null;
+  const [from, setFrom] = useState<{ path: string; label: string } | null>(null);
+  useEffect(() => {
+    let prev: { path: string; label: string } | null = null;
+    try { prev = JSON.parse(sessionStorage.getItem(PREV_KEY) ?? 'null'); } catch { /* storage off */ }
+    const me = NAV.filter(n => n.path !== '/' && navPath.startsWith(n.path)).sort((a, b) => b.path.length - a.path.length)[0];
+    setFrom(prev && me && prev.label !== me.label ? prev : null);
+    /* remember this screen for the next page, but only list screens, not record pages */
+    if (me && !loc.pathname.startsWith('/fabric/')) try { sessionStorage.setItem(PREV_KEY, JSON.stringify({ path: `#${loc.pathname}${loc.search}`, label: me.label })); } catch { /* storage off */ }
+  }, [loc.pathname]);   // eslint-disable-line react-hooks/exhaustive-deps
+  if (!entry) return null;
+  const sep = <span style={{ color:'var(--line)' }}>/</span>;
+  return <div className="crumbs mb-2 flex items-center gap-2 flex-wrap">
+    <span>{entry.group}</span>{sep}
+    {fabric ? <NavLink to={entry.path} className="crumb-link">{entry.label}</NavLink> : <span className="crumb-here">{entry.label}</span>}
+    {fabric && <>{sep}<span className="crumb-here">{fabric.name}</span></>}
+    {fabric && from && <span className="crumb-from">· opened from <a href={from.path} className="crumb-link">{from.label}</a></span>}
+  </div>;
+}
+
 function ScreenOwner() {
   const { myRole, demoAll } = useApp();
   const loc = useLocation();
@@ -80,7 +107,9 @@ export function Shell() {
   const allowed = loc.pathname === '/' || !NAV.some(n => loc.pathname.startsWith(n.path)) || allowedItems.some(n => loc.pathname.startsWith(n.path));
   const me = PEOPLE.find(p => p.id === personId)!;
   /* the sidebar's sections, in the order of the flow, with the one you are in marked */
-  const here = items.find(n => loc.pathname.startsWith(n.path))?.group;
+  /* a record page sits under the screen that lists it: a fabric's page is part of the MTM fabric master */
+  const navPath = loc.pathname.startsWith('/fabric/') ? '/fabrics' : loc.pathname;
+  const here = items.find(n => navPath.startsWith(n.path))?.group;
   const GROUP_ROLE: Record<string, string> = { Design:'design', Sourcing:'sourcing', Planning:'planning', Production:'production', Merchandiser:'merchandiser', Warehouse:'warehouse', Store:'store', Finance:'finance', Owner:'owner', Company:'owner' };
   const groups = useMemo(() => {
     const out: { name: string; items: typeof items; hasActive: boolean }[] = [];
@@ -114,7 +143,7 @@ export function Shell() {
               <span className="nav-count">{g.items.length}</span>
               <span className="nav-chev" aria-hidden>▾</span>
             </button>
-            {on && <div className="nav-rail">{g.items.map(n => <NavLink key={n.path} to={n.path} end={n.path === '/'} className={({ isActive }) => `nav-item${isActive ? ' on' : ''}`} title={n.hint}>
+            {on && <div className="nav-rail">{g.items.map(n => <NavLink key={n.path} to={n.path} end={n.path === '/'} className={({ isActive }) => `nav-item${isActive || (n.path !== '/' && navPath.startsWith(n.path) && navPath !== loc.pathname) ? ' on' : ''}`} title={n.hint}>
               <span className="nav-item-label">{n.label}</span><span className="nav-hint">{n.hint}</span>
             </NavLink>)}</div>}
           </div>; })}
@@ -178,7 +207,7 @@ export function Shell() {
       </aside>
 
       {/* a screen this role does not work in is not reachable, even by URL — it lands on the role's own first screen */}
-      <main className="px-7 py-6 max-w-[1280px] w-full"><MentionBar /><ScreenOwner /> {allowed ? <Outlet /> : <Navigate to={homeFor(role)} replace />}</main>
+      <main className="px-7 py-6 max-w-[1280px] w-full"><MentionBar /><Crumbs /><ScreenOwner /> {allowed ? <Outlet /> : <Navigate to={homeFor(role)} replace />}</main>
       <VendorDrawer />
       <CommandSearch />
       <Toasts />
