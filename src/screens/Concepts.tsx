@@ -238,12 +238,6 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
         <div className="py-1 text-[12.5px]" style={{ color: st.state === 'done' ? 'var(--good)' : 'var(--ink-soft)' }}>{st.note}</div>
         {c.fabricPo && st.state !== 'done' && <Note>This line turns green the day the warehouse books the metres in.</Note>}
         <div className="pt-2" />
-      {/* ── design setup runs in parallel with the swatches: preset + category +
-          fabric code = the DESIGN CODE Shopify sells. The name starts temporary. ── */}
-      <Section title={`Designs on this fabric · ${(c.designs ?? []).length}`} owner={<OwnerPill owner="Design" />} right={<Pill tone={(c.designs ?? []).length ? 'good' : 'neutral'}>{(c.designs ?? []).length ? `${(c.designs ?? []).length} product code${(c.designs ?? []).length === 1 ? '' : 's'}` : 'none yet'}</Pill>}>
-        <DesignsOnFabric c={c} canEdit={sourcing || design} />
-      </Section>
-      <StickerSheet c={c} canMark={false} title={(c.designs ?? []).length ? "Design stickers" : "Design stickers · fabric only until designs are added"} />
       <Section title="Configured in Enigma" owner={<OwnerPill owner="Design" />} right={<Pill tone={c.enigma.configuredOn ? 'good' : 'neutral'}>{c.enigma.configuredOn ? `done ${fmtDate(c.enigma.configuredOn)}` : 'pending'}</Pill>}>
         {c.enigma.configuredOn ? <>
           <KV k="Template" v={c.enigma.template ?? ''} />
@@ -312,6 +306,13 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
       };
       /* the five stages in sequence — the current one opens, the rest sit folded in order */
       return <>{flow.steps.map(x => <div key={x.key}>{bodies[x.key]}</div>)}</>; })()}
+
+    {/* designs (design codes) can be added at any point, not only once the cloth is in — so they sit outside the stages, always open */}
+    <Section title={`Designs & stickers · ${(c.designs ?? []).length}`} defaultOpen owner={<OwnerPill owner="Design" />} right={<Pill tone={(c.designs ?? []).length ? 'good' : 'neutral'}>{(c.designs ?? []).length ? `${(c.designs ?? []).length} design code${(c.designs ?? []).length === 1 ? '' : 's'}` : 'none yet'}</Pill>}>
+      <div className="text-[12px] pb-1" style={{ color:'var(--ink-faint)' }}>Add a design code at any stage. Each design gets its own product code and a sticker label; the sticker carries the fabric code once the fabric is in the master.</div>
+      <DesignsOnFabric c={c} canEdit={sourcing || design} />
+      <div className="pt-3"><StickerSheet c={c} canMark={false} title={(c.designs ?? []).length ? 'Stickers' : 'Stickers · fabric only until a design is added'} /></div>
+    </Section>
 
     <RecordTail kind="concept" subjectId={c.id} labels={FILE_LABELS.concept} editable={design || prod} steps={['General', 'Fabric', 'PP sample', 'Shipment sample', 'Approval', 'Enigma']} />
   </>;
