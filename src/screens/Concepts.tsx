@@ -8,7 +8,7 @@ import { useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { Concept, ConceptRound, SampleArea } from '../domain/types';
-import { conceptOf, designFlowOf, type DesignStepKey, fmtDate, fmtMoney, daysAgo, TODAY, addDays, iso, type ConceptStage } from '../domain/engines';
+import { conceptOf, conceptRounds, designFlowOf, type DesignStepKey, fmtDate, fmtMoney, daysAgo, TODAY, addDays, iso, type ConceptStage } from '../domain/engines';
 import { SAMPLE_AREAS, COLLAR_STYLES, PLACKETS, CUFF_STYLES, ROLE_LABEL, MTM_SWATCH_BOOKS, PEOPLE, MTM_ACTIVE_TARGET } from '../domain/reference';
 import type { RoleId } from '../domain/types';
 import { filesOf } from './Files';
@@ -138,6 +138,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
   const [tpl, setTpl] = useState(c.enigma.template ?? 'Shirt · standard'); const [base, setBase] = useState(String(c.enigma.consumptionBase ?? 1.6)); const [buf, setBuf] = useState(String(c.enigma.consumptionBuffer ?? 0.15)); const [opts, setOpts] = useState((c.enigma.options.length ? c.enigma.options : (c.spec ? c.spec.split(' · ') : [])).join(', '));
   const [newName, setNewName] = useState(c.naming.newName ?? ''); const [mrp, setMrp] = useState(String(c.naming.mrp ?? (s.fabric?.mrp ?? '')));
   const [apprText, setApprText] = useState(`${c.name} cleared the shipment sample.`);
+  const [sampleDetail, setSampleDetail] = useState(false);
   const [blurb, setBlurb] = useState(c.marketing?.blurb ?? ''); const [channels, setChannels] = useState<string[]>(c.marketing?.channels ?? ['Stores', 'Website']);
   const hasPat = filesOf(db.attachments, 'concept', c.id, undefined, ['PAT file', 'CAD / pattern']).length > 0;
 
@@ -165,7 +166,10 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
       <KV k="Kind" v={c.kind === 'new-fabric' ? 'New fabric or shade' : 'Construction variant'} note={c.baseFabricId ? `sampled on ${db.fabrics.find(f => f.id === c.baseFabricId)?.name ?? 'an inventory fabric'}` : 'sampled on the vendor swatch'} />
       <KV k="Where it goes" v={c.book ?? '—'} note={c.targetMonth ? `wanted on the floor by ${c.targetMonth}` : undefined} />
     </Section>
-    <Section title="Samples · optional" look="fold" pending={false} ownerRole={null} right={<Pill tone={s.ship.state === 'approved' ? 'good' : s.pp.state === 'with production unit' || s.ship.state === 'with production unit' ? 'warn' : 'neutral'}>{s.ship.state === 'approved' ? 'approved' : !c.patSentOn ? 'not started' : s.pp.state !== 'approved' ? `PP · ${s.pp.state}` : `shipment · ${s.ship.state}`}</Pill>}>
+    <Section title="Samples · optional" pending={false} ownerRole={null} right={<Pill tone={s.ship.state === 'approved' ? 'good' : s.pp.state === 'with production unit' || s.ship.state === 'with production unit' ? 'warn' : 'neutral'}>{c.approvalSentOn ? 'approved & posted' : s.ship.state === 'approved' ? 'approved' : !c.patSentOn ? 'not started' : s.pp.state !== 'approved' ? `PP · ${s.pp.state}` : `shipment · ${s.ship.state}`}</Pill>}>
+      <SamplesChecklist c={c} design={design} prod={prod} factory={factory} setFactory={setFactory} factories={factories} hasPat={hasPat} />
+      <div className="pt-2"><button type="button" className="vlink text-[12px]" onClick={() => setSampleDetail(v => !v)}>{sampleDetail ? 'Hide rounds, comments and files' : 'Rounds, comments by area and files'}</button></div>
+      {sampleDetail && <div className="pt-2">
     <Section title="Sample & PAT file" owner={<OwnerPill owner="Production" />} right={<Pill tone={c.patSentOn ? 'good' : 'neutral'}>{c.patSentOn ? `sent ${fmtDate(c.patSentOn)}` : 'not sent'}</Pill>}>
       {c.patSentOn && <KV k="With" v={<VendorLink id={c.factoryId!} />} note={`${daysAgo(c.patSentOn)} days ago — a real-world handoff, now on the record`} />}
       <div className="label pt-1">The files that went with it</div>
@@ -180,6 +184,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
         : s.ship.state === 'approved' && prod ? <div className="flex gap-2 items-end"><div className="flex-1"><Field label="What to tell everyone"><Input value={apprText} onChange={e => setApprText(e.target.value)} /></Field></div><Button size="sm" variant="primary" onClick={() => conceptSendApproval(c.id, apprText)}>Post approval</Button></div>
         : <><div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Once the shipment sample clears, one post here replaces the blanket email.</div>{s.ship.state === 'approved' && !prod && <Who r="Production" does="posts the approval" />}</>}
     </Section>
+      </div>}
     </Section>
         </>,
         'sampling': null,
@@ -456,5 +461,51 @@ export function ConceptOptions({ c, sourcing, design }: { c: Concept; sourcing: 
       <div className="flex-1" />
       <Button size="sm" onClick={() => conceptUnchooseFabric(c.id)}>Unchoose</Button>
     </div>}
+  </div>;
+}
+
+/** The sampling steps as one checklist: each row is ticked with one click, with a remark when needed.
+    A send-back needs the remark; every remark lands in the record's conversation under its step. */
+function SamplesChecklist({ c, design, prod, factory, setFactory, factories, hasPat }: { c: Concept; design: boolean; prod: boolean; factory: string; setFactory: (v: string) => void; factories: { id: string; name: string }[]; hasPat: boolean }) {
+  const { conceptSendPat, conceptSubmitSample, conceptReviewSample, conceptSendApproval, postComment } = useApp();
+  const pp = conceptRounds(c, 'pp'); const ship = conceptRounds(c, 'shipment');
+  const [note, setNote] = useState<Record<string, string>>({});
+  const remark = (k: string) => (note[k] ?? '').trim();
+  const say = (k: string, step: string) => { if (remark(k)) postComment('concept', c.id, remark(k), step); setNote(n => ({ ...n, [k]: '' })); };
+  type Row = { key: string; label: string; done: boolean; when: string | null; status: string; step: string; actions: React.ReactNode | null };
+  const sampleRow = (key: 'pp' | 'shipment', label: string, r: ReturnType<typeof conceptRounds>, ready: boolean, step: string): Row => {
+    const n = r.rounds.length;
+    const actions = !ready ? null
+      : r.state === 'not started' || r.state === 'resubmit' ? (prod ? <Button size="sm" onClick={() => { conceptSubmitSample(c.id, key); say(key, step); }}>{r.state === 'resubmit' ? `Round ${n + 1} in` : 'Sample in'}</Button> : null)
+      : r.state === 'with production unit' ? (design ? <>
+          <Button size="sm" variant="primary" onClick={() => { conceptReviewSample(c.id, r.last!.round, remark(key) ? [{ area: 'Other', text: remark(key), major: false }] : [], 'approved'); say(key, step); }}>Approve</Button>
+          <Button size="sm" variant="ghost" disabled={!remark(key)} title={remark(key) ? '' : 'write what has to change first'} onClick={() => { conceptReviewSample(c.id, r.last!.round, [{ area: 'Other', text: remark(key), major: true }], 'resubmit'); say(key, step); }}>Send back</Button></> : null)
+      : null;
+    return { key, label, done: r.state === 'approved', when: r.approvedOn, step,
+      status: r.state === 'approved' ? `approved${n > 1 ? ` in round ${n}` : ''}` : r.state === 'with production unit' ? `round ${n} with design to review` : r.state === 'resubmit' ? `sent back · round ${n + 1} due` : ready ? 'not started' : 'after the step above',
+      actions };
+  };
+  const rows: Row[] = [
+    { key: 'pat', label: 'Sample & PAT file handed to a factory', done: !!c.patSentOn, when: c.patSentOn, step: 'PP sample',
+      status: c.patSentOn ? `with ${factories.find(f => f.id === c.factoryId)?.name ?? 'the factory'}` : hasPat ? 'PAT file attached' : 'PAT file not attached yet',
+      actions: !c.patSentOn && prod ? <><Select value={factory} onChange={setFactory} options={factories.map(f => ({ value: f.id, label: f.name }))} style={{ width: 150 }} /><Button size="sm" onClick={() => { conceptSendPat(c.id, factory); say('pat', 'PP sample'); }}>Mark handed over</Button></> : null },
+    sampleRow('pp', 'PP sample approved', pp, !!c.patSentOn, 'PP sample'),
+    sampleRow('shipment', 'Shipment sample approved', ship, pp.state === 'approved', 'Shipment sample'),
+    { key: 'post', label: 'Approval posted to every department', done: !!c.approvalSentOn, when: c.approvalSentOn, step: 'Approval',
+      status: c.approvalSentOn ? `posted by ${c.approvalBy ?? ''}` : ship.state === 'approved' ? 'ready to post' : 'after the shipment sample',
+      actions: !c.approvalSentOn && ship.state === 'approved' && prod ? <Button size="sm" variant="primary" onClick={() => { conceptSendApproval(c.id, remark('post') || `${c.name} cleared the shipment sample.`); setNote(n => ({ ...n, post: '' })); }}>Post approval</Button> : null },
+  ];
+  return <div className="checklist">
+    {rows.map(r => <div key={r.key} className={`cl-row${r.done ? ' done' : ''}`}>
+      <span className="cl-box" aria-hidden>{r.done ? '✓' : ''}</span>
+      <div className="cl-main">
+        <div className="cl-label">{r.label}</div>
+        <div className="cl-status">{r.status}{r.when ? ` · ${fmtDate(r.when)}` : ''}</div>
+      </div>
+      {r.actions && <div className="cl-act">
+        <Input value={note[r.key] ?? ''} onChange={e => setNote(n => ({ ...n, [r.key]: e.target.value }))} placeholder={r.key === 'post' ? 'what to tell everyone (optional)' : r.key === 'pp' || r.key === 'shipment' ? 'remark · required to send back' : 'remark (optional)'} style={{ width: 230 }} />
+        {r.actions}
+      </div>}
+    </div>)}
   </div>;
 }
