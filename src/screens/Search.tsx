@@ -47,6 +47,7 @@ export function CommandSearch() {
         screen — sending both to /vendors bounced sourcing off a production route */
     db.vendors.forEach(v => { const mill = v.kind.endsWith('mill');
       out.push({ kind: mill ? 'Mill' : 'Factory', title: v.name, detail: `${v.kind} · ${v.location}`, href: `#/${mill ? 'mills' : 'vendors'}?vendor=${v.id}` }); });
+    (db.concepts ?? []).forEach(c => (c.designs ?? []).forEach(d => out.push({ kind:'Design', title: `${d.code} · ${d.finalName ?? d.name}`, detail: `on ${db.fabrics.find(f => f.id === c.fabricId)?.name ?? c.naming.newName ?? c.name}`, href: `#/design?open=${c.id}` })));
     (db.concepts ?? []).forEach(c => out.push({ kind:'Concept', title: c.naming.newName ?? c.name, detail: c.kind === 'new-fabric' ? 'new fabric' : 'construction', href: `#/design?open=${c.id}` }));
     db.returns.forEach(r => out.push({ kind:'Return', title: `${r.caseNo} · ${r.styleName}`, detail: `${r.reason} · ${r.wants}`, href: `#/stores?tab=returns&open=${r.id}` }));
     (db.launches ?? []).forEach(l => out.push({ kind:'Launch', title: l.styleName, detail: `${l.dropMonth} drop`, href: `#/launches?open=${l.id}` }));

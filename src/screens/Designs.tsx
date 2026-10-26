@@ -10,7 +10,7 @@ import { useApp } from '../store';
 import type { Concept, ConceptDesign } from '../domain/types';
 import { SHIRT_STYLES } from '../domain/reference';
 import { fmtDate } from '../domain/engines';
-import { Pill, Button, Field, Input, Select } from '../ui';
+import { Pill, Button, Field, Input, Select, Page, Card, Empty, usePager, Pager, ExportButton } from '../ui';
 import { ActsBy } from './Who';
 
 const money = (n: number | null | undefined) => n == null ? '—' : `₹${n.toLocaleString('en-IN')}`;
@@ -103,4 +103,41 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
     {canEdit ? ((adding || editId) ? form : <div className="pt-2"><Button size="sm" variant={designs.length ? undefined : 'primary'} onClick={() => { setV(blank); setAdding(true); }}>+ Add a design</Button></div>)
       : <ActsBy role="sourcing" does="creates the designs on this fabric, each with its product code, style, MRP and cost" />}
   </>;
+}
+
+/** Every design on every fabric in one list: the place to find a design once it has been added on a fabric. */
+export function DesignsPage() {
+  const { db } = useApp();
+  const [q, setQ] = useState('');
+  const [state, setState] = useState<'all' | 'not-pushed' | 'in-enigma'>('all');
+  const rows = (db.concepts ?? []).flatMap(c => (c.designs ?? []).map(d => ({ c, d, f: c.fabricId ? db.fabrics.find(x => x.id === c.fabricId) ?? null : null })));
+  const t = q.trim().toLowerCase();
+  const shown = rows.filter(({ c, d, f }) => (!t || [d.code, d.name, d.finalName, d.style, f?.name, f?.code, c.naming.newName ?? c.name].some(x => (x ?? '').toLowerCase().includes(t)))
+    && (state === 'all' || (state === 'in-enigma' ? !!d.enigmaOn : !d.enigmaOn)))
+    .sort((a, b) => (b.d.setOn ?? '').localeCompare(a.d.setOn ?? ''));
+  const pager = usePager(shown, 25);
+  return <Page title="Designs" lede="Every design (product code) on every fabric. A design is added on its fabric's requirement, in section 3 · Fabric in; this list is where you find it afterwards.">
+    <div className="flex gap-3 items-end flex-wrap mb-3">
+      <div style={{ width: 320 }}><Field label="Search"><Input value={q} onChange={e => setQ(e.target.value)} placeholder="product code, design name, fabric or code…" /></Field></div>
+      <div className="seg">{([['all', `All · ${rows.length}`], ['not-pushed', `Not in Enigma · ${rows.filter(r => !r.d.enigmaOn).length}`], ['in-enigma', `In Enigma · ${rows.filter(r => r.d.enigmaOn).length}`]] as const).map(([k, l]) =>
+        <button key={k} type="button" className={state === k ? 'on' : ''} onClick={() => setState(k)}>{l}</button>)}</div>
+      <div className="flex-1" />
+      <ExportButton filename="designs" sheetName="Designs" rows={shown} cols={[{ label:'Product code', get: r => r.d.code }, { label:'Design', get: r => r.d.finalName ?? r.d.name }, { label:'Fabric', get: r => r.f?.name ?? '' }, { label:'Fabric code', get: r => r.f?.code ?? '' }, { label:'Style', get: r => r.d.style ?? '' }, { label:'MRP', get: r => r.d.mrp ?? '' }, { label:'In Enigma', get: r => r.d.enigmaOn ? 'yes' : 'no' }]} />
+    </div>
+    {shown.length === 0 ? <Card><Empty title={rows.length ? 'No design matches that.' : 'No designs yet.'} body={rows.length ? 'Try the product code or the fabric name.' : 'Designs are added on a fabric\'s requirement once the cloth is in.'} /></Card>
+    : <Card><table className="t">
+      <thead><tr><th>Product code</th><th>Design</th><th>Fabric</th><th>Style · type</th><th className="num">MRP</th><th>Enigma</th><th>Added</th></tr></thead>
+      <tbody>{pager.pageRows.map(({ c, d, f }) => <tr key={d.id} className="row" title="Open the fabric's requirement" onClick={() => { window.location.hash = `#/design?open=${c.id}`; }}>
+        <td className="mono text-[12.5px]">{d.code}</td>
+        <td className="font-medium">{d.finalName ?? d.name}{d.finalName && d.finalName !== d.name && <div className="text-[11px] font-normal" style={{ color:'var(--ink-faint)' }}>working name · {d.name}</div>}</td>
+        <td className="text-[12.5px]">{f ? f.name : c.naming.newName ?? c.name}<div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{f?.code ?? 'fabric not in yet'}</div></td>
+        <td className="text-[12.5px]">{d.style ?? '—'}<div style={{ color:'var(--ink-faint)' }}>{d.category}</div></td>
+        <td className="num">{d.mrp != null ? `₹${d.mrp.toLocaleString('en-IN')}` : '—'}</td>
+        <td>{d.enigmaOn ? <Pill tone="good">in Enigma{d.enigmaSyncedOn ? ` · ${fmtDate(d.enigmaSyncedOn)}` : ''}</Pill> : <Pill tone="warn">not pushed</Pill>}</td>
+        <td className="text-[12px]">{d.setOn ? fmtDate(d.setOn) : '—'}<div style={{ color:'var(--ink-faint)' }}>{d.by ?? ''}</div></td>
+      </tr>)}</tbody>
+    </table>
+    <Pager page={pager.page} pageCount={pager.pageCount} onChange={pager.setPage} from={pager.from} to={pager.to} total={pager.total} noun="designs" />
+    </Card>}
+  </Page>;
 }

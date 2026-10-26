@@ -29,6 +29,7 @@ import { GrnPage } from './screens/Warehouse';
 import { Health } from './screens/Health';
 import { Planning } from './screens/Planning';
 import { Fabrics, FabricPage } from './screens/Fabrics';
+import { DesignsPage } from './screens/Designs';
 import { MTM_ONLY, OPTIONS_OFF } from './domain/edition';
 
 /* No Today screen: each role lands on the first screen it works in. */
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="/design" element={<DesignHome />} />
           <Route path="/fabrics" element={<Fabrics />} />
           <Route path="/fabric/:id" element={<FabricPage />} />
+          <Route path="/designs" element={<DesignsPage />} />
           <Route path="/vendors" element={<VendorsPage only="factories" />} />
           <Route path="/mills" element={<VendorsPage only="mills" />} />
         </Route>
