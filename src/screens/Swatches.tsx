@@ -168,7 +168,7 @@ export function StickerSheet({ c, canMark, title }: { c: Concept; canMark: boole
   const { db, conceptSwatch } = useApp();
   const s = conceptOf(db, c); const f = s.fabric;
   const designs = c.designs ?? [];
-  const [copies, setCopies] = useState(String(STORES.length));
+  /* one sticker per design: there is no per-store copy count */
   const [layout, setLayout] = useState<'labels' | 'pages'>('labels');
   /* The label, five lines, as the sheet they print today:
        BER.DOSOYE-1816            the fabric code
@@ -181,7 +181,7 @@ export function StickerSheet({ c, canMark, title }: { c: Concept; canMark: boole
   const perPage = 21;   // 3 across × 7 down on A4
   /* the sticker sheet: every design's label, repeated once per swatch going out */
   const printSticker = () => {
-    const n = Math.max(1, Math.min(60, Number(copies) || 1));
+    const n = 1;
     const w = window.open('', '_blank', 'width=760,height=980'); if (!w) return;
     if (layout === 'pages') {
       /* one page per design: the big sticker the store cuts and sticks on the swatch */
@@ -217,9 +217,9 @@ export function StickerSheet({ c, canMark, title }: { c: Concept; canMark: boole
       </div>
       <div className="flex items-end gap-2 flex-wrap">
         <div><span className="label">Layout</span><div className="seg"><button type="button" className={layout === 'labels' ? 'on' : ''} onClick={() => setLayout('labels')}>Label sheet · 3 × 7</button><button type="button" className={layout === 'pages' ? 'on' : ''} onClick={() => setLayout('pages')}>One page per design</button></div></div>
-        {layout === 'labels' && <div style={{ width: 110 }}><label className="block"><span className="label">Copies per design</span><Input type="number" min={1} max={60} value={copies} onChange={e => setCopies(e.target.value)} /></label></div>}
+
         <Button variant="primary" onClick={printSticker}>Print {layout === 'pages' ? `${labels.length} sticker page${labels.length === 1 ? '' : 's'}` : 'sticker sheet'}{c.swatch?.stickerOn || !canMark || MTM_ONLY ? '' : ' & mark'}</Button>
-        <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{labels.length} design{labels.length === 1 ? '' : 's'} × {Math.max(1, Number(copies) || 1)} = {labels.length * Math.max(1, Number(copies) || 1)} labels · {Math.ceil(labels.length * Math.max(1, Number(copies) || 1) / perPage)} sheet{Math.ceil(labels.length * Math.max(1, Number(copies) || 1) / perPage) === 1 ? '' : 's'} of 21 · one label a store, a design</span>
+        <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{labels.length} sticker{labels.length === 1 ? '' : 's'}, one per design</span>
       </div>
     </Section>
   </>;
