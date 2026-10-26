@@ -9,7 +9,9 @@ import { fmtDate } from '../domain/engines';
 import { Button, Input, Pill } from '../ui';
 
 export function PoReceiving({ po, editable }: { po: FabricPo; editable: boolean }) {
-  const { updateFabricPoReceiving } = useApp();
+  const { db, updateFabricPoReceiving } = useApp();
+  const f = db.fabrics.find(x => x.id === po.fabricId);
+  const shrink = f?.attrs?.washed ? (f.attrs.washShrinkagePct ?? 0) : 0;
   const [qty, setQty] = useState('');
   const [close, setClose] = useState(false);
   const received = po.receivedMetres ?? 0;
@@ -35,6 +37,7 @@ export function PoReceiving({ po, editable }: { po: FabricPo; editable: boolean 
       <Button size="sm" variant="primary" disabled={!canUpdate} onClick={() => { updateFabricPoReceiving(po.id, Number(qty) || 0, close); setQty(''); setClose(false); }}>Update Receiving Status</Button>
       <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>{close && pending - (Number(qty) || 0) > 0 ? `closing cancels the ${Math.round((pending - (Number(qty) || 0)) * 100) / 100} m still pending` : 'each update raises a GRN and moves the metres from incoming to the shelf'}</span>
     </div>}
+    {shrink > 0 && <div className="text-[11.5px] pt-1" style={{ color:'var(--warn)' }}>Washed fabric: {shrink}% shrinkage. The GRN records the metres received; the shelf books {Number(qty) > 0 ? `${Math.round(Number(qty) * (1 - shrink / 100) * 100) / 100} m of the ${qty} m` : 'the usable metres'} after washing.</div>}
     {(po.receipts ?? []).length > 0 && <div className="text-[11.5px] pt-1" style={{ color: 'var(--ink-faint)' }}>{(po.receipts ?? []).map((r, i) => <span key={i}>{i ? ' · ' : ''}{r.metres} m on {fmtDate(r.on)} by {r.by}</span>)}</div>}
   </div>;
 }

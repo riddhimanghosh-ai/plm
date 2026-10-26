@@ -858,18 +858,23 @@ export function agingReport(db: Db) {
 
 
 /* ---------- order-sheet changes — who may change what, and when --------------- */
-export type SheetEdit = 'free' | 'remarks' | 'amend' | 'closed';
+export type SheetEdit = 'free' | 'logistics' | 'remarks' | 'amend' | 'closed';
 /** free  = nothing physical has happened; the sheet is simply corrected.
     amend = the bundle has gone; an accepted change reissues the sheet to the factory.
     closed= the piece is made; it is an alteration / remake now. */
 /** Who may change what, and when. The store edits the sheet only until a factory
     is allocated; after that it can add a remark, and production carries the
     single-field amend that re-issues the sheet. */
-export const sheetEditMode = (o: CustomerOrder, who: 'store' | 'unit' = 'unit'): SheetEdit => {
-  if (who === 'store') return SHEET_STORE_EDIT.has(o.stage) && !o.factoryId ? 'free'
-    : SHEET_FREE_EDIT.has(o.stage) || SHEET_AMEND.has(o.stage) ? 'remarks' : 'closed';
-  return SHEET_FREE_EDIT.has(o.stage) ? 'free' : SHEET_AMEND.has(o.stage) ? 'amend' : 'closed';
+/* 21 Oct 2026, the production discussion: before production starts the sheet can be edited; once it starts
+   (the piece is on a plan) measurements and styling are locked and no change remarks go to the factory, only
+   a logistics remark (ship to the store or to the customer's home). A measurement change after that is a repunch. */
+export const sheetEditMode = (o: CustomerOrder, _who: 'store' | 'unit' = 'unit'): SheetEdit => {
+  void _who;
+  if (o.stage === 'punched' || o.stage === 'pp') return 'free';
+  if (o.stage === 'planned' || o.stage === 'in-transit' || o.stage === 'in-factory') return 'logistics';
+  return 'closed';
 };
+export const canRepunch = (o: CustomerOrder) => o.kind === 'MTM' && ['planned', 'in-transit', 'in-factory'].includes(o.stage);
 /** A sheet change nobody has acted on — before allocation it is production's own
     to read; after it, production has to ring the factory that is holding it. */
 /** The factory's own view of the same thing: a piece on my floor whose sheet

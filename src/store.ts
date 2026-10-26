@@ -236,7 +236,9 @@ export interface AppState {
   punchBill(inputs: PunchInput[]): string[];   // one customer, several pieces, one bill — each piece is punched as its own order
   /* MTM production */
   setOrderTag(id: string, tag: OrderTag): void;
-  editOrderSheet(id: string, patch: { fabricId?: string; fit?: string; qty?: number; tag?: OrderTag; remarks?: string; spec?: Partial<OrderSpec>; measurements?: Partial<OrderMeasurements>; pattern?: Partial<PatternFlags> }, note: string, who?: 'store' | 'unit'): void;
+  repunchOrder(id: string, note: string): string | null;   // store: measurements changed after production started; cancel this piece, punch a new one
+  routeExtraFabricPo(id: string, step: 'hand' | 'raised' | 'cloth-in', poNo?: string): void;   // bespoke extra fabric: to Shravani for a PO, PO raised, cloth in
+  editOrderSheet(id: string, patch: { logisticComment?: string; fabricId?: string; fit?: string; qty?: number; tag?: OrderTag; remarks?: string; spec?: Partial<OrderSpec>; measurements?: Partial<OrderMeasurements>; pattern?: Partial<PatternFlags> }, note: string, who?: 'store' | 'unit'): void;
   /* production's two answers to a changed sheet */
   markChangeSeen(orderIds: string[]): void;
   markFactoryTold(orderIds: string[]): void;
@@ -1347,7 +1349,8 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         const o = (db.customerOrders ?? []).find(x => x.id === id); if (!o) return;
         const mode = sheetEditMode(o, who);
         if (mode === 'closed') return;
-        /* once a factory is allocated the store may add a remark and nothing else */
+        /* once production has started only a logistics remark may change */
+        if (mode === 'logistics') patch = { logisticComment: patch.logisticComment };
         if (mode === 'remarks') patch = { remarks: patch.remarks };
         const changes: { field: string; from: string; to: string }[] = [];
         const note2 = (field: string, from: unknown, to: unknown) => { if (to != null && String(to) !== String(from)) changes.push({ field, from: String(from ?? '—'), to: String(to) }); };
@@ -1368,6 +1371,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         }
         note2('Tag', o.tag, patch.tag); if (patch.tag) { o.tag = patch.tag; if (patch.tag === 'urgent') o.promisedOn = iso(addDays(new Date(o.punchedOn), 2)); }
         note2('Remarks', o.remarks, patch.remarks); if (patch.remarks != null) o.remarks = patch.remarks;
+        note2('Comment for shipping', o.logisticComment ?? '', patch.logisticComment); if (patch.logisticComment != null) o.logisticComment = patch.logisticComment;
         if (patch.spec && o.spec) (Object.keys(patch.spec) as SheetOptionKey[]).forEach(k => { note2(SHEET_LABEL[k] ?? k, o.spec![k], patch.spec![k]); if (patch.spec![k]) o.spec![k] = patch.spec![k]!; });
         if (patch.measurements && o.measurements) (Object.keys(patch.measurements) as MeasureKey[]).forEach(k => { const v = patch.measurements![k]; if (v != null && v !== o.measurements![k]) { note2(SHEET_LABEL[k] ?? k, o.measurements![k], v); o.measurements![k] = v; } });
         if (patch.pattern && o.pattern) (Object.keys(patch.pattern) as (keyof PatternFlags)[]).forEach(k => { const v = patch.pattern![k]; if (v != null && v !== o.pattern![k]) { note2(SHEET_LABEL[k] ?? k, o.pattern![k] ? 'Yes' : 'No', v ? 'Yes' : 'No'); o.pattern![k] = v; } });
@@ -1443,6 +1447,32 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         db.extraFabric.unshift({ ...input, id:`xf-${Date.now().toString(36)}`, fabricId: o.fabricId, factoryId: o.factoryId, planId: o.planId ?? null, raisedBy: who(), raisedOn: now(), status:'requested', decidedOn: null });
       }, 'Asked. It is on the production unit\'s queue here — no email, no phone call.');
     },
+    repunchOrder(id, note) {
+      const o = (get().db.customerOrders ?? []).find(x => x.id === id); if (!o) return null;
+      const nid = `${o.id}-r${Date.now().toString(36).slice(-4)}`;
+      touch(db => {
+        const x = (db.customerOrders ?? []).find(y => y.id === id); if (!x) return;
+        const lead = Math.max(1, Math.round((new Date(x.promisedOn).getTime() - new Date(x.punchedOn).getTime()) / 864e5));
+        const n: typeof x = JSON.parse(JSON.stringify(x));
+        Object.assign(n, { id: nid, orderNo: `${x.orderNo}-R`, stage: 'punched', punchedOn: now(), promisedOn: iso(addDays(TODAY, lead)), planId: null, factoryId: null, scans: [], revisions: [], promiseRevisions: [],
+          repunchOf: x.id, repunchedAs: null, changeSeenOn: null, changeFactorySeenOn: null, changeToldFactoryOn: null, remarks: `Repunched from ${x.orderNo}${note ? `: ${note}` : ''}` });
+        /* the old piece's cloth: cut and gone is spent; still on the shelf is released */
+        const f = db.fabrics.find(y => y.id === x.fabricId);
+        if (f && !MTM_SPENT.includes(x.stage)) f.reservedMetres = Math.max(0, round2(f.reservedMetres - orderMetres(x)));
+        if (f) f.reservedMetres = round2(f.reservedMetres + orderMetres(n));
+        x.stage = 'cancelled'; x.repunchedAs = nid; x.remarks = `${x.remarks ? x.remarks + ' · ' : ''}Replaced by ${n.orderNo}${note ? `: ${note}` : ''}`;
+        db.customerOrders!.unshift(n);
+      }, `Repunched: ${o.orderNo} is cancelled and ${o.orderNo}-R is a new order. Correct its measurements before production picks it up.`);
+      return nid;
+    },
+    routeExtraFabricPo(id, step, poNo) {
+      touch(db => { const r = (db.extraFabric ?? []).find(x => x.id === id); if (!r) return;
+        if (step === 'hand') { r.status = 'po-needed'; r.po = { handedOn: now(), by: who(), poNo: null, raisedOn: null, clothInOn: null }; }
+        if (step === 'raised' && r.po) { r.po.poNo = poNo || r.po.poNo || `FPO-${7100 + Math.floor(Math.random() * 899)}`; r.po.raisedOn = now(); }
+        if (step === 'cloth-in' && r.po) { r.po.clothInOn = now(); r.status = 'requested';
+          const f = db.fabrics.find(x => x.id === r.fabricId); if (f) f.stockMetres = round2(f.stockMetres + r.metres); }
+      }, step === 'hand' ? 'With Shravani: she raises a PO with the mill for the bespoke cloth.' : step === 'raised' ? 'PO raised with the mill.' : 'Cloth in: the request is back with production to approve.');
+    },
     decideExtraFabric(id, status) {
       touch(db => { const r = (db.extraFabric ?? []).find(x => x.id === id); if (!r) return;
         const wasLive = r.status === 'requested';
@@ -1482,7 +1512,10 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         const f = db.fabrics.find(x => x.id === p.fabricId);
         if (m > 0) { p.receivedMetres = Math.round(((p.receivedMetres ?? 0) + m) * 100) / 100; p.receipts = [...(p.receipts ?? []), { on: now(), metres: m, by: who() }];
           grn(db, { kind:'fabric', ref: p.poNo, refLabel: f?.name ?? p.fabricId, vendorId: p.vendorId, qty: m, unit:'m', rejected: 0, remarks: p.remark });
-          if (f) { f.stockMetres = Math.round((f.stockMetres + m) * 100) / 100; f.incomingMetres = Math.max(0, Math.round(((f.incomingMetres ?? 0) - m) * 100) / 100); } }
+          if (f) { const shrink = f.attrs?.washed ? (f.attrs.washShrinkagePct ?? 0) : 0; const usable = round2(m * (1 - shrink / 100));
+            f.stockMetres = Math.round((f.stockMetres + usable) * 100) / 100; f.incomingMetres = Math.max(0, Math.round(((f.incomingMetres ?? 0) - m) * 100) / 100);
+            /* washed cloth shrinks: the GRN keeps what arrived, the shelf keeps what can be cut (21 Oct 2026; who records it is still to settle with Parag) */
+            if (shrink > 0) f.transactions = [{ on: now(), orderNo: null, poId: p.poNo, type: 'WASH', by: who(), warehouse: f.inventory?.warehouse ?? 'Dadar unit', bin: f.inventory?.bins[0]?.bin ?? null, reason: 'Washing shrinkage', desc: `${m} m received, ${shrink}% shrinkage, ${usable} m usable`, metres: -round2(m - usable) }, ...(f.transactions ?? [])]; } }
         const pending = p.metres - (p.receivedMetres ?? 0);
         if (pending <= 0 || close) { p.closedOn = now(); p.receivedOn = p.receivedOn ?? now(); p.closedShort = pending > 0; if (close && pending > 0 && f) f.incomingMetres = Math.max(0, Math.round(((f.incomingMetres ?? 0) - pending) * 100) / 100); }
       }, close ? 'Receiving line closed.' : metres > 0 ? `${metres} m received — the metres moved from incoming to the shelf.` : 'Nothing received.');
@@ -1559,7 +1592,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 116,
+  version: 117,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1571,7 +1604,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 116 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 117 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

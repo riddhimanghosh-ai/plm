@@ -20,12 +20,12 @@ const ATTR_PICKS: Record<string, string[]> = {
 const ATTR_FIELDS: { k: keyof FabricAttrs; label: string; kind: 'text' | 'num' | 'bool' | 'pick' }[] = [
   { k: 'panna', label: 'Panna', kind: 'num' }, { k: 'bigChecked', label: 'Big-Checked', kind: 'bool' }, { k: 'threadCount', label: 'Thread Count', kind: 'text' }, { k: 'ply', label: 'Fabric Ply', kind: 'pick' },
   { k: 'wrinkleResistance', label: 'Wrinkle Resistance', kind: 'pick' }, { k: 'stretch', label: 'Stretch', kind: 'pick' }, { k: 'consumedIn', label: 'Consumed_In', kind: 'pick' }, { k: 'construction', label: 'Construction', kind: 'pick' },
-  { k: 'compositionFamily', label: 'Composition family', kind: 'pick' }, { k: 'washed', label: 'Washed Fabric', kind: 'bool' }, { k: 'washcare', label: 'Washcare Description', kind: 'text' }, { k: 'weightClass', label: 'Weight Class', kind: 'pick' },
+  { k: 'compositionFamily', label: 'Composition family', kind: 'pick' }, { k: 'washed', label: 'Washed Fabric', kind: 'bool' }, { k: 'washShrinkagePct', label: 'Wash shrinkage %', kind: 'num' }, { k: 'washcare', label: 'Washcare Description', kind: 'text' }, { k: 'weightClass', label: 'Weight Class', kind: 'pick' },
   { k: 'weaveDescription', label: 'Weave Description', kind: 'text' }, { k: 'pattern', label: 'Pattern', kind: 'pick' }, { k: 'colour', label: 'Fabric Color', kind: 'text' }, { k: 'contrastFabric', label: 'Contrast Fabric', kind: 'bool' },
   { k: 'piping', label: 'Fabric Piping', kind: 'bool' }, { k: 'isCutroll', label: 'Is_Cutroll', kind: 'bool' }, { k: 'isUniform', label: 'Is_uniform', kind: 'bool' }, { k: 'weave', label: 'Weave', kind: 'pick' },
 ];
 const INV_TYPE = { CORE: 'MTM · core', NON_CORE: 'MTM · non-core', BESPOKE: 'Bespoke' } as const;
-const TXN_TONE: Record<FabricTxn['type'], 'good' | 'info' | 'warn' | 'neutral'> = { GRN: 'good', ISSUE: 'info', ADJUSTMENT: 'warn', RETURN: 'neutral' };
+const TXN_TONE: Record<FabricTxn['type'], 'good' | 'info' | 'warn' | 'neutral'> = { GRN: 'good', ISSUE: 'info', ADJUSTMENT: 'warn', RETURN: 'neutral', WASH: 'warn' };
 
 export function FabricInfo({ f, editable, part = 'all', flat = false }: { f: Fabric; editable: boolean; part?: 'all' | 'info' | 'inventory'; flat?: boolean }) {
   const sec = { collapsible: !flat, defaultOpen: flat || undefined };

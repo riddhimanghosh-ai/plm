@@ -422,9 +422,10 @@ export interface FabricAttrs {
   panna?: number | null; bigChecked?: boolean; threadCount?: string | null; ply?: string | null; wrinkleResistance?: string | null; stretch?: string | null;
   consumedIn?: string | null; construction?: string | null; compositionFamily?: string | null; washed?: boolean; washcare?: string | null; weightClass?: string | null;
   weaveDescription?: string | null; pattern?: string | null; colour?: string | null; contrastFabric?: boolean; piping?: boolean; isCutroll?: boolean; isUniform?: boolean; weave?: string | null;
+  washShrinkagePct?: number | null;   // washed fabric: received metres shrink by this much; the shelf books the usable metres
 }
 export interface FabricInventory { warehouse: string; thresholdMetres: number; maxMetres: number | null; autoReplenish: boolean; bins: { bin: string; metres: number }[] }
-export type FabricTxnType = 'GRN' | 'ISSUE' | 'ADJUSTMENT' | 'RETURN';
+export type FabricTxnType = 'GRN' | 'ISSUE' | 'ADJUSTMENT' | 'RETURN' | 'WASH';
 export interface FabricTxn { on: string; orderNo: string | null; poId: string | null; type: FabricTxnType; by: string; warehouse: string; bin: string | null; reason: string | null; desc: string | null; metres: number }
 
 /* Trims, labels, buttons and packaging are NOT bought per style — head office
@@ -577,6 +578,8 @@ export interface CustomerOrder {
   express?: boolean;                 // urgent: 7–8 days instead of 10–12, ₹600 express charge
   factoryComment?: string | null;    // "styling comment" — reaches the factory with the sheet
   logisticComment?: string | null;   // for the shipping team: "suit · sold together, match the trouser"
+  repunchOf?: string | null;         // 21 Oct 2026: measurements changed after production started; this piece replaces that one
+  repunchedAs?: string | null;       // and that one was cancelled and replaced by this id
   /* MTM production */
   tag: OrderTag;
   planId: string | null;
@@ -625,8 +628,11 @@ export interface ExtraFabricRequest {
   id: string; orderId: string; fabricId: string; factoryId: string; planId?: string | null;
   metres: number; reason: ExtraFabricReason; panel: ExtraFabricPanel;
   raisedBy: string; raisedOn: string;
-  status: 'requested' | 'approved' | 'declined' | 'sent';
+  status: 'requested' | 'po-needed' | 'approved' | 'declined' | 'sent';
   decidedOn: string | null; note: string;
+  /* bespoke cloth is not on BSC's shelf: production hands the shortfall to Shravani, who raises a PO with the mill;
+     when the cloth is in, the request comes back to production to approve (proposed 21 Oct 2026, not final) */
+  po?: { handedOn: string; by: string; poNo: string | null; raisedOn: string | null; clothInOn: string | null } | null;
 }
 
 /* What the factory says came off the line today. The scans give production a

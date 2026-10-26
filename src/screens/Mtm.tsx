@@ -404,11 +404,12 @@ function ExtraFabricForm({ o, onDone }: { o: CustomerOrder; onDone: () => void }
 
 /* ---------- Extra fabric queue --------------------------------------------- */
 export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; onOpen: (id: string) => void }) {
-  const { db, decideExtraFabric } = useApp();
+  const { db, decideExtraFabric, routeExtraFabricPo } = useApp();
   const rows = [...(db.extraFabric ?? [])].sort((a, b) => (a.status === 'requested' ? 0 : 1) - (b.status === 'requested' ? 0 : 1) || b.raisedOn.localeCompare(a.raisedOn));
   const order = (id: string) => (db.customerOrders ?? []).find(o => o.id === id);
   const fabric = (id: string) => db.fabrics.find(f => f.id === id);
-  const TONE: Record<string, Tone> = { requested:'warn', approved:'good', sent:'neutral', declined:'risk' };
+  const TONE: Record<string, Tone> = { requested:'warn', 'po-needed':'info', approved:'good', sent:'neutral', declined:'risk' };
+  const STATUS: Record<string, string> = { requested:'to approve', 'po-needed':'with Shravani · PO', approved:'approved', sent:'sent', declined:'declined' };
   const byReason: Record<string, number> = {}; rows.forEach(r => (byReason[r.reason] = (byReason[r.reason] ?? 0) + 1));
   const factoryErr = rows.filter(r => r.reason.includes('factory error')).length;
   /* one ask per status — requested, approved, sent, declined */
@@ -428,14 +429,19 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
           <td className="text-[12.5px]"><VendorLink id={r.factoryId} /></td>
           <td className="text-[12.5px]">{r.panel}</td><td className="num">{r.metres} m</td>
           <td className="text-[12px]"><span style={{ color: r.reason.includes('factory') ? 'var(--risk)' : 'var(--warn)' }}>{r.reason}</span>{r.note && <div style={{ color:'var(--ink-faint)' }}>{r.note}</div>}</td>
-          <td><Pill tone={TONE[r.status]}>{r.status}</Pill></td>
+          <td><Pill tone={TONE[r.status]}>{STATUS[r.status] ?? r.status}</Pill>{f?.bucket === 'BESPOKE' && <div className="pt-0.5"><Pill tone="accent">bespoke</Pill></div>}{r.po && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.po.poNo ? `${r.po.poNo}${r.po.clothInOn ? ' · cloth in' : ' · raised'}` : 'PO not raised yet'}</div>}</td>
           <td onClick={e => e.stopPropagation()} className="flex gap-1">
-            {mine && r.status === 'requested' && <><Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'approved')}>Approve</Button><Button size="sm" variant="ghost" onClick={() => decideExtraFabric(r.id, 'declined')}>Decline</Button></>}
+            {mine && r.status === 'requested' && (() => { const short = !!f && (f.bucket === 'BESPOKE' || f.stockMetres - f.reservedMetres < r.metres); return <>
+              {short && !r.po ? <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani for a PO</Button>
+                : <Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'approved')}>Approve</Button>}
+              <Button size="sm" variant="ghost" onClick={() => decideExtraFabric(r.id, 'declined')}>Decline</Button></>; })()}
+            {(mine || wh) && r.status === 'po-needed' && !r.po?.raisedOn && <Button size="sm" onClick={() => routeExtraFabricPo(r.id, 'raised')}>PO raised with the mill</Button>}
+            {(mine || wh) && r.status === 'po-needed' && r.po?.raisedOn && <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'cloth-in')}>Cloth in · back to approval</Button>}
             {wh && r.status === 'approved' && <Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'sent')}>Picked & sent</Button>}
           </td>
         </tr>); })}</tbody>
     </table></Card>}
-    <div className="mt-3"><Note>Approve is the inventory event — the metres leave the shelf the moment planning says yes.</Note></div>
+    <div className="mt-3"><Note>Approve is the inventory event: the metres leave the shelf the moment production says yes. Bespoke cloth, or a fabric with too little on the shelf, is not approved from stock: production sends it to Shravani, who raises a PO with the mill; when the cloth is in, it comes back here to approve. This routing is proposed, not final.</Note></div>
   </>;
 }
 

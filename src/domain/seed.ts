@@ -645,9 +645,13 @@ const preAlloc = customerOrders.filter(o => o.kind === 'MTM' && o.stage === 'pp'
 const postAlloc = customerOrders.filter(o => o.kind === 'MTM' && ['planned', 'in-transit', 'in-factory'].includes(o.stage));
 const changeable = [...[...preAlloc].sort(() => r() - .5).slice(0, 8), ...[...postAlloc].sort(() => r() - .5).slice(0, 10)];
 changeable.forEach((o, k) => {
-  const amend = o.stage === 'in-transit' || o.stage === 'in-factory';
+  const amend = false;   // 21 Oct 2026: no styling or measurement change once production has started
   const at = iso(addDays(TODAY, -int(0, 2)));
   const store = STORES.find(s => s.id === o.storeId)!;
+  /* after production starts, only a logistics remark: where it ships */
+  if (o.stage !== 'pp') { const to = pick(["Ship to the customer's home, not the store", 'Hold at the store for collection', 'Ship with the trouser on the same bill']);
+    o.revisions.push({ rev:1, at, by: `${store.name} store`, role:'store', note:'Logistics remark', changes:[{ field:'Comment for shipping', from: o.logisticComment || '—', to }], reprint: false });
+    o.logisticComment = to; return; }
   if (k % 4 === 3 && o.spec) { const to = pick(COLLAR_STYLES.filter(c => c !== o.spec!.collar));
     o.revisions.push({ rev:1, at, by: `${store.name} store`, role:'store', note:'Customer rang the store', changes:[{ field:'Collar', from:o.spec.collar, to }], reprint: amend });
     o.spec.collar = to;
@@ -722,10 +726,14 @@ if (returns[1]) threads.push({ id:'t-7', kind:'return', subjectId: returns[1].id
 ] });
 
 /* the daily "EXTRA FABRIC" email, as records */
-const extraFabric: ExtraFabricRequest[] = customerOrders.filter(o => o.kind === 'MTM' && o.stage === 'in-factory' && o.factoryId !== HEM.id).slice(0, 9).map((o, k) => {
+/* two of the asks are on bespoke cloth (21 Oct 2026): one waiting for production, one already with Shravani for a PO */
+const xfPool = customerOrders.filter(o => o.kind === 'MTM' && o.stage === 'in-factory' && o.factoryId !== HEM.id);
+const isBespoke = (o: CustomerOrder) => fabrics.find(f => f.id === o.fabricId)?.bucket === 'BESPOKE';
+const xfOrders = [...xfPool.filter(isBespoke).slice(0, 2), ...xfPool.filter(o => !isBespoke(o))].slice(0, 9);
+const extraFabric: ExtraFabricRequest[] = xfOrders.map((o, k) => {
   const panel = pick(EXTRA_FABRIC_PANELS); const raised = addDays(TODAY, -int(0, 3));
   return { id:`xf-${k}`, orderId: o.id, fabricId: o.fabricId!, factoryId: o.factoryId!, metres: PANEL_METRES[panel], reason: pick(EXTRA_FABRIC_REASONS), panel,
-    planId: o.planId ?? null, raisedBy: `${V(o.factoryId!).name} merchandiser`, raisedOn: iso(raised), status: k < 4 ? 'requested' : k < 7 ? 'approved' : 'sent', decidedOn: k < 4 ? null : iso(addDays(raised, 1)), note: k === 1 ? 'Second time this week on this fabric lot' : '' };
+    planId: o.planId ?? null, raisedBy: `${V(o.factoryId!).name} merchandiser`, raisedOn: iso(raised), status: k === 1 && isBespoke(o) ? 'po-needed' : k < 4 ? 'requested' : k < 7 ? 'approved' : 'sent', decidedOn: k < 4 ? null : iso(addDays(raised, 1)), po: k === 1 && isBespoke(o) ? { handedOn: iso(raised), by: 'Swati', poNo: null, raisedOn: null, clothInOn: null } : null, note: k === 1 ? 'Second time this week on this fabric lot' : '' };
 });
 
 /* what each factory keyed in as its own count for the last few days — the number
@@ -1067,7 +1075,7 @@ fabrics.forEach((f, i) => {
   f.mill = { country: v.enigma?.country ?? 'India', description: v.enigma?.description ?? v.name, currency: v.kind === 'International mill' ? 'EUR' : 'INR', costPerUnit: f.cpm ?? null, tatHours: v.leadDays * 24, moq: f.bucket === 'CORE' ? 300 : f.bucket === 'NON_CORE' ? 150 : 1, mills: v.name };
   f.attrs = { panna: f.widthIn ?? null, bigChecked: pattern === 'Checks' && i % 3 === 0, threadCount: /2-ply|100s/.test(comp) ? '100s' : /linen/i.test(comp) ? '40s' : '60s', ply: /2-ply/i.test(comp) ? '2-Ply' : 'Single', wrinkleResistance: /linen/i.test(comp) ? 'Wrinkle Prone' : i % 4 === 0 ? 'Wrinkle Resistant' : 'Easy Iron', stretch: i % 7 === 0 ? 'Mechanical Stretch' : 'No Stretch',
     consumedIn: 'Shirts', construction: weave === 'Oxford' ? 'Basket' : 'Plain', compositionFamily: /linen/i.test(comp) ? 'Linen blend' : /lyocell/i.test(comp) ? 'Cotton-lyocell' : /2-ply|100s/.test(comp) ? 'Giza / 2-ply' : 'Cotton', washed: i % 5 === 0, washcare: 'Machine wash cold · do not bleach · iron medium',
-    weightClass: /linen|oxford/i.test(f.name) ? 'Medium' : 'Light', weaveDescription: `${weave} weave`, pattern, colour: words.slice(words.indexOf('-') + 1).join(' ') || null, contrastFabric: false, piping: false, isCutroll: f.bucket === 'BESPOKE', isUniform: false, weave };
+    weightClass: /linen|oxford/i.test(f.name) ? 'Medium' : 'Light', weaveDescription: `${weave} weave`, pattern, colour: words.slice(words.indexOf('-') + 1).join(' ') || null, contrastFabric: false, piping: false, isCutroll: f.bucket === 'BESPOKE', isUniform: false, weave, washShrinkagePct: i % 5 === 0 ? 5 : null };
   f.inventory = { warehouse: 'Dadar unit', thresholdMetres: f.thresholdMetres, maxMetres: f.bucket === 'CORE' ? 600 : f.bucket === 'NON_CORE' ? 250 : null, autoReplenish: f.bucket === 'CORE' && !f.international, bins: f.bucket === 'BESPOKE' ? [] : [{ bin: `R${1 + (i % 9)}-${String.fromCharCode(65 + (i % 6))}`, metres: f.stockMetres }] };
   if (i % 11 === 0 && f.bucket !== 'BESPOKE') f.transactions = [{ on: iso(addDays(TODAY, -int(2, 20))), orderNo: null, poId: null, type: 'ADJUSTMENT', by: 'Shravani', warehouse: 'Dadar unit', bin: f.inventory.bins[0]?.bin ?? null, reason: pick(['Physical count', 'Damaged roll', 'Shade variation']), desc: pick(['count differed from the system by one roll', 'end of roll water-stained', 'last 6 m off-shade — cut for samples']), metres: -pick([4, 6, 12]) }];
 });
