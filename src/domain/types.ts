@@ -590,6 +590,8 @@ export interface CustomerOrder {
   prep?: Partial<Record<PrepStep, PrepEntry>>;
   /* the CAD file the CAD desk made from Enigma's order sheet XML, uploaded on the order */
   cadFile?: { name: string; by: string; on: string } | null;
+  /* a desk can mark an order blocked with a reason (XML missing a measurement, short roll, interlining out); it leaves the desk's queue until unblocked */
+  prepBlocked?: Partial<Record<PrepStep, { reason: string; by: string; on: string }>>;
   /* contrast fabric on this piece (a pocket, a collar band): a little of another inventory fabric, deducted from physical stock when compiling approves it */
   contrast?: ContrastLine[];
   /* MTM production */

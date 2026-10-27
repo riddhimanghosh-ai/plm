@@ -564,7 +564,7 @@ export function ppQueue(db: Db, freezeHours = PP_FREEZE_HOURS) {
 
 /* ---------- pre-production: CAD → cutting → fusing → compiling, between the plan and the scan-out ---------- */
 export const PREP_STEPS: { key: PrepStep; label: string; team: string; does: string }[] = [
-  { key: 'cad', label: 'CAD', team: 'CAD team', does: 'reads the order sheet XML from Enigma, makes the CAD file and prints it for the next teams' },
+  { key: 'cad', label: 'CAD', team: 'CAD team', does: 'reads the order sheet XML from the connected order software, makes the CAD file and prints it for the next teams' },
   { key: 'cutting', label: 'Cutting', team: 'Cutting team', does: 'cuts the fabric to the CAD and attaches the print to the bundle' },
   { key: 'fusing', label: 'Fusing', team: 'Fusing team', does: 'fuses the collar, cuff and placket interlining' },
   { key: 'compiling', label: 'Compiling', team: 'Compiling team', does: 'checks the bundle is complete and approves it, contrast fabric included' },
@@ -576,6 +576,19 @@ export function prepOf(o: CustomerOrder) {
   const st = PREP_STEPS.map(s => { const e = o.prep?.[s.key]; return { ...s, entry: e ?? null, state: (past || e?.doneOn ? 'done' : e ? 'in progress' : 'pending') as 'done' | 'in progress' | 'pending' }; });
   const next = o.stage === 'planned' ? st.find(s => s.state !== 'done') ?? null : null;
   return { steps: st, next, ready: o.stage === 'planned' && !next, active: o.stage === 'planned' };
+}
+/** one desk's queue, as Swati sees it: ready for it, blocked, in progress, and hand-offs completed in the last 7 days */
+export function prepQueueOf(orders: CustomerOrder[], step: PrepStep) {
+  const planned = orders.filter(o => o.kind === 'MTM' && o.stage === 'planned');
+  const atThis = planned.filter(o => prepOf(o).next?.key === step);
+  const blocked = atThis.filter(o => o.prepBlocked?.[step]);
+  const free = atThis.filter(o => !o.prepBlocked?.[step]);
+  return {
+    ready: free.filter(o => !o.prep?.[step]),
+    blocked,
+    wip: free.filter(o => o.prep?.[step] && !o.prep[step]!.doneOn),
+    handedOff: orders.filter(o => o.prep?.[step]?.doneOn && daysAgo(o.prep[step]!.doneOn!) <= 7),
+  };
 }
 
 export interface Proposal { factoryId: string; orderIds: string[]; why: string }

@@ -1381,7 +1381,10 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
 /* 27 Oct 2026, the production team: pre-confirmed orders (not yet confirmed at the store), the pre-production desks, contrast fabric */
 { const REASONS = ['Measurement not done', 'On hold', 'Payment pending'] as const;
   const NOTES = ['customer to come back for a re-measure on Saturday', 'customer asked to hold until the wedding date is fixed', 'advance not paid yet'];
-  customerOrders.filter(o => o.kind === 'MTM' && (o.stage === 'pp' || o.stage === 'punched') && !o.bespoke).slice(0, 7).forEach((o, k) => { o.preConfirmed = { reason: REASONS[k % 3], note: NOTES[k % 3], since: o.punchedOn }; });
+  const pcPool = customerOrders.filter(o => o.kind === 'MTM' && (o.stage === 'pp' || o.stage === 'punched') && !o.bespoke);
+  /* the demo store gets three, so its RetailOS screen has something; days waiting vary from 1 to 12 */
+  [...pcPool.filter(o => o.storeId === 'plh').slice(0, 3), ...pcPool.filter(o => o.storeId !== 'plh').slice(0, 6)].forEach((o, k) => {
+    o.preConfirmed = { reason: REASONS[k % 3], note: NOTES[k % 3], since: iso(addDays(TODAY, -[2, 9, 5, 12, 1, 4, 8, 3, 6][k % 9])) }; });
   const TEAM = { cad: ['Ganesh', 'Rupali'], cutting: ['Sanjay', 'Imran'], fusing: ['Meena'], compiling: ['Vishnu'] } as const;
   customerOrders.filter(o => o.kind === 'MTM' && o.stage === 'planned').forEach((o, k) => {
     const upto = k % 6;   // 0 nothing yet · 1 CAD taken · 2 CAD done · 3 cutting done · 4 fusing done · 5 compiled
@@ -1393,6 +1396,13 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
     if (upto >= 4) o.prep.fusing = { takenBy: TEAM.fusing[0], takenOn: at(2), doneBy: TEAM.fusing[0], doneOn: at(2), remark: null };
     if (upto >= 5) o.prep.compiling = { takenBy: TEAM.compiling[0], takenOn: at(2), doneBy: TEAM.compiling[0], doneOn: at(2), remark: null };
   });
+  /* a few orders blocked at their desk, with the reason */
+  const BLOCKS: Record<string, string> = { cad: 'order sheet XML missing the sleeve length', cutting: 'roll short by 0.4 m: waiting for the warehouse', fusing: 'collar interlining out of stock' };
+  const plannedNow = customerOrders.filter(o => o.kind === 'MTM' && o.stage === 'planned');
+  const nextOf = (o: CustomerOrder) => !o.prep?.cad?.doneOn ? 'cad' : !o.prep?.cutting?.doneOn ? 'cutting' : !o.prep?.fusing?.doneOn ? 'fusing' : null;
+  (['cad', 'cutting', 'fusing'] as const).flatMap(st => plannedNow.filter(o => nextOf(o) === st && !o.prep?.[st]).slice(0, 2)).forEach(o => {
+    const next = nextOf(o);
+    if (next) o.prepBlocked = { [next]: { reason: BLOCKS[next], by: next === 'cad' ? 'Rupali' : next === 'cutting' ? 'Imran' : 'Meena', on: iso(addDays(new Date(o.punchedOn), 2)) } }; });
   /* contrast: a little of another inventory fabric on some pieces */
   const inv = fabrics.filter(f => f.bucket !== 'BESPOKE' && f.stockMetres > 20);
   customerOrders.filter(o => o.kind === 'MTM' && ['pp', 'planned'].includes(o.stage)).filter((_, k) => k % 5 === 0).slice(0, 10).forEach((o, k) => {

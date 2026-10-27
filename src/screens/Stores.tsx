@@ -62,6 +62,7 @@ export function Stores() {
     { id:'customers', label:'Customers', kids: [{ id:'customers', label:'Search & 360' }] },
     { id:'orders', label:'Orders', kids: [
       { id:'mtm-orders', label:'MTM · made to measure', count: openMtm.length },
+      { id:'preconfirmed', label:'Pre-confirmed', count: myOrders.filter(o => o.preConfirmed).length, hint:'taken but not confirmed: measurement, hold or payment; a RetailOS screen' },
       ...(MTM_ONLY ? [] : [{ id:'rtw-orders', label:'RTW · ready-to-wear, sold from stock', count: openRtw.length }]),
     ] },
     { id:'sell', label:'What I can sell', kids: [
@@ -90,6 +91,7 @@ export function Stores() {
         active={group.id} onChange={gid => set('tab', (GROUPS.find(g => g.id === gid) ?? GROUPS[0]).kids[0].id)} />
       {group.kids.length > 1 && <div className="-mt-2 mb-4"><Seg value={tab} onChange={t => set('tab', t)} options={group.kids} /></div>}
 
+      {tab === 'preconfirmed' && <PreConfirmedTab orders={myOrders.filter(o => o.preConfirmed)} mine={mine} onOpen={id => set('open', id)} />}
       {tab === 'shelves' && <ShelvesTab storeId={storeId} mine={mine} />}
       {tab === 'inward' && <StoreInwardTab storeId={storeId} mine={mine} />}
       {tab === 'customers' && <CustomersTab storeId={storeId} onOpen={n => set('open', 'cust:' + n)} />}
@@ -375,6 +377,28 @@ function WriteOffTab({ storeId, mine }: { storeId: string; mine: boolean }) {
 const STAGE_TONE: Record<CustomerOrder['stage'], 'neutral' | 'info' | 'warn' | 'good' | 'risk'> = { punched:'info', pp:'warn', planned:'info', 'in-transit':'info', 'in-factory':'info', 'out-factory':'good', rts:'good', dispatched:'good', ready:'good', hemming:'warn', delivered:'neutral', cancelled:'neutral' };
 const STAGE_LABEL: Record<CustomerOrder['stage'], string> = { punched:'punched', pp:'awaiting plan', planned:'planned', 'in-transit':'in production', 'in-factory':'in factory', 'out-factory':'out factory', rts:'RTS', dispatched:'dispatched', ready:'ready', hemming:'hemming', delivered:'delivered', cancelled:'cancelled' };
 const NEXT_LABEL: Record<CustomerOrder['stage'], string | null> = { punched:'Hand over from shelf', ready:'Delivered', hemming:'Delivered', dispatched:'Handed to customer', pp:null, planned:null, 'in-transit':null, 'in-factory':null, 'out-factory':null, rts:null, delivered:null, cancelled:null };
+
+/* RetailOS, 27 Oct 2026: the store's own list of orders taken but not confirmed, oldest first, with how long each has waited.
+   Shown here for demonstration; in the build it is a RetailOS screen, not PLM. */
+function PreConfirmedTab({ orders, mine, onOpen }: { orders: CustomerOrder[]; mine: boolean; onOpen: (id: string) => void }) {
+  const { confirmOrder } = useApp();
+  const [why, setWhy] = useState('all');
+  const REASONS = ['Measurement not done', 'On hold', 'Payment pending'];
+  const rows = orders.filter(o => why === 'all' || o.preConfirmed!.reason === why).sort((a, b) => a.preConfirmed!.since.localeCompare(b.preConfirmed!.since));
+  return <>
+    <div className="flex items-center gap-2 mb-2 flex-wrap"><Seg value={why} onChange={setWhy} options={[{ id: 'all', label: 'All', count: orders.length }, ...REASONS.map(x => ({ id: x, label: x, count: orders.filter(o => o.preConfirmed!.reason === x).length }))]} />
+      <span className="ml-auto"><Pill tone="info">RetailOS screen · shown for demonstration</Pill></span></div>
+    {rows.length === 0 ? <Card><Empty title="No pre-confirmed orders." body="Every order taken here is confirmed." /></Card> : <Card><table className="t">
+      <thead><tr><th>Order</th><th>Customer</th><th>Fabric</th><th>Why it is not confirmed</th><th className="num">Days pre-confirmed</th><th></th></tr></thead>
+      <tbody>{rows.map(o => { const d = daysAgo(o.preConfirmed!.since); return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
+        <td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}</td><td className="text-[12.5px]">{o.styleName}</td>
+        <td><Pill tone="warn">{o.preConfirmed!.reason}</Pill><div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>{o.preConfirmed!.note}</div></td>
+        <td className="num" style={{ color: d > 7 ? 'var(--risk)' : undefined }}>{d}d<div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>since {fmtDate(o.preConfirmed!.since)}</div></td>
+        <td onClick={e => e.stopPropagation()}>{mine && <Button size="sm" variant="primary" onClick={() => confirmOrder(o.id, '')}>Confirm</Button>}</td>
+      </tr>; })}</tbody></table></Card>}
+    <div className="mt-2"><Note>Orders taken at the store but not confirmed: measurement not done, on hold, or payment pending. Oldest first; past 7 days in red. Production does not plan them to a factory until they are confirmed.</Note></div>
+  </>;
+}
 
 function OrdersTab({ kind, orders, mine, onOpen, onPunch, onAdvance }: { kind: 'MTM' | 'RTW'; orders: CustomerOrder[]; mine: boolean; onOpen: (id: string) => void; onPunch: () => void; onAdvance: (id: string) => void }) {
   const { db } = useApp();

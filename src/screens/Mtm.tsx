@@ -187,12 +187,12 @@ function AllocateTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string) => 
       </div>
 
       {conf === 'only' && <Card className="mt-2">{q.preConfirmed.length === 0 ? <Empty title="No pre-confirmed orders." body="Every order taken at the store is confirmed." /> : <table className="t">
-        <thead><tr><th>Order</th><th>Customer · store</th><th>Fabric</th><th>Why it is not confirmed</th><th>Since</th><th></th></tr></thead>
-        <tbody>{q.preConfirmed.map(o => <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
+        <thead><tr><th>Order</th><th>Customer · store</th><th>Fabric</th><th>Why it is not confirmed</th><th className="num">Days pre-confirmed</th><th></th></tr></thead>
+        <tbody>{[...q.preConfirmed].sort((a, b) => a.preConfirmed!.since.localeCompare(b.preConfirmed!.since)).map(o => <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
           <td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}<div style={{ color:'var(--ink-faint)' }}>{STORES.find(st => st.id === o.storeId)?.name}</div></td>
           <td className="text-[12.5px]">{o.styleName}</td>
           <td><Pill tone="warn">{o.preConfirmed!.reason}</Pill><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{o.preConfirmed!.note}</div></td>
-          <td className="text-[12px]">{fmtDate(o.preConfirmed!.since)}</td>
+          <td className="num text-[12.5px]" style={{ color: daysAgo(o.preConfirmed!.since) > 7 ? 'var(--risk)' : undefined }}>{daysAgo(o.preConfirmed!.since)}d<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>since {fmtDate(o.preConfirmed!.since)}</div></td>
           <td onClick={e => e.stopPropagation()}>{mine && <Button size="sm" variant="primary" onClick={() => confirmOrder(o.id, '')}>Confirm</Button>}</td>
         </tr>)}</tbody></table>}</Card>}
       {conf === 'only' && <div className="mt-2 text-[12px]" style={{ color:'var(--ink-faint)' }}>Pre-confirmed orders were taken at the store but are not confirmed yet: measurement not done, on hold, or payment pending. They are not planned to a factory until confirmed.</div>}

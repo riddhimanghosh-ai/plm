@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { CustomerOrder, PrepStep } from '../domain/types';
-import { PREP_STEPS, prepOf, fmtDate, fmtRel } from '../domain/engines';
+import { PREP_STEPS, prepOf, prepQueueOf, fmtDate, fmtRel } from '../domain/engines';
 import { STORES } from '../domain/reference';
 import { Page, Card, Pill, Button, Input, Empty, Note, Tabs, Select, Seg, Drawer } from '../ui';
 
@@ -36,21 +36,24 @@ ${meas || '    <!-- no measurements on this sheet -->'}
 
 /** One desk: what is waiting for this team, what it has taken up, what it finished. */
 export function PrepDesk({ step }: { step: PrepStep }) {
-  const { db, prepTake, prepDone, addContrast, uploadCad } = useApp();
+  const { db, prepTake, prepDone, prepBlock, addContrast, uploadCad } = useApp();
   const [urg, setUrg] = useState<'all' | 'urgent'>('all');
   const [xml, setXml] = useState<string | null>(null);
+  const [blockWhy, setBlockWhy] = useState('');
   const [params, setParams] = useSearchParams();
-  const view = (params.get('view') ?? 'waiting') as 'waiting' | 'mine' | 'done';
+  const view = (params.get('view') ?? 'waiting') as 'waiting' | 'mine' | 'blocked' | 'done';
   const setView = (v: string) => { const n = new URLSearchParams(params); n.set('view', v); setParams(n, { replace: true }); };
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [remark, setRemark] = useState('');
   const [ct, setCt] = useState<{ orderId: string; fabricId: string; part: string; metres: string } | null>(null);
   const s = stepOf(step);
   const planned = (db.customerOrders ?? []).filter(o => o.kind === 'MTM' && o.stage === 'planned');
-  const waiting = planned.filter(o => prepOf(o).next?.key === step && !o.prep?.[step]);
-  const mine = planned.filter(o => o.prep?.[step] && !o.prep[step]!.doneOn);
+  const isBlocked = (o: CustomerOrder) => !!o.prepBlocked?.[step];
+  const waiting = planned.filter(o => prepOf(o).next?.key === step && !o.prep?.[step] && !isBlocked(o));
+  const mine = planned.filter(o => o.prep?.[step] && !o.prep[step]!.doneOn && !isBlocked(o));
+  const blocked = planned.filter(o => prepOf(o).next?.key === step && isBlocked(o));
   const done = (db.customerOrders ?? []).filter(o => o.prep?.[step]?.doneOn).sort((a, b) => (b.prep![step]!.doneOn ?? '').localeCompare(a.prep![step]!.doneOn ?? '')).slice(0, 60);
-  const byTab = view === 'waiting' ? waiting : view === 'mine' ? mine : done;
+  const byTab = view === 'waiting' ? waiting : view === 'mine' ? mine : view === 'blocked' ? blocked : done;
   const urgentN = byTab.filter(o => o.tag === 'urgent').length;
   /* urgent orders first, and a filter to see only them */
   const rows = (urg === 'urgent' ? byTab.filter(o => o.tag === 'urgent') : [...byTab].sort((a, b) => (a.tag === 'urgent' ? 0 : 1) - (b.tag === 'urgent' ? 0 : 1)));
@@ -65,20 +68,25 @@ export function PrepDesk({ step }: { step: PrepStep }) {
     <Tabs active={view} onChange={v => { setView(v); setSel(new Set()); }} tabs={[
       { id: 'waiting', label: 'Waiting for us', count: waiting.length },
       { id: 'mine', label: 'Taken up', count: mine.length },
+      { id: 'blocked', label: 'Blocked', count: blocked.length },
       { id: 'done', label: 'Done' },
     ]} />
     <div className="mb-2"><Seg value={urg} onChange={v => setUrg(v as 'all' | 'urgent')} options={[{ id: 'all', label: 'All', count: byTab.length }, { id: 'urgent', label: 'Urgent', count: urgentN, hint: 'urgent orders: take these up first' }]} /></div>
     {view !== 'done' && ids.length > 0 && <div className="mb-2 flex gap-2 items-center flex-wrap px-3 py-2" style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 8 }}>
       <b>{ids.length}</b> selected
       {view === 'waiting' && <Button size="sm" variant="primary" onClick={() => { prepTake(ids, step); setSel(new Set()); }}>Take up</Button>}
+      {view === 'blocked' && <Button size="sm" variant="primary" onClick={() => { prepBlock(ids, step, null); setSel(new Set()); }}>Unblock</Button>}
+      {(view === 'waiting' || view === 'mine') && <span className="flex gap-1 items-center ml-auto">
+        <Input value={blockWhy} onChange={e => setBlockWhy(e.target.value)} placeholder="why it is blocked" style={{ width: 200 }} />
+        <Button size="sm" variant="ghost" disabled={!blockWhy.trim()} onClick={() => { prepBlock(ids, step, blockWhy.trim()); setBlockWhy(''); setSel(new Set()); }}>Mark blocked</Button></span>}
       {view === 'mine' && <><Input value={remark} onChange={e => setRemark(e.target.value)} placeholder="remark (optional)" style={{ width: 240 }} />
         {(() => { const noFile = step === 'cad' ? ids.filter(id => !rows.find(o => o.id === id)?.cadFile).length : 0; return <>
         <Button size="sm" variant="primary" disabled={noFile > 0} onClick={() => { prepDone(ids, step, remark.trim()); setRemark(''); setSel(new Set()); }}>{step === 'compiling' ? 'Approve & mark compiled' : 'Mark done'}</Button>
         {noFile > 0 && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>{noFile} without a CAD file: upload it first</span>}</>; })()}</>}
     </div>}
-    {rows.length === 0 ? <Card><Empty title={view === 'waiting' ? 'Nothing waiting for this desk.' : view === 'mine' ? 'Nothing taken up.' : 'Nothing done yet.'} body={view === 'waiting' ? `Orders arrive here once ${step === 'cad' ? 'production submits a plan' : `the ${PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1].label} desk marks them done`}.` : ''} /></Card>
+    {rows.length === 0 ? <Card><Empty title={view === 'waiting' ? 'Nothing waiting for this desk.' : view === 'mine' ? 'Nothing taken up.' : view === 'blocked' ? 'Nothing blocked.' : 'Nothing done yet.'} body={view === 'waiting' ? `Orders arrive here once ${step === 'cad' ? 'production submits a plan' : `the ${PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1].label} desk marks them done`}.` : ''} /></Card>
       : <Card><table className="t">
-        <thead><tr>{view !== 'done' && <th><input type="checkbox" checked={all} onChange={e => setSel(new Set(e.target.checked ? rows.map(o => o.id) : []))} /></th>}<th>Order</th><th>Customer · store</th><th>Fabric</th><th>Plan · factory</th><th>Ship by</th>{step === 'cad' && <th>CAD file</th>}{step === 'compiling' && <th>Contrast fabric</th>}<th>{view === 'done' ? 'Done' : view === 'mine' ? 'Taken up' : 'Previous desk'}</th></tr></thead>
+        <thead><tr>{view !== 'done' && <th><input type="checkbox" checked={all} onChange={e => setSel(new Set(e.target.checked ? rows.map(o => o.id) : []))} /></th>}<th>Order</th><th>Customer · store</th><th>Fabric</th><th>Plan · factory</th><th>Ship by</th>{step === 'cad' && <th>CAD file</th>}{step === 'compiling' && <th>Contrast fabric</th>}<th>{view === 'done' ? 'Done' : view === 'mine' ? 'Taken up' : view === 'blocked' ? 'Blocked' : 'Previous desk'}</th></tr></thead>
         <tbody>{rows.map(o => { const f = fabric(o.fabricId); const e = o.prep?.[step]; const prev = PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1]; const pe = prev ? o.prep?.[prev.key] : null; return <tr key={o.id} className="row" onClick={() => view !== 'done' && toggle(o.id)} style={{ background: sel.has(o.id) ? 'var(--accent-soft)' : undefined }}>
           {view !== 'done' && <td onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>}
           <td className="mono text-[12.5px]">{o.orderNo}{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}{step === 'cad' && <div className="text-[10.5px]" style={{ fontFamily: 'var(--body)' }} onClick={ev => ev.stopPropagation()}><button type="button" className="vlink" onClick={() => setXml(o.id)}>View XML</button></div>}</td>
@@ -101,7 +109,7 @@ export function PrepDesk({ step }: { step: PrepStep }) {
                 <Button size="sm" onClick={() => { addContrast(o.id, ct.fabricId, ct.part.trim() || 'Contrast', Number(ct.metres) || 0); setCt(null); }}>Add</Button></div>
               : <button type="button" className="vlink text-[11.5px]" onClick={() => setCt({ orderId: o.id, fabricId: inv[0]?.id ?? '', part: '', metres: '' })}>+ contrast fabric</button>)}
           </td>}
-          <td className="text-[12px]">{view === 'done' ? <>{fmtRel(e?.doneOn ?? null)}<div style={{ color: 'var(--ink-faint)' }}>{e?.doneBy}{e?.remark ? ` · “${e.remark}”` : ''}</div></>
+          <td className="text-[12px]">{view === 'blocked' ? <><span style={{ color: 'var(--risk)' }}>{o.prepBlocked?.[step]?.reason}</span><div style={{ color: 'var(--ink-faint)' }}>{o.prepBlocked?.[step]?.by} · {fmtRel(o.prepBlocked?.[step]?.on ?? null)}</div></> : view === 'done' ? <>{fmtRel(e?.doneOn ?? null)}<div style={{ color: 'var(--ink-faint)' }}>{e?.doneBy}{e?.remark ? ` · “${e.remark}”` : ''}</div></>
             : view === 'mine' ? <>{e?.takenBy}<div style={{ color: 'var(--ink-faint)' }}>{fmtRel(e?.takenOn ?? null)}</div></>
             : prev ? <>{prev.label} done<div style={{ color: 'var(--ink-faint)' }}>{fmtRel(pe?.doneOn ?? null)} · {pe?.doneBy}</div></> : <>planned<div style={{ color: 'var(--ink-faint)' }}>{fmtDate(plan(o)?.createdOn ?? null)}</div></>}</td>
         </tr>; })}</tbody>
@@ -118,33 +126,46 @@ export function PrepDesk({ step }: { step: PrepStep }) {
   </Page>;
 }
 
-/** Production's view: every planned order and where it is across the four desks. */
+/** Production's view: each team's queue (ready for it, blocked, in progress, hand-offs completed) and every planned order across the four desks. */
+type Bucket = 'ready' | 'blocked' | 'wip' | 'handedOff';
+const BUCKETS: { key: Bucket; label: string; tone?: string }[] = [
+  { key: 'ready', label: 'Ready for it' }, { key: 'blocked', label: 'Blocked', tone: 'var(--risk)' },
+  { key: 'wip', label: 'Work in progress' }, { key: 'handedOff', label: 'Hand-offs · 7 days', tone: 'var(--good)' },
+];
 export function PrepOverview({ onOpen }: { onOpen: (id: string) => void }) {
   const { db } = useApp();
-  const [at, setAt] = useState<'all' | PrepStep | 'ready'>('all');
-  const planned = (db.customerOrders ?? []).filter(o => o.kind === 'MTM' && o.stage === 'planned');
-  const pendingAt = (k: PrepStep) => planned.filter(o => prepOf(o).next?.key === k);
+  const [at, setAt] = useState<{ step: PrepStep; b: Bucket } | 'ready-to-send' | null>(null);
+  const orders = db.customerOrders ?? [];
+  const planned = orders.filter(o => o.kind === 'MTM' && o.stage === 'planned');
+  const q = Object.fromEntries(PREP_STEPS.map(s => [s.key, prepQueueOf(orders, s.key)])) as Record<PrepStep, ReturnType<typeof prepQueueOf>>;
   const ready = planned.filter(o => prepOf(o).ready);
-  const rows = at === 'all' ? planned : at === 'ready' ? ready : pendingAt(at);
+  const rows = at === null ? planned : at === 'ready-to-send' ? ready : q[at.step][at.b];
   const TONE = { done: 'good', 'in progress': 'info', pending: 'neutral' } as const;
+  const on = (k: PrepStep, b: Bucket) => at !== null && at !== 'ready-to-send' && at.step === k && at.b === b;
   return <>
-    <div className="grid gap-3 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-      {PREP_STEPS.map(s => { const n = pendingAt(s.key); const taken = n.filter(o => o.prep?.[s.key]).length; return <button key={s.key} type="button" className="card text-left px-4 py-3" onClick={() => setAt(at === s.key ? 'all' : s.key)} style={{ cursor: 'pointer', outline: at === s.key ? '2px solid var(--accent)' : undefined }}>
-        <div className="label">At {s.label}</div><div className="mono text-[22px]">{n.length}</div><div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>{taken} taken up · {n.length - taken} not started</div></button>; })}
-      <button type="button" className="card text-left px-4 py-3" onClick={() => setAt(at === 'ready' ? 'all' : 'ready')} style={{ cursor: 'pointer', outline: at === 'ready' ? '2px solid var(--accent)' : undefined }}>
-        <div className="label">Ready to send</div><div className="mono text-[22px]" style={{ color: 'var(--good)' }}>{ready.length}</div><div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>all four desks done</div></button>
-    </div>
+    <Card className="mb-3"><table className="t">
+      <thead><tr><th>Team</th>{BUCKETS.map(b => <th key={b.key} className="num">{b.label}</th>)}</tr></thead>
+      <tbody>{PREP_STEPS.map(s => <tr key={s.key}>
+        <td><a className="vlink" href={`#/${s.key}`}>{s.team}</a></td>
+        {BUCKETS.map(b => { const n = q[s.key][b.key].length; return <td key={b.key} className="num">
+          <button type="button" className="mono text-[15px]" onClick={() => setAt(on(s.key, b.key) ? null : { step: s.key, b: b.key })}
+            style={{ color: n ? b.tone : 'var(--ink-faint)', textDecoration: on(s.key, b.key) ? 'underline' : undefined, cursor: 'pointer', background: 'none', border: 0 }}>{n}</button></td>; })}
+      </tr>)}
+      <tr><td><b>Ready to send</b> <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>all four desks done</span></td>
+        <td className="num" colSpan={4}><button type="button" className="mono text-[15px]" onClick={() => setAt(at === 'ready-to-send' ? null : 'ready-to-send')} style={{ color: 'var(--good)', cursor: 'pointer', background: 'none', border: 0, textDecoration: at === 'ready-to-send' ? 'underline' : undefined }}>{ready.length}</button></td></tr>
+      </tbody></table></Card>
+    <div className="mb-2 text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>{at === null ? `Every planned order (${planned.length}). Click a number to see those orders.` : at === 'ready-to-send' ? `Ready to send · ${rows.length}` : `${stepOf(at.step).team} · ${BUCKETS.find(b => b.key === at.b)!.label} · ${rows.length}`}{at !== null && <> · <button type="button" className="vlink" onClick={() => setAt(null)}>show all</button></>}</div>
     {rows.length === 0 ? <Card><Empty title="Nothing here." body="Planned orders appear here until they are compiled and scanned out." /></Card>
       : <Card><table className="t">
         <thead><tr><th>Order</th><th>Customer</th><th>Plan · factory</th>{PREP_STEPS.map(s => <th key={s.key}>{s.label}</th>)}<th>Ship by</th></tr></thead>
         <tbody>{rows.map(o => { const p = prepOf(o); return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
-          <td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}</td>
+          <td className="mono text-[12.5px]">{o.orderNo}{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}</td><td className="text-[12.5px]">{o.customer}</td>
           <td className="text-[12.5px]"><span className="mono">{(db.plans ?? []).find(x => x.id === o.planId)?.planNo ?? '—'}</span><div style={{ color: 'var(--ink-faint)' }}>{db.vendors.find(v => v.id === o.factoryId)?.name}</div></td>
-          {p.steps.map(s => <td key={s.key}><Pill tone={TONE[s.state]}>{s.state === 'in progress' ? `with ${s.entry?.takenBy}` : s.state}</Pill></td>)}
+          {p.steps.map(s => { const bl = o.prepBlocked?.[s.key]; return <td key={s.key}>{bl && s.state !== 'done' ? <span title={bl.reason}><Pill tone="risk">blocked</Pill><div className="text-[10.5px]" style={{ color: 'var(--ink-faint)', maxWidth: 140, whiteSpace: 'normal' }}>{bl.reason}</div></span> : <Pill tone={TONE[s.state]}>{s.state === 'in progress' ? `with ${s.entry?.takenBy}` : s.state}</Pill>}</td>; })}
           <td className="text-[12.5px]">{fmtDate(o.promisedOn)}</td>
         </tr>; })}</tbody>
       </table></Card>}
-    <div className="mt-3"><Note>Each desk (CAD, Cutting, Fusing, Compiling) has its own screen under Production. An order leaves for the factory only once all four are done.</Note></div>
+    <div className="mt-3"><Note>Each team works from its own desk screen under Production: it takes orders up, marks them done, or marks them blocked with a reason. Blocked orders show here with the reason until the team unblocks them. An order leaves for the factory only once all four desks are done.</Note></div>
   </>;
 }
 
@@ -157,6 +178,7 @@ export function PrepOnOrder({ o }: { o: CustomerOrder }) {
       <span className="cl-box" aria-hidden>{s.state === 'done' ? '✓' : ''}</span>
       <div className="cl-main"><div className="cl-label">{s.label}</div><div className="cl-status">{s.entry?.doneOn ? `done ${fmtDate(s.entry.doneOn)} · ${s.entry.doneBy}${s.entry.remark ? ` · “${s.entry.remark}”` : ''}` : s.entry ? `taken up by ${s.entry.takenBy} · ${fmtRel(s.entry.takenOn)}` : s.state === 'done' ? 'done' : 'not started'}</div></div>
     </div>)}
+    {Object.entries(o.prepBlocked ?? {}).map(([k, b]) => b && <div key={k} className="cl-status pt-2" style={{ color: 'var(--risk)' }}>Blocked at {stepOf(k as PrepStep).label}: {b.reason} · {b.by} · {fmtDate(b.on)}</div>)}
     {o.cadFile && <div className="cl-status pt-2">CAD file: <span className="mono">{o.cadFile.name}</span> · uploaded by {o.cadFile.by} · {fmtDate(o.cadFile.on)}</div>}
     {(o.contrast ?? []).length > 0 && <div className="cl-status pt-2">Contrast fabric: {(o.contrast ?? []).map(c => `${c.part} · ${db.fabrics.find(f => f.id === c.fabricId)?.name ?? c.fabricId} · ${c.metres} m${c.approvedOn ? ' (deducted)' : ''}`).join('; ')}</div>}
   </div>;

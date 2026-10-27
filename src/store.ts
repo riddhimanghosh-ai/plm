@@ -240,7 +240,8 @@ export interface AppState {
   confirmOrder(id: string, note: string): void;                     // a pre-confirmed order is confirmed: measurement done, off hold, paid — now it can be planned
   prepTake(orderIds: string[], step: PrepStep): void;               // a pre-production team takes the pieces up
   prepDone(orderIds: string[], step: PrepStep, remark: string): void;
-  uploadCad(orderId: string, fileName: string): void;                 // the CAD desk uploads the CAD file it made   // …and marks them done; compiling also approves the contrast fabric
+  uploadCad(orderId: string, fileName: string): void;
+  prepBlock(orderIds: string[], step: PrepStep, reason: string | null): void;   // a desk marks orders blocked with a reason; null clears it                 // the CAD desk uploads the CAD file it made   // …and marks them done; compiling also approves the contrast fabric
   addContrast(orderId: string, fabricId: string, part: string, metres: number): void;   // bespoke extra fabric: to Shravani for a PO, PO raised, cloth in
   editOrderSheet(id: string, patch: { logisticComment?: string; fabricId?: string; fit?: string; qty?: number; tag?: OrderTag; remarks?: string; spec?: Partial<OrderSpec>; measurements?: Partial<OrderMeasurements>; pattern?: Partial<PatternFlags> }, note: string, who?: 'store' | 'unit'): void;
   /* production's two answers to a changed sheet */
@@ -1476,6 +1477,12 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
           if (f) { f.stockMetres = Math.max(0, round2(f.stockMetres - c.metres)); f.transactions = [{ on: now(), orderNo: o.orderNo, poId: null, type: 'ISSUE', by: who(), warehouse: f.inventory?.warehouse ?? 'Dadar unit', bin: f.inventory?.bins[0]?.bin ?? null, reason: 'Contrast fabric', desc: `${c.part} on ${o.orderNo}`, metres: -c.metres }, ...(f.transactions ?? [])]; } });
       }), step === 'compiling' ? 'Compiled and approved: contrast fabric deducted from physical stock; the bundle can leave for the factory.' : 'Done: the next team sees it.');
     },
+    prepBlock(orderIds, step, reason) {
+      touch(db => orderIds.forEach(id => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (!o) return;
+        o.prepBlocked = o.prepBlocked ?? {};
+        if (reason) o.prepBlocked[step] = { reason, by: who(), on: now() }; else delete o.prepBlocked[step]; }),
+        reason ? `${orderIds.length} blocked: production sees why.` : `${orderIds.length} unblocked: back in the queue.`, reason ? 'warn' : 'ok');
+    },
     uploadCad(orderId, fileName) {
       touch(db => { const o = (db.customerOrders ?? []).find(x => x.id === orderId); if (!o) return;
         o.cadFile = { name: fileName, by: who(), on: now() }; }, `CAD file ${fileName} uploaded on the order.`);
@@ -1626,7 +1633,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 121,
+  version: 123,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1638,7 +1645,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 121 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 123 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),
