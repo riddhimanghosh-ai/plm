@@ -98,8 +98,8 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
   const f = designFlowOf(db, { kind:'order', o });
   const at = (k: DesignStepKey) => f.steps.find(x => x.key === k)!;
   const no = (k: DesignStepKey) => f.steps.findIndex(x => x.key === k) + 1;
-  const title = (k: DesignStepKey) => `${no(k)} · ${at(k).label}`;
-  const state = (k: DesignStepKey) => { const x = at(k); return x.state === 'done' ? <Pill tone="good">done</Pill> : x.state === 'now' ? <span className={`pill role-${x.owner}`}>now</span> : <Pill tone="neutral">later</Pill>; };
+  const title = (k: DesignStepKey) => `Step ${no(k)} · ${at(k).label}`;
+  const state = (k: DesignStepKey) => at(k).state === 'done' ? <Pill tone="good">done</Pill> : <Pill tone={at(k).state === 'now' ? 'warn' : 'neutral'}>pending</Pill>;
   const owner = (k: DesignStepKey) => <OwnerPill owner={ROLE_LABEL[at(k).owner]} />;
   /* open the live step from the call — the drawer's own index does the same on click */
   const jump = (k: DesignStepKey) => { const el = document.querySelector(`[data-section="${title(k)}"]`) as HTMLElement | null; if (!el) return; if (el.dataset.collapsed === 'true') el.querySelector('button')?.click(); el.scrollIntoView({ behavior:'smooth', block:'start' }); };
@@ -200,14 +200,9 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
       </> : <><div className="py-2 text-[12.5px]" style={faint}>{at('live').note}</div><PutInDrop o={o} /></>}
 </>
     };
-      const nowKey = f.now.state === 'done' ? null : f.now.key; const others = f.steps.filter(x => x.key !== nowKey);
-      return <>
-        {nowKey && <Section title={title(nowKey)} defaultOpen right={state(nowKey)} ownerRole={at(nowKey).owner}>{bodies[nowKey]}</Section>}
-        <Section title={`${nowKey ? 'Other steps' : 'All steps'} · ${others.length}`} look="fold" pending={false} ownerRole={null}
-          right={<span className="flex gap-1 flex-wrap justify-end">{others.map(x => <span key={x.key} className={`pill ${x.state === 'done' ? 'good' : ''}`} title={x.note}>{x.state === 'done' ? '✓ ' : ''}{x.label}</span>)}</span>}>
-          {others.map(x => <Section key={x.key} title={title(x.key)} right={state(x.key)} ownerRole={at(x.key).owner}>{bodies[x.key]}</Section>)}
-        </Section>
-      </>; })()}
+      /* one flat list: Step 1, Step 2 … each done or pending; the live step opens, the rest stay folded */
+      const nowKey = f.now.state === 'done' ? null : f.now.key;
+      return <>{f.steps.map(x => <Section key={x.key} title={title(x.key)} defaultOpen={x.key === nowKey} right={state(x.key)} ownerRole={x.key === nowKey ? at(x.key).owner : null} pending={false}>{bodies[x.key]}</Section>)}</>; })()}
 
     {/* ── the style sheet: today typed by hand per style; here it prints off the record ── */}
     <Section title="Style sheet · job card" pending={false} ownerRole="design" right={<Pill tone="neutral">prints off the record</Pill>}>
