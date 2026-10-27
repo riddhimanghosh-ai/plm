@@ -1,6 +1,6 @@
 /* Pre-production, 27 Oct 2026. After a plan is submitted and before the bundle
    leaves for the factory, every order passes four desks at the unit: CAD (the
-   order sheet XML from Enigma becomes a CAD file and a print), cutting (the
+   order sheet XML from the connected order software becomes a CAD file and a print), cutting (the
    cloth is cut to it and the print attached), fusing (interlining), and
    compiling (the bundle is checked and approved, contrast fabric included).
    Today none of it is logged; here each team takes an order up and marks it
