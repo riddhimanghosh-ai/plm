@@ -239,7 +239,8 @@ export interface AppState {
   routeExtraFabricPo(id: string, step: 'hand' | 'raised' | 'cloth-in', poNo?: string): void;
   confirmOrder(id: string, note: string): void;                     // a pre-confirmed order is confirmed: measurement done, off hold, paid — now it can be planned
   prepTake(orderIds: string[], step: PrepStep): void;               // a pre-production team takes the pieces up
-  prepDone(orderIds: string[], step: PrepStep, remark: string): void;   // …and marks them done; compiling also approves the contrast fabric
+  prepDone(orderIds: string[], step: PrepStep, remark: string): void;
+  uploadCad(orderId: string, fileName: string): void;                 // the CAD desk uploads the CAD file it made   // …and marks them done; compiling also approves the contrast fabric
   addContrast(orderId: string, fabricId: string, part: string, metres: number): void;   // bespoke extra fabric: to Shravani for a PO, PO raised, cloth in
   editOrderSheet(id: string, patch: { logisticComment?: string; fabricId?: string; fit?: string; qty?: number; tag?: OrderTag; remarks?: string; spec?: Partial<OrderSpec>; measurements?: Partial<OrderMeasurements>; pattern?: Partial<PatternFlags> }, note: string, who?: 'store' | 'unit'): void;
   /* production's two answers to a changed sheet */
@@ -1475,24 +1476,42 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
           if (f) { f.stockMetres = Math.max(0, round2(f.stockMetres - c.metres)); f.transactions = [{ on: now(), orderNo: o.orderNo, poId: null, type: 'ISSUE', by: who(), warehouse: f.inventory?.warehouse ?? 'Dadar unit', bin: f.inventory?.bins[0]?.bin ?? null, reason: 'Contrast fabric', desc: `${c.part} on ${o.orderNo}`, metres: -c.metres }, ...(f.transactions ?? [])]; } });
       }), step === 'compiling' ? 'Compiled and approved: contrast fabric deducted from physical stock; the bundle can leave for the factory.' : 'Done: the next team sees it.');
     },
+    uploadCad(orderId, fileName) {
+      touch(db => { const o = (db.customerOrders ?? []).find(x => x.id === orderId); if (!o) return;
+        o.cadFile = { name: fileName, by: who(), on: now() }; }, `CAD file ${fileName} uploaded on the order.`);
+    },
     addContrast(orderId, fabricId, part, metres) {
       touch(db => { const o = (db.customerOrders ?? []).find(x => x.id === orderId); if (!o || !metres) return;
         o.contrast = [...(o.contrast ?? []), { id: `ct-${Date.now().toString(36)}`, fabricId, part, metres, approvedOn: null, approvedBy: null }]; }, 'Contrast fabric added: deducted when compiling approves.');
     },
     routeExtraFabricPo(id, step, poNo) {
-      touch(db => { const r = (db.extraFabric ?? []).find(x => x.id === id); if (!r) return;
-        if (step === 'hand') { r.status = 'po-needed'; r.po = { handedOn: now(), by: who(), poNo: null, raisedOn: null, clothInOn: null }; }
-        if (step === 'raised' && r.po) { r.po.poNo = poNo || r.po.poNo || `FPO-${7100 + Math.floor(Math.random() * 899)}`; r.po.raisedOn = now(); }
+      let msg = '';
+      const run = (db: Db) => { const r = (db.extraFabric ?? []).find(x => x.id === id); if (!r) return;
+        const f = db.fabrics.find(x => x.id === r.fabricId); const bespoke = f?.bucket === 'BESPOKE';
+        /* alteration cloth on a fabric the shelf covers: Shravani's approval issues it from stock, no mill PO */
+        const fromShelf = !bespoke && !!f && f.stockMetres - f.reservedMetres >= r.metres;
+        if (step === 'hand') { r.status = 'po-needed'; r.po = { handedOn: now(), by: who(), poNo: null, raisedOn: null, clothInOn: null }; msg = 'With Shravani to approve.'; }
+        if (step === 'raised' && r.po) {
+          if (fromShelf && f) { r.po.raisedOn = now(); r.status = 'approved'; r.decidedOn = now();
+            f.stockMetres = Math.max(0, round2(f.stockMetres - r.metres));
+            f.transactions = [{ on: now(), orderNo: (db.customerOrders ?? []).find(o => o.id === r.orderId)?.orderNo ?? '', poId: null, type: 'ISSUE', by: who(), warehouse: f.inventory?.warehouse ?? 'Dadar unit', bin: f.inventory?.bins[0]?.bin ?? null, reason: r.source === 'alteration' ? 'Alteration fabric' : 'Extra fabric', desc: `${r.panel}, ${r.metres} m`, metres: -r.metres }, ...(f.transactions ?? [])];
+            msg = `Approved by Shravani: ${r.metres} m deducted from physical stock.`; }
+          else { r.po.poNo = poNo || r.po.poNo || `FPO-${7100 + Math.floor(Math.random() * 899)}`; r.po.raisedOn = now(); msg = 'Approved by Shravani: the PO is generated.'; } }
+        /* bespoke cloth is never BSC's inventory: it arrives for the order and goes straight to it */
         if (step === 'cloth-in' && r.po) { r.po.clothInOn = now(); r.status = 'requested';
-          const f = db.fabrics.find(x => x.id === r.fabricId); if (f) f.stockMetres = round2(f.stockMetres + r.metres); }
-      }, step === 'hand' ? 'With Shravani: she raises a PO with the mill for the bespoke cloth.' : step === 'raised' ? 'Approved by Shravani: the PO is generated.' : 'Cloth in: the request is back with production to approve.');
+          if (f && !bespoke) f.stockMetres = round2(f.stockMetres + r.metres);
+          msg = bespoke ? 'Cloth in: bespoke, not booked to inventory; back with production to approve.' : 'Cloth in: the request is back with production to approve.'; }
+      };
+      run(structuredClone(get().db));   // dry run for the toast wording
+      touch(run, msg);
     },
     decideExtraFabric(id, status) {
       touch(db => { const r = (db.extraFabric ?? []).find(x => x.id === id); if (!r) return;
         const wasLive = r.status === 'requested';
         r.status = status; r.decidedOn = r.decidedOn ?? now();
         /* approval is the inventory event — the metres leave the shelf the moment the production unit says yes */
-        if (status === 'approved' && wasLive) { const f = db.fabrics.find(x => x.id === r.fabricId); if (f) f.stockMetres = Math.max(0, Math.round((f.stockMetres - r.metres) * 100) / 100); }
+        /* bespoke cloth is not kept in inventory, so there is nothing to deduct */
+        if (status === 'approved' && wasLive) { const f = db.fabrics.find(x => x.id === r.fabricId); if (f && f.bucket !== 'BESPOKE') f.stockMetres = Math.max(0, Math.round((f.stockMetres - r.metres) * 100) / 100); }
       }, status === 'approved' ? 'Approved — inventory deducted, fabric team gets the cut list.' : status === 'declined' ? 'Declined.' : 'Marked sent to the factory.', status === 'declined' ? 'warn' : 'ok');
     },
 
@@ -1607,7 +1626,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 120,
+  version: 121,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1619,7 +1638,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 120 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 121 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

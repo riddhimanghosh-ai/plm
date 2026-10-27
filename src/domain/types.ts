@@ -588,6 +588,8 @@ export interface CustomerOrder {
   confirmedOn?: string | null; confirmedBy?: string | null;
   /* the pre-production desks after planning, before the bundle leaves for the factory: CAD, cutting, fusing, then compiling */
   prep?: Partial<Record<PrepStep, PrepEntry>>;
+  /* the CAD file the CAD desk made from Enigma's order sheet XML, uploaded on the order */
+  cadFile?: { name: string; by: string; on: string } | null;
   /* contrast fabric on this piece (a pocket, a collar band): a little of another inventory fabric, deducted from physical stock when compiling approves it */
   contrast?: ContrastLine[];
   /* MTM production */

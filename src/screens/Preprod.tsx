@@ -11,13 +11,14 @@ import { useApp } from '../store';
 import type { CustomerOrder, PrepStep } from '../domain/types';
 import { PREP_STEPS, prepOf, fmtDate, fmtRel } from '../domain/engines';
 import { STORES } from '../domain/reference';
-import { Page, Card, Pill, Button, Input, Empty, Note, Tabs, Select } from '../ui';
+import { Page, Card, Pill, Button, Input, Empty, Note, Tabs, Select, Seg } from '../ui';
 
 const stepOf = (k: PrepStep) => PREP_STEPS.find(s => s.key === k)!;
 
 /** One desk: what is waiting for this team, what it has taken up, what it finished. */
 export function PrepDesk({ step }: { step: PrepStep }) {
-  const { db, prepTake, prepDone, addContrast } = useApp();
+  const { db, prepTake, prepDone, addContrast, uploadCad } = useApp();
+  const [urg, setUrg] = useState<'all' | 'urgent'>('all');
   const [params, setParams] = useSearchParams();
   const view = (params.get('view') ?? 'waiting') as 'waiting' | 'mine' | 'done';
   const setView = (v: string) => { const n = new URLSearchParams(params); n.set('view', v); setParams(n, { replace: true }); };
@@ -29,7 +30,10 @@ export function PrepDesk({ step }: { step: PrepStep }) {
   const waiting = planned.filter(o => prepOf(o).next?.key === step && !o.prep?.[step]);
   const mine = planned.filter(o => o.prep?.[step] && !o.prep[step]!.doneOn);
   const done = (db.customerOrders ?? []).filter(o => o.prep?.[step]?.doneOn).sort((a, b) => (b.prep![step]!.doneOn ?? '').localeCompare(a.prep![step]!.doneOn ?? '')).slice(0, 60);
-  const rows = view === 'waiting' ? waiting : view === 'mine' ? mine : done;
+  const byTab = view === 'waiting' ? waiting : view === 'mine' ? mine : done;
+  const urgentN = byTab.filter(o => o.tag === 'urgent').length;
+  /* urgent orders first, and a filter to see only them */
+  const rows = (urg === 'urgent' ? byTab.filter(o => o.tag === 'urgent') : [...byTab].sort((a, b) => (a.tag === 'urgent' ? 0 : 1) - (b.tag === 'urgent' ? 0 : 1)));
   const fabric = (id: string | null) => db.fabrics.find(f => f.id === id);
   const plan = (o: CustomerOrder) => (db.plans ?? []).find(p => p.id === o.planId);
   const factory = (o: CustomerOrder) => db.vendors.find(v => v.id === o.factoryId)?.name ?? '—';
@@ -43,15 +47,18 @@ export function PrepDesk({ step }: { step: PrepStep }) {
       { id: 'mine', label: 'Taken up', count: mine.length },
       { id: 'done', label: 'Done' },
     ]} />
+    <div className="mb-2"><Seg value={urg} onChange={v => setUrg(v as 'all' | 'urgent')} options={[{ id: 'all', label: 'All', count: byTab.length }, { id: 'urgent', label: 'Urgent', count: urgentN, hint: 'urgent orders: take these up first' }]} /></div>
     {view !== 'done' && ids.length > 0 && <div className="mb-2 flex gap-2 items-center flex-wrap px-3 py-2" style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 8 }}>
       <b>{ids.length}</b> selected
       {view === 'waiting' && <Button size="sm" variant="primary" onClick={() => { prepTake(ids, step); setSel(new Set()); }}>Take up</Button>}
       {view === 'mine' && <><Input value={remark} onChange={e => setRemark(e.target.value)} placeholder="remark (optional)" style={{ width: 240 }} />
-        <Button size="sm" variant="primary" onClick={() => { prepDone(ids, step, remark.trim()); setRemark(''); setSel(new Set()); }}>{step === 'compiling' ? 'Approve & mark compiled' : 'Mark done'}</Button></>}
+        {(() => { const noFile = step === 'cad' ? ids.filter(id => !rows.find(o => o.id === id)?.cadFile).length : 0; return <>
+        <Button size="sm" variant="primary" disabled={noFile > 0} onClick={() => { prepDone(ids, step, remark.trim()); setRemark(''); setSel(new Set()); }}>{step === 'compiling' ? 'Approve & mark compiled' : 'Mark done'}</Button>
+        {noFile > 0 && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>{noFile} without a CAD file: upload it first</span>}</>; })()}</>}
     </div>}
     {rows.length === 0 ? <Card><Empty title={view === 'waiting' ? 'Nothing waiting for this desk.' : view === 'mine' ? 'Nothing taken up.' : 'Nothing done yet.'} body={view === 'waiting' ? `Orders arrive here once ${step === 'cad' ? 'production submits a plan' : `the ${PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1].label} desk marks them done`}.` : ''} /></Card>
       : <Card><table className="t">
-        <thead><tr>{view !== 'done' && <th><input type="checkbox" checked={all} onChange={e => setSel(new Set(e.target.checked ? rows.map(o => o.id) : []))} /></th>}<th>Order</th><th>Customer · store</th><th>Fabric</th><th>Plan · factory</th><th>Ship by</th>{step === 'compiling' && <th>Contrast fabric</th>}<th>{view === 'done' ? 'Done' : view === 'mine' ? 'Taken up' : 'Previous desk'}</th></tr></thead>
+        <thead><tr>{view !== 'done' && <th><input type="checkbox" checked={all} onChange={e => setSel(new Set(e.target.checked ? rows.map(o => o.id) : []))} /></th>}<th>Order</th><th>Customer · store</th><th>Fabric</th><th>Plan · factory</th><th>Ship by</th>{step === 'cad' && <th>CAD file</th>}{step === 'compiling' && <th>Contrast fabric</th>}<th>{view === 'done' ? 'Done' : view === 'mine' ? 'Taken up' : 'Previous desk'}</th></tr></thead>
         <tbody>{rows.map(o => { const f = fabric(o.fabricId); const e = o.prep?.[step]; const prev = PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1]; const pe = prev ? o.prep?.[prev.key] : null; return <tr key={o.id} className="row" onClick={() => view !== 'done' && toggle(o.id)} style={{ background: sel.has(o.id) ? 'var(--accent-soft)' : undefined }}>
           {view !== 'done' && <td onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>}
           <td className="mono text-[12.5px]">{o.orderNo}{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}{step === 'cad' && <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)', fontFamily: 'var(--body)' }}>order sheet XML · Enigma</div>}</td>
@@ -59,6 +66,11 @@ export function PrepDesk({ step }: { step: PrepStep }) {
           <td className="text-[12.5px]">{f?.name ?? o.styleName}<div className="mono text-[11px]" style={{ color: 'var(--ink-faint)' }}>{f?.code} · {o.consumptionM ?? '—'} m</div></td>
           <td className="text-[12.5px]"><span className="mono">{plan(o)?.planNo ?? '—'}</span><div style={{ color: 'var(--ink-faint)' }}>{factory(o)}</div></td>
           <td className="text-[12.5px]">{fmtDate(o.promisedOn)}</td>
+          {step === 'cad' && <td className="text-[12px]" onClick={ev => ev.stopPropagation()}>
+            {o.cadFile && <div><span className="mono">{o.cadFile.name}</span><div style={{ color: 'var(--ink-faint)' }}>{o.cadFile.by} · {fmtRel(o.cadFile.on)}</div></div>}
+            {view !== 'done' && <label className="vlink text-[11.5px]" style={{ cursor: 'pointer' }}>{o.cadFile ? 'replace' : 'Upload CAD file'}
+              <input type="file" accept=".dxf,.plt,.cut,.pdf,.xml,.zip" style={{ display: 'none' }} onChange={ev => { const file = ev.target.files?.[0]; if (file) uploadCad(o.id, file.name); ev.target.value = ''; }} /></label>}
+          </td>}
           {step === 'compiling' && <td className="text-[12px]" onClick={ev => ev.stopPropagation()} style={{ whiteSpace: 'normal', minWidth: 190 }}>
             {(o.contrast ?? []).map(c => <div key={c.id}>{c.part}: {fabric(c.fabricId)?.name ?? c.fabricId} · {c.metres} m{c.approvedOn ? <Pill tone="good">deducted</Pill> : ''}</div>)}
             {!(o.contrast ?? []).length && <span style={{ color: 'var(--ink-faint)' }}>none</span>}
@@ -74,6 +86,7 @@ export function PrepDesk({ step }: { step: PrepStep }) {
             : prev ? <>{prev.label} done<div style={{ color: 'var(--ink-faint)' }}>{fmtRel(pe?.doneOn ?? null)} · {pe?.doneBy}</div></> : <>planned<div style={{ color: 'var(--ink-faint)' }}>{fmtDate(plan(o)?.createdOn ?? null)}</div></>}</td>
         </tr>; })}</tbody>
       </table></Card>}
+    {step === 'cad' && <div className="mt-3"><Note>Make the CAD file from the order sheet XML that Enigma exports, print it, and upload the file on the order. An order cannot be marked done here without its CAD file; the cutting desk opens it from the order.</Note></div>}
     {step === 'compiling' && <div className="mt-3"><Note>Approving compiles the bundle and deducts any contrast fabric from that fabric's physical stock, with a line in its transactions. Once compiled, the bundle can be scanned out to the factory.</Note></div>}
   </Page>;
 }
@@ -117,6 +130,7 @@ export function PrepOnOrder({ o }: { o: CustomerOrder }) {
       <span className="cl-box" aria-hidden>{s.state === 'done' ? '✓' : ''}</span>
       <div className="cl-main"><div className="cl-label">{s.label}</div><div className="cl-status">{s.entry?.doneOn ? `done ${fmtDate(s.entry.doneOn)} · ${s.entry.doneBy}${s.entry.remark ? ` · “${s.entry.remark}”` : ''}` : s.entry ? `taken up by ${s.entry.takenBy} · ${fmtRel(s.entry.takenOn)}` : s.state === 'done' ? 'done' : 'not started'}</div></div>
     </div>)}
+    {o.cadFile && <div className="cl-status pt-2">CAD file: <span className="mono">{o.cadFile.name}</span> · uploaded by {o.cadFile.by} · {fmtDate(o.cadFile.on)}</div>}
     {(o.contrast ?? []).length > 0 && <div className="cl-status pt-2">Contrast fabric: {(o.contrast ?? []).map(c => `${c.part} · ${db.fabrics.find(f => f.id === c.fabricId)?.name ?? c.fabricId} · ${c.metres} m${c.approvedOn ? ' (deducted)' : ''}`).join('; ')}</div>}
   </div>;
 }

@@ -344,7 +344,8 @@ function FloorTab({ mine, factoryId, onFactory, onOpen }: { mine: boolean; facto
   const all = l ? [...l.inTransit, ...l.wip, ...l.ready].sort((a, b) => a.promisedOn.localeCompare(b.promisedOn)) : [];
   const stageCount = (st: string) => all.filter(o => o.stage === st).length;
   const filtered = all
-    .filter(o => stageF === 'all' ? true : stageF === 'late' ? daysAgo(o.promisedOn) > 0 : stageF === 'amended' ? needsReprint(o) : o.stage === stageF)
+    .filter(o => stageF === 'all' ? true : stageF === 'urgent' ? o.tag === 'urgent' : stageF === 'late' ? daysAgo(o.promisedOn) > 0 : stageF === 'amended' ? needsReprint(o) : o.stage === stageF)
+    .sort((a, b) => (a.tag === 'urgent' ? 0 : 1) - (b.tag === 'urgent' ? 0 : 1))   // urgent pieces are worked first, so they sit on top
     .filter(o => { const t = floorSearch.trim().toLowerCase(); return !t || o.orderNo.toLowerCase().includes(t) || o.customer.toLowerCase().includes(t) || o.styleName.toLowerCase().includes(t); });
   /* one piece per stage on the floor, a late one and an on-time one of each */
   const ex = useExamples(filtered, o => `${o.stage}·${daysAgo(o.promisedOn) > 0}`, { noun:'pieces', done: o => o.stage === 'out-factory' });
@@ -356,6 +357,7 @@ function FloorTab({ mine, factoryId, onFactory, onOpen }: { mine: boolean; facto
       <div style={{ width: 220 }}><Field label="Factory"><Select value={v.id} onChange={onFactory} options={factories.map(f => ({ value:f.id, label:f.name }))} /></Field></div>
       <div className="pb-[1px]"><Seg value={stageF} onChange={setStageF} options={[
         { id:'all', label:'Everything', count: all.length },
+        { id:'urgent', label:'Urgent', count: all.filter(o => o.tag === 'urgent').length, hint:'urgent orders (7–8 days, express): work these first' },
         { id:'in-transit', label:'On its way', count: stageCount('in-transit') },
         { id:'in-factory', label:'On the floor', count: stageCount('in-factory') },
         { id:'out-factory', label:'Ready to come back', count: stageCount('out-factory') },
@@ -442,8 +444,9 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
           <td className="mono text-[12.5px]">{o?.orderNo ?? r.orderId}<div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{(db.plans ?? []).find(p => p.id === (r.planId ?? o?.planId))?.planNo ?? 'no bundle'}</div></td>
           <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{f?.name}<div className="mono text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{f?.code}</div>
             {/* approving moves inventory, so the shelf is on the row you approve from */}
-            {f && <div className="text-[11px]" style={{ color: (f.stockMetres - f.reservedMetres) < r.metres ? 'var(--risk)' : 'var(--ink-faint)' }}>
-              shelf {Math.round((f.stockMetres - f.reservedMetres) * 10) / 10} m{r.status === 'requested' ? ` → ${Math.round((f.stockMetres - f.reservedMetres - r.metres) * 10) / 10} m if approved` : ''}</div>}</td>
+            {f && (f.bucket === 'BESPOKE' ? <div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>bespoke · no inventory kept, nothing deducted</div>
+              : <div className="text-[11px]" style={{ color: (f.stockMetres - f.reservedMetres) < r.metres ? 'var(--risk)' : 'var(--ink-faint)' }}>
+              shelf {Math.round((f.stockMetres - f.reservedMetres) * 10) / 10} m{r.status === 'requested' || (r.status === 'po-needed' && !r.po?.raisedOn) ? ` → ${Math.round((f.stockMetres - f.reservedMetres - r.metres) * 10) / 10} m if approved` : ''}</div>)}</td>
           <td className="text-[12.5px]"><VendorLink id={r.factoryId} /></td>
           <td className="text-[12.5px]">{r.panel}</td><td className="num">{r.metres} m</td>
           <td className="text-[12px]"><span style={{ color: r.reason.includes('factory') ? 'var(--risk)' : 'var(--warn)' }}>{r.reason}</span>{r.note && <div style={{ color:'var(--ink-faint)' }}>{r.note}</div>}</td>
@@ -453,13 +456,13 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
               {short && !r.po ? <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani for a PO</Button>
                 : <Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'approved')}>Approve</Button>}
               <Button size="sm" variant="ghost" onClick={() => decideExtraFabric(r.id, 'declined')}>Decline</Button></>; })()}
-            {(mine || wh) && r.status === 'po-needed' && !r.po?.raisedOn && <Button size="sm" onClick={() => routeExtraFabricPo(r.id, 'raised')}>Shravani: approve & raise PO</Button>}
+            {(mine || wh) && r.status === 'po-needed' && !r.po?.raisedOn && <Button size="sm" onClick={() => routeExtraFabricPo(r.id, 'raised')}>{f && f.bucket !== 'BESPOKE' && f.stockMetres - f.reservedMetres >= r.metres ? 'Shravani: approve · issue from stock' : 'Shravani: approve & raise PO'}</Button>}
             {(mine || wh) && r.status === 'po-needed' && r.po?.raisedOn && <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'cloth-in')}>Cloth in · back to approval</Button>}
             {wh && r.status === 'approved' && <Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'sent')}>Picked & sent</Button>}
           </td>
         </tr>); })}</tbody>
     </table></Card>}
-    <div className="mt-3"><Note>Approve is the inventory event: the metres leave the shelf the moment production says yes. Bespoke cloth, an alteration unit's ask, or a fabric with too little on the shelf is not approved from stock: production sends it to Shravani in one click, Shravani approves and the PO is generated; when the cloth is in, it comes back here to approve.</Note></div>
+    <div className="mt-3"><Note>Approve is the inventory event: the metres leave physical stock the moment it is approved. Bespoke cloth, an alteration unit's ask, or a fabric with too little on the shelf goes to Shravani in one click. For an alteration on a fabric the shelf covers, Shravani's approval issues it and deducts it from physical stock. Otherwise Shravani approves and the PO is generated; when the cloth is in, it comes back here to approve. Bespoke is never BSC's inventory: nothing is booked in or deducted.</Note></div>
   </>;
 }
 

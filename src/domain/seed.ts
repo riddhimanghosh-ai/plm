@@ -1388,6 +1388,7 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
     const at = (d: number) => iso(addDays(new Date(o.punchedOn), d));
     o.prep = {};
     if (upto >= 1) o.prep.cad = { takenBy: TEAM.cad[k % 2], takenOn: at(1), doneBy: upto >= 2 ? TEAM.cad[k % 2] : null, doneOn: upto >= 2 ? at(1) : null, remark: null };
+    if (upto >= 2) o.cadFile = { name: `${o.orderNo}.dxf`, by: TEAM.cad[k % 2], on: at(1) };
     if (upto >= 3) o.prep.cutting = { takenBy: TEAM.cutting[k % 2], takenOn: at(1), doneBy: TEAM.cutting[k % 2], doneOn: at(1), remark: null };
     if (upto >= 4) o.prep.fusing = { takenBy: TEAM.fusing[0], takenOn: at(2), doneBy: TEAM.fusing[0], doneOn: at(2), remark: null };
     if (upto >= 5) o.prep.compiling = { takenBy: TEAM.compiling[0], takenOn: at(2), doneBy: TEAM.compiling[0], doneOn: at(2), remark: null };
