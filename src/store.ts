@@ -1633,7 +1633,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 123,
+  version: 124,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1645,7 +1645,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 123 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 124 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

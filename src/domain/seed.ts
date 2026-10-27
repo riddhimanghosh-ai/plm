@@ -1413,7 +1413,11 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
 { const hem = VENDORS.find(v => v.kind === 'Hemming unit');
   const done = customerOrders.filter(o => o.kind === 'MTM' && o.fabricId && ['delivered', 'dispatched'].includes(o.stage)).slice(0, 2);
   done.forEach((o, k) => extraFabric.push({ id: `xf-alt-${k}`, orderId: o.id, fabricId: o.fabricId!, factoryId: hem?.id ?? o.factoryId!, planId: null, metres: k ? 0.3 : 0.8, reason: 'Fabric short — PP error', panel: k ? 'Collar' : 'Single front',
-    raisedBy: 'Alteration unit', raisedOn: iso(addDays(TODAY, -1)), status: 'requested', decidedOn: null, note: k ? 'collar for the store to attach (CCP alteration)' : 'front panel replacement after a stain', source: 'alteration' })); }
+    raisedBy: 'Alteration unit', raisedOn: iso(addDays(TODAY, -1)), status: 'requested', decidedOn: null, note: k ? 'collar for the store to attach (CCP alteration)' : 'front panel replacement after a stain', source: 'alteration' }));
+  /* an alteration on a bespoke shirt: bespoke cloth is never on the shelf, so this one goes to Shravani */
+  const bsp = customerOrders.find(o => o.kind === 'MTM' && o.fabricId && ['delivered', 'dispatched'].includes(o.stage) && fabrics.find(f => f.id === o.fabricId)?.bucket === 'BESPOKE');
+  if (bsp) extraFabric.push({ id: 'xf-alt-bsp', orderId: bsp.id, fabricId: bsp.fabricId!, factoryId: hem?.id ?? bsp.factoryId!, planId: null, metres: 0.9, reason: 'Fabric short — PP error', panel: 'Both sleeves',
+    raisedBy: 'Alteration unit', raisedOn: iso(addDays(TODAY, -2)), status: 'requested', decidedOn: null, note: 'sleeves re-cut after a shortening went wrong', source: 'alteration' }); }
 
 export const SEED: Db = {
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,
