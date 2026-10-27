@@ -425,9 +425,14 @@ function ExtraFabricForm({ o, onDone }: { o: CustomerOrder; onDone: () => void }
 /* ---------- Extra fabric queue --------------------------------------------- */
 export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; onOpen: (id: string) => void }) {
   const { db, decideExtraFabric, routeExtraFabricPo } = useApp();
-  const rows = [...(db.extraFabric ?? [])].sort((a, b) => (a.status === 'requested' ? 0 : 1) - (b.status === 'requested' ? 0 : 1) || b.raisedOn.localeCompare(a.raisedOn));
   const order = (id: string) => (db.customerOrders ?? []).find(o => o.id === id);
   const fabric = (id: string) => db.fabrics.find(f => f.id === id);
+  /* three kinds of ask: a normal order, a bespoke order (no inventory), the alteration and hemming unit */
+  const kindOf = (r: ExtraFabricRequest) => r.source === 'alteration' ? 'alteration' : fabric(r.fabricId)?.bucket === 'BESPOKE' || order(r.orderId)?.bespoke ? 'bespoke' : 'normal';
+  const [kind, setKind] = useState<'all' | 'normal' | 'bespoke' | 'alteration'>('all');
+  const allRows = db.extraFabric ?? [];
+  const rows = allRows.filter(r => kind === 'all' || kindOf(r) === kind).sort((a, b) => (a.status === 'requested' ? 0 : 1) - (b.status === 'requested' ? 0 : 1) || b.raisedOn.localeCompare(a.raisedOn));
+  const kindN = (k: string) => allRows.filter(r => kindOf(r) === k).length;
   const TONE: Record<string, Tone> = { requested:'warn', 'po-needed':'info', approved:'good', sent:'neutral', declined:'risk' };
   const STATUS: Record<string, string> = { requested:'to approve', 'po-needed':'with Shravani · to approve the PO', approved:'approved', sent:'sent', declined:'declined' };
   const byReason: Record<string, number> = {}; rows.forEach(r => (byReason[r.reason] = (byReason[r.reason] ?? 0) + 1));
@@ -435,8 +440,16 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
   /* one ask per status — requested, approved, sent, declined */
   const ex = useExamples(rows, r => r.status, { noun:'requests', done: r => r.status === 'sent' });
   return <>
-    {ex.strip && <div className="flex justify-end mb-2">{ex.strip}</div>}
-    {rows.length === 0 ? <Card><Empty title="No extra-fabric asks." body="Factory merchandisers raise them from the Factory floor tab." /></Card> : <Card><table className="t">
+    <div className="flex items-center gap-2 mb-2 flex-wrap">
+      <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[
+        { id:'all', label:'All', count: allRows.length },
+        { id:'normal', label:'Normal orders', count: kindN('normal'), hint:'cloth from the shelf; approval deducts it' },
+        { id:'bespoke', label:'Bespoke orders', count: kindN('bespoke'), hint:'mill PO via Shravani; no inventory kept' },
+        { id:'alteration', label:'Alteration / hemming', count: kindN('alteration'), hint:'asks from the alteration and hemming unit; deducted from physical stock' },
+      ]} />
+      {ex.strip && <span className="ml-auto">{ex.strip}</span>}
+    </div>
+    {rows.length === 0 ? <Card><Empty title={allRows.length ? 'No asks of this kind.' : 'No extra-fabric asks.'} body={allRows.length ? 'Pick another filter.' : 'Factory merchandisers raise them from the Factory floor tab.'} /></Card> : <Card><table className="t">
       <thead><tr><th>Raised</th><th>Order</th><th>Fabric</th><th>Factory</th><th>Panel</th><th className="num">Metres</th><th>Reason</th><th>Status</th><th></th></tr></thead>
       <tbody>{ex.rows.map(r => { const o = order(r.orderId); const f = fabric(r.fabricId); return (
         <tr key={r.id} className="row" onClick={() => o && onOpen(o.id)}>
