@@ -431,7 +431,11 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
   const kindOf = (r: ExtraFabricRequest) => r.source === 'alteration' ? 'alteration' : fabric(r.fabricId)?.bucket === 'BESPOKE' || order(r.orderId)?.bespoke ? 'bespoke' : 'normal';
   const [kind, setKind] = useState<'all' | 'normal' | 'bespoke' | 'alteration'>('all');
   const allRows = db.extraFabric ?? [];
-  const rows = allRows.filter(r => kind === 'all' || kindOf(r) === kind).sort((a, b) => (a.status === 'requested' ? 0 : 1) - (b.status === 'requested' ? 0 : 1) || b.raisedOn.localeCompare(a.raisedOn));
+  /* alteration asks split again: a normal fabric is approved here from the shelf; a bespoke one goes to Shravani */
+  const [altKind, setAltKind] = useState<'all' | 'normal' | 'bespoke'>('all');
+  const isBespoke = (r: ExtraFabricRequest) => fabric(r.fabricId)?.bucket === 'BESPOKE' || !!order(r.orderId)?.bespoke;
+  const alts = allRows.filter(r => kindOf(r) === 'alteration');
+  const rows = allRows.filter(r => kind === 'all' || kindOf(r) === kind).filter(r => kind !== 'alteration' || altKind === 'all' || (altKind === 'bespoke') === isBespoke(r)).sort((a, b) => (a.status === 'requested' ? 0 : 1) - (b.status === 'requested' ? 0 : 1) || b.raisedOn.localeCompare(a.raisedOn));
   const kindN = (k: string) => allRows.filter(r => kindOf(r) === k).length;
   const TONE: Record<string, Tone> = { requested:'warn', 'po-needed':'info', approved:'good', sent:'neutral', declined:'risk' };
   const STATUS: Record<string, string> = { requested:'to approve', 'po-needed':'with Shravani · to approve the PO', approved:'approved', sent:'sent', declined:'declined' };
@@ -447,6 +451,11 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
         { id:'bespoke', label:'Bespoke orders', count: kindN('bespoke'), hint:'mill PO via Shravani; no inventory kept' },
         { id:'alteration', label:'Alteration / hemming', count: kindN('alteration'), hint:'asks from the alteration and hemming unit; deducted from physical stock' },
       ]} />
+      {kind === 'alteration' && <Seg value={altKind} onChange={v => setAltKind(v as typeof altKind)} options={[
+        { id:'all', label:'All alteration', count: alts.length },
+        { id:'normal', label:'Normal · approve here', count: alts.filter(r => !isBespoke(r)).length, hint:'cloth from the shelf: Swati approves, physical stock is deducted' },
+        { id:'bespoke', label:'Bespoke · to Shravani', count: alts.filter(isBespoke).length, hint:'bespoke cloth is not on the shelf: one click to Shravani, she approves and the PO is generated' },
+      ]} />}
       {ex.strip && <span className="ml-auto">{ex.strip}</span>}
     </div>
     {rows.length === 0 ? <Card><Empty title={allRows.length ? 'No asks of this kind.' : 'No extra-fabric asks.'} body={allRows.length ? 'Pick another filter.' : 'Factory merchandisers raise them from the Factory floor tab.'} /></Card> : <Card><table className="t">
@@ -465,7 +474,7 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
           <td className="text-[12px]"><span style={{ color: r.reason.includes('factory') ? 'var(--risk)' : 'var(--warn)' }}>{r.reason}</span>{r.note && <div style={{ color:'var(--ink-faint)' }}>{r.note}</div>}</td>
           <td><Pill tone={TONE[r.status]}>{r.status === 'po-needed' && r.po?.raisedOn ? 'PO raised · cloth awaited' : STATUS[r.status] ?? r.status}</Pill>{f?.bucket === 'BESPOKE' && <div className="pt-0.5"><Pill tone="accent">bespoke</Pill></div>}{r.source === 'alteration' && <div className="pt-0.5"><Pill tone="info">alteration</Pill></div>}{r.po && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.po.poNo ? `${r.po.poNo}${r.po.clothInOn ? ' · cloth in' : ' · raised'}` : 'PO not raised yet'}</div>}</td>
           <td onClick={e => e.stopPropagation()} className="flex gap-1">
-            {mine && r.status === 'requested' && (() => { const short = !!f && (f.bucket === 'BESPOKE' || f.stockMetres - f.reservedMetres < r.metres); /* alteration from the shelf is approved here like any ask; only bespoke or a shortfall goes to Shravani */ return <>
+            {mine && r.status === 'requested' && (() => { const short = !!f && (f.bucket === 'BESPOKE' || (r.source !== 'alteration' && f.stockMetres - f.reservedMetres < r.metres)); /* alteration: normal is approved here, bespoke goes to Shravani */ return <>
               {short && !r.po ? <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani for a PO</Button>
                 : <Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'approved')}>Approve</Button>}
               <Button size="sm" variant="ghost" onClick={() => decideExtraFabric(r.id, 'declined')}>Decline</Button></>; })()}
