@@ -10,8 +10,9 @@ import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { CustomerOrder, PrepStep } from '../domain/types';
 import { PREP_STEPS, prepOf, prepQueueOf, fmtDate, fmtRel } from '../domain/engines';
-import { STORES } from '../domain/reference';
-import { Page, Card, Pill, Button, Input, Empty, Note, Tabs, Select, Seg, Drawer } from '../ui';
+import { STORES, SHEET_LABEL } from '../domain/reference';
+import { FabricImage, BinMap } from './FabricImage';
+import { Page, Card, Pill, Button, Input, Empty, Note, Tabs, Select, Seg, Drawer, Section, KV } from '../ui';
 
 const stepOf = (k: PrepStep) => PREP_STEPS.find(s => s.key === k)!;
 
@@ -40,6 +41,8 @@ export function PrepDesk({ step }: { step: PrepStep }) {
   const [urg, setUrg] = useState<'all' | 'urgent'>('all');
   const [xml, setXml] = useState<string | null>(null);
   const [blockWhy, setBlockWhy] = useState('');
+  const [open, setOpen] = useState<string | null>(null);
+  const [q, setQ] = useState(''); const [fac, setFac] = useState('all'); const [planF, setPlanF] = useState('all');
   const [params, setParams] = useSearchParams();
   const view = (params.get('view') ?? 'waiting') as 'waiting' | 'mine' | 'blocked' | 'done';
   const setView = (v: string) => { const n = new URLSearchParams(params); n.set('view', v); setParams(n, { replace: true }); };
@@ -56,7 +59,12 @@ export function PrepDesk({ step }: { step: PrepStep }) {
   const byTab = view === 'waiting' ? waiting : view === 'mine' ? mine : view === 'blocked' ? blocked : done;
   const urgentN = byTab.filter(o => o.tag === 'urgent').length;
   /* urgent orders first, and a filter to see only them */
-  const rows = (urg === 'urgent' ? byTab.filter(o => o.tag === 'urgent') : [...byTab].sort((a, b) => (a.tag === 'urgent' ? 0 : 1) - (b.tag === 'urgent' ? 0 : 1)));
+  const t = q.trim().toLowerCase();
+  const filtered = byTab.filter(o => (fac === 'all' || o.factoryId === fac) && (planF === 'all' || o.planId === planF)
+    && (!t || o.orderNo.toLowerCase().includes(t) || o.customer.toLowerCase().includes(t) || (db.fabrics.find(f => f.id === o.fabricId)?.name ?? o.styleName).toLowerCase().includes(t)));
+  const rows = (urg === 'urgent' ? filtered.filter(o => o.tag === 'urgent') : [...filtered].sort((a, b) => (a.tag === 'urgent' ? 0 : 1) - (b.tag === 'urgent' ? 0 : 1)));
+  const facOpts = [...new Set(byTab.map(o => o.factoryId).filter(Boolean))] as string[];
+  const planOpts = [...new Set(byTab.map(o => o.planId).filter(Boolean))] as string[];
   const fabric = (id: string | null) => db.fabrics.find(f => f.id === id);
   const plan = (o: CustomerOrder) => (db.plans ?? []).find(p => p.id === o.planId);
   const factory = (o: CustomerOrder) => db.vendors.find(v => v.id === o.factoryId)?.name ?? '—';
@@ -71,7 +79,12 @@ export function PrepDesk({ step }: { step: PrepStep }) {
       { id: 'blocked', label: 'Blocked', count: blocked.length },
       { id: 'done', label: 'Done' },
     ]} />
-    <div className="mb-2"><Seg value={urg} onChange={v => setUrg(v as 'all' | 'urgent')} options={[{ id: 'all', label: 'All', count: byTab.length }, { id: 'urgent', label: 'Urgent', count: urgentN, hint: 'urgent orders: take these up first' }]} /></div>
+    <div className="mb-2 flex gap-2 items-center flex-wrap"><Seg value={urg} onChange={v => setUrg(v as 'all' | 'urgent')} options={[{ id: 'all', label: 'All', count: filtered.length }, { id: 'urgent', label: 'Urgent', count: filtered.filter(o => o.tag === 'urgent').length, hint: 'urgent orders: take these up first' }]} />
+      <Input value={q} onChange={e => setQ(e.target.value)} placeholder="search order, customer, fabric" style={{ width: 230 }} />
+      <Select value={fac} onChange={setFac} options={[{ value: 'all', label: 'Every factory' }, ...facOpts.map(id => ({ value: id, label: db.vendors.find(v => v.id === id)?.name ?? id }))]} style={{ width: 170 }} />
+      <Select value={planF} onChange={setPlanF} options={[{ value: 'all', label: 'Every plan' }, ...planOpts.map(id => ({ value: id, label: (db.plans ?? []).find(p => p.id === id)?.planNo ?? id }))]} style={{ width: 140 }} />
+      {(q || fac !== 'all' || planF !== 'all') && <Button size="sm" variant="ghost" onClick={() => { setQ(''); setFac('all'); setPlanF('all'); }}>Clear</Button>}
+      <span className="text-[12px] ml-auto" style={{ color: 'var(--ink-faint)' }}>Click an order to open it; tick to select several.</span></div>
     {view !== 'done' && ids.length > 0 && <div className="mb-2 flex gap-2 items-center flex-wrap px-3 py-2" style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 8 }}>
       <b>{ids.length}</b> selected
       {view === 'waiting' && <Button size="sm" variant="primary" onClick={() => { prepTake(ids, step); setSel(new Set()); }}>Take up</Button>}
@@ -86,14 +99,15 @@ export function PrepDesk({ step }: { step: PrepStep }) {
     </div>}
     {rows.length === 0 ? <Card><Empty title={view === 'waiting' ? 'Nothing waiting for this desk.' : view === 'mine' ? 'Nothing taken up.' : view === 'blocked' ? 'Nothing blocked.' : 'Nothing done yet.'} body={view === 'waiting' ? `Orders arrive here once ${step === 'cad' ? 'production submits a plan' : `the ${PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1].label} desk marks them done`}.` : ''} /></Card>
       : <Card><table className="t">
-        <thead><tr>{view !== 'done' && <th><input type="checkbox" checked={all} onChange={e => setSel(new Set(e.target.checked ? rows.map(o => o.id) : []))} /></th>}<th>Order</th><th>Customer · store</th><th>Fabric</th><th>Plan · factory</th><th>Ship by</th>{step === 'cad' && <th>CAD file</th>}{step === 'compiling' && <th>Contrast fabric</th>}<th>{view === 'done' ? 'Done' : view === 'mine' ? 'Taken up' : view === 'blocked' ? 'Blocked' : 'Previous desk'}</th></tr></thead>
-        <tbody>{rows.map(o => { const f = fabric(o.fabricId); const e = o.prep?.[step]; const prev = PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1]; const pe = prev ? o.prep?.[prev.key] : null; return <tr key={o.id} className="row" onClick={() => view !== 'done' && toggle(o.id)} style={{ background: sel.has(o.id) ? 'var(--accent-soft)' : undefined }}>
+        <thead><tr>{view !== 'done' && <th><input type="checkbox" checked={all} onChange={e => setSel(new Set(e.target.checked ? rows.map(o => o.id) : []))} /></th>}<th>Order</th><th>Customer · store</th><th>Fabric</th><th>Plan · factory</th><th>Ship by</th><th>Desks</th>{step === 'cad' && <th>CAD file</th>}{step === 'compiling' && <th>Contrast fabric</th>}<th>{view === 'done' ? 'Done' : view === 'mine' ? 'Taken up' : view === 'blocked' ? 'Blocked' : 'Previous desk'}</th></tr></thead>
+        <tbody>{rows.map(o => { const f = fabric(o.fabricId); const e = o.prep?.[step]; const prev = PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1]; const pe = prev ? o.prep?.[prev.key] : null; return <tr key={o.id} className="row" onClick={() => setOpen(o.id)} style={{ background: sel.has(o.id) ? 'var(--accent-soft)' : undefined }}>
           {view !== 'done' && <td onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>}
           <td className="mono text-[12.5px]">{o.orderNo}{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}{step === 'cad' && <div className="text-[10.5px]" style={{ fontFamily: 'var(--body)' }} onClick={ev => ev.stopPropagation()}><button type="button" className="vlink" onClick={() => setXml(o.id)}>View XML</button></div>}</td>
           <td className="text-[12.5px]">{o.customer}<div style={{ color: 'var(--ink-faint)' }}>{STORES.find(x => x.id === o.storeId)?.name}</div></td>
           <td className="text-[12.5px]">{f?.name ?? o.styleName}<div className="mono text-[11px]" style={{ color: 'var(--ink-faint)' }}>{f?.code} · {o.consumptionM ?? '—'} m</div></td>
           <td className="text-[12.5px]"><span className="mono">{plan(o)?.planNo ?? '—'}</span><div style={{ color: 'var(--ink-faint)' }}>{factory(o)}</div></td>
           <td className="text-[12.5px]">{fmtDate(o.promisedOn)}</td>
+          <td><DeskDots o={o} /></td>
           {step === 'cad' && <td className="text-[12px]" onClick={ev => ev.stopPropagation()}>
             {o.cadFile && <div><span className="mono">{o.cadFile.name}</span><div style={{ color: 'var(--ink-faint)' }}>{o.cadFile.by} · {fmtRel(o.cadFile.on)}</div></div>}
             {view !== 'done' && <label className="vlink text-[11.5px]" style={{ cursor: 'pointer' }}>{o.cadFile ? 'replace' : 'Upload CAD file'}
@@ -114,6 +128,9 @@ export function PrepDesk({ step }: { step: PrepStep }) {
             : prev ? <>{prev.label} done<div style={{ color: 'var(--ink-faint)' }}>{fmtRel(pe?.doneOn ?? null)} · {pe?.doneBy}</div></> : <>planned<div style={{ color: 'var(--ink-faint)' }}>{fmtDate(plan(o)?.createdOn ?? null)}</div></>}</td>
         </tr>; })}</tbody>
       </table></Card>}
+    {(() => { const po = (db.customerOrders ?? []).find(o => o.id === open); return <Drawer open={!!po} onClose={() => setOpen(null)} title={po ? `${po.orderNo} · ${s.label} desk` : ''} subtitle={po && <span>{po.customer} · {STORES.find(x => x.id === po.storeId)?.name} · ship by {fmtDate(po.promisedOn)}{po.tag === 'urgent' ? ' · urgent' : ''}</span>}>
+      {po && <PrepOrderPanel o={po} step={step} onXml={() => setXml(po.id)} />}
+    </Drawer>; })()}
     {(() => { const xo = (db.customerOrders ?? []).find(o => o.id === xml); return <Drawer open={!!xo} onClose={() => setXml(null)} title={xo ? `Order sheet XML · ${xo.orderNo}` : ''} subtitle={xo && <span>{xo.customer} · {xo.styleName}</span>}>
       {xo && <>{(() => { const text = orderSheetXml(xo, fabric(xo.fabricId)?.code); return <>
         <div className="flex gap-2 mb-2"><Button size="sm" onClick={() => navigator.clipboard?.writeText(text)}>Copy</Button>
@@ -124,6 +141,76 @@ export function PrepDesk({ step }: { step: PrepStep }) {
     {step === 'cad' && <div className="mt-3"><Note>Make the CAD file from the order sheet XML (View XML on each row, generated by the order software we connect to), print it, and upload the file on the order. An order cannot be marked done here without its CAD file; the cutting desk opens it from the order.</Note></div>}
     {step === 'compiling' && <div className="mt-3"><Note>Approving compiles the bundle and deducts any contrast fabric from that fabric's physical stock, with a line in its transactions. Once compiled, the bundle can be scanned out to the factory.</Note></div>}
   </Page>;
+}
+
+/** the four desks as four small marks on a row: filled once done, ring while in progress, red if blocked */
+export function DeskDots({ o }: { o: CustomerOrder }) {
+  const p = prepOf(o);
+  return <span className="inline-flex gap-1">{p.steps.map(st => { const bl = o.prepBlocked?.[st.key] && st.state !== 'done'; const who = st.entry?.doneBy ?? st.entry?.takenBy;
+    return <span key={st.key} title={`${st.label}: ${bl ? `blocked · ${o.prepBlocked![st.key]!.reason}` : st.state}${who ? ` · ${who}` : ''}`} className="text-[10.5px] mono"
+      style={{ padding: '1px 5px', borderRadius: 5, border: `1px solid ${bl ? 'var(--risk)' : st.state === 'done' ? 'var(--good)' : st.state === 'in progress' ? 'var(--accent)' : 'var(--line)'}`,
+        background: st.state === 'done' ? 'var(--good)' : 'transparent', color: st.state === 'done' ? '#fff' : bl ? 'var(--risk)' : 'var(--ink-faint)' }}>{st.state === 'done' ? '✓ ' : ''}{st.label}</span>; })}</span>;
+}
+
+/** what a desk sees when it opens an order: the desks checklist, the cloth (image and bin), the CAD, and the order sheet */
+function PrepOrderPanel({ o, step, onXml }: { o: CustomerOrder; step: PrepStep; onXml: () => void }) {
+  const { db, prepTake, prepDone, prepBlock, uploadCad } = useApp();
+  const [why, setWhy] = useState(''); const [remark, setRemark] = useState('');
+  const f = db.fabrics.find(x => x.id === o.fabricId);
+  const e = o.prep?.[step]; const bl = o.prepBlocked?.[step]; const p = prepOf(o);
+  const atThis = p.next?.key === step;
+  const plan = (db.plans ?? []).find(x => x.id === o.planId);
+  const binOf = (fab: typeof f) => fab?.inventory?.bins?.[0] ?? null;
+  return <>
+    <Section title="Desks" collapsible={false} right={atThis ? (bl ? <Pill tone="risk">blocked here</Pill> : e ? <Pill tone="info">with {e.takenBy}</Pill> : <Pill tone="warn">waiting for {stepOf(step).label}</Pill>) : <Pill tone="neutral">{p.next ? `at ${p.next.label}` : 'all done'}</Pill>}>
+      <PrepOnOrder o={o} />
+      {atThis && <div className="flex gap-2 flex-wrap items-center pt-3">
+        {bl ? <><span className="text-[12.5px]" style={{ color: 'var(--risk)' }}>Blocked: {bl.reason}</span><Button size="sm" variant="primary" onClick={() => prepBlock([o.id], step, null)}>Unblock</Button></>
+          : !e ? <Button size="sm" variant="primary" onClick={() => prepTake([o.id], step)}>Take up</Button>
+          : <><Input value={remark} onChange={ev => setRemark(ev.target.value)} placeholder="remark (optional)" style={{ width: 200 }} />
+            <Button size="sm" variant="primary" disabled={step === 'cad' && !o.cadFile} onClick={() => { prepDone([o.id], step, remark.trim()); setRemark(''); }}>{step === 'compiling' ? 'Approve & mark compiled' : 'Mark done'}</Button>
+            {step === 'cad' && !o.cadFile && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>upload the CAD file first</span>}</>}
+        {!bl && <span className="flex gap-1 items-center"><Input value={why} onChange={ev => setWhy(ev.target.value)} placeholder="why it is blocked" style={{ width: 180 }} /><Button size="sm" variant="ghost" disabled={!why.trim()} onClick={() => { prepBlock([o.id], step, why.trim()); setWhy(''); }}>Mark blocked</Button></span>}
+      </div>}
+    </Section>
+
+    <Section title="Fabric" collapsible={false} right={f && <span className="mono text-[11.5px]">{f.code}</span>}>
+      {f ? <>
+        <FabricImage f={f} height={step === 'cutting' ? 340 : 220} />
+        <div className="text-[11px] pt-1" style={{ color: 'var(--ink-faint)' }}>Fabric image from the fabric master (backend).</div>
+        <div className="grid gap-x-4 pt-2" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          <KV k="Fabric" v={f.name} /><KV k="To cut" v={`${o.consumptionM ?? '—'} m`} note="from the order sheet" />
+          {f.composition && <KV k="Composition" v={f.composition} />}
+          <KV k="Bin" v={f.bucket === 'BESPOKE' ? 'bespoke parcel for this order' : binOf(f) ? `${binOf(f)!.bin} · ${f.inventory!.warehouse}` : 'no bin'} note={binOf(f) ? `${binOf(f)!.metres} m in the bin` : undefined} />
+        </div>
+        {binOf(f) && <div className="pt-2"><div className="label">Where the roll is</div><BinMap bin={binOf(f)!.bin} warehouse={f.inventory!.warehouse} /></div>}
+      </> : <span style={{ color: 'var(--ink-faint)' }}>No fabric on the order.</span>}
+      {(o.contrast ?? []).map(c => { const cf = db.fabrics.find(x => x.id === c.fabricId); const b = binOf(cf); return <div key={c.id} className="flex gap-3 pt-3 items-start">
+        {cf && <div style={{ width: 90, flex: 'none' }}><FabricImage f={cf} height={64} /></div>}
+        <div className="text-[12.5px]"><b>Contrast · {c.part}</b><div>{cf?.name} · {c.metres} m</div><div style={{ color: 'var(--ink-faint)' }}>{b ? `bin ${b.bin} · ${cf!.inventory!.warehouse}` : 'no bin'}{c.approvedOn ? ' · deducted' : ''}</div></div></div>; })}
+    </Section>
+
+    <Section title="CAD" collapsible={false}>
+      <div className="flex gap-3 items-center flex-wrap text-[12.5px]">
+        <button type="button" className="vlink" onClick={onXml}>View order sheet XML</button>
+        {o.cadFile ? <span>CAD file <span className="mono">{o.cadFile.name}</span> · {o.cadFile.by} · {fmtDate(o.cadFile.on)}</span> : <span style={{ color: 'var(--ink-faint)' }}>no CAD file yet</span>}
+        {step === 'cad' && <label className="vlink" style={{ cursor: 'pointer' }}>{o.cadFile ? 'Replace CAD file' : 'Upload CAD file'}
+          <input type="file" accept=".dxf,.plt,.cut,.pdf,.xml,.zip" style={{ display: 'none' }} onChange={ev => { const file = ev.target.files?.[0]; if (file) uploadCad(o.id, file.name); ev.target.value = ''; }} /></label>}
+      </div>
+    </Section>
+
+    <Section title="Order sheet" collapsible={false}>
+      <div className="grid gap-x-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <KV k="Plan · factory" v={`${plan?.planNo ?? '—'} · ${db.vendors.find(v => v.id === o.factoryId)?.name ?? '—'}`} />
+        <KV k="Ship by" v={fmtDate(o.promisedOn)} />
+      </div>
+      {o.spec && <><div className="label pt-2">Styling</div><div className="grid gap-x-4 text-[12.5px]" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        {Object.entries(o.spec).map(([k, v]) => <div key={k} className="flex justify-between gap-2 py-0.5" style={{ borderBottom: '1px solid var(--line)' }}><span style={{ color: 'var(--ink-faint)' }}>{SHEET_LABEL[k] ?? k}</span><span>{v}</span></div>)}</div></>}
+      {o.measurements && <><div className="label pt-3">Measurements · inches</div><div className="grid gap-x-4 text-[12.5px]" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+        {Object.entries(o.measurements).map(([k, v]) => <div key={k} className="flex justify-between gap-2 py-0.5" style={{ borderBottom: '1px solid var(--line)' }}><span style={{ color: 'var(--ink-faint)' }}>{SHEET_LABEL[k] ?? k}</span><span className="mono">{v}</span></div>)}</div></>}
+      {o.remarks && <div className="text-[12.5px] pt-2"><span className="label">Remarks</span> {o.remarks}</div>}
+    </Section>
+  </>;
 }
 
 /** Production's view: each team's queue (ready for it, blocked, in progress, hand-offs completed) and every planned order across the four desks. */
