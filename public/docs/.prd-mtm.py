@@ -27,16 +27,20 @@ b("Conventions.", "Dates are the record's own. Quantities are pieces unless the 
 
 # ------------------------------------------------------------------ 2
 h2("2. Users and roles")
-p("Six roles, five with screens in BSC PLM (store managers and owners stay in RetailOS). One login per team; colleagues appear by name on what they wrote. Each role lands on the first screen it works in; the sidebar lists teams as pills.")
+p("Ten roles, nine with screens in BSC PLM (store managers and owners stay in RetailOS). One login per team; colleagues appear by name on what they wrote. Each role lands on the first screen it works in; the sidebar lists teams as pills.")
 table(["Role", "People today", "Owns in BSC PLM", "Lands on", "Reads only"], [
  ["Design", "Kunal, Janak", "Every MTM fabric requirement; Push PO, More time or Reject on the vendor; designs and their push to Enigma; working, final and changed names; price per variant; go live online; pause and resume; promote to core; the fabric's Enigma fields", "Requirements", "Sourcing desk, swatch desk, purchase orders"],
  ["Sourcing", "Sreekanth, Srikanth", "A vendor on every ask; extension asks; the mills (Enigma's vendor master, Add and Edit Vendor); POs by hand; mill confirmation and remarks; the receiving line; the weekly core review; trims and packaging", "Fabric sourcing", "Requirements"],
- ["Production (MTM)", "Vishnu, Swati", "Confirm pre-confirmed orders; allocate to factories; plans; the pre-production overview; the factory floor; changed sheets; extra fabric; ship-by moves; Factories screen inputs", "MTM daily production", "Store orders"],
+ ["Production (MTM)", "Vishnu, Swati, Parag", "Confirm pre-confirmed orders; allocate to factories; plans; the pre-production overview; the factory floor; changed sheets; extra fabric; ship-by moves; Factories screen inputs", "MTM daily production", "Store orders"],
+ ["CAD team", "CAD team at the production unit", "The CAD desk: take orders up, view the order sheet XML, upload the CAD file, mark done or blocked with a reason", "CAD desk", "The order sheet, fabric and bin"],
+ ["Cutting team", "Cutting team at the production unit", "The cutting desk: take orders up, cut to the CAD using the fabric image and bin, attach the print, mark done or blocked", "Cutting desk", "The order sheet, CAD file"],
+ ["Fusing team", "Fusing team at the production unit", "The fusing desk: take orders up, fuse collar, cuff and placket interlining, mark done or blocked", "Fusing desk", "The order sheet, CAD file"],
+ ["Compiling team", "Compiling team at the production unit", "The compiling desk: check the bundle, add contrast fabric, Approve & mark compiled (deducts the contrast), mark blocked", "Compiling desk", "The order sheet, CAD file"],
  ["Factory merchandiser", "Abhin M, Bhupendra, each unit's floor", "MTM floor: receive, out, request cloth, log the day, read changed sheets", "My factory", "Order sheet and job card"],
  ["Store", "Store managers (34 stores)", "No screen in BSC PLM, for managers or owners. Bills, profiles, sheet corrections, returns, credit notes and refund requests stay in RetailOS; everything additional is built in RetailOS only. The prototype shows them for demonstration", "Store", "Fabrics live today"],
  ["Owner", "Akshay, Parag", "Everything, read and write", "Any", "—"],
 ])
-b("Warehouse and unit teams.", "No portal for Shravani and Yusuf in this edition; their work appears where it happens. Shravani books rolls on the PO's receiving line and approves the mill PO for bespoke and alteration extra fabric; Yusuf is the swatch desk handover. The CAD, cutting, fusing and compiling teams each work from their own desk. The warehouse returns as a role with its portal.")
+b("Warehouse and unit teams.", "No portal for Shravani and Yusuf in this edition; their work appears where it happens. Shravani books rolls on the PO's receiving line and approves the mill PO for bespoke and alteration extra fabric; Yusuf is the swatch desk handover. The warehouse returns as a role with its portal.")
 b("Role rules.", "A button shows only for the role that owns the step; others see whose move it is. The factory merchandiser is scoped to one factory, the store to one store; a demo switch lifts both.")
 
 # ------------------------------------------------------------------ 3
