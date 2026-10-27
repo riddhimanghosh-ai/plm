@@ -1,7 +1,7 @@
 /* The cutting team's view of a cloth: the fabric image and where its roll sits.
-   In the build the image comes from the fabric master (the backend's image URL) and
-   the bin from inventory; the prototype has no photographs, so it draws a stand-in
-   from the fabric's name (colour and weave) and a rack map from the bin code. */
+   The backend supplies the fabric image (fabric master) and the bin: its code, place on
+   the rack and a photo. Where the prototype has no photograph it draws a stand-in from
+   the fabric's name (colour and weave) and a rack map from the bin code. */
 import type { Fabric } from '../domain/types';
 
 const COLOURS: [RegExp, string][] = [
@@ -14,6 +14,7 @@ const coloursOf = (name: string) => { const found = COLOURS.filter(([re]) => re.
 const weaveOf = (name: string) => /stripe/i.test(name) ? 'stripes' : /check|plaid|gingham|tartan/i.test(name) ? 'checks' : /herringbone/i.test(name) ? 'herringbone' : /dobby|jacquard/i.test(name) ? 'dobby' : /print|floral|paisley/i.test(name) ? 'print' : 'twill';
 
 export function FabricImage({ f, height = 320 }: { f: Fabric; height?: number }) {
+  if (f.imageUrl) return <img src={f.imageUrl} alt={`${f.name} fabric`} style={{ width: '100%', height, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--line)', display: 'block' }} />;
   const [base, accent = base === '#f7f6f2' ? '#c9ccd2' : '#f7f6f2'] = coloursOf(f.name);
   const w = weaveOf(f.name); const id = `fab-${f.id}`;
   return <svg viewBox="0 0 400 300" width="100%" height={height} preserveAspectRatio="xMidYMid slice" role="img" aria-label={`${f.name} fabric image`} style={{ borderRadius: 10, border: '1px solid var(--line)', display: 'block' }}>

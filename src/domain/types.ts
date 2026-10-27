@@ -400,6 +400,7 @@ export interface Fabric {
   /* the Fabric Ordering sheet's own columns */
   vendorCode?: string | null;    // the mill's article number — what goes on the PO (weave / pattern / colour live in the name and family)
   composition?: string | null;   // '100% Linen' — drives consumption and wash-care
+  imageUrl?: string | null;      // the fabric image from the backend (fabric master)
   widthIn?: number | null;       // "Panna" — the marker is cut to this
   cpm?: number | null;           // "Fabric Price" per metre
   mrp?: number | null;           // the shirt's price in this fabric
@@ -424,7 +425,7 @@ export interface FabricAttrs {
   weaveDescription?: string | null; pattern?: string | null; colour?: string | null; contrastFabric?: boolean; piping?: boolean; isCutroll?: boolean; isUniform?: boolean; weave?: string | null;
   washShrinkagePct?: number | null;   // washed fabric: received metres shrink by this much; the shelf books the usable metres
 }
-export interface FabricInventory { warehouse: string; thresholdMetres: number; maxMetres: number | null; autoReplenish: boolean; bins: { bin: string; metres: number }[] }
+export interface FabricInventory { warehouse: string; thresholdMetres: number; maxMetres: number | null; autoReplenish: boolean; bins: { bin: string; metres: number; photoUrl?: string | null }[] }   // bin code, location and photo come from the backend
 export type FabricTxnType = 'GRN' | 'ISSUE' | 'ADJUSTMENT' | 'RETURN' | 'WASH';
 export interface FabricTxn { on: string; orderNo: string | null; poId: string | null; type: FabricTxnType; by: string; warehouse: string; bin: string | null; reason: string | null; desc: string | null; metres: number }
 
