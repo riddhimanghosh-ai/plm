@@ -189,7 +189,7 @@ table(['Area', 'Rule'], [
 h2('13. Non-functional requirements and the Enigma contract')
 table(['Area', 'Requirement'], [
  ['Architecture', 'A separate application beside Enigma. Reads over Enigma\'s API; its own database for every record it keeps; write-back behind per-module flags in the last phase. No build inside Enigma\'s codebase. One codebase builds both editions; the MTM edition is a build flag that hides the RTW screens and the warehouse portal.'],
- ['Enigma reads', 'Fabric master (one 3.2 MB call, no change filter): nightly plus on demand. Inventory per warehouse. Transaction and reservation logs per code until a date range is confirmed. Fabric POs with their receiving lines. Orders and order sheets. Vendors. Designs and variants.'],
+ ['Enigma reads', 'Fabric master (one 3.2 MB call, no change filter), with the fabric image: nightly plus on demand. Inventory per warehouse, with each bin\'s code, location on the rack and photo. Transaction and reservation logs per code until a date range is confirmed. Fabric POs with their receiving lines. Orders and order sheets. Vendors. Designs and variants.'],
  ['Enigma writes (last phase, if granted)', 'Fabric info, attribute and inventory edits; On-hold on pause, resume or supplier switch-off; fabric PO at Push PO and Raise PO; Update Receiving Status; Add and Edit Vendor; design push with variants; order-sheet corrections. Until then each is keyed in Enigma and the number recorded in BSC PLM.'],
  ['Other reads', 'Shopify sales by product code daily and the customer profile. Mill lists pasted. Sheets imported once at go-live, idempotent, every skipped row logged.'],
  ['Identity', 'One login per person, one role, store or factory scope where it applies; an administrator sees everything.'],
