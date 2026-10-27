@@ -465,7 +465,7 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
           <td className="text-[12px]"><span style={{ color: r.reason.includes('factory') ? 'var(--risk)' : 'var(--warn)' }}>{r.reason}</span>{r.note && <div style={{ color:'var(--ink-faint)' }}>{r.note}</div>}</td>
           <td><Pill tone={TONE[r.status]}>{r.status === 'po-needed' && r.po?.raisedOn ? 'PO raised · cloth awaited' : STATUS[r.status] ?? r.status}</Pill>{f?.bucket === 'BESPOKE' && <div className="pt-0.5"><Pill tone="accent">bespoke</Pill></div>}{r.source === 'alteration' && <div className="pt-0.5"><Pill tone="info">alteration</Pill></div>}{r.po && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.po.poNo ? `${r.po.poNo}${r.po.clothInOn ? ' · cloth in' : ' · raised'}` : 'PO not raised yet'}</div>}</td>
           <td onClick={e => e.stopPropagation()} className="flex gap-1">
-            {mine && r.status === 'requested' && (() => { const short = r.source === 'alteration' || (!!f && (f.bucket === 'BESPOKE' || f.stockMetres - f.reservedMetres < r.metres)); return <>
+            {mine && r.status === 'requested' && (() => { const short = !!f && (f.bucket === 'BESPOKE' || f.stockMetres - f.reservedMetres < r.metres); /* alteration from the shelf is approved here like any ask; only bespoke or a shortfall goes to Shravani */ return <>
               {short && !r.po ? <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani for a PO</Button>
                 : <Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'approved')}>Approve</Button>}
               <Button size="sm" variant="ghost" onClick={() => decideExtraFabric(r.id, 'declined')}>Decline</Button></>; })()}
@@ -475,7 +475,7 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
           </td>
         </tr>); })}</tbody>
     </table></Card>}
-    <div className="mt-3"><Note>Approve is the inventory event: the metres leave physical stock the moment it is approved. Bespoke cloth, an alteration unit's ask, or a fabric with too little on the shelf goes to Shravani in one click. For an alteration on a fabric the shelf covers, Shravani's approval issues it and deducts it from physical stock. Otherwise Shravani approves and the PO is generated; when the cloth is in, it comes back here to approve. Bespoke is never BSC's inventory: nothing is booked in or deducted.</Note></div>
+    <div className="mt-3"><Note>Approve is the inventory event: the metres leave physical stock the moment it is approved. Alteration and hemming asks are approved here like any other and deducted from physical stock. Only bespoke cloth, or a fabric with too little on the shelf, goes to Shravani in one click: she approves and the PO is generated; when the cloth is in, it comes back here to approve. Bespoke is never BSC's inventory: nothing is booked in or deducted.</Note></div>
   </>;
 }
 
