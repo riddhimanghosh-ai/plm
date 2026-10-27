@@ -550,6 +550,10 @@ export type CustomerOrderStage = 'punched' | 'pp' | 'planned' | 'in-transit' | '
    hemming belongs to RTW bottoms, an alteration is a return case. */
 export type OrderTag = 'normal' | 'urgent' | 'corporate';
 export interface Scan { stage: CustomerOrderStage; at: string; by: string }
+export type PreConfirmReason = 'Measurement not done' | 'On hold' | 'Payment pending';
+export type PrepStep = 'cad' | 'cutting' | 'fusing' | 'compiling';
+export interface PrepEntry { takenBy: string; takenOn: string; doneBy: string | null; doneOn: string | null; remark: string | null }
+export interface ContrastLine { id: string; fabricId: string; part: string; metres: number; approvedOn: string | null; approvedBy: string | null }
 export interface CustomerOrder {
   id: string; orderNo: string; storeId: string; kind: OrderKind;
   billNo?: string | null;        // the bill this piece was sold on — one customer, one visit, several pieces; each piece still runs as its own order
@@ -578,6 +582,14 @@ export interface CustomerOrder {
   express?: boolean;                 // urgent: 7–8 days instead of 10–12, ₹600 express charge
   factoryComment?: string | null;    // "styling comment" — reaches the factory with the sheet
   logisticComment?: string | null;   // for the shipping team: "suit · sold together, match the trouser"
+  /* 27 Oct 2026: an order taken at the store but not confirmed (measurement not done, on hold, payment pending).
+     Factory planning waits until it is confirmed. */
+  preConfirmed?: { reason: PreConfirmReason; note: string; since: string } | null;
+  confirmedOn?: string | null; confirmedBy?: string | null;
+  /* the pre-production desks after planning, before the bundle leaves for the factory: CAD, cutting, fusing, then compiling */
+  prep?: Partial<Record<PrepStep, PrepEntry>>;
+  /* contrast fabric on this piece (a pocket, a collar band): a little of another inventory fabric, deducted from physical stock when compiling approves it */
+  contrast?: ContrastLine[];
   /* MTM production */
   tag: OrderTag;
   planId: string | null;
@@ -627,6 +639,7 @@ export interface ExtraFabricRequest {
   metres: number; reason: ExtraFabricReason; panel: ExtraFabricPanel;
   raisedBy: string; raisedOn: string;
   status: 'requested' | 'po-needed' | 'approved' | 'declined' | 'sent';
+  source?: 'factory' | 'alteration';   // 27 Oct 2026: the alteration / hemming unit asks for cloth too
   decidedOn: string | null; note: string;
   /* bespoke cloth is not on BSC's shelf: production hands the shortfall to Shravani, who raises a PO with the mill;
      when the cloth is in, the request comes back to production to approve (proposed 21 Oct 2026, not final) */

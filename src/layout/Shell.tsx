@@ -36,6 +36,10 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   /* making */
   { path:'/vendors',      label:'Factories & capacity',       hint:'capacity, assigning MTM orders, daily output, how late',       group:'Production', roles:['owner','production'] },
   { path:'/mtm',          label:'MTM daily production',       hint:'customer shirts: plan, factory, dispatch',       group:'Production', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
+  { path:'/cad',          label:'CAD desk',                   hint:'order sheet XML → CAD file and print, before cutting',  group:'Production', roles:['owner','production','warehouse'] },
+  { path:'/cutting',      label:'Cutting desk',               hint:'cut the cloth to the CAD, attach the print',    group:'Production', roles:['owner','production','warehouse'] },
+  { path:'/fusing',       label:'Fusing desk',                hint:'fuse collar, cuff and placket interlining',     group:'Production', roles:['owner','production','warehouse'] },
+  { path:'/compiling',    label:'Compiling desk',             hint:'check the bundle, approve contrast fabric',     group:'Production', roles:['owner','production','warehouse'] },
   { path:'/factory',      label:'My factory · merchandiser',   hint:"the floor's own day: output, pieces, cloth",     group:'Merchandiser', roles:['owner','merchandiser','production'] , hideFor:['production']},
   { path:'/tracker',      label:'RTW production tracker',     hint:'every bulk PO, date by date',                    group:'Production', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
   { path:'/outbound',     label:'Outbound to factories',      hint:'bundles to cut, extra fabric, RTW materials',    group:'Production', roles:['owner','production','warehouse'] , hideFor:['production','warehouse']},

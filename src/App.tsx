@@ -30,6 +30,7 @@ import { Health } from './screens/Health';
 import { Planning } from './screens/Planning';
 import { Fabrics, FabricPage } from './screens/Fabrics';
 import { DesignsPage } from './screens/Designs';
+import { PrepDesk } from './screens/Preprod';
 import { MTM_ONLY, OPTIONS_OFF } from './domain/edition';
 
 /* No Today screen: each role lands on the first screen it works in. */
@@ -50,6 +51,10 @@ export default function App() {
           <Route path="/tracker" element={MTM_ONLY ? <Navigate to="/" replace /> : <Tracker />} />
           <Route path="/factory" element={<Factory />} />
           <Route path="/mtm" element={<Mtm />} />
+          <Route path="/cad" element={<PrepDesk key="cad" step="cad" />} />
+          <Route path="/cutting" element={<PrepDesk key="cutting" step="cutting" />} />
+          <Route path="/fusing" element={<PrepDesk key="fusing" step="fusing" />} />
+          <Route path="/compiling" element={<PrepDesk key="compiling" step="compiling" />} />
           <Route path="/outbound" element={<OutboundPage />} />
           <Route path="/otif" element={MTM_ONLY ? <Navigate to="/" replace /> : <Otif />} />
           <Route path="/warehouse" element={MTM_ONLY ? <Navigate to="/" replace /> : <Warehouse />} />

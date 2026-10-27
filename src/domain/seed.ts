@@ -1378,6 +1378,32 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
   const c = concepts.find(x => x.kind === 'new-fabric' && x.fabricId && fabricPos.some(p => p.fabricId === x.fabricId && !p.closedOn && !p.receivedOn));
   if (c) { c.washed = true; const f = fabrics.find(x => x.id === c.fabricId); if (f) f.attrs = { ...(f.attrs ?? {}), washed: true, washShrinkagePct: null }; } }
 
+/* 27 Oct 2026, the production team: pre-confirmed orders (not yet confirmed at the store), the pre-production desks, contrast fabric */
+{ const REASONS = ['Measurement not done', 'On hold', 'Payment pending'] as const;
+  const NOTES = ['customer to come back for a re-measure on Saturday', 'customer asked to hold until the wedding date is fixed', 'advance not paid yet'];
+  customerOrders.filter(o => o.kind === 'MTM' && (o.stage === 'pp' || o.stage === 'punched') && !o.bespoke).slice(0, 7).forEach((o, k) => { o.preConfirmed = { reason: REASONS[k % 3], note: NOTES[k % 3], since: o.punchedOn }; });
+  const TEAM = { cad: ['Ganesh', 'Rupali'], cutting: ['Sanjay', 'Imran'], fusing: ['Meena'], compiling: ['Vishnu'] } as const;
+  customerOrders.filter(o => o.kind === 'MTM' && o.stage === 'planned').forEach((o, k) => {
+    const upto = k % 6;   // 0 nothing yet · 1 CAD taken · 2 CAD done · 3 cutting done · 4 fusing done · 5 compiled
+    const at = (d: number) => iso(addDays(new Date(o.punchedOn), d));
+    o.prep = {};
+    if (upto >= 1) o.prep.cad = { takenBy: TEAM.cad[k % 2], takenOn: at(1), doneBy: upto >= 2 ? TEAM.cad[k % 2] : null, doneOn: upto >= 2 ? at(1) : null, remark: null };
+    if (upto >= 3) o.prep.cutting = { takenBy: TEAM.cutting[k % 2], takenOn: at(1), doneBy: TEAM.cutting[k % 2], doneOn: at(1), remark: null };
+    if (upto >= 4) o.prep.fusing = { takenBy: TEAM.fusing[0], takenOn: at(2), doneBy: TEAM.fusing[0], doneOn: at(2), remark: null };
+    if (upto >= 5) o.prep.compiling = { takenBy: TEAM.compiling[0], takenOn: at(2), doneBy: TEAM.compiling[0], doneOn: at(2), remark: null };
+  });
+  /* contrast: a little of another inventory fabric on some pieces */
+  const inv = fabrics.filter(f => f.bucket !== 'BESPOKE' && f.stockMetres > 20);
+  customerOrders.filter(o => o.kind === 'MTM' && ['pp', 'planned'].includes(o.stage)).filter((_, k) => k % 5 === 0).slice(0, 10).forEach((o, k) => {
+    const f = inv[(k * 7) % inv.length]; if (!f || f.id === o.fabricId) return;
+    o.contrast = [{ id: `ct-${o.id}`, fabricId: f.id, part: ['Pocket', 'Inner collar band', 'Cuff lining', 'Placket'][k % 4], metres: [0.15, 0.2, 0.25, 0.3][k % 4], approvedOn: null, approvedBy: null }]; });
+}
+/* alteration and hemming unit asks for cloth too: part replacement, a collar or cuff for a store to attach */
+{ const hem = VENDORS.find(v => v.kind === 'Hemming unit');
+  const done = customerOrders.filter(o => o.kind === 'MTM' && o.fabricId && ['delivered', 'dispatched'].includes(o.stage)).slice(0, 2);
+  done.forEach((o, k) => extraFabric.push({ id: `xf-alt-${k}`, orderId: o.id, fabricId: o.fabricId!, factoryId: hem?.id ?? o.factoryId!, planId: null, metres: k ? 0.3 : 0.8, reason: 'Fabric short — PP error', panel: k ? 'Collar' : 'Single front',
+    raisedBy: 'Alteration unit', raisedOn: iso(addDays(TODAY, -1)), status: 'requested', decidedOn: null, note: k ? 'collar for the store to attach (CCP alteration)' : 'front panel replacement after a stain', source: 'alteration' })); }
+
 export const SEED: Db = {
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,
   ranges: RANGES.map(x => ({ family: x.family, targetOptions: x.target })),

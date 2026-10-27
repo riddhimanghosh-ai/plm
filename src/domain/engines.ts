@@ -4,7 +4,7 @@
    either a stored fact or a bug.
    ========================================================================== */
 
-import type { ReturnCase, ResolutionStep, Concept, BomLine, Costing, CustomerOrder, Db, Fabric, FabricQuote, Launch, LaunchPiece, MaterialLine, OrderTag, TrimItem, GarmentCategory, Milestone, ProductionOrder, RoleId, RtwAction, RtwOption, ThreadKind, Vendor, SourcingMode , TrackerConfig, PlanningReview, PlanningKind } from './types';
+import type { ReturnCase, ResolutionStep, Concept, BomLine, Costing, CustomerOrder, Db, Fabric, FabricQuote, Launch, LaunchPiece, MaterialLine, OrderTag, TrimItem, GarmentCategory, Milestone, ProductionOrder, RoleId, RtwAction, RtwOption, ThreadKind, Vendor, SourcingMode , TrackerConfig, PlanningReview, PlanningKind, PrepStep } from './types';
 import { FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, MILESTONES, MILESTONE_OWNER, OFFSETS, OTIF_TOLERANCE, PRE_PRODUCTION, RISK, MID_SIZES, VELOCITY, WOF_CLEAR, WOF_EXIT, WOF_URGENT, STORE_LOW_METRES, GROWTH_UPLIFT, METRES_PER_SHIRT, RTW_REORDER_TRIGGER_DAYS, RTW_MOQ, STORES, SHEET_FREE_EDIT, SHEET_STORE_EDIT, SHEET_AMEND, REALLOCATING_FIELDS, BOOK_EDITION, BOOK_CONFIRM_DAYS, SWATCH_KINDS, MARKETING_LEAD_DAYS, DISPLAY_PLAN, isBottoms, PP_FREEZE_HOURS, PIECES_PER_TAILOR_DAY, AGING_DAYS, CORPORATE_FACTORY, URGENT_FACTORY, COSTING_DEFAULTS, DISCOUNT_BAU, DISCOUNT_ADDITIONAL, gstFor, PACKAGING_BOM, TRIM_CARD, CONSUMPTION_DEFAULT, HEMMED, PEOPLE, ROLE_LABEL } from './reference';
 import { MTM_ONLY, isRtwHref, OPTIONS_OFF } from './edition';
 
@@ -551,14 +551,31 @@ export function factoryLoadOf(db: Db, factoryId: string) {
 /** Orders waiting for a plan — Enigma's PP, less the freeze window. */
 export const fmtTime = (d: string | Date) => new Date(d).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:false });
 export function ppQueue(db: Db, freezeHours = PP_FREEZE_HOURS) {
-  /* bespoke orders wait for their fabric to be inwarded before they can be planned */
-  const all = mtmOrders(db).filter(o => (o.stage === 'pp' || o.stage === 'punched') && !(o.bespoke && !o.bespoke.inwardOn));
+  /* bespoke orders wait for their fabric to be inwarded before they can be planned; pre-confirmed orders wait to be confirmed */
+  const waiting = mtmOrders(db).filter(o => (o.stage === 'pp' || o.stage === 'punched') && !!o.preConfirmed);
+  const all = mtmOrders(db).filter(o => (o.stage === 'pp' || o.stage === 'punched') && !(o.bespoke && !o.bespoke.inwardOn) && !o.preConfirmed);
   const frozen = all.filter(o => hoursAgo(o.punchedOn) < freezeHours).sort((a, b) => a.punchedOn.localeCompare(b.punchedOn));
   const ready = all.filter(o => hoursAgo(o.punchedOn) >= freezeHours).sort((a, b) => {
     const pr = (t: OrderTag) => (t === 'urgent' ? 0 : 1);
     return pr(a.tag) - pr(b.tag) || a.punchedOn.localeCompare(b.punchedOn);   // urgent first, then FIFO by punch time
   });
-  return { frozen, ready, freezeHours };
+  return { frozen, ready, freezeHours, preConfirmed: waiting };
+}
+
+/* ---------- pre-production: CAD → cutting → fusing → compiling, between the plan and the scan-out ---------- */
+export const PREP_STEPS: { key: PrepStep; label: string; team: string; does: string }[] = [
+  { key: 'cad', label: 'CAD', team: 'CAD team', does: 'reads the order sheet XML from Enigma, makes the CAD file and prints it for the next teams' },
+  { key: 'cutting', label: 'Cutting', team: 'Cutting team', does: 'cuts the fabric to the CAD and attaches the print to the bundle' },
+  { key: 'fusing', label: 'Fusing', team: 'Fusing team', does: 'fuses the collar, cuff and placket interlining' },
+  { key: 'compiling', label: 'Compiling', team: 'Compiling team', does: 'checks the bundle is complete and approves it, contrast fabric included' },
+];
+const PREP_DONE_STAGES = ['in-transit', 'in-factory', 'out-factory', 'rts', 'dispatched', 'delivered'];
+/** where a piece is in pre-production: each step's state, and the next step (null once compiled or past the unit) */
+export function prepOf(o: CustomerOrder) {
+  const past = PREP_DONE_STAGES.includes(o.stage);
+  const st = PREP_STEPS.map(s => { const e = o.prep?.[s.key]; return { ...s, entry: e ?? null, state: (past || e?.doneOn ? 'done' : e ? 'in progress' : 'pending') as 'done' | 'in progress' | 'pending' }; });
+  const next = o.stage === 'planned' ? st.find(s => s.state !== 'done') ?? null : null;
+  return { steps: st, next, ready: o.stage === 'planned' && !next, active: o.stage === 'planned' };
 }
 
 export interface Proposal { factoryId: string; orderIds: string[]; why: string }

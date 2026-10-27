@@ -1,0 +1,122 @@
+/* Pre-production, 27 Oct 2026. After a plan is submitted and before the bundle
+   leaves for the factory, every order passes four desks at the unit: CAD (the
+   order sheet XML from Enigma becomes a CAD file and a print), cutting (the
+   cloth is cut to it and the print attached), fusing (interlining), and
+   compiling (the bundle is checked and approved, contrast fabric included).
+   Today none of it is logged; here each team takes an order up and marks it
+   done, and production sees which orders are stuck at which desk. */
+import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useApp } from '../store';
+import type { CustomerOrder, PrepStep } from '../domain/types';
+import { PREP_STEPS, prepOf, fmtDate, fmtRel } from '../domain/engines';
+import { STORES } from '../domain/reference';
+import { Page, Card, Pill, Button, Input, Empty, Note, Tabs, Select } from '../ui';
+
+const stepOf = (k: PrepStep) => PREP_STEPS.find(s => s.key === k)!;
+
+/** One desk: what is waiting for this team, what it has taken up, what it finished. */
+export function PrepDesk({ step }: { step: PrepStep }) {
+  const { db, prepTake, prepDone, addContrast } = useApp();
+  const [params, setParams] = useSearchParams();
+  const view = (params.get('view') ?? 'waiting') as 'waiting' | 'mine' | 'done';
+  const setView = (v: string) => { const n = new URLSearchParams(params); n.set('view', v); setParams(n, { replace: true }); };
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [remark, setRemark] = useState('');
+  const [ct, setCt] = useState<{ orderId: string; fabricId: string; part: string; metres: string } | null>(null);
+  const s = stepOf(step);
+  const planned = (db.customerOrders ?? []).filter(o => o.kind === 'MTM' && o.stage === 'planned');
+  const waiting = planned.filter(o => prepOf(o).next?.key === step && !o.prep?.[step]);
+  const mine = planned.filter(o => o.prep?.[step] && !o.prep[step]!.doneOn);
+  const done = (db.customerOrders ?? []).filter(o => o.prep?.[step]?.doneOn).sort((a, b) => (b.prep![step]!.doneOn ?? '').localeCompare(a.prep![step]!.doneOn ?? '')).slice(0, 60);
+  const rows = view === 'waiting' ? waiting : view === 'mine' ? mine : done;
+  const fabric = (id: string | null) => db.fabrics.find(f => f.id === id);
+  const plan = (o: CustomerOrder) => (db.plans ?? []).find(p => p.id === o.planId);
+  const factory = (o: CustomerOrder) => db.vendors.find(v => v.id === o.factoryId)?.name ?? '—';
+  const toggle = (id: string) => setSel(x => { const n = new Set(x); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const ids = [...sel].filter(id => rows.some(o => o.id === id));
+  const all = rows.length > 0 && rows.every(o => sel.has(o.id));
+  const inv = db.fabrics.filter(f => f.bucket !== 'BESPOKE' && f.stockMetres > 0);
+  return <Page title={`${s.label} desk`} lede={`${s.team}: ${s.does}. Take an order up when you start it and mark it done when you finish, so production can see where every order is.`}>
+    <Tabs active={view} onChange={v => { setView(v); setSel(new Set()); }} tabs={[
+      { id: 'waiting', label: 'Waiting for us', count: waiting.length },
+      { id: 'mine', label: 'Taken up', count: mine.length },
+      { id: 'done', label: 'Done' },
+    ]} />
+    {view !== 'done' && ids.length > 0 && <div className="mb-2 flex gap-2 items-center flex-wrap px-3 py-2" style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 8 }}>
+      <b>{ids.length}</b> selected
+      {view === 'waiting' && <Button size="sm" variant="primary" onClick={() => { prepTake(ids, step); setSel(new Set()); }}>Take up</Button>}
+      {view === 'mine' && <><Input value={remark} onChange={e => setRemark(e.target.value)} placeholder="remark (optional)" style={{ width: 240 }} />
+        <Button size="sm" variant="primary" onClick={() => { prepDone(ids, step, remark.trim()); setRemark(''); setSel(new Set()); }}>{step === 'compiling' ? 'Approve & mark compiled' : 'Mark done'}</Button></>}
+    </div>}
+    {rows.length === 0 ? <Card><Empty title={view === 'waiting' ? 'Nothing waiting for this desk.' : view === 'mine' ? 'Nothing taken up.' : 'Nothing done yet.'} body={view === 'waiting' ? `Orders arrive here once ${step === 'cad' ? 'production submits a plan' : `the ${PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1].label} desk marks them done`}.` : ''} /></Card>
+      : <Card><table className="t">
+        <thead><tr>{view !== 'done' && <th><input type="checkbox" checked={all} onChange={e => setSel(new Set(e.target.checked ? rows.map(o => o.id) : []))} /></th>}<th>Order</th><th>Customer · store</th><th>Fabric</th><th>Plan · factory</th><th>Ship by</th>{step === 'compiling' && <th>Contrast fabric</th>}<th>{view === 'done' ? 'Done' : view === 'mine' ? 'Taken up' : 'Previous desk'}</th></tr></thead>
+        <tbody>{rows.map(o => { const f = fabric(o.fabricId); const e = o.prep?.[step]; const prev = PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1]; const pe = prev ? o.prep?.[prev.key] : null; return <tr key={o.id} className="row" onClick={() => view !== 'done' && toggle(o.id)} style={{ background: sel.has(o.id) ? 'var(--accent-soft)' : undefined }}>
+          {view !== 'done' && <td onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>}
+          <td className="mono text-[12.5px]">{o.orderNo}{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}{step === 'cad' && <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)', fontFamily: 'var(--body)' }}>order sheet XML · Enigma</div>}</td>
+          <td className="text-[12.5px]">{o.customer}<div style={{ color: 'var(--ink-faint)' }}>{STORES.find(x => x.id === o.storeId)?.name}</div></td>
+          <td className="text-[12.5px]">{f?.name ?? o.styleName}<div className="mono text-[11px]" style={{ color: 'var(--ink-faint)' }}>{f?.code} · {o.consumptionM ?? '—'} m</div></td>
+          <td className="text-[12.5px]"><span className="mono">{plan(o)?.planNo ?? '—'}</span><div style={{ color: 'var(--ink-faint)' }}>{factory(o)}</div></td>
+          <td className="text-[12.5px]">{fmtDate(o.promisedOn)}</td>
+          {step === 'compiling' && <td className="text-[12px]" onClick={ev => ev.stopPropagation()} style={{ whiteSpace: 'normal', minWidth: 190 }}>
+            {(o.contrast ?? []).map(c => <div key={c.id}>{c.part}: {fabric(c.fabricId)?.name ?? c.fabricId} · {c.metres} m{c.approvedOn ? <Pill tone="good">deducted</Pill> : ''}</div>)}
+            {!(o.contrast ?? []).length && <span style={{ color: 'var(--ink-faint)' }}>none</span>}
+            {view !== 'done' && (ct?.orderId === o.id
+              ? <div className="flex gap-1 flex-wrap pt-1"><Select value={ct.fabricId} onChange={v => setCt({ ...ct, fabricId: v })} options={inv.map(x => ({ value: x.id, label: `${x.name} · ${x.code}` }))} style={{ width: 170 }} />
+                <Input value={ct.part} onChange={e => setCt({ ...ct, part: e.target.value })} placeholder="pocket" style={{ width: 90 }} />
+                <Input type="number" step={0.05} value={ct.metres} onChange={e => setCt({ ...ct, metres: e.target.value })} placeholder="m" style={{ width: 64 }} />
+                <Button size="sm" onClick={() => { addContrast(o.id, ct.fabricId, ct.part.trim() || 'Contrast', Number(ct.metres) || 0); setCt(null); }}>Add</Button></div>
+              : <button type="button" className="vlink text-[11.5px]" onClick={() => setCt({ orderId: o.id, fabricId: inv[0]?.id ?? '', part: '', metres: '' })}>+ contrast fabric</button>)}
+          </td>}
+          <td className="text-[12px]">{view === 'done' ? <>{fmtRel(e?.doneOn ?? null)}<div style={{ color: 'var(--ink-faint)' }}>{e?.doneBy}{e?.remark ? ` · “${e.remark}”` : ''}</div></>
+            : view === 'mine' ? <>{e?.takenBy}<div style={{ color: 'var(--ink-faint)' }}>{fmtRel(e?.takenOn ?? null)}</div></>
+            : prev ? <>{prev.label} done<div style={{ color: 'var(--ink-faint)' }}>{fmtRel(pe?.doneOn ?? null)} · {pe?.doneBy}</div></> : <>planned<div style={{ color: 'var(--ink-faint)' }}>{fmtDate(plan(o)?.createdOn ?? null)}</div></>}</td>
+        </tr>; })}</tbody>
+      </table></Card>}
+    {step === 'compiling' && <div className="mt-3"><Note>Approving compiles the bundle and deducts any contrast fabric from that fabric's physical stock, with a line in its transactions. Once compiled, the bundle can be scanned out to the factory.</Note></div>}
+  </Page>;
+}
+
+/** Production's view: every planned order and where it is across the four desks. */
+export function PrepOverview({ onOpen }: { onOpen: (id: string) => void }) {
+  const { db } = useApp();
+  const [at, setAt] = useState<'all' | PrepStep | 'ready'>('all');
+  const planned = (db.customerOrders ?? []).filter(o => o.kind === 'MTM' && o.stage === 'planned');
+  const pendingAt = (k: PrepStep) => planned.filter(o => prepOf(o).next?.key === k);
+  const ready = planned.filter(o => prepOf(o).ready);
+  const rows = at === 'all' ? planned : at === 'ready' ? ready : pendingAt(at);
+  const TONE = { done: 'good', 'in progress': 'info', pending: 'neutral' } as const;
+  return <>
+    <div className="grid gap-3 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      {PREP_STEPS.map(s => { const n = pendingAt(s.key); const taken = n.filter(o => o.prep?.[s.key]).length; return <button key={s.key} type="button" className="card text-left px-4 py-3" onClick={() => setAt(at === s.key ? 'all' : s.key)} style={{ cursor: 'pointer', outline: at === s.key ? '2px solid var(--accent)' : undefined }}>
+        <div className="label">At {s.label}</div><div className="mono text-[22px]">{n.length}</div><div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>{taken} taken up · {n.length - taken} not started</div></button>; })}
+      <button type="button" className="card text-left px-4 py-3" onClick={() => setAt(at === 'ready' ? 'all' : 'ready')} style={{ cursor: 'pointer', outline: at === 'ready' ? '2px solid var(--accent)' : undefined }}>
+        <div className="label">Ready to send</div><div className="mono text-[22px]" style={{ color: 'var(--good)' }}>{ready.length}</div><div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>all four desks done</div></button>
+    </div>
+    {rows.length === 0 ? <Card><Empty title="Nothing here." body="Planned orders appear here until they are compiled and scanned out." /></Card>
+      : <Card><table className="t">
+        <thead><tr><th>Order</th><th>Customer</th><th>Plan · factory</th>{PREP_STEPS.map(s => <th key={s.key}>{s.label}</th>)}<th>Ship by</th></tr></thead>
+        <tbody>{rows.map(o => { const p = prepOf(o); return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
+          <td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}</td>
+          <td className="text-[12.5px]"><span className="mono">{(db.plans ?? []).find(x => x.id === o.planId)?.planNo ?? '—'}</span><div style={{ color: 'var(--ink-faint)' }}>{db.vendors.find(v => v.id === o.factoryId)?.name}</div></td>
+          {p.steps.map(s => <td key={s.key}><Pill tone={TONE[s.state]}>{s.state === 'in progress' ? `with ${s.entry?.takenBy}` : s.state}</Pill></td>)}
+          <td className="text-[12.5px]">{fmtDate(o.promisedOn)}</td>
+        </tr>; })}</tbody>
+      </table></Card>}
+    <div className="mt-3"><Note>Each desk (CAD, Cutting, Fusing, Compiling) has its own screen under Production. An order leaves for the factory only once all four are done.</Note></div>
+  </>;
+}
+
+/** The four desks on one record: shown on the order. */
+export function PrepOnOrder({ o }: { o: CustomerOrder }) {
+  const { db } = useApp();
+  const p = prepOf(o);
+  return <div className="checklist">
+    {p.steps.map(s => <div key={s.key} className={`cl-row${s.state === 'done' ? ' done' : ''}`}>
+      <span className="cl-box" aria-hidden>{s.state === 'done' ? '✓' : ''}</span>
+      <div className="cl-main"><div className="cl-label">{s.label}</div><div className="cl-status">{s.entry?.doneOn ? `done ${fmtDate(s.entry.doneOn)} · ${s.entry.doneBy}${s.entry.remark ? ` · “${s.entry.remark}”` : ''}` : s.entry ? `taken up by ${s.entry.takenBy} · ${fmtRel(s.entry.takenOn)}` : s.state === 'done' ? 'done' : 'not started'}</div></div>
+    </div>)}
+    {(o.contrast ?? []).length > 0 && <div className="cl-status pt-2">Contrast fabric: {(o.contrast ?? []).map(c => `${c.part} · ${db.fabrics.find(f => f.id === c.fabricId)?.name ?? c.fabricId} · ${c.metres} m${c.approvedOn ? ' (deducted)' : ''}`).join('; ')}</div>}
+  </div>;
+}

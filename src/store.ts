@@ -6,10 +6,10 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview } from './domain/types';
+import type { PrepStep, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
-import { storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
+import { prepOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
 import { PEOPLE, MERCHANDISERS, ORDER_STAGE_NEXT, METRES_PER_SHIRT, STORES, SHEET_LABEL, SHIRT_PRESETS, defaultSpec, defaultMeasurements, defaultPattern } from './domain/reference';
 
 /* `undoAt` is the depth of the stack this toast was raised at: its Undo button
@@ -236,7 +236,11 @@ export interface AppState {
   punchBill(inputs: PunchInput[]): string[];   // one customer, several pieces, one bill — each piece is punched as its own order
   /* MTM production */
   setOrderTag(id: string, tag: OrderTag): void;
-  routeExtraFabricPo(id: string, step: 'hand' | 'raised' | 'cloth-in', poNo?: string): void;   // bespoke extra fabric: to Shravani for a PO, PO raised, cloth in
+  routeExtraFabricPo(id: string, step: 'hand' | 'raised' | 'cloth-in', poNo?: string): void;
+  confirmOrder(id: string, note: string): void;                     // a pre-confirmed order is confirmed: measurement done, off hold, paid — now it can be planned
+  prepTake(orderIds: string[], step: PrepStep): void;               // a pre-production team takes the pieces up
+  prepDone(orderIds: string[], step: PrepStep, remark: string): void;   // …and marks them done; compiling also approves the contrast fabric
+  addContrast(orderId: string, fabricId: string, part: string, metres: number): void;   // bespoke extra fabric: to Shravani for a PO, PO raised, cloth in
   editOrderSheet(id: string, patch: { logisticComment?: string; fabricId?: string; fit?: string; qty?: number; tag?: OrderTag; remarks?: string; spec?: Partial<OrderSpec>; measurements?: Partial<OrderMeasurements>; pattern?: Partial<PatternFlags> }, note: string, who?: 'store' | 'unit'): void;
   /* production's two answers to a changed sheet */
   markChangeSeen(orderIds: string[]): void;
@@ -1421,6 +1425,9 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       }, `${fname}: ${round.received.length} received${round.short.length ? ` · ${round.short.length} not on the vehicle` : ''}${round.rejected.length ? ` · ${round.rejected.length} turned back` : ''}.`);
     },
     scanOrders(orderIds, stage) {
+      /* a planned piece leaves for the factory only once CAD, cutting, fusing and compiling are done */
+      if (stage === 'in-transit') { const db0 = get().db; const held = orderIds.filter(id => { const o = (db0.customerOrders ?? []).find(x => x.id === id); return o && o.stage === 'planned' && !prepOf(o).ready; });
+        if (held.length) { orderIds = orderIds.filter(id => !held.includes(id)); if (!orderIds.length) { get().toast(`Not yet: ${held.length} piece${held.length === 1 ? ' is' : 's are'} still in pre-production (CAD, cutting, fusing or compiling).`, 'warn'); return; } } }
       touch(db => { if (stage === 'rts') { const os = orderIds.map(oid => (db.customerOrders ?? []).find(x => x.id === oid)).filter((x): x is CustomerOrder => !!x);
           const byF = new Map<string | null, CustomerOrder[]>(); os.forEach(o => byF.set(o.factoryId, [...(byF.get(o.factoryId) ?? []), o]));
           byF.forEach((list, fid) => grn(db, { kind:'mtm-round', ref: `round · ${db.vendors.find(v => v.id === fid)?.name ?? 'factory'}`, refLabel: `${list.length} finished MTM piece${list.length === 1 ? '' : 's'} · ${list.slice(0, 3).map(o => o.orderNo).join(', ')}${list.length > 3 ? '…' : ''}`, vendorId: fid, qty: list.length, unit:'pc', rejected: 0, remarks: '' })); }
@@ -1449,13 +1456,36 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         db.extraFabric.unshift({ ...input, id:`xf-${Date.now().toString(36)}`, fabricId: o.fabricId, factoryId: o.factoryId, planId: o.planId ?? null, raisedBy: who(), raisedOn: now(), status:'requested', decidedOn: null });
       }, 'Asked. It is on the production unit\'s queue here — no email, no phone call.');
     },
+    confirmOrder(id, note) {
+      touch(db => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (!o || !o.preConfirmed) return;
+        o.remarks = `${o.remarks ? o.remarks + ' · ' : ''}Confirmed (${o.preConfirmed.reason.toLowerCase()} cleared)${note ? `: ${note}` : ''}`;
+        o.preConfirmed = null; o.confirmedOn = now(); o.confirmedBy = who(); }, 'Confirmed: the order joins the planning queue.');
+    },
+    prepTake(orderIds, step) {
+      touch(db => orderIds.forEach(id => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (!o) return;
+        o.prep = o.prep ?? {}; if (!o.prep[step]) o.prep[step] = { takenBy: who(), takenOn: now(), doneBy: null, doneOn: null, remark: null }; }),
+        `${orderIds.length} order${orderIds.length === 1 ? '' : 's'} taken up: your name is on ${orderIds.length === 1 ? 'it' : 'them'}.`);
+    },
+    prepDone(orderIds, step, remark) {
+      touch(db => orderIds.forEach(id => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (!o) return;
+        o.prep = o.prep ?? {}; const e = o.prep[step] ?? { takenBy: who(), takenOn: now(), doneBy: null, doneOn: null, remark: null };
+        e.doneBy = who(); e.doneOn = now(); e.remark = remark || null; o.prep[step] = e;
+        /* compiling approves the bundle, and with it the contrast fabric: a little of another fabric, off the physical stock */
+        if (step === 'compiling') (o.contrast ?? []).filter(c => !c.approvedOn).forEach(c => { const f = db.fabrics.find(x => x.id === c.fabricId); c.approvedOn = now(); c.approvedBy = who();
+          if (f) { f.stockMetres = Math.max(0, round2(f.stockMetres - c.metres)); f.transactions = [{ on: now(), orderNo: o.orderNo, poId: null, type: 'ISSUE', by: who(), warehouse: f.inventory?.warehouse ?? 'Dadar unit', bin: f.inventory?.bins[0]?.bin ?? null, reason: 'Contrast fabric', desc: `${c.part} on ${o.orderNo}`, metres: -c.metres }, ...(f.transactions ?? [])]; } });
+      }), step === 'compiling' ? 'Compiled and approved: contrast fabric deducted from physical stock; the bundle can leave for the factory.' : 'Done: the next team sees it.');
+    },
+    addContrast(orderId, fabricId, part, metres) {
+      touch(db => { const o = (db.customerOrders ?? []).find(x => x.id === orderId); if (!o || !metres) return;
+        o.contrast = [...(o.contrast ?? []), { id: `ct-${Date.now().toString(36)}`, fabricId, part, metres, approvedOn: null, approvedBy: null }]; }, 'Contrast fabric added: deducted when compiling approves.');
+    },
     routeExtraFabricPo(id, step, poNo) {
       touch(db => { const r = (db.extraFabric ?? []).find(x => x.id === id); if (!r) return;
         if (step === 'hand') { r.status = 'po-needed'; r.po = { handedOn: now(), by: who(), poNo: null, raisedOn: null, clothInOn: null }; }
         if (step === 'raised' && r.po) { r.po.poNo = poNo || r.po.poNo || `FPO-${7100 + Math.floor(Math.random() * 899)}`; r.po.raisedOn = now(); }
         if (step === 'cloth-in' && r.po) { r.po.clothInOn = now(); r.status = 'requested';
           const f = db.fabrics.find(x => x.id === r.fabricId); if (f) f.stockMetres = round2(f.stockMetres + r.metres); }
-      }, step === 'hand' ? 'With Shravani: she raises a PO with the mill for the bespoke cloth.' : step === 'raised' ? 'PO raised with the mill.' : 'Cloth in: the request is back with production to approve.');
+      }, step === 'hand' ? 'With Shravani: she raises a PO with the mill for the bespoke cloth.' : step === 'raised' ? 'Approved by Shravani: the PO is generated.' : 'Cloth in: the request is back with production to approve.');
     },
     decideExtraFabric(id, status) {
       touch(db => { const r = (db.extraFabric ?? []).find(x => x.id === id); if (!r) return;
@@ -1577,7 +1607,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 119,
+  version: 120,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1589,7 +1619,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 119 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 120 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

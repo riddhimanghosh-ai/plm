@@ -9,7 +9,7 @@ import type React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { CustomerOrder, ExtraFabricRequest, OrderTag } from '../domain/types';
-import { sheetVersion, changePendingOf, ppQueue, proposeAllocation, factoryLoadOf, agingOf, shippingTable, prepQueue, inwardOf, bespokeQueue, agingReport, needsReprint, sheetRev, fmtDate, fmtRel, fmtTime, daysAgo, iso, TODAY, MTM_OPEN, addDays } from '../domain/engines';
+import { prepOf, sheetVersion, changePendingOf, ppQueue, proposeAllocation, factoryLoadOf, agingOf, shippingTable, prepQueue, inwardOf, bespokeQueue, agingReport, needsReprint, sheetRev, fmtDate, fmtRel, fmtTime, daysAgo, iso, TODAY, MTM_OPEN, addDays } from '../domain/engines';
 import { MTM_STAGES, PP_FREEZE_HOURS, PLAN_HORIZON_DAYS, AGING_DAYS, ORDER_TAGS, EXTRA_FABRIC_REASONS, EXTRA_FABRIC_PANELS, PANEL_METRES, STORES } from '../domain/reference';
 import { Page, Card, Pill, Button, Note, Tabs, Seg, Empty, Drawer, KV, Section, Field, Input, Select, useExamples, dateInput, fromDateInput, type Tone } from '../ui';
 import { ThreadPanel } from './Thread';
@@ -18,6 +18,7 @@ import { FILE_LABELS } from '../domain/reference';
 
 import { SheetChangePanel, PullBackButton } from './OrderSheet';
 import { VendorLink } from './Vendors';
+import { PrepOverview, PrepOnOrder } from './Preprod';
 import { ActsBy } from './Who';
 
 const TAG_TONE: Record<OrderTag, Tone> = { normal:'neutral', urgent:'risk', corporate:'info' };
@@ -47,13 +48,15 @@ export function Mtm() {
       {!isProd && isWh && <div className="mb-2"><ActsBy role="production" does="allocates orders to factories, submits plans and watches the factory floor — the warehouse tabs are yours" inline /></div>}
       <Tabs tabs={[
         ...(isProd ? [{ id:'allocate', label:'Allocate', hint:'allocate orders to factories', count: q.ready.length }, { id:'plans', label:'Plans', hint:'submitted plans', count: (db.plans ?? []).filter(p => !p.closedOn).length }, { id:'floor', label:'Factory floor', hint:'pieces sitting in each factory' }] : []),
+        ...(isProd ? [{ id:'prep', label:'Pre-production', hint:'CAD, cutting, fusing and compiling for every planned order', count: (db.customerOrders ?? []).filter(o => o.kind === 'MTM' && o.stage === 'planned' && !prepOf(o).ready).length }] : []),
         ...(isProd ? [{ id:'changes', label:'Changed sheets', hint:'changed order sheets — who must act', count: changesPending.me.length + changesPending.others.length }] : []),
         { id:'fabric', label:'Extra fabric', hint:'extra fabric requests from the floor', count: pendingFabric },
-      ]} active={tab} onChange={t => set('tab', t)} />
+      ]} active={tab} onChange={t => set('tab', t)} wrap />
 
       {tab === 'allocate' && isProd && <AllocateTab mine={mine} onOpen={id => set('open', id)} />}
       {tab === 'plans' && isProd && <PlansTab mine={mine} onOpen={id => set('open', id)} />}
       {tab === 'floor' && isProd && <FloorTab mine={mine} factoryId={params.get('factory') ?? factories[0]?.id} onFactory={id => set('factory', id)} onOpen={id => set('open', id)} />}
+      {tab === 'prep' && isProd && <PrepOverview onOpen={id => set('open', id)} />}
       {tab === 'changes' && isProd && <ChangesTab onOpen={id => set('open', id)} />}
       {tab === 'fabric' && <FabricTab mine={mine} wh={isWh} onOpen={id => set('open', id)} />}
 
@@ -126,6 +129,8 @@ function AllocateTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string) => 
   const [storeF, setStoreF] = useState<string>('all');
   const [bucketF, setBucketF] = useState<string>('all');       // core · non-core · bespoke
   const [search, setSearch] = useState('');
+  const [conf, setConf] = useState<'exclude' | 'only'>('exclude');   // pre-confirmed orders: left out of planning, or shown on their own
+  const { confirmOrder } = useApp();
   const name = (id: string | null) => db.vendors.find(v => v.id === id)?.name ?? '—';
   const bucketOf = (o: CustomerOrder) => db.fabrics.find(f => f.id === o.fabricId)?.bucket ?? '';
   const visible = q.ready.filter(o =>
@@ -177,9 +182,21 @@ function AllocateTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string) => 
         <div style={{ width: 170 }}><Field label="Store"><Select value={storeF} onChange={setStoreF} options={[{ value:'all', label:'All stores' }, ...storesInQueue.map(st => ({ value:st.id, label:`${st.name} · ${q.ready.filter(o => o.storeId === st.id).length}` }))]} /></Field></div>
         <div style={{ width: 130 }}><Field label="Fabric"><Select value={bucketF} onChange={setBucketF} options={[{ value:'all', label:'All' }, { value:'CORE', label:'Core' }, { value:'NON_CORE', label:'Non-core' }, { value:'BESPOKE', label:'Bespoke' }]} /></Field></div>
         <div style={{ width: 180 }}><Field label="Search"><Input value={search} onChange={e => setSearch(e.target.value)} placeholder="order, customer, fabric, code" /></Field></div>
+        <div><span className="label">Confirmation</span><div className="seg"><button type="button" className={conf === 'exclude' ? 'on' : ''} onClick={() => setConf('exclude')}>Exclude pre-confirmed · {q.ready.length}</button><button type="button" className={conf === 'only' ? 'on' : ''} onClick={() => setConf('only')}>Pre-confirmed · {q.preConfirmed.length}</button></div></div>
         {anyFilter && <Button size="sm" variant="ghost" onClick={clear}>Clear</Button>}
       </div>
 
+      {conf === 'only' && <Card className="mt-2">{q.preConfirmed.length === 0 ? <Empty title="No pre-confirmed orders." body="Every order taken at the store is confirmed." /> : <table className="t">
+        <thead><tr><th>Order</th><th>Customer · store</th><th>Fabric</th><th>Why it is not confirmed</th><th>Since</th><th></th></tr></thead>
+        <tbody>{q.preConfirmed.map(o => <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
+          <td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}<div style={{ color:'var(--ink-faint)' }}>{STORES.find(st => st.id === o.storeId)?.name}</div></td>
+          <td className="text-[12.5px]">{o.styleName}</td>
+          <td><Pill tone="warn">{o.preConfirmed!.reason}</Pill><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{o.preConfirmed!.note}</div></td>
+          <td className="text-[12px]">{fmtDate(o.preConfirmed!.since)}</td>
+          <td onClick={e => e.stopPropagation()}>{mine && <Button size="sm" variant="primary" onClick={() => confirmOrder(o.id, '')}>Confirm</Button>}</td>
+        </tr>)}</tbody></table>}</Card>}
+      {conf === 'only' && <div className="mt-2 text-[12px]" style={{ color:'var(--ink-faint)' }}>Pre-confirmed orders were taken at the store but are not confirmed yet: measurement not done, on hold, or payment pending. They are not planned to a factory until confirmed.</div>}
+      {conf === 'exclude' && <>
       {/* pick — how the plan is actually built: narrow above, then take the oldest N */}
       <div className="mt-2 flex gap-3 items-center flex-wrap px-3 py-2" style={{ background:'var(--surface-2)', border:'1px solid var(--line)', borderRadius: 8 }}>
         <span className="text-[13px]"><b>{shown.length}</b> <span style={{ color:'var(--ink-soft)' }}>showing</span>{anyFilter && <span style={{ color:'var(--ink-faint)' }}> of {q.ready.length}</span>}</span>
@@ -223,6 +240,7 @@ function AllocateTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string) => 
           </tr>); })}</tbody>
       </table></Card>
       <div className="mt-2 text-[12px]" style={{ color:'var(--ink-faint)' }}>Tick rows (or pick "Select shown"), choose a factory, submit — that is one plan. Clicking a card's "N proposed" selects exactly the draft for that factory.</div>
+      </>}
     </>}
     {q.frozen.length > 0 && <div className="mt-3">
       <button type="button" className="vlink text-[12.5px]" onClick={() => setShowFrozen(v => !v)}>{q.frozen.length} order{q.frozen.length === 1 ? '' : 's'} punched in the last {settings.ppFreezeHours} h held back — stores still change them · {showFrozen ? 'hide' : 'show'}</button>
@@ -409,7 +427,7 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
   const order = (id: string) => (db.customerOrders ?? []).find(o => o.id === id);
   const fabric = (id: string) => db.fabrics.find(f => f.id === id);
   const TONE: Record<string, Tone> = { requested:'warn', 'po-needed':'info', approved:'good', sent:'neutral', declined:'risk' };
-  const STATUS: Record<string, string> = { requested:'to approve', 'po-needed':'with Shravani · PO', approved:'approved', sent:'sent', declined:'declined' };
+  const STATUS: Record<string, string> = { requested:'to approve', 'po-needed':'with Shravani · to approve the PO', approved:'approved', sent:'sent', declined:'declined' };
   const byReason: Record<string, number> = {}; rows.forEach(r => (byReason[r.reason] = (byReason[r.reason] ?? 0) + 1));
   const factoryErr = rows.filter(r => r.reason.includes('factory error')).length;
   /* one ask per status — requested, approved, sent, declined */
@@ -429,19 +447,19 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
           <td className="text-[12.5px]"><VendorLink id={r.factoryId} /></td>
           <td className="text-[12.5px]">{r.panel}</td><td className="num">{r.metres} m</td>
           <td className="text-[12px]"><span style={{ color: r.reason.includes('factory') ? 'var(--risk)' : 'var(--warn)' }}>{r.reason}</span>{r.note && <div style={{ color:'var(--ink-faint)' }}>{r.note}</div>}</td>
-          <td><Pill tone={TONE[r.status]}>{STATUS[r.status] ?? r.status}</Pill>{f?.bucket === 'BESPOKE' && <div className="pt-0.5"><Pill tone="accent">bespoke</Pill></div>}{r.po && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.po.poNo ? `${r.po.poNo}${r.po.clothInOn ? ' · cloth in' : ' · raised'}` : 'PO not raised yet'}</div>}</td>
+          <td><Pill tone={TONE[r.status]}>{r.status === 'po-needed' && r.po?.raisedOn ? 'PO raised · cloth awaited' : STATUS[r.status] ?? r.status}</Pill>{f?.bucket === 'BESPOKE' && <div className="pt-0.5"><Pill tone="accent">bespoke</Pill></div>}{r.source === 'alteration' && <div className="pt-0.5"><Pill tone="info">alteration</Pill></div>}{r.po && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.po.poNo ? `${r.po.poNo}${r.po.clothInOn ? ' · cloth in' : ' · raised'}` : 'PO not raised yet'}</div>}</td>
           <td onClick={e => e.stopPropagation()} className="flex gap-1">
-            {mine && r.status === 'requested' && (() => { const short = !!f && (f.bucket === 'BESPOKE' || f.stockMetres - f.reservedMetres < r.metres); return <>
+            {mine && r.status === 'requested' && (() => { const short = r.source === 'alteration' || (!!f && (f.bucket === 'BESPOKE' || f.stockMetres - f.reservedMetres < r.metres)); return <>
               {short && !r.po ? <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani for a PO</Button>
                 : <Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'approved')}>Approve</Button>}
               <Button size="sm" variant="ghost" onClick={() => decideExtraFabric(r.id, 'declined')}>Decline</Button></>; })()}
-            {(mine || wh) && r.status === 'po-needed' && !r.po?.raisedOn && <Button size="sm" onClick={() => routeExtraFabricPo(r.id, 'raised')}>PO raised with the mill</Button>}
+            {(mine || wh) && r.status === 'po-needed' && !r.po?.raisedOn && <Button size="sm" onClick={() => routeExtraFabricPo(r.id, 'raised')}>Shravani: approve & raise PO</Button>}
             {(mine || wh) && r.status === 'po-needed' && r.po?.raisedOn && <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'cloth-in')}>Cloth in · back to approval</Button>}
             {wh && r.status === 'approved' && <Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'sent')}>Picked & sent</Button>}
           </td>
         </tr>); })}</tbody>
     </table></Card>}
-    <div className="mt-3"><Note>Approve is the inventory event: the metres leave the shelf the moment production says yes. Bespoke cloth, or a fabric with too little on the shelf, is not approved from stock: production sends it to Shravani, who raises a PO with the mill; when the cloth is in, it comes back here to approve. This routing is proposed, not final.</Note></div>
+    <div className="mt-3"><Note>Approve is the inventory event: the metres leave the shelf the moment production says yes. Bespoke cloth, an alteration unit's ask, or a fabric with too little on the shelf is not approved from stock: production sends it to Shravani in one click, Shravani approves and the PO is generated; when the cloth is in, it comes back here to approve.</Note></div>
   </>;
 }
 
@@ -491,6 +509,8 @@ export function OrderSheet({ o, mine }: { o: CustomerOrder; mine: boolean }) {
   const next: Record<string, { stage: CustomerOrder['stage']; label: string } | undefined> = { planned:{ stage:'in-transit', label:'Scan out of production unit' }, 'in-transit':{ stage:'in-factory', label:'Scan in at factory' }, 'in-factory':{ stage:'out-factory', label:'Mark ready' }, 'out-factory':{ stage:'rts', label:'RTS received' }, rts:{ stage:'dispatched', label:'Dispatch' }, dispatched:{ stage:'delivered', label:'Delivered' } };
   const n = next[o.stage];
   return <>
+    {o.preConfirmed && <Section title="Pre-confirmed" collapsible={false} right={<Pill tone="warn">{o.preConfirmed.reason}</Pill>}><PreConfirmBox o={o} /></Section>}
+    {(o.stage === 'planned' || o.prep) && <Section title="Pre-production" defaultOpen={o.stage === 'planned'} right={<Pill tone={prepOf(o).ready || o.stage !== 'planned' ? 'good' : 'info'}>{o.stage !== 'planned' ? 'done' : prepOf(o).ready ? 'ready to send' : `at ${prepOf(o).next?.label}`}</Pill>}><PrepOnOrder o={o} /></Section>}
     <Section title="Job card" right={<Pill tone="neutral">the summary the factory bundle carries</Pill>}>
       <KV k="Order no." v={<span className="mono">{o.orderNo}</span>} />
       <KV k="Customer" v={o.customer} note={store?.name} />
@@ -789,4 +809,15 @@ export function AgingTab({ onOpen }: { onOpen: (id: string) => void }) {
     </Card>}
     <div className="mt-3"><Note>"Pending" means past its ship-by and not yet dispatched, recomputed every time a scan lands.</Note></div>
   </>;
+}
+
+/** A pre-confirmed order: taken at the store, not yet confirmed. Planning waits until someone confirms it. */
+function PreConfirmBox({ o }: { o: CustomerOrder }) {
+  const { confirmOrder } = useApp();
+  const [note, setNote] = useState('');
+  return <div className="flex gap-2 items-center flex-wrap py-1">
+    <span className="text-[12.5px] flex-1" style={{ minWidth: 220 }}>{o.preConfirmed!.note || o.preConfirmed!.reason} · since {fmtDate(o.preConfirmed!.since)}. It is not planned to a factory until it is confirmed.</span>
+    <Input value={note} onChange={e => setNote(e.target.value)} placeholder="remark (optional)" style={{ width: 200 }} />
+    <Button size="sm" variant="primary" onClick={() => confirmOrder(o.id, note.trim())}>Confirm order</Button>
+  </div>;
 }
