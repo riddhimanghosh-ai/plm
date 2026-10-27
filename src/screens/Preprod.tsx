@@ -263,12 +263,15 @@ export function PrepOverview({ onOpen }: { onOpen: (id: string) => void }) {
 export function PrepOnOrder({ o }: { o: CustomerOrder }) {
   const { db } = useApp();
   const p = prepOf(o);
-  return <div className="checklist">
-    {p.steps.map(s => <div key={s.key} className={`cl-row${s.state === 'done' ? ' done' : ''}`}>
-      <span className="cl-box" aria-hidden>{s.state === 'done' ? '✓' : ''}</span>
-      <div className="cl-main"><div className="cl-label">{s.label}</div><div className="cl-status">{s.entry?.doneOn ? `done ${fmtDate(s.entry.doneOn)} · ${s.entry.doneBy}${s.entry.remark ? ` · “${s.entry.remark}”` : ''}` : s.entry ? `taken up by ${s.entry.takenBy} · ${fmtRel(s.entry.takenOn)}` : s.state === 'done' ? 'done' : 'not started'}</div></div>
-    </div>)}
-    {Object.entries(o.prepBlocked ?? {}).map(([k, b]) => b && <div key={k} className="cl-status pt-2" style={{ color: 'var(--risk)' }}>Blocked at {stepOf(k as PrepStep).label}: {b.reason} · {b.by} · {fmtDate(b.on)}</div>)}
+  /* the four desks side by side, left to right, in the order the order moves */
+  return <div>
+    <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+    {p.steps.map((s, i) => { const bl = o.prepBlocked?.[s.key] && s.state !== 'done'; const tone = bl ? 'var(--risk)' : s.state === 'done' ? 'var(--good)' : s.state === 'in progress' ? 'var(--accent)' : 'var(--line)';
+      return <div key={s.key} className="px-3 py-2" style={{ border: `1px solid ${tone}`, borderRadius: 8, background: s.state === 'done' ? 'var(--accent-soft)' : undefined, position: 'relative' }}>
+        <div className="flex items-center gap-1.5"><span className="cl-box" aria-hidden style={{ width: 18, height: 18, fontSize: 11, color: 'var(--ink-faint)', ...(s.state === 'done' ? { background: 'var(--good)', borderColor: 'var(--good)', color: '#fff' } : {}) }}>{s.state === 'done' ? '✓' : i + 1}</span><b className="text-[13px]">{s.label}</b></div>
+        <div className="cl-status pt-1" style={{ color: bl ? 'var(--risk)' : undefined }}>{bl ? `blocked · ${o.prepBlocked![s.key]!.reason}` : s.entry?.doneOn ? `done ${fmtDate(s.entry.doneOn)} · ${s.entry.doneBy}${s.entry.remark ? ` · “${s.entry.remark}”` : ''}` : s.entry ? `with ${s.entry.takenBy} · ${fmtRel(s.entry.takenOn)}` : s.state === 'done' ? 'done' : 'not started'}</div>
+      </div>; })}
+    </div>
     {o.cadFile && <div className="cl-status pt-2">CAD file: <span className="mono">{o.cadFile.name}</span> · uploaded by {o.cadFile.by} · {fmtDate(o.cadFile.on)}</div>}
     {(o.contrast ?? []).length > 0 && <div className="cl-status pt-2">Contrast fabric: {(o.contrast ?? []).map(c => `${c.part} · ${db.fabrics.find(f => f.id === c.fabricId)?.name ?? c.fabricId} · ${c.metres} m${c.approvedOn ? ' (deducted)' : ''}`).join('; ')}</div>}
   </div>;
