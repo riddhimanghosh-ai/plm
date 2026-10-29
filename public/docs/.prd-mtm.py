@@ -36,7 +36,7 @@ table(["Role", "People today", "Owns in BSC PLM", "Lands on", "Reads only"], [
  ["Cutting team", "Cutting team at the production unit", "The cutting desk: take orders up, cut to the CAD using the fabric image and bin, attach the print, mark done or blocked", "Cutting desk", "The order sheet, CAD file"],
  ["Fusing team", "Fusing team at the production unit", "The fusing desk: take orders up, fuse collar, cuff and placket interlining, mark done or blocked", "Fusing desk", "The order sheet, CAD file"],
  ["Compiling team", "Compiling team at the production unit", "The compiling desk: check the bundle, add contrast fabric, Approve & mark compiled (deducts the contrast), mark blocked", "Compiling desk", "The order sheet, CAD file"],
- ["Factory merchandiser", "Abhin M, Bhupendra, each unit's floor", "MTM floor: receive, out, request cloth, log the day, read changed sheets", "My factory", "Order sheet and job card"],
+ ["Factory merchandiser", "Yash, Pratish, Kunal, Sachin, Kamal, Harshada, Varsha; Abhin M, Bhupendra", "MTM floor: receive, out, request cloth, log the day, read changed sheets", "My factory", "Order sheet and job card"],
  ["Store", "Store managers (34 stores)", "No screen in BSC PLM, for managers or owners. Bills, profiles, sheet corrections, returns, credit notes and refund requests stay in RetailOS; everything additional is built in RetailOS only. The prototype shows them for demonstration", "Store", "Fabrics live today"],
  ["Owner", "Akshay, Parag", "Everything, read and write", "Any", "—"],
 ])
