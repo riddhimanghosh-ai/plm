@@ -95,7 +95,7 @@ export function Health() {
   const pager = usePager(ex.rows, 25);
 
   /* the sheets plan by sub-category 1; sub-category 2 is a finer label (Satin, 4-Way Stretch Nylon) that does not carry its own ideal */
-  const inSub = (o: RtwOption, sc: { sub1: string; sub2: string }) => o.subCat1 === sc.sub1 && (sc.sub2 === sc.sub1 || o.subCat2 === sc.sub2);
+  const inSub = (o: RtwOption, sc: typeof RTW_SUBCATS[number]) => o.subCat1 === sc.sub1 || (sc.also ?? []).includes(o.subCat1);
   const gaps = RTW_SUBCATS.map(sc => { const os = db.options.filter(o => inSub(o, sc)); const live = os.filter(o => healthOf(o).health === 'Healthy').length; const coreOs = os.filter(o => o.core); const coreLive = coreOs.filter(o => healthOf(o).health === 'Healthy').length; const coreSizeOut = coreOs.filter(o => healthOf(o).szOOS > 0).length;
     return { ...sc, live, total: os.length, gap: sc.ideal == null ? null : sc.ideal - live, coreListed: coreOs.length, coreLive, coreSizeOut, coreGap: sc.coreIdeal == null ? null : sc.coreIdeal - coreLive, nonIdeal: sc.ideal == null || sc.coreIdeal == null ? null : sc.ideal - sc.coreIdeal, nonListed: os.length - coreOs.length }; });
 
@@ -228,7 +228,7 @@ function Option360({ o, editable, onDecide }: { o: RtwOption; editable: boolean;
   const { db } = useApp();
   const h = healthOf(o); const r = rosOf(o);
   const [note, setNote] = useState('');
-  const plan = RTW_SUBCATS.find(s => s.sub1 === o.subCat1 && (s.sub2 === s.sub1 || s.sub2 === o.subCat2));
+  const plan = RTW_SUBCATS.find(s => s.sub1 === o.subCat1 || (s.also ?? []).includes(o.subCat1));
   const siblings = db.options.filter(x => x.subCat1 === o.subCat1 && (!plan || plan.sub2 === plan.sub1 || x.subCat2 === plan.sub2));
   const siblingsHealthy = siblings.filter(x => healthOf(x).health === 'Healthy').length;
   /* Production orders for this look — matched on the fabric word in the name,

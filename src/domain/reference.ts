@@ -126,17 +126,18 @@ export const MID_SIZES = new Set(['40', '41', '42', '32', '34', 'M', 'L']);
 
 /* RTW shirts sub-categories and ideal option counts — the plan the client
    said starts from an "ideal option count", which is the root of over-buy. */
-export const RTW_SUBCATS: { sub1: string; sub2: string; core: boolean; ideal: number | null; coreIdeal: number | null }[] = [
-  /* shirts — RTW_Shirts_Concise "ROS & Health Summary": Ideal count core + non-core; Option Count Summary "x N" */
-  { sub1:'Casual Solid',            sub2:'Casual Solid',            core:true,  ideal:35, coreIdeal:10 },   // 10 core + 25 non-core
-  { sub1:'Formal Solid',            sub2:'Formal Solid',            core:true,  ideal:28, coreIdeal:10 },   // 10 + 18 — "1. Solids x 28"
+export const RTW_SUBCATS: { sub1: string; sub2: string; core: boolean; ideal: number | null; coreIdeal: number | null; also?: string[] }[] = [
+  /* shirts — RTW Shirts Recce Non-Core 27082026 → Summary "Revised Ideal Option Count" (13 Aug 2026): 41 core + 81 non-core = 122.
+     The planning call of 8 Oct 2026 named the same two totals as management's non-negotiable guideline. `also` folds a second
+     Sub-Category 1 into the row, the way the sheet counts checks and stripes together. */
+  { sub1:'Casual Solid',            sub2:'Casual Solid',            core:true,  ideal:30, coreIdeal:11 },   // 11 core + 19 non-core
+  { sub1:'Formal Solid',            sub2:'Formal Solid',            core:true,  ideal:30, coreIdeal:20 },   // 20 + 10
   { sub1:'Casual Checks + Stripes', sub2:'Casual Checks + Stripes', core:false, ideal:10, coreIdeal:0 },
-  { sub1:'Casual Print',            sub2:'Casual Print',            core:false, ideal:null, coreIdeal:null }, // the sheet says "Not specified"
+  { sub1:'Casual Print',            sub2:'Casual Print',            core:false, ideal:null, coreIdeal:null }, // the sheet leaves it blank
   { sub1:'On Trend',                sub2:'On Trend',                core:false, ideal:10, coreIdeal:0 },
-  { sub1:'Formal Checks',           sub2:'Formal Checks',           core:true,  ideal:8, coreIdeal:4 },    // 4 + 4
-  { sub1:'Formal Stripes',          sub2:'Formal Stripes',          core:true,  ideal:8, coreIdeal:2 },    // 2 + 6
-  { sub1:'Solid Cuban',             sub2:'Solid Cuban',             core:false, ideal:10, coreIdeal:0 },
-  { sub1:'High Priced',             sub2:'High Priced',             core:true,  ideal:25, coreIdeal:15 },   // "High End Fabrics x 15+10"
+  { sub1:'Formal Checks',           sub2:'Formal Checks + Stripes', core:true,  ideal:20, coreIdeal:8, also:['Formal Stripes'] },   // 8 + 12, checks and stripes counted together
+  { sub1:'Solid Cuban',             sub2:'Solid Cuban / Half Sleeve', core:false, ideal:12, coreIdeal:2 },  // 2 + 10
+  { sub1:'High Priced',             sub2:'High Priced - solid',     core:true,  ideal:10, coreIdeal:0 },    // 0 + 10
   /* bottoms — ROS & Health Report 020826 sub-category tree; ideal counts from Option Count Summary */
   { sub1:'Formal Chinos',           sub2:'Formal Chinos',           core:true,  ideal:14, coreIdeal:14 },   // "Stretch Chinos x 14" — Casual Pants
   { sub1:'Performance Pants',       sub2:'Performance Pants',       core:true,  ideal:5, coreIdeal:5 },    // "Performance Pants x 5 (fold) Hemming" — Formal Pants

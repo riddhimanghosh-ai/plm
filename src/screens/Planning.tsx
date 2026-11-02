@@ -162,7 +162,7 @@ function OptionCount({ rows, onOpen, mine }: { rows: CountRow[]; onOpen: (id: st
   const atDate = fmtDate(iso7(TODAY.toISOString(), horizon));
   const cats = RTW_SUBCATS.filter(sc => sc.ideal != null).map(sc => {
     const key = `${sc.sub1}|${sc.sub2}`;
-    const os = rows.filter(x => x.o.subCat1 === sc.sub1 && (sc.sub2 === sc.sub1 || x.o.subCat2 === sc.sub2));
+    const os = rows.filter(x => x.o.subCat1 === sc.sub1 || (sc.also ?? []).includes(x.o.subCat1));
     const non = os.filter(x => !x.o.core);
     const healthyNow = non.filter(x => x.h.healthy);
     /* still healthy at the date: healthy today and not projected short before then, WIP that lands in time counted */
