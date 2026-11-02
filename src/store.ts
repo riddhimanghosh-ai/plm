@@ -78,6 +78,7 @@ export interface AppState {
   updatePlanningReview(id: string, patch: Partial<PlanningReview>): void;
   approvePlanningReview(id: string, approvedQty: number, approvedRatio: { size: string; qty: number }[], constraintNote: string): void;
   sendPlanningReviewToDesign(id: string, category: GarmentCategory, subCategory: string, targetCost: number): string | null;
+  setPlanningCount(key: string, needToOrder: number | null, note: string): void;   // the Recce summary's "Need to order - Adjusted", the planner's call
 
   /* option requests — a category and a number, slot by slot */
   createOptionRequest(i: { category: OptionRequest['category']; brief: string; liveBy: string | null; targetCost: number | null; optionCount: number; notes: string[]; bom: BomLine[] }): string;
@@ -463,6 +464,9 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { const r = (db.planningReviews ?? []).find(x => x.id === id); if (!r) return;
         r.approvedQty = approvedQty; r.approvedRatio = approvedRatio; r.constraintNote = constraintNote; r.status = 'approved'; r.approvedOn = now(); r.approvedBy = who(); },
         `Plan approved · ${approvedQty} pcs. Send it to design to raise the requirement.`);
+    },
+    setPlanningCount(key, needToOrder, note) {
+      touch(db => { db.planningCounts = db.planningCounts ?? {}; if (needToOrder == null) delete db.planningCounts[key]; else db.planningCounts[key] = { needToOrder, note, by: who(), on: now() }; }, needToOrder == null ? 'Cleared.' : 'Saved beside the gap, with your name.');
     },
     sendPlanningReviewToDesign(id, category, subCategory, targetCost) {
       const r = (get().db.planningReviews ?? []).find(x => x.id === id);
@@ -1633,7 +1637,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 124,
+  version: 125,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1645,7 +1649,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 124 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 125 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

@@ -243,6 +243,19 @@ export const isBottoms = (subCatOrStyle: string) =>
   /\b(pants?|chinos?|jeans?|trousers?|bottoms?|neapolitan|joggers?|shorts)\b/i.test(subCatOrStyle)
   && !/half[- ]?sleeve|short[- ]?sleeve/i.test(subCatOrStyle);
 export const BOTTOM_SIZES = ['28', '30', '32', '34', '36', '38', '40', '42'];
+/* "Main" sizes, as the sheets sum them: chinos 30–38 (United Chinos order working), shirts 38–44
+   (Recce Non-Core "Main" = 38+40+42+44). Health and cover are judged on these; the outliers
+   build excess when a ratio is committed months ahead. */
+export const mainSizesOf = (o: { sizes: string[]; subCat1: string; subCat2: string; styleName: string }) => {
+  if (!o.sizes.some(s => /^\d+$/.test(s))) return o.sizes.filter(s => ['S', 'M', 'L', 'XL'].includes(s));
+  const want = isBottoms(`${o.subCat1} ${o.subCat2} ${o.styleName}`) ? ['30', '32', '34', '36', '38'] : ['38', '40', '42', '44'];
+  return want.filter(s => o.sizes.includes(s));
+};
+/* read off the sheet's rows: Healthy needs 75% of main sizes in stock AND four weeks of cover
+   (75% / 0.5 wk → Unhealthy; 100% / 2.8 wk → Unhealthy; 100% / 4.3 wk → Healthy) */
+export const HEALTH_MIN_SIZE_PCT = 0.75;
+export const HEALTH_MIN_COVER_WEEKS = 4;
+export const LOW_STOCK_WEEKS = 4;        // a main size with under this many weeks of its own rate counts as low — assumed, the sheet's rule is not written down
 export const SHIRT_SIZES = ['36', '38', '40', '42', '44', '46'];   // Replenishment Sample sku_code suffixes 36–46
 export const MTM_FITS = ['Tailored Fit', 'Classic Fit', 'Slim Fit', 'Saved fit'];
 export const ORDER_STAGE_NEXT: Record<string, string> = { punched:'ready', ready:'delivered', hemming:'delivered', delivered:'delivered', cancelled:'cancelled' };   // RTW only — MTM moves by scan

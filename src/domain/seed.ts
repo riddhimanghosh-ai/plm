@@ -346,6 +346,7 @@ REAL_RTW_SHIRTS.forEach((x, k) => {
     launchedAt: parseDdMmYy(x.latest) ?? iso(addDays(TODAY, -int(90, 420))),
     incomingQty: x.incomingQty, mrp: x.sub1 === 'High Priced' ? pick([5990, 6490, 6990, 7990]) : pick([2990, 3290, 3490, 3990, 4490]),   // MRP is not in the health sheet — placed by range
     sku: skuFor('BOM-SHI-RE', k, colourOf(x.styleName, x.colour)), vendorId: vendorId(x.vendors), fabricCode: null,
+    totalSale: x.totalSales ?? undefined, eoss: x.eoss === 'Sale',
   });
 });
 /* bottoms — ROS & Health Report 020826: stock by size as the sheet has it, the last four weeks real, the eight before them from the sheet's ROS */
@@ -361,6 +362,7 @@ REAL_RTW_BOTTOMS.forEach((b, k) => {
     incomingQty: b.grandTotal === 0 && b.totalSale > 0 ? pick([150, 200]) : 0, mrp: b.sub1 === 'Performance Pants' ? 4990 : 3490,   // placed — the ROS report carries no MRP
     sku: merch?.skuBase ?? skuFor(b.sub1 === 'Performance Pants' ? 'BOM-PER-HE' : 'BOM-CHI-SE', k, colourOf(b.styleName, null)),
     vendorId: merch ? vendorId(merch.productVendor) : b.sub1 === 'Performance Pants' ? 'united' : 'gseams', fabricCode: merch?.fabricCode ?? null,
+    totalSale: b.totalSale ?? undefined, eoss: false,
   });
 });
 /* Merchandise Master styles the ROS report does not cover yet (Urban Ease, City Pace chinos; the Neapolitans) — sales placed low: new or hang-sold */

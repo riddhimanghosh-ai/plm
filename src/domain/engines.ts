@@ -5,7 +5,7 @@
    ========================================================================== */
 
 import type { ReturnCase, ResolutionStep, Concept, BomLine, Costing, CustomerOrder, Db, Fabric, FabricQuote, Launch, LaunchPiece, MaterialLine, OrderTag, TrimItem, GarmentCategory, Milestone, ProductionOrder, RoleId, RtwAction, RtwOption, ThreadKind, Vendor, SourcingMode , TrackerConfig, PlanningReview, PlanningKind, PrepStep } from './types';
-import { FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, MILESTONES, MILESTONE_OWNER, OFFSETS, OTIF_TOLERANCE, PRE_PRODUCTION, RISK, MID_SIZES, VELOCITY, WOF_CLEAR, WOF_EXIT, WOF_URGENT, STORE_LOW_METRES, GROWTH_UPLIFT, METRES_PER_SHIRT, RTW_REORDER_TRIGGER_DAYS, RTW_MOQ, STORES, SHEET_FREE_EDIT, SHEET_STORE_EDIT, SHEET_AMEND, REALLOCATING_FIELDS, BOOK_EDITION, BOOK_CONFIRM_DAYS, SWATCH_KINDS, MARKETING_LEAD_DAYS, DISPLAY_PLAN, isBottoms, PP_FREEZE_HOURS, PIECES_PER_TAILOR_DAY, AGING_DAYS, CORPORATE_FACTORY, URGENT_FACTORY, COSTING_DEFAULTS, DISCOUNT_BAU, DISCOUNT_ADDITIONAL, gstFor, PACKAGING_BOM, TRIM_CARD, CONSUMPTION_DEFAULT, HEMMED, PEOPLE, ROLE_LABEL } from './reference';
+import { mainSizesOf, HEALTH_MIN_SIZE_PCT, HEALTH_MIN_COVER_WEEKS, LOW_STOCK_WEEKS, FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, MILESTONES, MILESTONE_OWNER, OFFSETS, OTIF_TOLERANCE, PRE_PRODUCTION, RISK, MID_SIZES, VELOCITY, WOF_CLEAR, WOF_EXIT, WOF_URGENT, STORE_LOW_METRES, GROWTH_UPLIFT, METRES_PER_SHIRT, RTW_REORDER_TRIGGER_DAYS, RTW_MOQ, STORES, SHEET_FREE_EDIT, SHEET_STORE_EDIT, SHEET_AMEND, REALLOCATING_FIELDS, BOOK_EDITION, BOOK_CONFIRM_DAYS, SWATCH_KINDS, MARKETING_LEAD_DAYS, DISPLAY_PLAN, isBottoms, PP_FREEZE_HOURS, PIECES_PER_TAILOR_DAY, AGING_DAYS, CORPORATE_FACTORY, URGENT_FACTORY, COSTING_DEFAULTS, DISCOUNT_BAU, DISCOUNT_ADDITIONAL, gstFor, PACKAGING_BOM, TRIM_CARD, CONSUMPTION_DEFAULT, HEMMED, PEOPLE, ROLE_LABEL } from './reference';
 import { MTM_ONLY, isRtwHref, OPTIONS_OFF } from './edition';
 
 export const TODAY = new Date('2026-09-12T09:00:00+05:30');
@@ -1484,6 +1484,54 @@ export function wipOf(db: Db, o: RtwOption) {
 }
 
 export const planningKindOf = (o: RtwOption): PlanningKind => daysAgo(o.launchedAt) < 8 * 7 ? 'new' : o.core ? 'core' : 'non-core';
+
+/* ---------- the health sheet's own row (ROS & health Report 041026, Recce Non-Core 27082026) ----
+   Every column the planners read today, under the sheet's own name and computed the way the sheet
+   computes it, so the screen reads like the sheet: Total Sale since launch; WOF = weeks on floor;
+   ROS = Total Sale ÷ WOF; LW, LW-1, LW-2, LW-3; L4W = their average; Top 6 Weeks ROS; Main = stock in
+   the main sizes; AWS = the highest of LW…LW-3 and Top 6 (the sheet's planning rate, always the
+   generous reading); WC = Main ÷ AWS; Stock Health = main sizes not low ÷ main sizes; Healthy = health
+   ≥ 75% and WC ≥ 4 weeks. The 12-week series here is shorter than the sheet's history, so Top 6 is
+   the best six of twelve. */
+export function healthRowOf(o: RtwOption) {
+  const w = o.weeklySales; const n = w.length;
+  const lw = [0, 1, 2, 3].map(i => w[n - 1 - i] ?? 0);
+  const l4w = lw.reduce((a, b) => a + b, 0) / 4;
+  const wof = Math.max(1, Math.round(daysAgo(o.launchedAt) / 7));
+  const totalSale = o.totalSale ?? w.reduce((a, b) => a + b, 0);
+  const ros = totalSale / wof;
+  const top6 = [...w].sort((a, b) => b - a).slice(0, 6);
+  const top6Ros = top6.reduce((a, b) => a + b, 0) / Math.max(1, Math.min(6, n));
+  const aws = Math.max(...lw, top6Ros);
+  const main = mainSizesOf(o);
+  const mainStock = main.reduce((a, sz) => a + (o.stockBySize[sz] ?? 0), 0);
+  const sizeRos = sizeRosOf(o);
+  const low = main.filter(sz => (o.stockBySize[sz] ?? 0) === 0 || (sizeRos[sz] > 0 && (o.stockBySize[sz] ?? 0) < sizeRos[sz] * LOW_STOCK_WEEKS));
+  const stockHealth = main.length ? (main.length - low.length) / main.length : 0;
+  const wc = aws > 0 ? mainStock / aws : mainStock > 0 ? 999 : 0;
+  const healthy = stockHealth >= HEALTH_MIN_SIZE_PCT && wc >= HEALTH_MIN_COVER_WEEKS;
+  const stock = Object.values(o.stockBySize).reduce((a, b) => a + b, 0);
+  return { stock, totalSale, wof, ros, lw, l4w, top6Ros, aws, main, mainStock, count: main.length, low, stockHealth, wc, healthy, eoss: !!o.eoss };
+}
+
+/** The sheet's size ratio: each size's share of sales over the history it has (United Chinos
+    order working, block 3). Falls back to the stock mix when nothing has sold. */
+export function lifetimeSizeRatioOf(o: RtwOption): Record<string, number> {
+  const by = salesBySizeOf(o);
+  const tot = Object.fromEntries(o.sizes.map(sz => [sz, by[sz].reduce((a, b) => a + b, 0)]));
+  let sum = Object.values(tot).reduce((a, b) => a + b, 0);
+  if (sum === 0) { o.sizes.forEach(sz => { tot[sz] = o.stockBySize[sz] ?? 0; }); sum = Object.values(tot).reduce((a, b) => a + b, 0); }
+  return Object.fromEntries(o.sizes.map(sz => [sz, sum > 0 ? tot[sz] / sum : 1 / o.sizes.length]));
+}
+
+/** Spread an order quantity on a ratio in pairs, the way the chinos sheet does (600 → 18, 52, 146 …):
+    each size rounded to an even number, the remainder put on the biggest size. */
+export function splitInPairs(total: number, ratio: Record<string, number>, sizes: string[]) {
+  const rows = sizes.map(sz => ({ size: sz, qty: Math.round(total * (ratio[sz] ?? 0) / 2) * 2 }));
+  const diff = total - rows.reduce((a, r) => a + r.qty, 0);
+  if (rows.length && diff !== 0) { const top = rows.reduce((m, r) => r.qty > m.qty ? r : m, rows[0]); top.qty = Math.max(0, top.qty + diff); }
+  return rows;
+}
 
 export interface ProjectionWeek { week: number; from: string; opening: number; demand: number; receipts: number; closing: number; bySize: Record<string, number> }
 export interface Projection {

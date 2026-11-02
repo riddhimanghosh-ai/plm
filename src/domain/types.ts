@@ -333,6 +333,11 @@ export interface RtwOption {
   /* planning (8 Oct 2026): sales are read by size, not only by option. When the
      sheet gives only the option total, the per-size series is derived on read. */
   weeklySalesBySize?: Record<string, number[]>;
+  /* the health sheet's lifetime columns (ROS & health Report, 4 Oct 2026): Total Sale since
+     launch and the EOSS flag. WOF and ROS are derived from these and the launch date. */
+  totalSale?: number;            // units sold since launch, the sheet's "Total Sale"
+  eoss?: boolean;                // "EOSS Sale": on markdown
+  discountedMrp?: number | null; // Product On Sale: the new price while on sale
 }
 
 /* ---------- RTW planning review (8 Oct 2026) --------------------------------
@@ -946,6 +951,9 @@ export interface Db {
      every open PO's planned dates that have no actual yet. */
   trackerConfig?: TrackerConfig;
   planningReviews?: PlanningReview[];
+  /* the Recce summary's last column, "Need to order - Adjusted": the planner's number per
+     sub-category, kept beside the arithmetic gap with who set it and when */
+  planningCounts?: Record<string, { needToOrder: number; note: string; by: string; on: string }>;
   trims: TrimItem[];
   concepts: Concept[];
   attachments: Attachment[];
