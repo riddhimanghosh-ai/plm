@@ -25,13 +25,13 @@ import { RecordTail } from './RecordTail';
 
 const KIND_LABEL = { core: 'Core · replenishment', 'non-core': 'Non-core · replace or drop', new: 'New · first weeks' } as const;
 const KIND_TONE: Record<string, Tone> = { core: 'accent', 'non-core': 'info', new: 'warn' };
-const DEFAULT_LEAD_WEEKS = 8;
-const DEFAULT_COVER_WEEKS = 12;
+export const DEFAULT_LEAD_WEEKS = 8;
+export const DEFAULT_COVER_WEEKS = 12;
 
 /* The plain answer for one option, before any of the sheet's columns: what to do, and why, in one line. */
-type Verdict = { group: 'now' | 'soon' | 'fine' | 'idle'; label: string; why: string; tone: Tone };
+export type Verdict = { group: 'now' | 'soon' | 'fine' | 'idle'; label: string; why: string; tone: Tone };
 const VERDICT_LABEL: Record<Verdict['group'], string> = { now: 'Order now', soon: 'Order soon', fine: 'Fine for now', idle: 'Not selling' };
-function verdictOf(h: ReturnType<typeof healthRowOf>, p: ReturnType<typeof projectionOf>, wip: ReturnType<typeof wipOf>, sizeRisk: { size: string; firstShortWeek: number | null }[], leadWeeks: number): Verdict {
+export function verdictOf(h: ReturnType<typeof healthRowOf>, p: ReturnType<typeof projectionOf>, wip: ReturnType<typeof wipOf>, sizeRisk: { size: string; firstShortWeek: number | null }[], leadWeeks: number): Verdict {
   const lands = p.weeks[Math.min(leadWeeks, p.weeks.length) - 1]?.from;
   const landsOn = lands ? fmtDate(lands) : `${leadWeeks} wk`;
   const firmWip = wip.filter(w => w.firm);
