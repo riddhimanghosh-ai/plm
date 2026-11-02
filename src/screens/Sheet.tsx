@@ -1,14 +1,14 @@
 /* Sheet (2 Nov 2026) — the folder's tables as one workbook, every tab joined through the
    product ID. It behaves like a spreadsheet: sheet tabs, row numbers, lettered columns,
    frozen key columns, click a header to sort, a formula bar that shows how a cell was
-   computed, a summary row. The Option ID is a linked record: click it and every tab
+   computed, a summary row. The Product ID is a linked record: click it and every tab
    filters to that product. */
 import { useMemo, useState, useRef, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { Db, RtwOption } from '../domain/types';
 import { healthRowOf, wipOf, storeStockOf, salesBySizeOf, fmtDate, daysAgo } from '../domain/engines';
-import { STORES, HEALTH_MIN_SIZE_PCT, HEALTH_MIN_COVER_WEEKS } from '../domain/reference';
+import { STORES, HEALTH_MIN_SIZE_PCT, HEALTH_MIN_COVER_WEEKS, isBottoms } from '../domain/reference';
 import { categoryOfOption } from '../domain/analysis';
 import { Page, Input, Button, ExportButton } from '../ui';
 
@@ -22,11 +22,14 @@ const holderName = (id: string) => id === 'warehouse' ? 'Factory Warehouse' : ST
 const letter = (i: number) => (i >= 26 ? String.fromCharCode(64 + Math.floor(i / 26)) : '') + String.fromCharCode(65 + (i % 26));
 const f1 = (n: number) => Math.round(n * 10) / 10;
 const sizeOrder = (a: string, b: string) => (parseInt(a) || 0) - (parseInt(b) || 0) || a.localeCompare(b);
+/* the sheets' key is Shopify's Product ID (L4W Data); Enigma and the health sheet carry the Shiphero Style Name
+   beside it. The seed has no Shopify ID, so a stable 13-digit one is derived per option until the real export is wired. */
+const productIdOf = (id: string) => { let h = 7; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return `92${String(h).padStart(10, '0')}0`; };
 
 /* the two frozen columns every tab starts with: the key, and the style looked up through it */
 const keyCols = (): Col[] => [
-  { id: 'id', name: 'Option ID', w: 118, get: r => r.id, link: true, src: 'the key: every tab joins on it' },
-  { id: 'style', name: 'Style', w: 230, get: r => r.style as string, src: 'lookup · Products.Style via Option ID' },
+  { id: 'id', name: 'Product ID', w: 150, get: r => r.pid as string, link: true, src: 'the key: Shopify Product ID, as in L4W Data · every tab joins on it' },
+  { id: 'style', name: 'Shiphero Style Name', w: 230, get: r => r.style as string, src: 'lookup · Products.Shiphero Style Name via Product ID' },
 ];
 
 function workbook(db: Db): Tab[] {
@@ -34,39 +37,41 @@ function workbook(db: Db): Tab[] {
   const sizes = [...new Set(options.flatMap(o => o.sizes))].sort(sizeOrder);
   const H = new Map(options.map(o => [o.id, healthRowOf(o)]));
   const W = new Map(options.map(o => [o.id, wipOf(db, o)]));
-  const base = (o: RtwOption) => ({ id: o.id, style: o.styleName, o });
+  const base = (o: RtwOption) => ({ id: o.id, pid: productIdOf(o.id), style: o.styleName, o });
   const sizeCols = (src: string): Col[] => sizes.map(s => ({ id: `s${s}`, name: s, w: 52, num: true, get: r => (r.by as Record<string, number>)[s] || null, sum: 'sum', src }));
   const total: Col = { id: 'total', name: 'Total', w: 64, num: true, get: r => r.total as number, sum: 'sum', formula: r => `SUM(${Object.values(r.by as Record<string, number>).filter(Boolean).join(' + ')})` };
 
   const products: Tab = { id: 'products', name: 'Products', grain: 'one row per option · rollups from every other tab', rows: options.map(o => ({ key: o.id, ...base(o) })), cols: [...keyCols(),
-    { id: 'cat', name: 'Category', w: 90, get: r => categoryOfOption(r.o as RtwOption) },
-    { id: 'sub1', name: 'Sub-category 1', w: 150, get: r => (r.o as RtwOption).subCat1 },
-    { id: 'sub2', name: 'Sub-category 2', w: 130, get: r => (r.o as RtwOption).subCat2 },
-    { id: 'core', name: 'Core', w: 80, get: r => (r.o as RtwOption).core ? 'Core' : 'Non-core' },
-    { id: 'sku', name: 'SKU', w: 190, get: r => (r.o as RtwOption).sku },
-    { id: 'vendor', name: 'Vendor', w: 150, get: r => db.vendors.find(v => v.id === (r.o as RtwOption).vendorId)?.name ?? null },
-    { id: 'fabric', name: 'Fabric code', w: 140, get: r => (r.o as RtwOption).fabricCode },
-    { id: 'launch', name: 'Launched', w: 100, get: r => fmtDate((r.o as RtwOption).launchedAt) },
-    { id: 'mrp', name: 'MRP', w: 76, num: true, get: r => (r.o as RtwOption).mrp, sum: 'avg' },
-    { id: 'eoss', name: 'On sale', w: 80, get: r => (r.o as RtwOption).eoss ? 'EOSS' : '' },
-    { id: 'stock', name: 'Stock', w: 70, num: true, get: r => H.get(r.id)!.stock, sum: 'sum', src: 'rollup · Stock: SUM(Total) where Option ID = this' },
-    { id: 'main', name: 'Main', w: 64, num: true, get: r => H.get(r.id)!.mainStock, sum: 'sum', src: 'rollup · Stock: SUM(Total) over the main sizes' },
-    { id: 'sold', name: 'Since launch', w: 96, num: true, get: r => (r.o as RtwOption).totalSale ?? null, sum: 'sum', src: 'rollup · Sales: SUM(Total) since launch' },
-    { id: 'l4w', name: 'L4W', w: 64, num: true, get: r => f1(H.get(r.id)!.l4w), sum: 'avg', src: 'rollup · Sales: AVERAGE(Total) over LW…LW-3' },
+    { id: 'sku', name: 'Product variant SKU', w: 190, get: r => (r.o as RtwOption).sku, src: 'L4W Data · the size is appended per variant' },
+    { id: 'tb', name: 'Top/Bottom', w: 90, get: r => isBottoms((r.o as RtwOption).subCat1) ? 'Bottom' : 'Top' },
+    { id: 'cat', name: 'Category', w: 100, get: r => categoryOfOption(r.o as RtwOption) },
+    { id: 'sub1', name: 'Sub-Category 1', w: 150, get: r => (r.o as RtwOption).subCat1 },
+    { id: 'sub2', name: 'Sub-Category 2', w: 130, get: r => (r.o as RtwOption).subCat2 },
+    { id: 'core', name: 'Core/Non-Core', w: 110, get: r => (r.o as RtwOption).core ? 'Core' : 'Non Core' },
+    { id: 'vendor', name: 'Vendor', w: 150, get: r => db.vendors.find(v => v.id === (r.o as RtwOption).vendorId)?.name ?? null, src: 'WIP tracker · Vendor' },
+    { id: 'fabric', name: 'Vendor Fabric Code', w: 150, get: r => (r.o as RtwOption).fabricCode, src: 'WIP tracker · Vendor Fabric Code' },
+    { id: 'launch', name: 'Product Launch Date', w: 150, get: r => fmtDate((r.o as RtwOption).launchedAt) },
+    { id: 'mrp', name: 'Original MRP', w: 100, num: true, get: r => (r.o as RtwOption).mrp, sum: 'avg', src: 'Enigma stock report' },
+    { id: 'dmrp', name: 'Discounted MRP', w: 120, num: true, get: r => (r.o as RtwOption).eoss ? ((r.o as RtwOption).discountedMrp ?? Math.round((r.o as RtwOption).mrp * 0.8)) : null, src: 'Enigma stock report' },
+    { id: 'eoss', name: 'EOSS Sale', w: 90, get: r => (r.o as RtwOption).eoss ? 'Sale' : 'Non-Sale' },
+    { id: 'stock', name: 'Grand Total', w: 96, num: true, get: r => H.get(r.id)!.stock, sum: 'sum', src: 'rollup · Stock: SUM(Grand Total) where Product ID = this' },
+    { id: 'main', name: 'Main', w: 64, num: true, get: r => H.get(r.id)!.mainStock, sum: 'sum', src: 'rollup · Stock: SUM over the main sizes' },
+    { id: 'sold', name: 'Total Sale', w: 90, num: true, get: r => (r.o as RtwOption).totalSale ?? null, sum: 'sum', src: 'rollup · Sales: SUM(Quantity ordered) since launch' },
+    { id: 'l4w', name: 'L4W', w: 64, num: true, get: r => f1(H.get(r.id)!.l4w), sum: 'avg', src: 'rollup · Sales: AVERAGE(Grand Total) over LW…LW-3' },
     { id: 'aws', name: 'AWS', w: 64, num: true, get: r => f1(H.get(r.id)!.aws), sum: 'avg', src: 'lookup · Health.AWS' },
     { id: 'wc', name: 'WC', w: 64, num: true, get: r => H.get(r.id)!.wc >= 999 ? null : f1(H.get(r.id)!.wc), sum: 'avg', src: 'lookup · Health.WC' },
-    { id: 'healthy', name: 'Healthy', w: 90, get: r => H.get(r.id)!.healthy ? 'Healthy' : 'Unhealthy', src: 'lookup · Health.Healthy' },
-    { id: 'pos', name: 'Open POs', w: 84, num: true, get: r => W.get(r.id)!.length || null, sum: 'sum', src: 'rollup · Open orders: COUNT where Option ID = this' },
-    { id: 'wip', name: 'On order', w: 80, num: true, get: r => W.get(r.id)!.filter(w => w.firm).reduce((a, w) => a + w.qty, 0) || null, sum: 'sum', src: 'rollup · Open orders: SUM(Qty) where PO raised' },
-    { id: 'lost', name: 'Lost asks', w: 84, num: true, get: r => (db.lostSales ?? []).filter(l => l.optionId === r.id).length || null, sum: 'sum', src: 'rollup · Lost sales: COUNT where Option ID = this' },
-    { id: 'reviews', name: 'Reviews', w: 76, num: true, get: r => (db.planningReviews ?? []).filter(x => x.optionId === r.id).length || null, sum: 'sum', src: 'rollup · Reviews: COUNT where Option ID = this' },
+    { id: 'healthy', name: 'Healthy Or Not', w: 110, get: r => H.get(r.id)!.healthy ? 'Healthy' : 'Unhealthy', src: 'lookup · Health.Healthy Or Not' },
+    { id: 'pos', name: 'Open POs', w: 84, num: true, get: r => W.get(r.id)!.length || null, sum: 'sum', src: 'rollup · Open orders: COUNT where Product ID = this' },
+    { id: 'wip', name: 'Balance qty', w: 96, num: true, get: r => W.get(r.id)!.filter(w => w.firm).reduce((a, w) => a + w.qty, 0) || null, sum: 'sum', src: 'rollup · Open orders: SUM(Balance qty) where PO No. is set' },
+    { id: 'lost', name: 'Lost asks', w: 84, num: true, get: r => (db.lostSales ?? []).filter(l => l.optionId === r.id).length || null, sum: 'sum', src: 'rollup · Lost sales: COUNT where Product ID = this' },
+    { id: 'reviews', name: 'Reviews', w: 76, num: true, get: r => (db.planningReviews ?? []).filter(x => x.optionId === r.id).length || null, sum: 'sum', src: 'rollup · Reviews: COUNT where Product ID = this' },
     { id: 'last', name: 'Last review', w: 150, get: r => { const x = (db.planningReviews ?? []).filter(x => x.optionId === r.id).sort((a, b) => b.on.localeCompare(a.on))[0]; return x ? `${fmtDate(x.on)} · ${x.status}` : null; }, src: 'lookup · Reviews: latest by date' },
   ] };
 
-  const stock: Tab = { id: 'stock', name: 'Stock', grain: 'Enigma stock report · one row per option × location', cols: [...keyCols(), { id: 'loc', name: 'Location', w: 150, get: r => r.loc as string }, ...sizeCols('physical stock, pcs'), total],
+  const stock: Tab = { id: 'stock', name: 'Stock', grain: 'Enigma stock report · one row per option × location', cols: [...keyCols(), { id: 'store', name: 'STORE', w: 150, get: r => r.loc as string }, { id: 'sub1', name: 'Sub-Category 1', w: 140, get: r => (r.o as RtwOption).subCat1 }, { id: 'core', name: 'Core/Non-Core', w: 110, get: r => (r.o as RtwOption).core ? 'Core' : 'Non Core' }, ...sizeCols('physical_stock_on_hand, pcs'), { ...total, name: 'Grand Total', w: 90 }],
     rows: options.flatMap(o => Object.entries(storeStockOf(o)).map(([h, by]) => ({ key: `${o.id}|${h}`, ...base(o), loc: holderName(h), by, total: Object.values(by).reduce((a, b) => a + b, 0) }))) };
 
-  const sales: Tab = { id: 'sales', name: 'Sales', grain: 'Product Weekly Report · one row per option × week', cols: [...keyCols(), { id: 'week', name: 'Week', w: 72, get: r => r.week as string }, { id: 'ok', name: 'In stock', w: 80, get: r => r.ok ? 'yes' : 'broken', src: 'was every size available that week' }, ...sizeCols('units sold'), total],
+  const sales: Tab = { id: 'sales', name: 'Sales', grain: 'Product Weekly Report · one row per option × week', cols: [...keyCols(), { id: 'week', name: 'Week No', w: 80, get: r => r.week as string }, { id: 'ok', name: 'In stock', w: 80, get: r => r.ok ? 'yes' : 'broken', src: 'was every size available that week' }, ...sizeCols('Quantity ordered'), { ...total, name: 'Grand Total', w: 90 }],
     rows: options.flatMap(o => { const by = salesBySizeOf(o); const n = o.weeklySales.length; return Array.from({ length: n }, (_, w) => { const i = n - 1 - w; const row = Object.fromEntries(o.sizes.map(s => [s, by[s][i] ?? 0])); return { key: `${o.id}|${w}`, ...base(o), week: w === 0 ? 'LW' : `LW-${w}`, ok: o.inStockWeeks[i], by: row, total: o.weeklySales[i] ?? 0 }; }); }) };
 
   const hr = (r: Row) => H.get(r.id)!;
@@ -76,23 +81,26 @@ function workbook(db: Db): Tab[] {
     { id: 'ros', name: 'ROS', w: 60, num: true, get: r => f1(hr(r).ros), sum: 'avg', formula: r => `Total Sale ÷ WOF = ${hr(r).totalSale} ÷ ${hr(r).wof} = ${f1(hr(r).ros)}` },
     ...[0, 1, 2, 3].map(i => ({ id: `lw${i}`, name: i ? `LW-${i}` : 'LW', w: 60, num: true, get: (r: Row) => hr(r).lw[i], sum: 'sum' as const, src: 'lookup · Sales.Total for that week' })),
     { id: 'l4w', name: 'L4W', w: 60, num: true, get: r => f1(hr(r).l4w), sum: 'avg', formula: r => `AVERAGE(LW, LW-1, LW-2, LW-3) = (${hr(r).lw.join(' + ')}) ÷ 4 = ${f1(hr(r).l4w)}` },
-    { id: 'top6', name: 'Top 6', w: 64, num: true, get: r => f1(hr(r).top6Ros), sum: 'avg', formula: () => 'AVERAGE of the best six weeks' },
+    { id: 'top6', name: 'Top 6 Weeks ROS', w: 120, num: true, get: r => f1(hr(r).top6Ros), sum: 'avg', formula: () => 'AVERAGE of the best six weeks' },
     { id: 'main', name: 'Main', w: 64, num: true, get: r => hr(r).mainStock, sum: 'sum', formula: r => `SUM(Stock over main sizes ${hr(r).main.join(' ')}) = ${hr(r).mainStock}` },
     { id: 'aws', name: 'AWS', w: 64, num: true, get: r => f1(hr(r).aws), sum: 'avg', formula: r => `MAX(LW, LW-1, LW-2, LW-3, Top 6) = MAX(${hr(r).lw.join(', ')}, ${f1(hr(r).top6Ros)}) = ${f1(hr(r).aws)}` },
     { id: 'wc', name: 'WC', w: 60, num: true, get: r => hr(r).wc >= 999 ? null : f1(hr(r).wc), sum: 'avg', formula: r => `Main ÷ AWS = ${hr(r).mainStock} ÷ ${f1(hr(r).aws)} = ${hr(r).wc >= 999 ? '∞' : f1(hr(r).wc)}` },
-    { id: 'low', name: 'Low sizes', w: 100, get: r => hr(r).low.join(' ') || null, src: 'main sizes out, or under 4 weeks of their own rate (assumed rule)' },
-    { id: 'health', name: 'Health', w: 70, num: true, get: r => Math.round(hr(r).stockHealth * 100), sum: 'avg', formula: r => `(main sizes − low) ÷ main sizes = (${hr(r).main.length} − ${hr(r).low.length}) ÷ ${hr(r).main.length} = ${Math.round(hr(r).stockHealth * 100)}%` },
-    { id: 'healthy', name: 'Healthy', w: 90, get: r => hr(r).healthy ? 'Healthy' : 'Unhealthy', formula: r => `IF(Health ≥ ${HEALTH_MIN_SIZE_PCT * 100}% AND WC ≥ ${HEALTH_MIN_COVER_WEEKS}, "Healthy", "Unhealthy") → ${hr(r).healthy ? 'Healthy' : 'Unhealthy'}` },
-    { id: 'eoss', name: 'EOSS', w: 64, get: r => hr(r).eoss ? 'yes' : '' },
+    { id: 'count', name: 'Count', w: 64, num: true, get: r => hr(r).main.length, formula: r => `COUNT(main sizes ${hr(r).main.join(' ')}) = ${hr(r).main.length}` },
+    { id: 'low', name: 'Low stock Size Count', w: 150, num: true, get: r => hr(r).low.length, sum: 'sum', formula: r => `COUNT(main sizes out, or under 4 weeks of their own rate · assumed rule) = ${hr(r).low.length}${hr(r).low.length ? ` (${hr(r).low.join(' ')})` : ''}` },
+    { id: 'health', name: 'Stock Health', w: 100, num: true, get: r => Math.round(hr(r).stockHealth * 100), sum: 'avg', formula: r => `(Count − Low stock Size Count) ÷ Count = (${hr(r).main.length} − ${hr(r).low.length}) ÷ ${hr(r).main.length} = ${Math.round(hr(r).stockHealth * 100)}%` },
+    { id: 'healthy', name: 'Healthy Or Not', w: 110, get: r => hr(r).healthy ? 'Healthy' : 'Unhealthy', formula: r => `IF(Stock Health ≥ ${HEALTH_MIN_SIZE_PCT * 100}% AND WC ≥ ${HEALTH_MIN_COVER_WEEKS}, "Healthy", "Unhealthy") → ${hr(r).healthy ? 'Healthy' : 'Unhealthy'}` },
+    { id: 'eoss', name: 'EOSS Sale', w: 90, get: r => hr(r).eoss ? 'Sale' : 'Non-Sale' },
+    { id: 'launch', name: 'Product Launch Date', w: 150, get: r => fmtDate((r.o as RtwOption).launchedAt) },
+    { id: 'gt', name: 'Grand Total', w: 90, num: true, get: r => hr(r).stock, sum: 'sum', src: 'lookup · Stock: SUM(Grand Total) across stores' },
   ] };
 
   const orders: Tab = { id: 'orders', name: 'Open orders', grain: 'WIP tracker · one row per open order', cols: [...keyCols(),
-    { id: 'po', name: 'PO', w: 110, get: r => r.po as string | null }, { id: 'order', name: 'Order', w: 110, get: r => r.order as string }, { id: 'vendor', name: 'Vendor', w: 150, get: r => r.vendor as string | null }, { id: 'status', name: 'Status', w: 120, get: r => r.status as string },
-    { id: 'qty', name: 'Qty', w: 64, num: true, get: r => r.qty as number, sum: 'sum' }, { id: 'arrives', name: 'Arrives', w: 100, get: r => r.arrives as string }, { id: 'weeks', name: 'Weeks away', w: 90, num: true, get: r => r.weeks as number }, ...sizeCols('size breakup given')],
+    { id: 'po', name: 'PO No.', w: 110, get: r => r.po as string | null }, { id: 'order', name: 'Bom/ Jobcard', w: 110, get: r => r.order as string }, { id: 'vendor', name: 'Vendor', w: 150, get: r => r.vendor as string | null }, { id: 'status', name: 'PO status', w: 120, get: r => r.status as string },
+    { id: 'qty', name: 'Order Qty', w: 84, num: true, get: r => r.qty as number, sum: 'sum' }, { id: 'recd', name: 'Recd qty', w: 80, num: true, get: () => 0, sum: 'sum' }, { id: 'bal', name: 'Balance qty', w: 96, num: true, get: r => r.qty as number, sum: 'sum', formula: r => `Order Qty − Recd qty = ${r.qty} − 0 = ${r.qty}` }, { id: 'arrives', name: 'Shipment Inward Date', w: 150, get: r => r.arrives as string, src: 'Expected' }, { id: 'weeks', name: 'Weeks away', w: 90, num: true, get: r => r.weeks as number }, ...sizeCols('size breakup given')],
     rows: options.flatMap(o => W.get(o.id)!.map(w => ({ key: w.order.id, ...base(o), po: w.poNo ?? null, order: w.order.id, vendor: db.vendors.find(v => v.id === w.order.vendorId)?.name ?? null, status: w.order.status, qty: w.qty, arrives: fmtDate(w.arrives), weeks: w.weeksAway, by: Object.fromEntries((w.breakup ?? []).map(b => [b.size, b.qty])) }))) };
 
   const byId = new Map(options.map(o => [o.id, o]));
-  const lost: Tab = { id: 'lost', name: 'Lost sales', grain: 'RetailOS · one row per ask for a size that was out', cols: [...keyCols(), { id: 'on', name: 'Logged', w: 100, get: r => r.on as string }, { id: 'ago', name: 'Days ago', w: 80, num: true, get: r => r.ago as number }, { id: 'store', name: 'Store', w: 150, get: r => r.store as string }, { id: 'size', name: 'Size', w: 60, get: r => r.size as string }, { id: 'by', name: 'By', w: 80, get: r => r.by as string }, { id: 'note', name: 'Note', w: 260, get: r => r.note as string }],
+  const lost: Tab = { id: 'lost', name: 'Lost sales', grain: 'RetailOS · one row per ask for a size that was out', cols: [...keyCols(), { id: 'on', name: 'Logged', w: 100, get: r => r.on as string }, { id: 'ago', name: 'Days ago', w: 80, num: true, get: r => r.ago as number }, { id: 'store', name: 'STORE', w: 150, get: r => r.store as string }, { id: 'size', name: 'Size', w: 60, get: r => r.size as string }, { id: 'by', name: 'By', w: 80, get: r => r.by as string }, { id: 'note', name: 'Note', w: 260, get: r => r.note as string }],
     rows: (db.lostSales ?? []).filter(l => byId.has(l.optionId)).sort((a, b) => b.on.localeCompare(a.on)).map(l => ({ key: l.id, ...base(byId.get(l.optionId)!), on: fmtDate(l.on), ago: daysAgo(l.on), store: holderName(l.storeId), size: l.size, by: l.by, note: l.note })) };
 
   const reviews: Tab = { id: 'reviews', name: 'Reviews', grain: 'this PLM · one row per planning review', cols: [...keyCols(), { id: 'on', name: 'Reviewed', w: 100, get: r => r.on as string }, { id: 'by', name: 'By', w: 100, get: r => r.by as string }, { id: 'kind', name: 'Kind', w: 80, get: r => r.kind as string }, { id: 'status', name: 'Status', w: 90, get: r => r.status as string },
@@ -126,7 +134,7 @@ export function Sheet() {
     return r;
   }, [tab, pid, search, sort]);
 
-  const pidStyle = pid ? tabs[0].rows.find(r => r.id === pid)?.style as string | undefined : undefined;
+  const pidRow = pid ? tabs[0].rows.find(r => r.id === pid) : undefined;
   const selRow = sel ? rows.find(r => r.key === sel.key) : null; const selCol = sel ? tab.cols.find(c => c.id === sel.col) : null;
   const selIdx = selRow ? rows.indexOf(selRow) : -1; const selColIdx = selCol ? tab.cols.indexOf(selCol) : -1;
   const lefts: number[] = []; tab.cols.slice(0, 2).reduce((x, c) => { lefts.push(x); return x + c.w; }, NUM_W);
@@ -136,11 +144,11 @@ export function Sheet() {
   const line = '1px solid var(--line-soft)';
   const headCell = (c: Col, i: number, sticky: boolean): React.CSSProperties => ({ position: 'sticky', top: 0, left: sticky ? lefts[i] : undefined, zIndex: sticky ? 4 : 3, width: c.w, minWidth: c.w, maxWidth: c.w, height: HEAD_H, background: selColIdx === i ? 'color-mix(in srgb, var(--accent) 14%, var(--surface-2))' : 'var(--surface-2)', borderRight: line, borderBottom: '1px solid var(--line)', padding: '0 8px', fontSize: 11, textTransform: 'none', letterSpacing: 0, cursor: 'pointer', textAlign: c.num ? 'right' : 'left', userSelect: 'none' });
 
-  return <Page title="Sheet · all tables, one key" lede="One workbook, seven tabs, one key. Every tab starts with the Option ID and the style looked up through it. Click an Option ID to filter every tab to that product; click a header to sort; click a cell to see how it was computed." replaces="VLOOKUPs between the Enigma stock report, the Product Weekly Report, the ROS & health Report, the WIP tracker and the Recce working">
+  return <Page title="Sheet · all tables, one key" lede="One workbook, seven tabs, one key: the Product ID, as in the sheets. Every tab starts with it and the Shiphero Style Name looked up through it. Click a Product ID to filter every tab to that product; click a header to sort; click a cell to see how it was computed." replaces="VLOOKUPs between the Enigma stock report, the Product Weekly Report, the ROS & health Report, the WIP tracker and the Recce working">
     {/* toolbar */}
     <div className="flex flex-wrap items-center gap-2 mb-2">
       <Input placeholder={`Search in ${tab.name}`} value={search} onChange={e => { setSearch(e.target.value); setTop(0); }} style={{ width: 240 }} />
-      {pid && <span className="pill accent flex items-center gap-1">🔗 {pid} · {pidStyle ?? ''}<button className="ml-1" title="Show all products" onClick={() => setP('id', null)}>×</button></span>}
+      {pid && <span className="pill accent flex items-center gap-1">🔗 {pidRow ? `${pidRow.pid as string} · ${pidRow.style as string}` : pid}<button className="ml-1" title="Show all products" onClick={() => setP('id', null)}>×</button></span>}
       {sort && <span className="pill">Sorted by {tab.cols.find(c => c.id === sort.col)?.name} {sort.dir > 0 ? '↑' : '↓'}<button className="ml-1" onClick={() => setSort(null)}>×</button></span>}
       <span className="text-[12px]" style={faint}>{rows.length.toLocaleString('en-IN')} rows · {tab.cols.length} columns · {tab.grain}</span>
       <div className="ml-auto flex gap-2 items-center">
@@ -180,7 +188,7 @@ export function Sheet() {
                   </td>; })}
               </tr>; })}
             {last < rows.length && <tr style={{ height: (rows.length - last) * ROW_H }}><td /></tr>}
-            {rows.length === 0 && <tr style={{ height: 80 }}><td colSpan={tab.cols.length + 1} style={{ ...faint, padding: 16 }}>No rows{pid ? ` for ${pid}` : ''} in {tab.name}.</td></tr>}
+            {rows.length === 0 && <tr style={{ height: 80 }}><td colSpan={tab.cols.length + 1} style={{ ...faint, padding: 16 }}>No rows{pidRow ? ` for ${pidRow.pid as string}` : ''} in {tab.name}.</td></tr>}
           </tbody>
           <tfoot>
             <tr style={{ height: ROW_H }}>
@@ -195,7 +203,7 @@ export function Sheet() {
         {tabs.map(t => { const n = pid ? t.rows.filter(r => r.id === pid).length : t.rows.length; const on = t.id === tab.id;
           return <button key={t.id} onClick={() => goTab(t.id)} className="text-[12px]" style={{ padding: '0 14px', height: 30, marginBottom: -1, background: on ? '#fff' : 'transparent', color: on ? 'var(--ink)' : 'var(--ink-soft)', fontWeight: on ? 600 : 500, border: on ? '1px solid var(--line)' : '1px solid transparent', borderBottom: on ? '1px solid #fff' : undefined, borderRadius: '6px 6px 0 0' }}>
             {t.name} <span style={{ ...faint, fontWeight: 400 }}>{n.toLocaleString('en-IN')}</span></button>; })}
-        <span className="ml-auto text-[11px] pb-2" style={faint}>joined on Option ID · column A on every tab</span>
+        <span className="ml-auto text-[11px] pb-2" style={faint}>joined on Product ID · column A on every tab</span>
       </div>
     </div>
     {pid && <div className="mt-2"><Button variant="ghost" size="sm" onClick={() => setP('id', null)}>Show all products</Button></div>}
