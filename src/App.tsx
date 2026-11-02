@@ -29,6 +29,7 @@ import { GrnPage } from './screens/Warehouse';
 import { Health } from './screens/Health';
 import { Planning } from './screens/Planning';
 import { Analyse } from './screens/Analyse';
+import { Sheet } from './screens/Sheet';
 import { Fabrics, FabricPage } from './screens/Fabrics';
 import { DesignsPage } from './screens/Designs';
 import { PrepDesk } from './screens/Preprod';
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="/health" element={MTM_ONLY ? <Navigate to="/" replace /> : <Health />} />
           <Route path="/planning" element={MTM_ONLY ? <Navigate to="/" replace /> : <Planning />} />
           <Route path="/analyse" element={MTM_ONLY ? <Navigate to="/" replace /> : <Analyse />} />
+          <Route path="/sheet" element={MTM_ONLY ? <Navigate to="/" replace /> : <Sheet />} />
           <Route path="/launches" element={MTM_ONLY ? <Navigate to="/" replace /> : <Launches />} />
           <Route path="/insights" element={MTM_ONLY ? <Navigate to="/" replace /> : <Insights />} />
           <Route path="/grn" element={MTM_ONLY ? <Navigate to="/" replace /> : <GrnPage />} />

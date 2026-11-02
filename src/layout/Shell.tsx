@@ -26,6 +26,7 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   /* the numbers: how many, how deep, when */
   { path:'/planning',     label:'RTW planning',               hint:'one review per option: rate, projection by size, quantity, ratio — then to design', group:'Planning', roles:['owner','planning'] },
   { path:'/analyse',      label:'Analysis · ask the data',       hint:'the folder\'s sheets as live pivots, a query builder, and a question box', group:'Planning', roles:['owner','planning','design'], hideFor:['design'] },
+  { path:'/sheet',        label:'Sheet · all tables, one key',  hint:'every table joined through the product ID: master, stock, sales, health, orders, lost sales, reviews', group:'Planning', roles:['owner','planning','design'], hideFor:['design'] },
   { path:'/health',       label:'RTW stock health',           hint:'every option: rate of sale, size gaps, action',  group:'Planning', roles:['owner','planning','design'] , hideFor:['design']},
   { path:'/insights',     label:'What is selling',            hint:'the weekly report, the DSR and the stylist KPI — as planning reads them',          group:'Planning', roles:['owner','design','planning'] , hideFor:['design']},
   { path:'/launches',     label:'RTW launches',               hint:'new options on their way to the stores',         group:'Planning', roles:['owner','planning','warehouse'] , hideFor:['warehouse']},
