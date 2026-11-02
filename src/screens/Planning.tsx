@@ -28,6 +28,22 @@ const KIND_TONE: Record<string, Tone> = { core: 'accent', 'non-core': 'info', ne
 const DEFAULT_LEAD_WEEKS = 8;
 const DEFAULT_COVER_WEEKS = 12;
 
+/* The plain answer for one option, before any of the sheet's columns: what to do, and why, in one line. */
+type Verdict = { group: 'now' | 'soon' | 'fine' | 'idle'; label: string; why: string; tone: Tone };
+const VERDICT_LABEL: Record<Verdict['group'], string> = { now: 'Order now', soon: 'Order soon', fine: 'Fine for now', idle: 'Not selling' };
+function verdictOf(h: ReturnType<typeof healthRowOf>, p: ReturnType<typeof projectionOf>, wip: ReturnType<typeof wipOf>, sizeRisk: { size: string; firstShortWeek: number | null }[], leadWeeks: number): Verdict {
+  const lands = p.weeks[Math.min(leadWeeks, p.weeks.length) - 1]?.from;
+  const landsOn = lands ? fmtDate(lands) : `${leadWeeks} wk`;
+  const firmWip = wip.filter(w => w.firm);
+  /* under a piece a week is not worth an order: let it run out, or let it sit */
+  if (h.aws < 1) return h.stock > 0 ? { group: 'idle', label: 'Not selling', why: `${h.stock} pcs, ${h.aws <= 0.05 ? 'nothing' : `under one a week`} sold lately`, tone: 'neutral' } : { group: 'idle', label: 'Sold out, slow', why: 'no stock and under one a week when it had some', tone: 'neutral' };
+  if (h.stock === 0 && !firmWip.length) return { group: 'now', label: 'Order now', why: `sold out and still asked for (${h.aws.toFixed(0)} a week)`, tone: 'risk' };
+  if (p.firstShortWeek != null && p.firstShortWeek <= leadWeeks) return { group: 'now', label: 'Order now', why: `runs out in week ${p.firstShortWeek}; a new order lands ${landsOn}${firmWip.length ? ', after what is on order' : ''}`, tone: 'risk' };
+  if (sizeRisk.length) return { group: 'now', label: 'Order now · sizes', why: `${sizeRisk.map(x => x.size).join(', ')} run${sizeRisk.length > 1 ? '' : 's'} out before anything lands`, tone: 'risk' };
+  if (p.coverAtArrival < DEFAULT_COVER_WEEKS) return { group: 'soon', label: 'Order soon', why: `${p.atArrival} pcs left when a new order could land (${landsOn}), under ${DEFAULT_COVER_WEEKS} weeks' worth`, tone: 'warn' };
+  return { group: 'fine', label: 'Fine for now', why: p.firstShortWeek ? `lasts about ${p.firstShortWeek} weeks` : `lasts beyond ${p.weeks.length} weeks at ${h.aws.toFixed(1)} a week`, tone: 'good' };
+}
+
 function categoryFor(o: RtwOption): { category: GarmentCategory; sub: string } {
   const s = `${o.subCat1} ${o.subCat2} ${o.styleName}`;
   if (/jean/i.test(s)) return { category: 'Jeans', sub: o.subCat1 };
@@ -45,6 +61,8 @@ export function Planning() {
   const setTab = (t: string) => { const n = new URLSearchParams(params); n.set('tab', t); setParams(n, { replace: true }); };
   const mine = role === 'planning' || role === 'owner';
   const [kind, setKind] = useState<'all' | 'core' | 'non-core' | 'new' | 'unhealthy' | 'size-risk' | 'due' | 'eoss'>('all');
+  const [group, setGroup] = useState<'all' | Verdict['group']>('all');
+  const [cols, setCols] = useState<'simple' | 'sheet'>('simple');
   const [q, setQ] = useState('');
 
   const rows = useMemo(() => db.options.filter(o => !o.inactive).map(o => {
@@ -54,39 +72,39 @@ export function Planning() {
     const sizeRisk = p.sizes.filter(s => s.beforeReceipt && s.ros > 0);
     const last = (db.planningReviews ?? []).find(x => x.optionId === o.id) ?? null;
     const h = healthRowOf(o);
-    return { o, r, k, p, wip, sp, sizeRisk, last, h, coverNow: r.trueRos > 0 ? sp.usable / r.trueRos : 999 };
+    const v = verdictOf(h, p, wip, sizeRisk, DEFAULT_LEAD_WEEKS);
+    return { o, r, k, p, wip, sp, sizeRisk, last, h, v, coverNow: r.trueRos > 0 ? sp.usable / r.trueRos : 999 };
   }), [db]);
 
   const list = rows
+    .filter(x => group === 'all' || x.v.group === group)
     .filter(x => kind === 'all' ? true : kind === 'size-risk' ? x.sizeRisk.length > 0 : kind === 'due' ? x.p.coverAtArrival < 4 : kind === 'unhealthy' ? !x.h.healthy : kind === 'eoss' ? x.h.eoss : x.k === kind)
     .filter(x => !q.trim() || q.toLowerCase().split(/\s+/).every(w => `${x.o.styleName} ${x.o.subCat1} ${x.o.subCat2} ${x.o.sku ?? ''}`.toLowerCase().includes(w)))
-    /* the sheet's order: options that still sell first, thinnest weeks of cover (WC) on top; dead ones (no rate) sink */
-    .sort((a, b) => (a.h.aws > 0 ? 0 : 1) - (b.h.aws > 0 ? 0 : 1) || a.h.wc - b.h.wc);
+    /* what to do first: order now, then order soon, then fine, then idle; inside a group the thinnest cover on top */
+    .sort((a, b) => ['now', 'soon', 'fine', 'idle'].indexOf(a.v.group) - ['now', 'soon', 'fine', 'idle'].indexOf(b.v.group) || a.h.wc - b.h.wc);
   const pager = usePager(list, 25);
   const active = db.options.find(o => o.id === openId) ?? null;
   const wk = (n: number) => n >= 999 ? '—' : `${n.toFixed(1)} wk`;
 
   return (
-    <Page title="RTW planning" lede="The health sheet's row for every option, under the sheet's own names; one review per option: the rate, stock week by week and size by size once WIP lands, the gap after the new order arrives, the ratio — then to design."
+    <Page title="RTW planning" lede="For every option: what to do and why, in plain words. Open one to see how long it lasts, which sizes run out, how many to order and how to split it. The sheet's own columns are one click away."
       replaces="the ROS & health Report, the Recce Non-Core working, the per-style order working, the Enigma stock report and the Product Weekly Report, rebuilt by hand each week">
       <Tabs active={tab} onChange={setTab} tabs={[
-        { id: 'review', label: 'Options · plan the next order', count: rows.filter(x => x.p.coverAtArrival < 4 || x.sizeRisk.length > 0).length, hint: 'every live option, worst cover at arrival first' },
+        { id: 'review', label: 'What to order', count: rows.filter(x => x.v.group === 'now').length, hint: 'every live option, the ones to order now on top' },
         { id: 'count', label: 'Option count · the Recce summary', hint: 'ideal count per category, healthy now, healthy at the date, in production, gap, need to order' },
         { id: 'reviews', label: 'Reviews · plan vs actual', count: (db.planningReviews ?? []).length, hint: 'every review taken, and what sold since' },
       ]} />
 
       {tab === 'review' && <>
+        <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
+          {(['now', 'soon', 'fine', 'idle'] as const).map(g => { const n = rows.filter(x => x.v.group === g).length; const tone = g === 'now' ? 'var(--risk)' : g === 'soon' ? 'var(--warn)' : g === 'fine' ? 'var(--good)' : 'var(--ink-faint)';
+            return <button key={g} type="button" className="card text-left px-4 py-3" onClick={() => setGroup(group === g ? 'all' : g)} style={{ cursor: 'pointer', outline: group === g ? '2px solid var(--accent)' : undefined }}>
+              <div className="label">{VERDICT_LABEL[g]}</div><div className="mono text-[24px]" style={{ color: tone }}>{n}</div>
+              <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>{g === 'now' ? 'runs out before a new order can land, or a main size is out' : g === 'soon' ? `under ${DEFAULT_COVER_WEEKS} weeks left when a new order lands` : g === 'fine' ? 'enough stock and on-order for the next ' + DEFAULT_COVER_WEEKS + ' weeks' : 'under a piece a week: let it run out'}</div></button>; })}
+        </div>
         <div className="flex gap-3 items-end flex-wrap mb-3">
-          <Seg value={kind} onChange={setKind} options={[
-            { id: 'all', label: 'All', count: rows.length },
-            { id: 'core', label: 'Core', count: rows.filter(x => x.k === 'core').length, hint: 'same option, a different quantity' },
-            { id: 'non-core', label: 'Non-core', count: rows.filter(x => x.k === 'non-core').length, hint: 'replace it or let it run out' },
-            { id: 'new', label: 'New', count: rows.filter(x => x.k === 'new').length, hint: 'launched under 8 weeks ago — early sales mislead' },
-            { id: 'unhealthy', label: 'Unhealthy', count: rows.filter(x => !x.h.healthy).length, hint: `the sheet's rule: under ${HEALTH_MIN_SIZE_PCT * 100}% of main sizes in stock, or under ${HEALTH_MIN_COVER_WEEKS} weeks of cover` },
-            { id: 'eoss', label: 'On sale', count: rows.filter(x => x.h.eoss).length, hint: 'EOSS Sale: on markdown — its rate is a sale rate' },
-            { id: 'size-risk', label: 'A size runs out first', count: rows.filter(x => x.sizeRisk.length > 0).length, hint: 'a selling size is projected out before anything lands' },
-            { id: 'due', label: 'Under 4 wk at arrival', count: rows.filter(x => x.p.coverAtArrival < 4).length, hint: `an order placed today lands in ${DEFAULT_LEAD_WEEKS} weeks with this little cover left` },
-          ]} />
+          <Seg value={cols} onChange={setCols} label="Columns" options={[{ id: 'simple', label: 'Plain' }, { id: 'sheet', label: "The sheet's", hint: 'ROS, LW…LW-3, L4W, Top 6, AWS, WC, Stock Health, as the ROS & health Report has them' }]} />
+          <Field label="Type"><Select value={kind} onChange={v => setKind(v as typeof kind)} options={[{ value: 'all', label: 'all options' }, { value: 'core', label: 'core' }, { value: 'non-core', label: 'non-core' }, { value: 'new', label: 'new · under 8 weeks' }, { value: 'eoss', label: 'on sale' }]} style={{ width: 160 }} /></Field>
           <div className="flex-1" />
           <a className="cta" href="#/analyse">Analysis · ask the data →</a>
           <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style, category or SKU" style={{ width: 220 }} />
@@ -100,7 +118,32 @@ export function Planning() {
             { label: 'WIP pcs', get: x => x.wip.filter(w => w.firm).reduce((a, w) => a + w.qty, 0) }, { label: 'Next WIP arrives', get: x => x.wip[0]?.arrives ?? '' },
             { label: `At arrival +${DEFAULT_LEAD_WEEKS} wk`, get: x => x.p.atArrival }, { label: 'Sizes out before receipt', get: x => x.sizeRisk.map(s => s.size).join(' ') }]} />
         </div>
-        <Card><div style={{ overflowX: 'auto' }}><table className="t compact">
+        {cols === 'simple' && <Card><div style={{ overflowX: 'auto' }}><table className="t">
+          <thead><tr>
+            <Th>Option</Th><Th>Type</Th>
+            <Th num hint="sellable pieces in stock, all sizes">In stock</Th>
+            <Th num hint="pieces a week it is selling (the sheet's AWS: the best of the last four weeks and the top six)">Sells a week</Th>
+            <Th hint="when stock runs out at that rate, counting what is on order">Lasts until</Th>
+            <Th hint="open orders on the tracker and when they land">On order</Th>
+            <Th hint="main sizes that run out before anything lands">Sizes short</Th>
+            <Th hint="what to do, and why">What to do</Th>
+            <Th>Last review</Th>
+          </tr></thead>
+          <tbody>{pager.pageRows.map(x => { const out = x.p.firstShortWeek; return <tr key={x.o.id} className="row" onClick={() => open(x.o.id)}>
+            <td><span className="font-medium">{x.o.styleName}</span><div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{x.o.subCat1}{x.o.sku ? ` · ${x.o.sku}` : ''}</div></td>
+            <td><Pill tone={KIND_TONE[x.k]}>{x.k === 'core' ? 'Core' : x.k === 'new' ? 'New' : 'Non-core'}</Pill>{x.h.eoss && <div className="pt-0.5"><Pill tone="warn">on sale</Pill></div>}</td>
+            <td className="num">{x.h.stock}</td>
+            <td className="num">{x.h.aws.toFixed(1)}</td>
+            <td className="text-[12.5px]" style={{ color: out != null && out <= DEFAULT_LEAD_WEEKS ? 'var(--risk)' : undefined }}>{x.h.aws <= 0.05 ? <span style={{ color: 'var(--ink-faint)' }}>—</span> : out == null ? `beyond ${fmtDate(x.p.weeks[x.p.weeks.length - 1].from)}` : <>{fmtDate(x.p.weeks[out - 1].from)}<div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{out} wk</div></>}</td>
+            <td className="text-[12px]">{x.wip.length ? x.wip.map(w => <div key={w.order.id} style={w.firm ? undefined : { color: 'var(--ink-faint)' }}>{w.qty} pcs · {fmtDate(w.arrives)}{w.firm ? '' : ' · no PO yet'}</div>) : <span style={{ color: 'var(--ink-faint)' }}>nothing</span>}</td>
+            <td className="text-[12px]" style={{ color: x.sizeRisk.length ? 'var(--risk)' : 'var(--ink-faint)' }}>{x.sizeRisk.length ? x.sizeRisk.map(s => s.size).join(', ') : '—'}</td>
+            <td><Pill tone={x.v.tone}>{x.v.label}</Pill><div className="text-[11px]" style={{ color: 'var(--ink-faint)', maxWidth: 260, whiteSpace: 'normal' }}>{x.v.why}</div></td>
+            <td className="text-[12px]">{x.last ? <>{fmtDate(x.last.on)}<div style={{ color: 'var(--ink-faint)' }}>{x.last.status}{x.last.approvedQty != null ? ` · ${x.last.approvedQty} pcs` : ''}</div></> : <span style={{ color: 'var(--ink-faint)' }}>never</span>}</td>
+          </tr>; })}</tbody>
+        </table></div>
+        <Pager page={pager.page} pageCount={pager.pageCount} onChange={pager.setPage} from={pager.from} to={pager.to} total={pager.total} noun="options" />
+        </Card>}
+        {cols === 'sheet' && <Card><div style={{ overflowX: 'auto' }}><table className="t compact">
           <thead><tr>
             <Th>Option</Th><Th>Core</Th>
             <Th num hint="Grand Total: physical stock, all sizes · Main: stock in the main sizes only (chinos 30–38, shirts 38–44)">Stock · main</Th>
@@ -136,7 +179,7 @@ export function Planning() {
           </tr>)}</tbody>
         </table></div>
         <Pager page={pager.page} pageCount={pager.pageCount} onChange={pager.setPage} from={pager.from} to={pager.to} total={pager.total} noun="options" />
-        </Card>
+        </Card>}
       </>}
 
       {tab === 'count' && <OptionCount rows={rows} onOpen={open} mine={mine} />}
@@ -286,9 +329,27 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
     usableNow: sp.usable, reserve: reserve.total, projectedAtArrival: p.atArrival, draftQty: draft.gap, draftRatio: draft.ratio, note: '', grade: grade || null, windowEndsOn: fromDateInput(windowEnds) ?? null });
   const save = (patch: Partial<PlanningReview>) => current && updatePlanningReview(current.id, patch);
 
+  const v = verdictOf(hr, p, wip, sizeRisk, leadWeeks);
+  const outOn = p.firstShortWeek != null ? fmtDate(p.weeks[p.firstShortWeek - 1].from) : null;
+  const landsOn = fmtDate(p.weeks[Math.min(leadWeeks, p.weeks.length) - 1].from);
+  const [showWorking, setShowWorking] = useState(false);
   return <>
+    {/* ── in plain words ── */}
+    <Section title="In plain words" look="lead" collapsible={false} pending={false} ownerRole={null} right={<Pill tone={v.tone}>{v.label}</Pill>}>
+      <div className="text-[13.5px]" style={{ lineHeight: 1.55 }}>
+        Sells about <b>{planRos.toFixed(1)} a week</b>{Math.round(planRos * 10) / 10 !== Math.round(hr.aws * 10) / 10 ? <span style={faint}> (the sheet says {hr.aws.toFixed(1)})</span> : ''}. <b>{sp.usable} pcs</b> in stock{wip.filter(w => w.firm).length ? <>, <b>{wip.filter(w => w.firm).reduce((a, w) => a + w.qty, 0)} pcs</b> on order landing {wip.filter(w => w.firm).map(w => fmtDate(w.arrives)).join(', ')}</> : ', nothing on order'}.
+        {' '}{hr.aws <= 0.05 ? 'Nothing sold in four weeks.' : p.firstShortWeek == null ? `Lasts beyond ${fmtDate(p.weeks[p.weeks.length - 1].from)}.` : <>Runs out around <b>{outOn}</b> (week {p.firstShortWeek}).</>}
+        {' '}A new order placed today lands <b>{landsOn}</b>{p.firstShortWeek != null && p.firstShortWeek <= leadWeeks ? ', too late' : ''}.
+        {sizeRisk.length ? <> Size{sizeRisk.length > 1 ? 's' : ''} <b>{sizeRisk.map(x => x.size).join(', ')}</b> run{sizeRisk.length > 1 ? '' : 's'} out first.</> : ''}
+        {lost.length ? <> Stores logged <b>{lost.length}</b> lost-sale ask{lost.length > 1 ? 's' : ''} in four weeks.</> : ''}
+        {' '}Working says <b>{draft.gap} pcs</b> for {coverWeeks} weeks after it lands{current?.approvedQty != null ? <>; approved <b>{current.approvedQty} pcs</b></> : ''}.
+      </div>
+      <div className="text-[12px] pt-2" style={faint}>{v.why}. Change the rate, the lead time or the weeks wanted below and every number follows.</div>
+      <div className="pt-3"><button type="button" className="vlink text-[12.5px]" onClick={() => setShowWorking(x => !x)}>{showWorking ? 'Hide the working' : 'Show the working, step by step'}</button></div>
+    </Section>
+    <div style={showWorking ? undefined : { display: 'none' }}>
     {/* ── 1 · the option as it stands ── */}
-    <Section title="1 · The option today" ownerRole={null} pending={false} defaultOpen
+    <Section title="1 · What we have today" ownerRole={null} pending={false} defaultOpen
       right={<Pill tone={sizeRisk.length ? 'risk' : p.coverAtArrival < 4 ? 'warn' : 'good'}>{sizeRisk.length ? `${sizeRisk.length} size${sizeRisk.length > 1 ? 's' : ''} out before receipt` : `${wk(p.coverAtArrival)} at arrival`}</Pill>}>
       <div className="grid gap-x-6" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <div>
@@ -321,7 +382,7 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
     </Section>
 
     {/* ── 2 · the rate ── */}
-    <Section title="2 · Is the sales rate usable?" ownerRole="planning" pending={false} defaultOpen
+    <Section title="2 · What it sells a week" ownerRole="planning" pending={false} defaultOpen
       right={<Pill tone={planRos !== Math.round(r.trueRos * 10) / 10 ? 'info' : 'neutral'}>{planRos.toFixed(1)} / wk</Pill>}>
       <div className="grid gap-x-6" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <div>
@@ -349,7 +410,7 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
     </Section>
 
     {/* ── 3 · projection ── */}
-    <Section title="3 · Stock week by week" ownerRole={null} pending={false}
+    <Section title="3 · How long it lasts" ownerRole={null} pending={false}
       right={<Pill tone={p.firstShortWeek != null && p.firstShortWeek <= leadWeeks ? 'risk' : 'neutral'}>{p.firstShortWeek != null && p.firstShortWeek <= leadWeeks ? `out in week ${p.firstShortWeek}` : `${p.atArrival} pcs at week ${leadWeeks}`}</Pill>}>
       <div className="flex gap-3 items-end flex-wrap pb-2">
         <Field label="New order lead · weeks"><Input type="number" min={1} value={leadWeeks} disabled={!mine || current?.status === 'approved'} onChange={e => setLeadWeeks(Math.max(1, Number(e.target.value) || 1))} onBlur={() => save({ leadWeeks })} style={{ width: 90 }} /></Field>
@@ -365,7 +426,7 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
     </Section>
 
     {/* ── 4 · by size ── */}
-    <Section title="4 · Size by size" ownerRole={null} pending={false} defaultOpen={sizeRisk.length > 0}
+    <Section title="4 · Which sizes run out" ownerRole={null} pending={false} defaultOpen={sizeRisk.length > 0}
       right={<Pill tone={sizeRisk.length ? 'risk' : 'good'}>{sizeRisk.length ? `${sizeRisk.map(s => s.size).join(', ')} out before receipt` : 'no size out before receipt'}</Pill>}>
       <table className="t compact"><thead><tr><th>Size</th><th className="num">Usable now</th><th className="num" title="lost-sale asks logged by stores in the last 4 weeks, main sizes only">Lost · 4 wk</th><th className="num">In WIP</th><th className="num">Rate / wk</th><th className="num">At arrival</th><th>First short</th></tr></thead>
         <tbody>{p.sizes.map(s => <tr key={s.size} style={s.beforeReceipt && s.ros > 0 ? { background: 'var(--risk-soft)' } : undefined}>
@@ -377,7 +438,9 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
     </Section>
 
     {/* ── 5 · the order working ── */}
-    <Section title="5 · Draft quantity" ownerRole="planning" pending={false} defaultOpen
+    </div>
+    {/* ── 5 · the order working ── */}
+    <Section title="5 · How many to order" ownerRole="planning" pending={false} defaultOpen
       right={<Pill tone={current?.status === 'approved' || current?.status === 'sent' ? 'good' : 'neutral'}>{current?.approvedQty != null ? `${current.approvedQty} pcs approved` : `${draft.gap} pcs draft`}</Pill>}>
       <div className="flex gap-3 items-end flex-wrap pb-2">
         <Field label="Cover wanted after arrival · weeks" hint="12–16 for an established option"><Input type="number" min={1} value={coverWeeks} disabled={!mine || current?.status === 'approved'} onChange={e => setCoverWeeks(Math.max(1, Number(e.target.value) || 1))} onBlur={() => save({ coverWeeksTarget: coverWeeks })} style={{ width: 90 }} /></Field>
@@ -405,7 +468,7 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
     </Section>
 
     {/* ── 6 · ratio ── */}
-    <Section title="6 · Size ratio" ownerRole="planning" pending={false} defaultOpen={!!current}
+    <Section title="6 · How to split it by size" ownerRole="planning" pending={false} defaultOpen={!!current}
       right={<Pill tone={ratioSum === approvedN && approvedN > 0 ? 'good' : 'neutral'}>{ratioSum} pcs{approvedN ? ` of ${approvedN}` : ''}</Pill>}>
       <table className="t compact"><thead><tr><th>Size</th><th className="num" title="the sheet's ratio: this size's share of every sale on record">Share since launch</th><th className="num">Rate / wk</th><th className="num">At arrival</th><th className="num">Draft</th><th className="num">Approved</th><th className="num">Cover after · wk</th></tr></thead>
         <tbody>{ratioRows.map(row => { const s = p.sizes.find(x => x.size === row.size)!; const after = s.ros > 0 ? (Math.max(0, s.atArrival) + row.approved) / s.ros : 999;
@@ -421,7 +484,7 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
     </Section>
 
     {/* ── 7 · constraints and approval ── */}
-    <Section title="7 · Checks, approval, to design" ownerRole="planning" pending={false} defaultOpen={!!current}
+    <Section title="7 · Approve and send to design" ownerRole="planning" pending={false} defaultOpen={!!current}
       right={<Pill tone={current?.status === 'approved' ? 'info' : !current && previous.length ? 'good' : 'neutral'}>{current?.status === 'approved' ? 'plan approved' : current ? 'draft' : previous.length ? `last sent ${fmtDate(previous[0].on)}` : 'not started'}</Pill>}>
       <KV k="Fabric available?" v={fab ? `${fab.saleable} m saleable` : 'not linked'} note={fab && o.sizes.length ? `about ${Math.floor(fab.saleable / 1.6)} pcs at 1.6 m a piece · sourcing confirms on the requirement` : 'sourcing puts a vendor against the cloth once the request lands'} />
       <KV k="Which factory?" v={vendor ? vendor.name : 'to be proposed'} note={vendor ? `last run · ${vendor.leadDays}d lead · MOQ ${vendor.moq} · on-time ${Math.round(vendor.onTimeRate * 100)}%` : 'Nitin proposes a factory on the request'} />
