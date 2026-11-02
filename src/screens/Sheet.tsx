@@ -7,7 +7,7 @@ import { useMemo, useState, useRef, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { Db, RtwOption } from '../domain/types';
-import { healthRowOf, wipOf, storeStockOf, salesBySizeOf, fmtDate, daysAgo } from '../domain/engines';
+import { healthRowOf, wipOf, storeStockOf, salesBySizeOf, fmtDate, daysAgo, TODAY } from '../domain/engines';
 import { STORES, HEALTH_MIN_SIZE_PCT, HEALTH_MIN_COVER_WEEKS, isBottoms } from '../domain/reference';
 import { categoryOfOption } from '../domain/analysis';
 import { Page, Input, Button, ExportButton } from '../ui';
@@ -24,6 +24,7 @@ const f1 = (n: number) => Math.round(n * 10) / 10;
 const sizeOrder = (a: string, b: string) => (parseInt(a) || 0) - (parseInt(b) || 0) || a.localeCompare(b);
 /* the sheets' key is Shopify's Product ID (L4W Data); Enigma and the health sheet carry the Shiphero Style Name
    beside it. The seed has no Shopify ID, so a stable 13-digit one is derived per option until the real export is wired. */
+const hash = (s: string) => { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 const productIdOf = (id: string) => { let h = 7; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return `92${String(h).padStart(10, '0')}0`; };
 
 /* the two frozen columns every tab starts with: the key, and the style looked up through it */
@@ -96,8 +97,11 @@ function workbook(db: Db): Tab[] {
 
   const orders: Tab = { id: 'orders', name: 'Open orders', grain: 'WIP tracker · one row per open order', cols: [...keyCols(),
     { id: 'po', name: 'PO No.', w: 110, get: r => r.po as string | null }, { id: 'order', name: 'Bom/ Jobcard', w: 110, get: r => r.order as string }, { id: 'vendor', name: 'Vendor', w: 150, get: r => r.vendor as string | null }, { id: 'status', name: 'PO status', w: 120, get: r => r.status as string },
-    { id: 'qty', name: 'Order Qty', w: 84, num: true, get: r => r.qty as number, sum: 'sum' }, { id: 'recd', name: 'Recd qty', w: 80, num: true, get: () => 0, sum: 'sum' }, { id: 'bal', name: 'Balance qty', w: 96, num: true, get: r => r.qty as number, sum: 'sum', formula: r => `Order Qty − Recd qty = ${r.qty} − 0 = ${r.qty}` }, { id: 'arrives', name: 'Shipment Inward Date', w: 150, get: r => r.arrives as string, src: 'Expected' }, { id: 'weeks', name: 'Weeks away', w: 90, num: true, get: r => r.weeks as number }, ...sizeCols('size breakup given')],
-    rows: options.flatMap(o => W.get(o.id)!.map(w => ({ key: w.order.id, ...base(o), po: w.poNo ?? null, order: w.order.id, vendor: db.vendors.find(v => v.id === w.order.vendorId)?.name ?? null, status: w.order.status, qty: w.qty, arrives: fmtDate(w.arrives), weeks: w.weeksAway, by: Object.fromEntries((w.breakup ?? []).map(b => [b.size, b.qty])) }))) };
+    { id: 'qty', name: 'Order Qty', w: 84, num: true, get: r => r.qty as number, sum: 'sum' }, { id: 'recd', name: 'Recd qty', w: 80, num: true, get: () => 0, sum: 'sum' }, { id: 'bal', name: 'Balance qty', w: 96, num: true, get: r => r.qty as number, sum: 'sum', formula: r => `Order Qty − Recd qty = ${r.qty} − 0 = ${r.qty}` }, { id: 'arrives', name: 'Shipment Inward Date', w: 150, get: r => r.arrives as string, src: 'Expected' }, { id: 'weeks', name: 'Weeks away', w: 90, num: true, get: r => r.weeks as number }, ...sizeCols('size breakup given'),
+    { id: 'podate', name: 'PO Date', w: 100, get: r => r.poDate as string | null }, { id: 'cat', name: 'Category', w: 100, get: r => r.cat as string }, { id: 'sub2', name: 'Sub-Category 2', w: 130, get: r => r.sub2 as string }, { id: 'launch', name: 'Launch status', w: 110, get: r => r.launch as string | null }, { id: 'fit', name: 'FIT', w: 80, get: r => r.fit as string | null },
+    { id: 'enigma', name: 'Enigma Code', w: 150, get: r => r.enigma as string | null }, { id: 'fvendor', name: 'Fabric Vendor', w: 150, get: r => r.fvendor as string | null }, { id: 'fcode', name: 'Vendor Fabric Code', w: 150, get: r => r.fcode as string | null }, { id: 'fabric', name: 'Fabric Ordered', w: 110, num: true, get: r => r.fabric as number | null, sum: 'sum', src: 'metres' }, { id: 'cost', name: 'Cost/pc', w: 80, num: true, get: r => r.cost as number, sum: 'avg' }, { id: 'issued', name: 'Style Issued date', w: 130, get: r => r.issued as string }],
+    rows: options.flatMap(o => W.get(o.id)!.map(w => { const x = w.order; return { key: x.id, ...base(o), po: w.poNo ?? null, order: x.id, vendor: db.vendors.find(v => v.id === x.vendorId)?.name ?? null, status: x.status, qty: w.qty, arrives: fmtDate(w.arrives), weeks: w.weeksAway, by: Object.fromEntries((w.breakup ?? []).map(b => [b.size, b.qty])),
+      poDate: x.poDate ? fmtDate(x.poDate) : null, cat: x.category, sub2: x.subCategory, launch: x.launchMonth ?? x.program ?? null, fit: x.fit ?? null, enigma: x.enigmaCode, fvendor: db.vendors.find(v => v.id === x.fabricVendorId)?.name ?? null, fcode: x.vendorFabricCode, fabric: x.fabricMetres, cost: x.targetCost, issued: fmtDate(x.styleHandover) }; })) };
 
   const byId = new Map(options.map(o => [o.id, o]));
   const lost: Tab = { id: 'lost', name: 'Lost sales', grain: 'RetailOS · one row per ask for a size that was out', cols: [...keyCols(), { id: 'on', name: 'Logged', w: 100, get: r => r.on as string }, { id: 'ago', name: 'Days ago', w: 80, num: true, get: r => r.ago as number }, { id: 'store', name: 'STORE', w: 150, get: r => r.store as string }, { id: 'size', name: 'Size', w: 60, get: r => r.size as string }, { id: 'by', name: 'By', w: 80, get: r => r.by as string }, { id: 'note', name: 'Note', w: 260, get: r => r.note as string }],
@@ -107,7 +111,30 @@ function workbook(db: Db): Tab[] {
     { id: 'ros', name: 'Plan ROS', w: 80, num: true, get: r => r.ros as number }, { id: 'lead', name: 'Lead wk', w: 70, num: true, get: r => r.lead as number }, { id: 'draft', name: 'Draft qty', w: 80, num: true, get: r => r.draft as number, sum: 'sum' }, { id: 'approved', name: 'Approved', w: 84, num: true, get: r => r.approved as number | null, sum: 'sum' }, { id: 'grade', name: 'Grade', w: 60, get: r => r.grade as string | null }, { id: 'req', name: 'Requirement', w: 120, get: r => r.req as string | null }, { id: 'note', name: 'Note', w: 260, get: r => r.note as string }],
     rows: (db.planningReviews ?? []).filter(x => byId.has(x.optionId)).sort((a, b) => b.on.localeCompare(a.on)).map(x => ({ key: x.id, ...base(byId.get(x.optionId)!), on: fmtDate(x.on), by: x.by, kind: x.kind, status: x.status, ros: f1(x.planRos), lead: x.leadWeeks, draft: x.draftQty, approved: x.approvedQty, grade: x.grade ?? null, req: x.requirementId, note: x.constraintNote || x.note })) };
 
-  return [products, stock, sales, health, orders, lost, reviews];
+  /* L4W Data: one row per order line, the way Shopify exports it. Customer columns are left out on purpose.
+     The seed keeps sales by option × size × week, so lines are spread over the stores that hold the option. */
+  const holders = STORES.filter(x => x.holdsRtwStock);
+  const lineCols: Col[] = [...keyCols(), { id: 'day', name: 'Day', w: 100, get: r => r.day as string }, { id: 'order', name: 'Order name', w: 110, get: r => r.order as string }, { id: 'kind', name: 'Order or return', w: 110, get: r => 'order' }, { id: 'pos', name: 'POS location name', w: 150, get: r => r.pos as string }, { id: 'chan', name: 'Sales channel', w: 110, get: r => r.chan as string },
+    { id: 'sku', name: 'Product variant SKU', w: 200, get: r => r.sku as string }, { id: 'vtitle', name: 'Product variant title', w: 120, get: r => r.vtitle as string }, { id: 'size', name: 'Size', w: 60, get: r => r.size as string }, { id: 'qty', name: 'Quantity ordered', w: 120, num: true, get: r => 1, sum: 'sum' }, { id: 'price', name: 'Product variant price', w: 140, num: true, get: r => r.price as number },
+    { id: 'disc', name: 'Discounts', w: 90, num: true, get: r => r.disc as number, sum: 'sum' }, { id: 'total', name: 'Total sales', w: 100, num: true, get: r => r.net as number, sum: 'sum', formula: r => `Product variant price − Discounts = ${r.price} − ${r.disc} = ${r.net}` }, { id: 'rev', name: 'Revenue', w: 90, num: true, get: r => r.net as number, sum: 'sum' },
+    { id: 'wk', name: 'Week No', w: 80, num: true, get: r => r.wk as number }, { id: 'onoff', name: 'Online/Offline', w: 110, get: r => r.chan === 'Online Store' ? 'Online' : 'Offline' }, { id: 'tb', name: 'Top/Bottom', w: 90, get: r => isBottoms((r.o as RtwOption).subCat1) ? 'Bottom' : 'Top' }, { id: 'cat', name: 'Category', w: 100, get: r => categoryOfOption(r.o as RtwOption) }, { id: 'sub1', name: 'Sub-Category 1', w: 140, get: r => (r.o as RtwOption).subCat1 }, { id: 'core', name: 'Core/NonCore', w: 100, get: r => (r.o as RtwOption).core ? 'Core' : 'Non Core' }];
+  const weekNo = (d: Date) => Math.ceil(((d.getTime() - new Date(d.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7);
+  const lines: Tab = { id: 'lines', name: 'L4W Data', grain: 'Product Weekly Report · one row per order line, as Shopify exports it (no customer columns)', cols: lineCols, rows: options.flatMap(o => { const by = salesBySizeOf(o); const n = o.weeklySales.length; const price = o.eoss ? (o.discountedMrp ?? Math.round(o.mrp * 0.8)) : o.mrp; const colour = (o.sku ?? '').split('-').slice(-1)[0] ?? ''; const out: Row[] = [];
+    for (const sz of o.sizes) for (let w = 0; w < n; w++) { const i = n - 1 - w; for (let u = 0; u < (by[sz][i] ?? 0); u++) { const h = hash(`${o.id}|${sz}|${w}|${u}`); const online = h % 5 === 0; const st = holders[h % holders.length]; const d = new Date(TODAY); d.setDate(d.getDate() - 7 * w - (h >> 3) % 7); const disc = h % 7 === 0 ? Math.round(price * 0.1) : 0;
+      out.push({ key: `${o.id}|${sz}|${w}|${u}`, ...base(o), day: fmtDate(d), order: `IND-${430000 + (h % 60000)}`, pos: online ? '' : st.name, chan: online ? 'Online Store' : 'Point of Sale', sku: o.sku ? `${o.sku}-${sz}` : '', vtitle: `${colour ? colour[0] + colour.slice(1).toLowerCase() : ''} / ${sz}`, size: sz, price, disc, net: price - disc, wk: weekNo(d) }); } }
+    return out; }) };
+
+  /* Enigma Base: one row per SKU × warehouse × bin, with physical, reserved and actual quantity */
+  const binCols: Col[] = [...keyCols(), { id: 'pname', name: 'product_name', w: 220, get: r => r.style as string }, { id: 'pstyle', name: 'product_style', w: 190, get: r => r.sku as string }, { id: 'ptype', name: 'product_type', w: 110, get: r => categoryOfOption(r.o as RtwOption) }, { id: 'skuc', name: 'sku_code', w: 210, get: r => r.skuc as string }, { id: 'color', name: 'color', w: 90, get: r => r.color as string }, { id: 'size', name: 'size', w: 60, get: r => r.size as string },
+    { id: 'sell', name: 'is_sellable', w: 90, get: r => r.sell as string }, { id: 'wh', name: 'warehouse_name', w: 150, get: r => r.wh as string }, { id: 'bin', name: 'bin_name', w: 100, get: r => r.bin as string }, { id: 'onhand', name: 'physical_stock_on_hand', w: 160, num: true, get: r => r.onhand as number, sum: 'sum' }, { id: 'res', name: 'physical_reserved_qty', w: 150, num: true, get: r => r.res as number, sum: 'sum', src: 'display and trial pieces held back' }, { id: 'act', name: 'Act Qty', w: 80, num: true, get: r => r.act as number, sum: 'sum', formula: r => `physical_stock_on_hand − physical_reserved_qty = ${r.onhand} − ${r.res} = ${r.act}` },
+    { id: 'loc', name: 'Location', w: 110, get: r => r.wh === 'Factory Warehouse' ? 'WH' : 'Store' }, { id: 'sub1', name: 'Sub-Category 1', w: 140, get: r => (r.o as RtwOption).subCat1 }, { id: 'core', name: 'Core/Non-Core', w: 110, get: r => (r.o as RtwOption).core ? 'Core' : 'Non Core' }, { id: 'mrp', name: 'Original MRP', w: 100, num: true, get: r => (r.o as RtwOption).mrp }, { id: 'disp', name: 'Display status', w: 110, get: r => r.disp as string }, { id: 'drop', name: 'DROP', w: 70, get: r => r.drop as string }];
+  const bins: Tab = { id: 'bins', name: 'Enigma Base', grain: 'Enigma stock report · one row per SKU × warehouse × bin', cols: binCols, rows: options.flatMap(o => { const colour = (o.sku ?? '').split('-').slice(-1)[0] ?? ''; const drop = new Date(o.launchedAt).toLocaleDateString('en-IN', { month: 'short' }).toUpperCase(); const out: Row[] = [];
+    for (const [h, by] of Object.entries(storeStockOf(o))) for (const sz of o.sizes) { const q = by[sz] ?? 0; if (!q) continue; const k = hash(`${o.id}|${h}|${sz}`); const wh = holderName(h); const dam = k % 23 === 0 && q > 2 ? 1 : 0; const res = h !== 'warehouse' && q > 1 && k % 3 === 0 ? 1 : 0;
+      const push = (bin: string, onhand: number, resv: number, sell: boolean) => out.push({ key: `${o.id}|${h}|${sz}|${bin}`, ...base(o), sku: o.sku ?? '', skuc: o.sku ? `${o.sku}-${sz}` : '', color: colour, size: sz, sell: sell ? 'TRUE' : 'FALSE', wh, bin, onhand, res: resv, act: onhand - resv, disp: daysAgo(o.launchedAt) < 56 ? 'Pending' : 'Live', drop });
+      push(h === 'warehouse' ? `${String.fromCharCode(65 + k % 6)}-${String(1 + (k >> 4) % 12).padStart(2, '0')}-${String(1 + (k >> 8) % 8).padStart(2, '0')}` : 'FLOOR', q - dam, res, true); if (dam) push('DAM-01', dam, 0, false); }
+    return out; }) };
+
+  return [products, stock, bins, sales, lines, health, orders, lost, reviews];
 }
 
 /* ── the screen ────────────────────────────────────────────────────────────────── */
@@ -125,7 +152,7 @@ export function Sheet() {
   const [top, setTop] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   const setP = (k: string, v: string | null) => { const n = new URLSearchParams(params); if (v) n.set(k, v); else n.delete(k); setParams(n, { replace: true }); };
-  const goTab = (id: string) => { setP('tab', id); setSort(null); setSel(null); setTop(0); box.current?.scrollTo({ top: 0 }); };
+  const goTab = (id: string) => { setP('tab', id); setSort(null); setSel(null); setTop(0); box.current?.scrollTo({ top: 0, left: 0 }); };
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -199,11 +226,11 @@ export function Sheet() {
         </table>
       </div>
       {/* sheet tabs, like the bottom of a workbook */}
-      <div className="flex items-end gap-0 px-2" style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--line)', height: 36 }}>
+      <div className="flex items-end gap-0 px-2" style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--line)', height: 36, overflowX: 'auto', whiteSpace: 'nowrap' }}>
         {tabs.map(t => { const n = pid ? t.rows.filter(r => r.id === pid).length : t.rows.length; const on = t.id === tab.id;
-          return <button key={t.id} onClick={() => goTab(t.id)} className="text-[12px]" style={{ padding: '0 14px', height: 30, marginBottom: -1, background: on ? '#fff' : 'transparent', color: on ? 'var(--ink)' : 'var(--ink-soft)', fontWeight: on ? 600 : 500, border: on ? '1px solid var(--line)' : '1px solid transparent', borderBottom: on ? '1px solid #fff' : undefined, borderRadius: '6px 6px 0 0' }}>
+          return <button key={t.id} onClick={() => goTab(t.id)} className="text-[12px]" style={{ padding: '0 12px', height: 30, marginBottom: -1, whiteSpace: 'nowrap', flexShrink: 0, background: on ? '#fff' : 'transparent', color: on ? 'var(--ink)' : 'var(--ink-soft)', fontWeight: on ? 600 : 500, border: on ? '1px solid var(--line)' : '1px solid transparent', borderBottom: on ? '1px solid #fff' : undefined, borderRadius: '6px 6px 0 0' }}>
             {t.name} <span style={{ ...faint, fontWeight: 400 }}>{n.toLocaleString('en-IN')}</span></button>; })}
-        <span className="ml-auto text-[11px] pb-2" style={faint}>joined on Product ID · column A on every tab</span>
+        <span className="ml-auto text-[11px] pb-2 pl-3" style={{ ...faint, flexShrink: 0 }}>joined on Product ID · column A</span>
       </div>
     </div>
     {pid && <div className="mt-2"><Button variant="ghost" size="sm" onClick={() => setP('id', null)}>Show all products</Button></div>}
