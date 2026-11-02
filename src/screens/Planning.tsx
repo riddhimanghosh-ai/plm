@@ -88,6 +88,7 @@ export function Planning() {
             { id: 'due', label: 'Under 4 wk at arrival', count: rows.filter(x => x.p.coverAtArrival < 4).length, hint: `an order placed today lands in ${DEFAULT_LEAD_WEEKS} weeks with this little cover left` },
           ]} />
           <div className="flex-1" />
+          <a className="cta" href="#/analyse">Analysis · ask the data →</a>
           <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style, category or SKU" style={{ width: 220 }} />
           <ExportButton filename="rtw-planning" sheetName="Working" rows={list} cols={[
             { label: 'Shiphero Style Name', get: x => x.o.styleName }, { label: 'Sub-Category 1', get: x => x.o.subCat1 }, { label: 'Core', get: x => x.o.core ? 'Core' : '' },
