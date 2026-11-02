@@ -369,7 +369,15 @@ export interface PlanningReview {
   approvedOn: string | null; approvedBy: string | null;
   requirementId: string | null;    // the RTW requirement created on "Send to design"
   note: string;
+  /* 8 Oct 2026 planning call: sourcing grades an option A or B and the planner buys by grade (A about 250, B about 200);
+     a non-core reorder is only worth it if the stock runs out before the selling window closes and a new order can land inside it */
+  grade?: 'A' | 'B' | null;
+  windowEndsOn?: string | null;    // when the selling window for this option closes
 }
+
+/* 8 Oct 2026 planning call: a customer asked for a size that was out. Logged in RetailOS by the store,
+   main sizes only, so the stockout's cost is measured instead of guessed. */
+export interface LostSale { id: string; optionId: string; size: string; storeId: string; on: string; by: string; note: string }
 
 /* ---------- MTM fabrics ---------------------------------------------- */
 export type FabricBucket = 'CORE' | 'NON_CORE' | 'BESPOKE';
@@ -954,6 +962,7 @@ export interface Db {
   /* the Recce summary's last column, "Need to order - Adjusted": the planner's number per
      sub-category, kept beside the arithmetic gap with who set it and when */
   planningCounts?: Record<string, { needToOrder: number; note: string; by: string; on: string }>;
+  lostSales?: LostSale[];
   trims: TrimItem[];
   concepts: Concept[];
   attachments: Attachment[];

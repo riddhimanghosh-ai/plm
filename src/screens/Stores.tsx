@@ -6,7 +6,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp, useAppStore, type PunchInput } from '../store';
 import { liveStatusOf, coverageOf, fmtDate, daysAgo, healthOf, storeStockOf, TODAY, addDays, iso, launchOf, fulfilFromOf, storeInboundOf, fmtRel, fitSetOf, customersOf, customerOf, returnStatusOf, sheetRev, creditBalanceOf, CREDIT_VALID_DAYS, displayBalanceOf, displaysOwedOf, shelvesOf } from '../domain/engines';
-import { STORES, STORE_LOW_METRES, RETURN_REASONS, RETURN_WANTS, MTM_FITS, isBottoms, FIT_SAMPLE_NOTE, FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, RESOLUTION_LADDER, WRITE_OFF_REASONS, ROLE_LABEL } from '../domain/reference';
+import { mainSizesOf, STORES, STORE_LOW_METRES, RETURN_REASONS, RETURN_WANTS, MTM_FITS, isBottoms, FIT_SAMPLE_NOTE, FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, RESOLUTION_LADDER, WRITE_OFF_REASONS, ROLE_LABEL } from '../domain/reference';
 import type { ReturnCase, CustomerOrder, RtwOption, Fabric, ResolutionStep, StockWriteOff } from '../domain/types';
 import { Page, Card, Pill, Button, Note, Tabs, Seg, Empty, Drawer, KV, Section, Field, Input, Select, dateInput, fromDateInput, useExamples } from '../ui';
 import { ThreadPanel } from './Thread';
@@ -63,6 +63,7 @@ export function Stores() {
     { id:'orders', label:'Orders', kids: [
       { id:'mtm-orders', label:'MTM · made to measure', count: openMtm.length },
       { id:'preconfirmed', label:'Pre-confirmed', count: myOrders.filter(o => o.preConfirmed).length, hint:'taken but not confirmed: measurement, hold or payment; a RetailOS screen' },
+      ...(MTM_ONLY ? [] : [{ id:'lostsales', label:'Lost sales · size asked, out of stock', count: (db.lostSales ?? []).filter(x => x.storeId === storeId && daysAgo(x.on) <= 28).length, hint:'a RetailOS screen, shown here for demonstration: a customer asked for a main size that was out' }]),
       ...(MTM_ONLY ? [] : [{ id:'rtw-orders', label:'RTW · ready-to-wear, sold from stock', count: openRtw.length }]),
     ] },
     { id:'sell', label:'What I can sell', kids: [
@@ -92,6 +93,7 @@ export function Stores() {
       {group.kids.length > 1 && <div className="-mt-2 mb-4"><Seg value={tab} onChange={t => set('tab', t)} options={group.kids} /></div>}
 
       {tab === 'preconfirmed' && <PreConfirmedTab orders={myOrders.filter(o => o.preConfirmed)} mine={mine} onOpen={id => set('open', id)} />}
+      {tab === 'lostsales' && <LostSalesTab storeId={storeId} mine={mine} />}
       {tab === 'shelves' && <ShelvesTab storeId={storeId} mine={mine} />}
       {tab === 'inward' && <StoreInwardTab storeId={storeId} mine={mine} />}
       {tab === 'customers' && <CustomersTab storeId={storeId} onOpen={n => set('open', 'cust:' + n)} />}
@@ -397,6 +399,33 @@ function PreConfirmedTab({ orders, mine, onOpen }: { orders: CustomerOrder[]; mi
         <td onClick={e => e.stopPropagation()}>{mine && <Button size="sm" variant="primary" onClick={() => confirmOrder(o.id, '')}>Confirm</Button>}</td>
       </tr>; })}</tbody></table></Card>}
     <div className="mt-2"><Note>Orders taken at the store but not confirmed: measurement not done, on hold, or payment pending. Oldest first; past 7 days in red. Production does not plan them to a factory until they are confirmed.</Note></div>
+  </>;
+}
+
+/* RetailOS, 8 Oct 2026 planning call: when a customer asks for a size that is out, the store logs it, main sizes only,
+   so planning can measure the stockout instead of guessing. Shown here for demonstration; in the build it is a RetailOS screen PLM reads. */
+function LostSalesTab({ storeId, mine }: { storeId: string; mine: boolean }) {
+  const { db, logLostSale } = useApp();
+  const opts = db.options.filter(o => !o.inactive).sort((a, b) => a.styleName.localeCompare(b.styleName));
+  const [optId, setOptId] = useState(''); const o = opts.find(x => x.id === optId) ?? null;
+  const [size, setSize] = useState(''); const [note, setNote] = useState('');
+  const sizes = o ? mainSizesOf(o) : [];
+  const rows = (db.lostSales ?? []).filter(x => x.storeId === storeId).sort((a, b) => b.on.localeCompare(a.on));
+  return <>
+    <div className="flex items-center gap-2 mb-2 flex-wrap"><span className="text-[12.5px]">A customer asked for a size that was out. Log it, main sizes only.</span><span className="ml-auto"><Pill tone="info">RetailOS screen · shown for demonstration</Pill></span></div>
+    {mine && <Card className="mb-3"><div className="flex gap-2 items-end flex-wrap px-3 py-2">
+      <div style={{ minWidth: 280, flex: '1 1 280px' }}><Field label="Option"><Select value={optId} onChange={v => { setOptId(v); setSize(''); }} options={[{ value: '', label: 'pick the style…' }, ...opts.map(x => ({ value: x.id, label: `${x.styleName} · ${x.subCat1}` }))]} /></Field></div>
+      <Field label="Size asked" hint="main sizes only"><Select value={size} onChange={setSize} options={[{ value: '', label: '—' }, ...sizes.map(sz => ({ value: sz, label: `${sz}${(o?.stockBySize[sz] ?? 0) === 0 ? ' · out' : ` · ${o?.stockBySize[sz]} in stock`}` }))]} style={{ width: 150 }} /></Field>
+      <div style={{ minWidth: 220, flex: '1 1 220px' }}><Field label="Note"><Input value={note} onChange={e => setNote(e.target.value)} placeholder="would not wait for a transfer" /></Field></div>
+      <Button variant="primary" size="sm" disabled={!o || !size} onClick={() => { logLostSale(o!.id, size, storeId, note.trim()); setSize(''); setNote(''); }}>Log lost sale</Button>
+    </div></Card>}
+    {rows.length === 0 ? <Card><Empty title="Nothing logged." body="Every ask for a missing main size goes here; planning reads it on the option." /></Card> : <Card><table className="t">
+      <thead><tr><th>When</th><th>Option</th><th>Size</th><th>In stock now</th><th>Note</th><th>By</th></tr></thead>
+      <tbody>{rows.map(x => { const op = db.options.find(y => y.id === x.optionId); return <tr key={x.id}>
+        <td className="text-[12.5px]">{fmtRel(x.on)}</td><td className="text-[12.5px]">{op?.styleName ?? x.optionId}<div style={{ color: 'var(--ink-faint)' }}>{op?.subCat1}</div></td><td className="mono">{x.size}</td>
+        <td className="text-[12.5px]" style={{ color: (op?.stockBySize[x.size] ?? 0) === 0 ? 'var(--risk)' : undefined }}>{op ? `${op.stockBySize[x.size] ?? 0} pcs` : '—'}</td>
+        <td className="text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>{x.note}</td><td className="text-[12.5px]">{x.by}</td></tr>; })}</tbody></table></Card>}
+    <div className="mt-2"><Note>Planning sees these on the option's review, size by size, and in Analysis as a measure. They are a floor on lost demand, not an estimate of it.</Note></div>
   </>;
 }
 

@@ -256,7 +256,9 @@ export const mainSizesOf = (o: { sizes: string[]; subCat1: string; subCat2: stri
    (75% / 0.5 wk → Unhealthy; 100% / 2.8 wk → Unhealthy; 100% / 4.3 wk → Healthy) */
 export const HEALTH_MIN_SIZE_PCT = 0.75;
 export const HEALTH_MIN_COVER_WEEKS = 4;
-export const LOW_STOCK_WEEKS = 4;        // a main size with under this many weeks of its own rate counts as low — assumed, the sheet's rule is not written down
+export const LOW_STOCK_WEEKS = 4;
+/* the planner's quantity by grade, from the 8 Oct 2026 call: A-grade options about 250, B-grade about 200; MOQ can still force more */
+export const GRADE_QTY: Record<'A' | 'B', number> = { A: 250, B: 200 };        // a main size with under this many weeks of its own rate counts as low — assumed, the sheet's rule is not written down
 export const SHIRT_SIZES = ['36', '38', '40', '42', '44', '46'];   // Replenishment Sample sku_code suffixes 36–46
 export const MTM_FITS = ['Tailored Fit', 'Classic Fit', 'Slim Fit', 'Saved fit'];
 export const ORDER_STAGE_NEXT: Record<string, string> = { punched:'ready', ready:'delivered', hemming:'delivered', delivered:'delivered', cancelled:'cancelled' };   // RTW only — MTM moves by scan

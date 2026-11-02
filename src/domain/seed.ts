@@ -6,8 +6,8 @@
    record, a unit cost the sample left blank) is placed here and says so.
    ========================================================================== */
 
-import type { SwatchBookRequest, CreditEntry, OptionRequest, RequestOption, ConceptFabricOption, FabricBrief, ReturnCase, StockWriteOff, FitSample, Grn, Attachment, Concept, Block, Db, Escalation, Fabric, ProductionOrder, RtwOption, Vendor, GarmentCategory, Thread, Comment, RoleId, CustomerOrder, StockRequest, Launch, ProductionPlan, ExtraFabricRequest, FactoryOutput, Scan, SwatchBook, TrimItem, StockTransfer, FabricQuote, FabricPo, SampleRound , PlanningReview } from './types';
-import { FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, SHEET_OPTIONS, MEASUREMENTS, defaultSpec, defaultPattern, PEOPLE, SIZE_SETS, MERCHANDISERS, DELAY_REASONS, RTW_SUBCATS, RANGES, STORES, isBottoms, BOTTOM_SIZES, SHIRT_SIZES, MTM_FITS, TRIM_MASTER, COLLAR_STYLES, POCKETS, EXTRA_FABRIC_REASONS, EXTRA_FABRIC_PANELS, PANEL_METRES, BOOK_EDITION, BIG_STORES, MTM_SWATCH_BOOKS } from './reference';
+import type { LostSale, SwatchBookRequest, CreditEntry, OptionRequest, RequestOption, ConceptFabricOption, FabricBrief, ReturnCase, StockWriteOff, FitSample, Grn, Attachment, Concept, Block, Db, Escalation, Fabric, ProductionOrder, RtwOption, Vendor, GarmentCategory, Thread, Comment, RoleId, CustomerOrder, StockRequest, Launch, ProductionPlan, ExtraFabricRequest, FactoryOutput, Scan, SwatchBook, TrimItem, StockTransfer, FabricQuote, FabricPo, SampleRound , PlanningReview } from './types';
+import { mainSizesOf, FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, SHEET_OPTIONS, MEASUREMENTS, defaultSpec, defaultPattern, PEOPLE, SIZE_SETS, MERCHANDISERS, DELAY_REASONS, RTW_SUBCATS, RANGES, STORES, isBottoms, BOTTOM_SIZES, SHIRT_SIZES, MTM_FITS, TRIM_MASTER, COLLAR_STYLES, POCKETS, EXTRA_FABRIC_REASONS, EXTRA_FABRIC_PANELS, PANEL_METRES, BOOK_EDITION, BIG_STORES, MTM_SWATCH_BOOKS } from './reference';
 import { REAL_MTM_FABRICS, REAL_BLOCKS, REAL_RTW_SHIRTS, REAL_RTW_BOTTOMS, REAL_MERCH, REAL_DROPS, REAL_STO } from './realdata';
 import { sourcingModeOf, buildMilestones, TODAY, addDays, iso, riskOf, coverageOf, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, daysBetween, consumptionFor, daysAgo, defaultMaterials, mintBespokeCode } from './engines';
 
@@ -387,6 +387,16 @@ REAL_DROPS.forEach((d, k) => {
     weeklySales: [0, 0, 0, 0, 0, 0, int(4, 9), int(8, 16), int(10, 18), int(9, 17), int(8, 15), int(7, 14)], inStockWeeks: Array.from({ length: 12 }, () => true),
     launchedAt: '2026-08-01', incomingQty: 0, mrp: 3490, sku: skuFor('BOM-SHI-RE', 70 + k, colourOf(d.styleName, d.styleName.split(' ')[0])), vendorId: null, fabricCode: null });
 });
+
+/* lost sales (8 Oct 2026 call): a customer asked for a main size that was out — logged by the store, main sizes only */
+const lostSales: LostSale[] = [];
+{ const rtwStores = STORES.filter(s => s.holdsRtwStock);
+  options.filter(o => !o.inactive && mainSizesOf(o).some(sz => (o.stockBySize[sz] ?? 0) === 0) && o.weeklySales.slice(-4).some(Boolean)).slice(0, 40).forEach((o, k) => {
+    const outSizes = mainSizesOf(o).filter(sz => (o.stockBySize[sz] ?? 0) === 0);
+    const n = 1 + (k % 3);
+    for (let i = 0; i < n; i++) { const st = rtwStores[(k + i) % rtwStores.length];
+      lostSales.push({ id: `ls-${k}-${i}`, optionId: o.id, size: outSizes[i % outSizes.length], storeId: st.id, on: iso(addDays(TODAY, -int(1, 27))), by: 'Store', note: i === 0 ? 'customer wanted it today, would not wait for a transfer' : '' }); }
+  }); }
 
 /* ---------- MTM fabrics — Copy of Fabric ordering → Fabric Ordering sheet ------
    The 24 coded rows are the sheet's. The rest follow its code scheme
@@ -1422,6 +1432,7 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
     raisedBy: 'Alteration unit', raisedOn: iso(addDays(TODAY, -2)), status: 'requested', decidedOn: null, note: 'sleeves re-cut after a shortening went wrong', source: 'alteration' }); }
 
 export const SEED: Db = {
+  lostSales,
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,
   ranges: RANGES.map(x => ({ family: x.family, targetOptions: x.target })),
   blocks, stores: STORES, swatchDispatches, transfers, planningReviews, returns, creditLedger, threads, customerOrders, stockRequests, launches, plans, extraFabric, factoryOutputs, swatchBooks, bookRequests, trims, concepts, attachments, fabricPos, grns, fitSamples, writeOffs, optionRequests,

@@ -9,7 +9,7 @@ import { STORES } from '../domain/reference';
 import { Page, Card, Pill, Button, Input, Select, Field, Note, ExportButton, Th } from '../ui';
 
 const DIMS: Dim[] = ['category', 'subCat1', 'subCat2', 'style', 'size', 'core', 'location', 'week', 'healthy', 'eoss'];
-const MEASURES: Measure[] = ['stock', 'mainStock', 'units', 'revenue', 'l4w', 'aws', 'wc', 'options', 'unhealthy', 'wip'];
+const MEASURES: Measure[] = ['stock', 'mainStock', 'units', 'revenue', 'l4w', 'aws', 'wc', 'options', 'unhealthy', 'wip', 'lostSales'];
 const EMPTY: Query = { rows: ['subCat1'], cols: null, measure: 'stock', filters: {}, weeks: 4, top: null, sort: 'desc' };
 
 /* the folder's sheets, each as the query that rebuilds it, or a link where the screen already exists */
@@ -21,13 +21,14 @@ const PRESETS: { sheet: string; tab: string; what: string; q?: Query; href?: str
   { sheet: 'Product Weekly Report', tab: 'Summery · revenue', what: 'the same periods, in rupees', q: { ...EMPTY, rows: ['category'], cols: 'period', measure: 'revenue' } },
   { sheet: 'Recce Non-Core', tab: 'Sheet4 · open orders', what: 'open PO quantity by category and sub-category', q: { ...EMPTY, rows: ['category', 'subCat1'], measure: 'wip' } },
   { sheet: 'Recce Non-Core', tab: 'Main · AWS · WC', what: 'main-size cover by sub-category, core and non-core', q: { ...EMPTY, rows: ['subCat1', 'core'], measure: 'wc', sort: 'asc' } },
+  { sheet: 'RetailOS · lost sales', tab: 'asks for a size that was out', what: 'style × size, last four weeks; the planning call\'s Phase 1 capture', q: { ...EMPTY, rows: ['subCat1', 'style'], cols: 'size', measure: 'lostSales', weeks: 4 } },
   { sheet: 'ROS & health Report', tab: 'Working', what: 'the health row for every style', href: '#/planning' },
   { sheet: 'Recce Non-Core', tab: 'Summary · option count', what: 'ideal, healthy, in production, gap, need to order', href: '#/planning?tab=count' },
   { sheet: 'United Chinos order working', tab: 'the order maths', what: 'closing, open orders, opening at arrival, ratio in pairs', href: '#/planning?kind=core' },
   { sheet: 'Product Weekly Report', tab: 'Summery · RTW Sub-Cat 1 · On sale', what: 'the weekly review as planning reads it', href: '#/insights' },
 ];
 
-const EXAMPLES = ['stock of casual solid by size', 'sales last 4 weeks by sub category', 'which non-core options are unhealthy', 'top 10 styles by revenue last week', 'formal chinos size 34 stock by store', 'weeks of cover by sub category, lowest 5', 'how many options on sale by category', 'casual solid sales vs last week'];
+const EXAMPLES = ['stock of casual solid by size', 'sales last 4 weeks by sub category', 'which non-core options are unhealthy', 'top 10 styles by revenue last week', 'formal chinos size 34 stock by store', 'weeks of cover by sub category, lowest 5', 'how many options on sale by category', 'casual solid sales vs last week', 'lost sales by size last 4 weeks', 'lost sales by store'];
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 const fmt = (m: Measure, n: number) => m === 'revenue' ? inr(n) : m === 'wc' || m === 'l4w' || m === 'aws' ? n.toFixed(1) : String(Math.round(n));

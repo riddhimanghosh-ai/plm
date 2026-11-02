@@ -10,12 +10,12 @@ import { salesBySizeOf, storeStockOf, healthRowOf, wipOf, daysAgo } from './engi
 import { STORES, isBottoms } from './reference';
 
 export type Dim = 'category' | 'subCat1' | 'subCat2' | 'style' | 'size' | 'core' | 'location' | 'week' | 'healthy' | 'eoss';
-export type Measure = 'stock' | 'mainStock' | 'units' | 'revenue' | 'l4w' | 'aws' | 'wc' | 'options' | 'unhealthy' | 'wip';
+export type Measure = 'stock' | 'mainStock' | 'units' | 'revenue' | 'l4w' | 'aws' | 'wc' | 'options' | 'unhealthy' | 'wip' | 'lostSales';
 export type Cols = Dim | 'period' | null;
 export interface Query { rows: Dim[]; cols: Cols; measure: Measure; filters: Partial<Record<Dim, string[]>>; weeks: number; top: number | null; sort: 'desc' | 'asc' }
 
 export const DIM_LABEL: Record<Dim, string> = { category: 'Category', subCat1: 'Sub-Category 1', subCat2: 'Sub-Category 2', style: 'Style', size: 'Size', core: 'Core / Non-core', location: 'Location', week: 'Week', healthy: 'Healthy or not', eoss: 'EOSS' };
-export const MEASURE_LABEL: Record<Measure, string> = { stock: 'Stock · pcs', mainStock: 'Main-size stock · pcs', units: 'Sales · units', revenue: 'Sales · ₹', l4w: 'L4W · units a week', aws: 'AWS · units a week', wc: 'WC · weeks of cover', options: 'Options · count', unhealthy: 'Unhealthy options · count', wip: 'On order · pcs' };
+export const MEASURE_LABEL: Record<Measure, string> = { stock: 'Stock · pcs', mainStock: 'Main-size stock · pcs', units: 'Sales · units', revenue: 'Sales · ₹', l4w: 'L4W · units a week', aws: 'AWS · units a week', wc: 'WC · weeks of cover', options: 'Options · count', unhealthy: 'Unhealthy options · count', wip: 'On order · pcs', lostSales: 'Lost sales · asks logged' };
 const STOCK_MEASURES: Measure[] = ['stock', 'mainStock', 'wc', 'options', 'unhealthy', 'wip', 'aws'];
 export const isSalesMeasure = (m: Measure) => !STOCK_MEASURES.includes(m);
 export const PERIODS = ['LW', 'LW-1', 'LW-2', 'LW-3', 'L4W avg', 'L12W avg'] as const;
@@ -24,12 +24,12 @@ export const PERIODS = ['LW', 'LW-1', 'LW-2', 'LW-3', 'L4W avg', 'L12W avg'] as 
 export const categoryOfOption = (o: Pick<RtwOption, 'subCat1' | 'subCat2' | 'styleName'>) =>
   /jean/i.test(o.subCat1) ? 'Jeans' : /chino|corduroy|linen pant|lounge|wide leg|fatigue/i.test(o.subCat1) ? 'Casual Pants' : isBottoms(`${o.subCat1} ${o.subCat2} ${o.styleName}`) ? 'Formal Pants' : 'RTW Shirts';
 
-export interface Fact { o: RtwOption; category: string; subCat1: string; subCat2: string; style: string; core: string; healthy: string; eoss: string; size: string; location: string; week: number | null; stock: number; units: number; revenue: number }
+export interface Fact { o: RtwOption; category: string; subCat1: string; subCat2: string; style: string; core: string; healthy: string; eoss: string; size: string; location: string; week: number | null; stock: number; units: number; revenue: number; lost: number }
 export interface OptionAttrs { aws: number; wip: number; main: Set<string>; healthy: boolean }
 
 /** The long table: one row per style × size × location for stock (week null), one per style × size × week for sales (location '—'). */
 export function factsOf(db: Db): { facts: Fact[]; attrs: Map<string, OptionAttrs> } {
-  const facts: Fact[] = []; const attrs = new Map<string, OptionAttrs>();
+  const facts: Fact[] = []; const attrs = new Map<string, OptionAttrs>(); const bases = new Map<string, Omit<Fact, 'size' | 'location' | 'week' | 'stock' | 'units' | 'revenue' | 'lost'>>();
   const storeName = (id: string) => id === 'warehouse' ? 'Factory Warehouse' : STORES.find(s => s.id === id)?.name ?? id;
   for (const o of db.options) {
     if (o.inactive) continue;
@@ -37,15 +37,19 @@ export function factsOf(db: Db): { facts: Fact[]; attrs: Map<string, OptionAttrs
     const wip = wipOf(db, o).filter(w => w.firm).reduce((a, w) => a + w.qty, 0);
     attrs.set(o.id, { aws: h.aws, wip, main: new Set(h.main), healthy: h.healthy });
     const base = { o, category: categoryOfOption(o), subCat1: o.subCat1, subCat2: o.subCat2, style: o.styleName, core: o.core ? 'Core' : 'Non-core', healthy: h.healthy ? 'Healthy' : 'Unhealthy', eoss: o.eoss ? 'On sale' : 'Full price' };
+    bases.set(o.id, base);
     const price = o.eoss ? (o.discountedMrp ?? Math.round(o.mrp * 0.8)) : o.mrp;
     const byHolder = storeStockOf(o);
     for (const [holder, sizes] of Object.entries(byHolder)) for (const sz of o.sizes) {
       const q = sizes[sz] ?? 0; if (!q) continue;
-      facts.push({ ...base, size: sz, location: storeName(holder), week: null, stock: q, units: 0, revenue: 0 });
+      facts.push({ ...base, size: sz, location: storeName(holder), week: null, stock: q, units: 0, revenue: 0, lost: 0 });
     }
     const bySize = salesBySizeOf(o); const n = o.weeklySales.length;
-    for (const sz of o.sizes) bySize[sz].forEach((u, i) => { if (!u) return; facts.push({ ...base, size: sz, location: '—', week: n - 1 - i, stock: 0, units: u, revenue: u * price }); });
+    for (const sz of o.sizes) bySize[sz].forEach((u, i) => { if (!u) return; facts.push({ ...base, size: sz, location: '—', week: n - 1 - i, stock: 0, units: u, revenue: u * price, lost: 0 }); });
   }
+  /* lost-sale asks logged by stores: one fact each, in the week it was logged, at the store that logged it */
+  for (const ls of db.lostSales ?? []) { const base = bases.get(ls.optionId); if (!base) continue;
+    facts.push({ ...base, size: ls.size, location: storeName(ls.storeId), week: Math.floor(daysAgo(ls.on) / 7), stock: 0, units: 0, revenue: 0, lost: 1 }); }
   return { facts, attrs };
 }
 
@@ -84,6 +88,7 @@ export function pivot(db: Db, data: ReturnType<typeof factsOf>, q: Query): Pivot
       case 'options': return b.options.size;
       case 'unhealthy': return opts.filter(x => !x.healthy).length;
       case 'wip': return opts.reduce((a, x) => a + x.wip, 0);
+      case 'lostSales': return fs.reduce((a, f) => a + f.lost, 0);
     }
   };
   const periodValue = (b: Bucket, p: string) => p === 'LW' ? value(b, q.measure, [0, 1]) : p === 'LW-1' ? value(b, q.measure, [1, 2]) : p === 'LW-2' ? value(b, q.measure, [2, 3]) : p === 'LW-3' ? value(b, q.measure, [3, 4]) : p === 'L4W avg' ? value(b, q.measure, [0, 4]) / 4 : value(b, q.measure, [0, 12]) / 12;
@@ -123,7 +128,8 @@ export function parseQuestion(text: string, db: Db): { q: Query; reading: string
   const reading: string[] = [];
 
   /* measure */
-  if (has(/\b(revenue|value|rupees|₹|sales value)\b/)) q.measure = 'revenue';
+  if (has(/\blost[- ]sales?\b|\blost\b|\bstock[- ]?outs?\b|\bmissed\b/)) q.measure = 'lostSales';
+  else if (has(/\b(revenue|value|rupees|₹|sales value)\b/)) q.measure = 'revenue';
   else if (has(/\b(sold|sales|units|selling|sell|sale)\b/) && !has(/\bon sale\b/)) q.measure = 'units';
   else if (has(/\b(cover|weeks of cover|wc)\b/)) q.measure = 'wc';
   else if (has(/\b(ros|rate of sale|per week|a week|weekly rate|l4w)\b/)) q.measure = 'l4w';
@@ -182,12 +188,12 @@ export function parseQuestion(text: string, db: Db): { q: Query; reading: string
 /** The query in SQL, so what the screen computed can be checked against the warehouse later. */
 export function sqlOf(q: Query) {
   const sales = isSalesMeasure(q.measure) || q.cols === 'period';
-  const agg: Record<Measure, string> = { stock: 'SUM(stock)', mainStock: 'SUM(stock) FILTER (WHERE is_main_size)', units: 'SUM(units)', revenue: 'SUM(units * price)', l4w: 'SUM(units) / 4', aws: 'SUM(option.aws)', wc: 'SUM(main_stock) / SUM(option.aws)', options: 'COUNT(DISTINCT style)', unhealthy: 'COUNT(DISTINCT style) FILTER (WHERE NOT healthy)', wip: 'SUM(open_po_qty)' };
+  const agg: Record<Measure, string> = { lostSales: 'COUNT(*)', stock: 'SUM(stock)', mainStock: 'SUM(stock) FILTER (WHERE is_main_size)', units: 'SUM(units)', revenue: 'SUM(units * price)', l4w: 'SUM(units) / 4', aws: 'SUM(option.aws)', wc: 'SUM(main_stock) / SUM(option.aws)', options: 'COUNT(DISTINCT style)', unhealthy: 'COUNT(DISTINCT style) FILTER (WHERE NOT healthy)', wip: 'SUM(open_po_qty)' };
   const col = (d: Dim) => ({ category: 'category', subCat1: 'sub_category_1', subCat2: 'sub_category_2', style: 'style', size: 'size', core: 'core', location: 'warehouse_name', week: 'week', healthy: 'healthy', eoss: 'eoss' }[d]);
   const dims = [...q.rows, ...(q.cols && q.cols !== 'period' ? [q.cols] : [])].map(col);
   const where = (Object.entries(q.filters) as [Dim, string[]][]).filter(([, v]) => v?.length).map(([d, v]) => `${col(d)} IN (${v.map(x => `'${x}'`).join(', ')})`);
   if (sales && q.cols !== 'period') where.push(`week_back < ${q.weeks}`);
-  return `SELECT ${[...dims, `${agg[q.measure]} AS value`].join(', ')}\nFROM ${sales ? 'sales_by_style_size_week' : 'stock_by_style_size_location'}${where.length ? `\nWHERE ${where.join(' AND ')}` : ''}${dims.length ? `\nGROUP BY ${dims.join(', ')}` : ''}\nORDER BY value ${q.sort.toUpperCase()}${q.top ? `\nLIMIT ${q.top}` : ''}`;
+  return `SELECT ${[...dims, `${agg[q.measure]} AS value`].join(', ')}\nFROM ${q.measure === 'lostSales' ? 'lost_sales_by_style_size_store' : sales ? 'sales_by_style_size_week' : 'stock_by_style_size_location'}${where.length ? `\nWHERE ${where.join(' AND ')}` : ''}${dims.length ? `\nGROUP BY ${dims.join(', ')}` : ''}\nORDER BY value ${q.sort.toUpperCase()}${q.top ? `\nLIMIT ${q.top}` : ''}`;
 }
 
 export const weeksOnFloor = (o: RtwOption) => Math.max(1, Math.round(daysAgo(o.launchedAt) / 7));
