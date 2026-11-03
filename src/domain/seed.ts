@@ -1248,7 +1248,7 @@ optionRequests.forEach(r => r.options.filter(o => o.status === 'po-raised' && o.
 }));
 
 /* ---------- the swatch desk, the designs on each fabric, the online track ------
-   One fabric, several designs (the product master's rows); the warehouse's six
+   One fabric, one design: in MTM a fabric carries one product code (the product master's row); the warehouse's six
    dates between the cloth landing and the stores showing it; online two weeks
    after stores on the one that is live. */
 {
@@ -1263,7 +1263,7 @@ optionRequests.forEach(r => r.options.filter(o => o.status === 'po-raised' && o.
     const live = c.liveOn!; const d = (n: number) => iso(addDays(live, -n)); const base = (c.naming.newName ?? c.name).replace(/ Shirt.*$/, '');
     c.swatch = { inwardOn: d(16), handoverOn: d(14), priority: true, cutOn: d(11), stickerOn: d(10), dispatchedOn: d(9), photosOn: d(9), storesToldOn: d(1) };
     const cat: 'Formal' | 'Casual' = /casual|check|madras|linen/i.test(c.name) ? 'Casual' : 'Formal';
-    shirtNames(base).slice(0, 5).forEach((n, k) => design(c, n, cat, (c.naming.mrp ?? 2990) + [0, -300, 200, 500, 300][k], d(12)));
+    design(c, shirtNames(base)[0], cat, c.naming.mrp ?? 2990, d(12));
     c.enigma.largeCheck = /check|madras/i.test(c.name); c.enigma.compositionFamily = /linen/i.test(c.name) ? 'Linen blend' : 'Cotton';
     c.online = { photosOn: iso(addDays(live, 3)), videoOn: iso(addDays(live, 7)), postOn: iso(addDays(live, 11)), liveOn: daysAgo(live) >= 14 ? iso(addDays(live, 14)) : null };
   });
@@ -1273,7 +1273,7 @@ optionRequests.forEach(r => r.options.filter(o => o.status === 'po-raised' && o.
     c.swatch = w === 0 ? { inwardOn: daysBack(3), handoverOn: null, priority: true, cutOn: null, stickerOn: null, dispatchedOn: null, photosOn: null, storesToldOn: null }
       : w === 1 ? { inwardOn: daysBack(6), handoverOn: daysBack(5), priority: false, cutOn: daysBack(2), stickerOn: null, dispatchedOn: null, photosOn: null, storesToldOn: null }
       : { inwardOn: daysBack(9), handoverOn: daysBack(8), priority: false, cutOn: daysBack(5), stickerOn: daysBack(4), dispatchedOn: daysBack(2), photosOn: daysBack(2), storesToldOn: null };
-    if (w !== 0) shirtNames(base).slice(0, w === 1 ? 2 : 3).forEach((n, i2) => design(c, n, 'Formal', 2990 + i2 * 300, daysBack(4)));
+    if (w !== 0) design(c, shirtNames(base)[0], 'Formal', 2990, daysBack(4));
   });
 }
 /* ---------- how the cloth is bought: BSC buys it for every bulk style (no FOB — Riddhiman, 3 Oct 2026) ---------- */

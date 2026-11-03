@@ -33,7 +33,7 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
     setEditId(null); setAdding(false); setV(blank);
   };
   const form = <div className="px-3 py-2 mt-2" style={{ background:'var(--accent-soft)', borderRadius: 6 }}>
-    <div className="label" style={{ margin:'0 0 2px' }}>{editId ? 'Edit design' : 'Add a design on this fabric'}{f ? <span className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}> · {f.code}</span> : null}</div>
+    <div className="label" style={{ margin:'0 0 2px' }}>{editId ? 'Edit design' : 'The design on this fabric'}{f ? <span className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}> · {f.code}</span> : null}</div>
     <div className="vgrid pt-1">
       <div className="vgrid-cap">The shirt</div>
       <div style={{ gridColumn:'span 5' }}><Field label="Design name" hint="the working name; marketing's final name replaces it on Name & price" hintOn="label"><Input value={v.name} onChange={e => setV({ ...v, name: e.target.value })} placeholder={`${(f?.name ?? c.name).replace(/ - .*$/, '')} Shirt - Half Sleeve`} /></Field></div>
@@ -79,7 +79,7 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
   </div>;
 
   return <>
-    {!compact && <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>One fabric, several designs. The fabric — <span className="mono">{f?.code ?? '…'}</span>{f?.composition ? `, ${f.composition}` : ''}{f?.swatchBook ? `, ${f.swatchBook}` : ''} — is shared; each design is its own sellable shirt with its own product code, style, name, MRP, cost and description. Shopify sells the product code. The fabric has one sticker, shared by all its designs.</div>}
+    {!compact && <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>One fabric, one product code. The fabric — <span className="mono">{f?.code ?? '…'}</span>{f?.composition ? `, ${f.composition}` : ''}{f?.swatchBook ? `, ${f.swatchBook}` : ''} — carries one design: its product code, name, MRP, cost and description. Sleeve, collar and the rest are chosen on the order sheet. Shopify sells the product code; the fabric has one sticker.</div>}
     {designs.length > 0 && <div style={{ overflowX:'auto' }}><table className="t compact">
       <thead><tr><th>Design · product code</th><th>Style · type</th><th className="num">MRP · cost</th><th>Status</th></tr></thead>
       <tbody>{designs.map(d => <tr key={d.id} style={{ background: editId === d.id ? 'var(--accent-soft)' : undefined }}>
@@ -97,7 +97,7 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
         </td>
       </tr>)}</tbody>
     </table></div>}
-    {canEdit ? ((adding || editId) ? form : <div className="pt-2"><Button size="sm" variant={designs.length ? undefined : 'primary'} onClick={() => { setV(blank); setAdding(true); }}>+ Add a design</Button></div>)
+    {canEdit ? ((adding || editId) ? form : <div className="pt-2">{designs.length ? null : <Button size="sm" variant="primary" onClick={() => { setV(blank); setAdding(true); }}>+ Add the design</Button>}</div>)
       : <ActsBy role="sourcing" does="creates the designs on this fabric, each with its product code, style, MRP and cost" />}
   </>;
 }

@@ -1007,13 +1007,13 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         if (c.optionsExtension) c.optionsExtension.resolvedOn = now(); },
         `Fabric PO ${'raised'} — on the fabric master for sourcing to chase; the metres count as incoming.`);
     },
-    /* One fabric, several designs. Each gets the PRODUCT CODE the master carries
-       (BOM-SHI-xx-nnnn), and all of them hang off the one fabric code. */
+    /* One fabric, one design: in MTM a fabric carries one PRODUCT CODE (BOM-SHI-xx-nnnn);
+       sleeve, collar and the rest are chosen on the order sheet, not as separate designs. */
     conceptAddDesign(id, d) {
-      touch(db => { const c = db.concepts.find(x => x.id === id); if (!c) return;
+      touch(db => { const c = db.concepts.find(x => x.id === id); if (!c || (c.designs ?? []).length) return;
         const seq = 4200 + db.concepts.reduce((a, x) => a + (x.designs?.length ?? 0), 0);
         c.designs = [...(c.designs ?? []), { id:`dsn-${Date.now().toString(36)}-${seq}`, code:`BOM-SHI-${d.category === 'Formal' ? 'FM' : 'CS'}-${seq}`, name: d.name.trim(), finalName: null, style: d.style ?? null, category: d.category, mrp: d.mrp, cost: d.cost ?? null, productType: d.productType ?? 'CUSTOM_DESIGN', weightGrams: d.weightGrams ?? null, region: d.region ?? 'IND', stockMode: d.stockMode ?? 'track-quantity', status: d.status ?? 'ACTIVE', salesChannel: d.salesChannel ?? null, discountedPrice: d.discountedPrice ?? null, media: d.media ?? [], sizes: d.sizes ?? ['36', '38', '40', '42', '44', '46'], variants: d.variants ?? (d.sizes ?? ['36', '38', '40', '42', '44', '46']).map(sz => ({ size: sz, price: d.mrp, discountedPrice: d.discountedPrice ?? null, sku: `BOM-SHI-${d.category === 'Formal' ? 'FM' : 'CS'}-${seq}-${sz}` })), description: d.description ?? null, buzzwords: d.buzzwords ?? null, enigmaOn: null, liveOn: null, setOn: now(), by: who() }]; },
-        'Design added — its product code is minted; the fabric\u2019s one sticker is unchanged.');
+        'Design added — the fabric\u2019s product code is minted.');
     },
     conceptUpdateDesign(id, designId, patch) {
       touch(db => { const d = (db.concepts.find(x => x.id === id)?.designs ?? []).find(x => x.id === designId); if (!d) return;
@@ -1641,7 +1641,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 126,
+  version: 127,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1653,7 +1653,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 126 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 127 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

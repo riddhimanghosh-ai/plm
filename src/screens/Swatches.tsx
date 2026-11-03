@@ -20,11 +20,11 @@ import { MTM_ONLY } from '../domain/edition';
 
 type Step = 'inward' | 'handover' | 'cut' | 'sticker' | 'dispatched' | 'photos' | 'storesTold';
 /* The warehouse is two people. Shravani receives the cloth, ships, and keeps the
-   tracker. Yusuf runs the swatch desk: he gets the design codes and the sticker
+   tracker. Yusuf runs the swatch desk: he gets the product code and the sticker
    file, cuts the 25 × 25 swatches for every store, and sends the photos. */
 const ALL_STEPS: { key: Step; label: string; owner: 'warehouse' | 'design'; who: string; hint: string }[] = [
   { key:'inward',     label:'Bulk received', owner:'warehouse', who:'Shravani', hint:'the tracker’s "Fabric Bulk Received date" — the cloth is in the warehouse' },
-  { key:'handover',   label:'To Yusuf',      owner:'warehouse', who:'Shravani', hint:'"Fabric Team handover date for swatches" — the cloth, the design codes and the sticker file go to Yusuf' },
+  { key:'handover',   label:'To Yusuf',      owner:'warehouse', who:'Shravani', hint:'"Fabric Team handover date for swatches" — the cloth, the product code and the sticker file go to Yusuf' },
   { key:'cut',        label:'Cut',           owner:'warehouse', who:'Yusuf',    hint:'25 × 25 swatches cut and prepared, one set per store' },
   { key:'sticker',    label:'Sticker',       owner:'warehouse', who:'Yusuf',    hint:'the sticker page printed off the record — the "Sticker Link" column, as a date' },
   { key:'photos',     label:'Photos',        owner:'warehouse', who:'Yusuf',    hint:'photos of what was cut and packed, so design can see what went' },
@@ -117,7 +117,7 @@ function SwatchDetail({ c, wh, design }: { c: Concept; wh: boolean; design: bool
   const storeName = (id: string) => STORES.find(x => x.id === id)?.name ?? id;
   return <>
     {/* ── the designs on this fabric — the product master's rows ── */}
-    <Section title={`Designs on this fabric · ${designs.length}`} collapsible={false} ownerRole="sourcing" pending={false} right={<Pill tone={designs.length ? 'good' : 'warn'}>{designs.length ? `${designs.length} product code${designs.length === 1 ? '' : 's'}` : 'none yet'}</Pill>}>
+    <Section title="Design on this fabric" collapsible={false} ownerRole="sourcing" pending={false} right={<Pill tone={designs.length ? 'good' : 'warn'}>{designs.length ? designs[0].code : 'none yet'}</Pill>}>
       <DesignsOnFabric c={c} canEdit={wh || design} />
     </Section>
 
@@ -163,7 +163,7 @@ function SwatchDetail({ c, wh, design }: { c: Concept; wh: boolean; design: bool
 }
 
 /** The sticker page: one sticker per fabric (fabric code, name and article, book, price). The swatch at the store
-    carries the fabric, not each design, so the designs on it share the one sticker. Shown on the swatch desk and on
+    carries the fabric and its one product code. Shown on the swatch desk and on
     the requirement; printing marks the sticker step only on the swatch desk in the full edition. */
 export function StickerSheet({ c, canMark, title }: { c: Concept; canMark: boolean; title?: string }) {
   const { db, conceptSwatch } = useApp();
@@ -201,7 +201,7 @@ export function StickerSheet({ c, canMark, title }: { c: Concept; canMark: boole
       <div className="flex items-end gap-2 flex-wrap">
         <div><span className="label">Layout</span><div className="seg"><button type="button" className={layout === 'label' ? 'on' : ''} onClick={() => setLayout('label')}>Label</button><button type="button" className={layout === 'page' ? 'on' : ''} onClick={() => setLayout('page')}>Full page</button></div></div>
         <Button variant="primary" onClick={printSticker}>Print sticker{c.swatch?.stickerOn || !canMark || MTM_ONLY ? '' : ' & mark'}</Button>
-        <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>One sticker for the fabric{(c.designs ?? []).length > 1 ? `; its ${(c.designs ?? []).length} designs share it` : ''}</span>
+        <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>One sticker for the fabric</span>
       </div>
     </Section>
   </>;

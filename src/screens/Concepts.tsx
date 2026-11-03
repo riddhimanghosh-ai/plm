@@ -314,9 +314,9 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
       /* the five stages in sequence — the current one opens, the rest sit folded in order */
       return <>{flow.steps.map(x => <div key={x.key}>{bodies[x.key]}</div>)}</>; })()}
 
-    {/* designs (design codes) can be added at any point, not only once the cloth is in — so they sit outside the stages, always open */}
-    <Section title={`Designs & stickers · ${(c.designs ?? []).length}`} defaultOpen owner={<OwnerPill owner="Design" />} right={<Pill tone={(c.designs ?? []).length ? 'good' : 'neutral'}>{(c.designs ?? []).length ? `${(c.designs ?? []).length} design code${(c.designs ?? []).length === 1 ? '' : 's'}` : 'none yet'}</Pill>}>
-      <div className="text-[12px] pb-1" style={{ color:'var(--ink-faint)' }}>Add a design code at any stage. Each design gets its own product code. The fabric has one sticker, shared by its designs; it carries the fabric code once the fabric is in the master.</div>
+    {/* the design (one product code per fabric) can be added at any point, not only once the cloth is in — so they sit outside the stages, always open */}
+    <Section title="Design & sticker" defaultOpen owner={<OwnerPill owner="Design" />} right={<Pill tone={(c.designs ?? []).length ? 'good' : 'neutral'}>{(c.designs ?? [])[0]?.code ?? 'none yet'}</Pill>}>
+      <div className="text-[12px] pb-1" style={{ color:'var(--ink-faint)' }}>Add the design at any stage: one product code per fabric (sleeve, collar and the rest are chosen on the order sheet). The fabric has one sticker; it carries the fabric code once the fabric is in the master.</div>
       <DesignsOnFabric c={c} canEdit={sourcing || design} />
       <div className="pt-3"><StickerSheet c={c} canMark={false} title="Sticker · one per fabric" /></div>
     </Section>
