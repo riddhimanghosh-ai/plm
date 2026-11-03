@@ -261,7 +261,7 @@ export interface AppState {
   addVendor(v: { name: string; kind: VendorKind; location: string; region: string; leadDays: number; moq: number; enigma: NonNullable<Vendor['enigma']> }): string;   // sourcing: a vendor as Enigma's Add Vendor form takes it
   updateVendor(id: string, patch: Partial<Pick<Vendor, 'tailors' | 'distanceKm' | 'leadDays' | 'moq' | 'dailyTarget' | 'corporate' | 'urgentReserve' | 'mtm' | 'location' | 'region' | 'blockWindowDays' | 'enigma' | 'name' | 'kind'>>): void;
   raiseExtraFabric(input: Pick<ExtraFabricRequest, 'orderId' | 'metres' | 'reason' | 'panel' | 'note'>): void;   // one piece of a bundle, never the whole bundle
-  decideExtraFabric(id: string, status: 'approved' | 'declined' | 'sent'): void;
+  decideExtraFabric(id: string, status: 'approved' | 'declined' | 'sent', reason?: string): void;
   /* warehouse — bespoke */
   reportMillStock(fabricId: string, available: boolean, metres?: number): void;
   inwardBespoke(code: string): { ok: boolean; orderNo?: string };
@@ -1520,14 +1520,17 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       run(structuredClone(get().db));   // dry run for the toast wording
       touch(run, msg);
     },
-    decideExtraFabric(id, status) {
+    decideExtraFabric(id, status, reason) {
       touch(db => { const r = (db.extraFabric ?? []).find(x => x.id === id); if (!r) return;
         const wasLive = r.status === 'requested';
+        /* nothing on the shelf to give: a normal ask cannot be approved until stock is in (or Shravani raises a PO) */
+        if (status === 'approved' && wasLive) { const f0 = db.fabrics.find(x => x.id === r.fabricId); if (f0 && f0.bucket !== 'BESPOKE' && f0.stockMetres - f0.reservedMetres < r.metres) return; }
+        if (status === 'declined') r.declineReason = (reason ?? '').trim() || null;
         r.status = status; r.decidedOn = r.decidedOn ?? now();
         /* approval is the inventory event — the metres leave the shelf the moment the production unit says yes */
         /* bespoke cloth is not kept in inventory, so there is nothing to deduct */
         if (status === 'approved' && wasLive) { const f = db.fabrics.find(x => x.id === r.fabricId); if (f && f.bucket !== 'BESPOKE') f.stockMetres = Math.max(0, Math.round((f.stockMetres - r.metres) * 100) / 100); }
-      }, status === 'approved' ? 'Approved — inventory deducted, fabric team gets the cut list.' : status === 'declined' ? 'Declined.' : 'Marked sent to the factory.', status === 'declined' ? 'warn' : 'ok');
+      }, status === 'approved' ? 'Approved — inventory deducted, fabric team gets the cut list.' : status === 'declined' ? 'Declined — the reason goes to the factory.' : 'Marked sent to the factory.', status === 'declined' ? 'warn' : 'ok');
     },
 
     reportMillStock(fabricId, available, metres) { touch(db => { const f = db.fabrics.find(x => x.id === fabricId); if (f) { f.millAvailable = available; if (metres != null) f.millStockMetres = metres; else if (!available) f.millStockMetres = 0; f.millReportedAt = now(); if (!available) f.onHold = true; if (available && f.onHold) f.onHold = false; } }, available ? `Mill stock updated${metres != null ? ` — ${metres} m` : ''} — orderable.` : 'Reported sold out at the mill — switched off on Shopify and in stores.', available ? 'ok' : 'warn'); },
@@ -1641,7 +1644,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 127,
+  version: 128,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1653,7 +1656,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 127 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 128 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

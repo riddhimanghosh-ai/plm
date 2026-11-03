@@ -659,6 +659,7 @@ export interface ExtraFabricRequest {
   status: 'requested' | 'po-needed' | 'approved' | 'declined' | 'sent';
   source?: 'factory' | 'alteration';   // 27 Oct 2026: the alteration / hemming unit asks for cloth too
   decidedOn: string | null; note: string;
+  declineReason?: string | null;   // 3 Nov 2026: a decline says why, for the factory to read
   /* bespoke cloth is not on BSC's shelf: production hands the shortfall to Shravani, who raises a PO with the mill;
      when the cloth is in, the request comes back to production to approve (proposed 21 Oct 2026, not final) */
   po?: { handedOn: string; by: string; poNo: string | null; raisedOn: string | null; clothInOn: string | null } | null;

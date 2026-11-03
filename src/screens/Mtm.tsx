@@ -87,7 +87,6 @@ function ChangesTab({ onOpen }: { onOpen: (id: string) => void }) {
   return <>
     <div className="flex gap-1.5 flex-wrap mb-3 items-center">
       <button type="button" className={`btn sm ${side === 'me' ? 'primary' : ''}`} onClick={() => setSide('me')}>Changed · pending with me · {mine}</button>
-      <button type="button" className={`btn sm ${side === 'others' ? 'primary' : ''}`} onClick={() => setSide('others')}>Changed · pending with the factory · {theirs}</button>
       {rows.length > 0 && <Button size="sm" variant="ghost" onClick={() => (side === 'me' ? markChangeSeen(rows.map(r => r.o.id)) : markFactoryTold(rows.map(r => r.o.id)))}>
         {side === 'me' ? `Mark all ${rows.length} read` : `Log all ${rows.length} as told`}</Button>}
       <span className="ml-auto">{ex.strip}</span>
@@ -423,6 +422,15 @@ function ExtraFabricForm({ o, onDone }: { o: CustomerOrder; onDone: () => void }
 }
 
 /* ---------- Extra fabric queue --------------------------------------------- */
+/** Decline asks why: the reason is kept on the ask and the factory reads it */
+function DeclineWithReason({ onDecline }: { onDecline: (why: string) => void }) {
+  const [open, setOpen] = useState(false); const [why, setWhy] = useState('');
+  if (!open) return <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>Decline</Button>;
+  return <div className="flex gap-1 items-center"><Input value={why} onChange={e => setWhy(e.target.value)} placeholder="why it is declined" style={{ width: 170 }} autoFocus />
+    <Button size="sm" variant="danger" disabled={!why.trim()} onClick={() => onDecline(why.trim())}>Decline</Button>
+    <button type="button" className="vlink text-[11.5px]" onClick={() => { setOpen(false); setWhy(''); }}>cancel</button></div>;
+}
+
 export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; onOpen: (id: string) => void }) {
   const { db, decideExtraFabric, routeExtraFabricPo } = useApp();
   const order = (id: string) => (db.customerOrders ?? []).find(o => o.id === id);
@@ -472,19 +480,23 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
           <td className="text-[12.5px]"><VendorLink id={r.factoryId} /></td>
           <td className="text-[12.5px]">{r.panel}</td><td className="num">{r.metres} m</td>
           <td className="text-[12px]"><span style={{ color: r.reason.includes('factory') ? 'var(--risk)' : 'var(--warn)' }}>{r.reason}</span>{r.note && <div style={{ color:'var(--ink-faint)' }}>{r.note}</div>}</td>
-          <td><Pill tone={TONE[r.status]}>{r.status === 'po-needed' && r.po?.raisedOn ? 'PO raised · cloth awaited' : STATUS[r.status] ?? r.status}</Pill>{f?.bucket === 'BESPOKE' && <div className="pt-0.5"><Pill tone="accent">bespoke</Pill></div>}{r.source === 'alteration' && <div className="pt-0.5"><Pill tone="info">alteration</Pill></div>}{r.po && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.po.poNo ? `${r.po.poNo}${r.po.clothInOn ? ' · cloth in' : ' · raised'}` : 'PO not raised yet'}</div>}</td>
+          <td><Pill tone={TONE[r.status]}>{r.status === 'po-needed' && r.po?.raisedOn ? 'PO raised · cloth awaited' : STATUS[r.status] ?? r.status}</Pill>{r.status === 'declined' && r.declineReason && <div className="text-[11px]" style={{ color:'var(--ink-soft)', whiteSpace:'normal', maxWidth: 200 }}>why: {r.declineReason}</div>}{f?.bucket === 'BESPOKE' && <div className="pt-0.5"><Pill tone="accent">bespoke</Pill></div>}{r.source === 'alteration' && <div className="pt-0.5"><Pill tone="info">alteration</Pill></div>}{r.po && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.po.poNo ? `${r.po.poNo}${r.po.clothInOn ? ' · cloth in' : ' · raised'}` : 'PO not raised yet'}</div>}</td>
           <td onClick={e => e.stopPropagation()} className="flex gap-1">
-            {mine && r.status === 'requested' && (() => { const short = !!f && (f.bucket === 'BESPOKE' || (r.source !== 'alteration' && f.stockMetres - f.reservedMetres < r.metres)); /* alteration: normal is approved here, bespoke goes to Shravani */ return <>
-              {short && !r.po ? <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani for a PO</Button>
-                : <Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'approved')}>Approve</Button>}
-              <Button size="sm" variant="ghost" onClick={() => decideExtraFabric(r.id, 'declined')}>Decline</Button></>; })()}
+            {mine && r.status === 'requested' && (() => { const bsp = !!f && f.bucket === 'BESPOKE'; const low = !!f && !bsp && f.stockMetres - f.reservedMetres < r.metres;
+              /* bespoke goes to Shravani; a normal fabric with too little on the shelf shows low inventory and Approve is greyed out */
+              return <div className="flex flex-col gap-1 items-start">
+              {bsp && !r.po ? <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani for a PO</Button>
+                : <Button size="sm" variant="primary" disabled={low} title={low ? 'Low inventory: not enough of this fabric on the shelf to approve' : undefined} onClick={() => decideExtraFabric(r.id, 'approved')}>Approve</Button>}
+              {low && <Pill tone="risk">low inventory</Pill>}
+              {low && !r.po && <button type="button" className="vlink text-[11.5px]" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani for a PO</button>}
+              <DeclineWithReason onDecline={why => decideExtraFabric(r.id, 'declined', why)} /></div>; })()}
             {(mine || wh) && r.status === 'po-needed' && !r.po?.raisedOn && <Button size="sm" onClick={() => routeExtraFabricPo(r.id, 'raised')}>{f && f.bucket !== 'BESPOKE' && f.stockMetres - f.reservedMetres >= r.metres ? 'Shravani: approve · issue from stock' : 'Shravani: approve & raise PO'}</Button>}
             {(mine || wh) && r.status === 'po-needed' && r.po?.raisedOn && <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'cloth-in')}>Cloth in · back to approval</Button>}
             {wh && r.status === 'approved' && <Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'sent')}>Picked & sent</Button>}
           </td>
         </tr>); })}</tbody>
     </table></Card>}
-    <div className="mt-3"><Note>Approve is the inventory event: the metres leave physical stock the moment it is approved. Alteration and hemming asks are approved here like any other and deducted from physical stock. Only bespoke cloth, or a fabric with too little on the shelf, goes to Shravani in one click: she approves and the PO is generated; when the cloth is in, it comes back here to approve. Bespoke is never BSC's inventory: nothing is booked in or deducted.</Note></div>
+    <div className="mt-3"><Note>Approve is the inventory event: the metres leave physical stock the moment it is approved. Alteration and hemming asks are approved here like any other and deducted from physical stock. A fabric with too little on the shelf shows low inventory and cannot be approved. A decline asks why; the reason goes to the factory. Only bespoke cloth, or a fabric with too little on the shelf, goes to Shravani in one click: she approves and the PO is generated; when the cloth is in, it comes back here to approve. Bespoke is never BSC's inventory: nothing is booked in or deducted.</Note></div>
   </>;
 }
 

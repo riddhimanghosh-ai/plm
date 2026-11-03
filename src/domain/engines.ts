@@ -906,19 +906,16 @@ export const sheetEditMode = (o: CustomerOrder, _who: 'store' | 'unit' = 'unit')
 };
 /** A sheet change nobody has acted on — before allocation it is production's own
     to read; after it, production has to ring the factory that is holding it. */
-/** The factory's own view of the same thing: a piece on my floor whose sheet
-    changed after it left the unit, that nobody here has read yet. */
-export const factoryUnread = (o: CustomerOrder): boolean => {
-  const last = (o.revisions ?? [])[(o.revisions ?? []).length - 1];
-  if (!last || o.kind !== 'MTM' || !o.factoryId || ['delivered', 'cancelled'].includes(o.stage)) return false;
-  return !o.changeFactorySeenOn || o.changeFactorySeenOn < last.at;
-};
+/** Nothing reaches the factory once a piece is on a plan: measurements and styling lock,
+    and the only edit left (a logistics remark) is for shipping. So the factory never has a
+    changed sheet to read. Kept as a function so callers stay simple. */
+export const factoryUnread = (_o: CustomerOrder): boolean => { void _o; return false; };
 export const changePendingOf = (o: CustomerOrder): 'me' | 'others' | null => {
   const last = (o.revisions ?? [])[(o.revisions ?? []).length - 1];
   if (!last || o.kind !== 'MTM' || ['delivered', 'cancelled'].includes(o.stage)) return null;
-  const allocated = !!o.factoryId;
-  if (!allocated) return o.changeSeenOn && o.changeSeenOn >= last.at ? null : 'me';
-  return o.changeToldFactoryOn && o.changeToldFactoryOn >= last.at ? null : 'others';
+  /* once on a plan only a logistics remark can change, and that is shipping's, never the factory's */
+  if (o.factoryId) return null;
+  return o.changeSeenOn && o.changeSeenOn >= last.at ? null : 'me';
 };
 export const lastRevision = (o: CustomerOrder) => (o.revisions ?? [])[(o.revisions ?? []).length - 1];
 /** the sheet's version: V1 as punched, V2 after the first change, V3 after the second — what the store and the factory both call it */

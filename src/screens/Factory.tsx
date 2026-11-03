@@ -9,7 +9,7 @@ import type { CustomerOrder, ExtraFabricRequest, ProductionOrder } from '../doma
 import { FabricFinalisationSection, DocsChecklist, SizeGrid } from './RtwGates';
 import { MilestoneGrid } from './Tracker';
 import { fabricStateOf, riskOf, rtwDocsOf, factoryStateOf, fmtMoney } from '../domain/engines';
-import { factoryLoadOf, factoryUnread, needsReprint, sheetRev, sheetVersion, fmtDate, fmtRel, daysAgo, iso, TODAY } from '../domain/engines';
+import { factoryLoadOf, needsReprint, sheetRev, sheetVersion, fmtDate, fmtRel, daysAgo, iso, TODAY } from '../domain/engines';
 import { EXTRA_FABRIC_PANELS, EXTRA_FABRIC_REASONS, PANEL_METRES, AGING_DAYS, MTM_STAGES, STORES } from '../domain/reference';
 import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, Field, Input, Select, useExamples, Seg, Section, KV, type Tone } from '../ui';
 import { RecordTail } from './RecordTail';
@@ -36,7 +36,6 @@ export function Factory() {
   if (!v) return <Page title="My factory"><Card><Empty title="No MTM factory." body="" /></Card></Page>;
   const l = factoryLoadOf(db, v.id);
   const orders = [...l.inTransit, ...l.wip, ...l.ready].sort((a, b) => a.promisedOn.localeCompare(b.promisedOn));
-  const unread = orders.filter(factoryUnread);
   const xf = (db.extraFabric ?? []).filter(r => r.factoryId === v.id);
   const openOrder = (db.customerOrders ?? []).find(o => o.id === params.get('open')) ?? null;
   const rtw = db.orders.filter(o => o.vendorId === v.id && o.status === 'Open').sort((a, b) => a.targetInhouse.localeCompare(b.targetInhouse));
@@ -49,9 +48,9 @@ export function Factory() {
 
   return (
     <Page title={`My factory · ${v.name}`} lede="Everything this floor owes the production unit and everything it is owed."
-      replaces="the WhatsApp output photo, the call about a power cut, the extra-fabric email, and finding out about a changed collar when the shirt is already cut"
+      replaces="the WhatsApp output photo, the call about a power cut, the extra-fabric email"
       actions={<div style={{ width: 220 }}><Field label="Factory"><Select value={v.id} onChange={setFactory} options={factories.map(f => ({ value:f.id, label:f.name }))} /></Field></div>}>
-      {!mine && <div className="mb-2"><ActsBy role="merchandiser" does="runs this floor — keys in the day's output, reads the changes and asks for cloth" inline /></div>}
+      {!mine && <div className="mb-2"><ActsBy role="merchandiser" does="runs this floor — keys in the day's output and asks for cloth" inline /></div>}
 
       {!MTM_ONLY && <div className="mb-3"><Seg value={side} onChange={setSide} options={[
         { id:'mtm', label:'MTM · customer shirts, by the piece', count: orders.length, hint: v.mtm ? undefined : 'this factory does not stitch made-to-measure' },
@@ -62,12 +61,10 @@ export function Factory() {
         <Tabs active={tab} onChange={t => set('tab', t)} tabs={[
           { id:'today', label:"Today · output and the day's status" },
           { id:'orders', label:'Pieces allocated to us', count: orders.length },
-          { id:'changes', label:'Changed after it reached us', count: unread.length },
           { id:'fabric', label:'Ask for extra cloth', count: xf.filter(r => r.status === 'requested').length },
         ]} />
         {tab === 'today' && <TodayTab v={v} mine={mine} keyed={keyed} scanned={l.outToday} avg={l.avgOut} />}
         {tab === 'orders' && <OrdersTab orders={orders} mine={mine} onOpen={id => set('open', id)} />}
-        {tab === 'changes' && <ChangesTab orders={unread} mine={mine} onOpen={id => set('open', id)} />}
         {tab === 'fabric' && <AskTab v={v} mine={mine} orders={orders} rows={xf} onOpen={id => set('open', id)} />}
       </>}
 
@@ -134,18 +131,18 @@ function TodayTab({ v, mine, keyed, scanned, avg }: { v: { id: string; name: str
 function OrdersTab({ orders, mine, onOpen }: { orders: CustomerOrder[]; mine: boolean; onOpen: (id: string) => void }) {
   const { db, scanOrders } = useApp();
   const [sel, setSel] = useState<Set<string>>(new Set());
-  const [only, setOnly] = useState<'all' | 'transit' | 'floor' | 'ready' | 'changed' | 'late'>('all');
+  const [only, setOnly] = useState<'all' | 'transit' | 'floor' | 'ready' | 'late'>('all');
   const inAt = (o: CustomerOrder) => o.scans.find(sc => sc.stage === 'in-factory')?.at;
   const rows = orders.filter(o => only === 'all' ? true : only === 'transit' ? o.stage === 'in-transit' : only === 'floor' ? o.stage === 'in-factory'
-    : only === 'ready' ? o.stage === 'out-factory' || o.stage === 'rts' : only === 'changed' ? factoryUnread(o) : daysAgo(o.promisedOn) > 0);
+    : only === 'ready' ? o.stage === 'out-factory' || o.stage === 'rts' : daysAgo(o.promisedOn) > 0);
   const toggle = (id: string) => setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const ex = useExamples(rows, o => factoryUnread(o) ? 'changed' : daysAgo(o.promisedOn) > 0 ? 'late' : o.stage, { noun: 'pieces', done: o => o.stage === 'out-factory' || o.stage === 'rts' });
+  const ex = useExamples(rows, o => daysAgo(o.promisedOn) > 0 ? 'late' : o.stage, { noun: 'pieces', done: o => o.stage === 'out-factory' || o.stage === 'rts' });
   const count = (k: typeof only) => orders.filter(o => k === 'all' ? true : k === 'transit' ? o.stage === 'in-transit' : k === 'floor' ? o.stage === 'in-factory'
-    : k === 'ready' ? o.stage === 'out-factory' || o.stage === 'rts' : k === 'changed' ? factoryUnread(o) : daysAgo(o.promisedOn) > 0).length;
+    : k === 'ready' ? o.stage === 'out-factory' || o.stage === 'rts' : daysAgo(o.promisedOn) > 0).length;
   const fabric = (o: CustomerOrder) => db.fabrics.find(f => f.id === o.fabricId);
   return <>
     <div className="flex gap-1.5 flex-wrap mb-2 items-center">
-      {([['all', 'Everything'], ['transit', 'On its way here'], ['floor', 'On the floor'], ['ready', 'Ready to go back'], ['changed', 'Changed since it arrived'], ['late', 'Past ship-by']] as const)
+      {([['all', 'Everything'], ['transit', 'On its way here'], ['floor', 'On the floor'], ['ready', 'Ready to go back'], ['late', 'Past ship-by']] as const)
         .map(([k, label]) => <button key={k} type="button" className={`btn sm ${only === k ? 'primary' : ''}`} onClick={() => setOnly(k)}>{label} · {count(k)}</button>)}
       <div className="flex-1" />
       {ex.strip}
@@ -159,7 +156,7 @@ function OrdersTab({ orders, mine, onOpen }: { orders: CustomerOrder[]; mine: bo
       <tbody>{ex.rows.map(o => { const d = inAt(o) ? daysAgo(inAt(o)!) : null; const late = daysAgo(o.promisedOn) > 0; const f = fabric(o); return (
         <tr key={o.id} className="row" onClick={() => onOpen(o.id)} style={{ background: sel.has(o.id) ? 'var(--accent-soft)' : undefined }}>
           <td onClick={e => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>
-          <td className="mono text-[12.5px]">{o.orderNo}{factoryUnread(o) && <div><Pill tone="risk">changed</Pill></div>}</td>
+          <td className="mono text-[12.5px]">{o.orderNo}</td>
           <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{o.customer}<div style={{ color:'var(--ink-faint)' }}>{store(o.storeId)}</div></td>
           <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{o.styleName}<div className="mono text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{f?.code} · {o.consumptionM} m</div></td>
           <td style={{ color: late ? 'var(--risk)' : undefined }}>{fmtDate(o.promisedOn)}{(o.promiseRevisions?.length ?? 0) > 0 && <span className="pill warn ml-1">moved</span>}{late && <div className="text-[11px]">{daysAgo(o.promisedOn)}d late</div>}</td>
@@ -173,30 +170,6 @@ function OrdersTab({ orders, mine, onOpen }: { orders: CustomerOrder[]; mine: bo
   </>;
 }
 
-/* ---------- Changed after it reached us ------------------------------------ */
-function ChangesTab({ orders, mine, onOpen }: { orders: CustomerOrder[]; mine: boolean; onOpen: (id: string) => void }) {
-  const { markFactoryRead } = useApp();
-  const ex = useExamples(orders, o => needsReprint(o) ? 'new sheet' : o.stage, { noun: 'changed pieces', done: o => !needsReprint(o) });
-  if (orders.length === 0) return <Card><Empty title="Nothing has changed on this floor's pieces." body="A customer who changes their mind after the bundle reaches you lands here — the collar, the cuff, a measurement or a remark — so nobody cuts to yesterday's sheet." /></Card>;
-  return <>
-    <div className="flex justify-end items-center gap-3 mb-2">{ex.strip}{mine && <Button size="sm" variant="ghost" onClick={() => markFactoryRead(orders.map(o => o.id))}>Mark all {orders.length} read</Button>}</div>
-    <Card><div style={{ overflowX:'auto' }}><table className="t compact">
-      <thead><tr><th>Order</th><th>Customer · store</th><th>What changed</th><th>Why · who</th><th>When</th><th>Stage</th><th></th></tr></thead>
-      <tbody>{ex.rows.map(o => { const rev = o.revisions[o.revisions.length - 1]; return (
-        <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
-          <td className="mono text-[12.5px]">{o.orderNo}<div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{o.styleName}</div></td>
-          <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{o.customer}<div style={{ color:'var(--ink-faint)' }}>{store(o.storeId)}</div></td>
-          <td style={{ whiteSpace:'normal', minWidth: 210 }}>{rev.changes.map((c, i) => <div key={i} className="text-[12.5px]"><b>{c.field}</b> <span style={{ color:'var(--ink-faint)' }}>{c.from}</span> → <span style={{ color:'var(--accent)' }}>{c.to}</span></div>)}
-            {o.remarks && <div className="text-[11px]" style={{ color:'var(--ink-soft)' }}>remark: “{o.remarks}”</div>}</td>
-          <td className="text-[12px]" style={{ whiteSpace:'normal', minWidth: 150 }}>“{rev.note}”<div style={{ color:'var(--ink-faint)' }}>{rev.by}</div></td>
-          <td className="text-[12px]">{fmtRel(rev.at)}</td>
-          <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>{needsReprint(o) && <div><Pill tone="risk">sheet not re-issued</Pill></div>}</td>
-          <td onClick={e => e.stopPropagation()}>{mine && <Button size="sm" variant="primary" onClick={() => markFactoryRead([o.id])}>Acknowledged</Button>}</td>
-        </tr>); })}</tbody>
-    </table></div></Card>
-    <div className="mt-3"><Note>Work to the revision on the order, not the paper in the bundle; marking it read stops the unit chasing.</Note></div>
-  </>;
-}
 
 /* ---------- Ask for extra cloth -------------------------------------------- */
 function AskTab({ v, mine, orders, rows, onOpen }: { v: { id: string; name: string }; mine: boolean; orders: CustomerOrder[]; rows: ExtraFabricRequest[]; onOpen: (id: string) => void }) {
@@ -261,7 +234,7 @@ function AskTab({ v, mine, orders, rows, onOpen }: { v: { id: string; name: stri
             <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{ord?.orderNo}<div style={{ color:'var(--ink-faint)' }}>{fb?.name}</div></td>
             <td className="text-[12.5px]">{r.panel}</td><td className="num">{r.metres} m</td>
             <td className="text-[12px]" style={{ whiteSpace:'normal', maxWidth: 220 }}><span style={{ color: r.reason.includes('factory') ? 'var(--risk)' : 'var(--warn)' }}>{r.reason}</span>{r.note && <div style={{ color:'var(--ink-faint)' }}>{r.note}</div>}</td>
-            <td><Pill tone={TONE[r.status]}>{r.status}</Pill>{r.decidedOn && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{fmtRel(r.decidedOn)}</div>}</td>
+            <td><Pill tone={TONE[r.status]}>{r.status}</Pill>{r.decidedOn && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{fmtRel(r.decidedOn)}</div>}{r.status === 'declined' && r.declineReason && <div className="text-[11px]" style={{ color:'var(--ink-soft)', whiteSpace:'normal', maxWidth: 220 }}>why: {r.declineReason}</div>}</td>
           </tr>); })}</tbody>
       </table></div>}
     </Card>
@@ -275,7 +248,7 @@ function AskTab({ v, mine, orders, rows, onOpen }: { v: { id: string; name: stri
    travels with the bundle on paper today; here it is the same sheet, with the
    changes the store made since marked on it. */
 function OrderPanel({ o, mine }: { o: CustomerOrder; mine: boolean }) {
-  const { db, markFactoryRead, scanOrders } = useApp();
+  const { db, scanOrders } = useApp();
   const f = db.fabrics.find(x => x.id === o.fabricId);
   const revs = o.revisions ?? [];
   const changedFields = new Set(revs.flatMap(r => r.changes.map(c => c.field)));
@@ -291,7 +264,6 @@ function OrderPanel({ o, mine }: { o: CustomerOrder; mine: boolean }) {
       {mine && <div className="flex gap-2 pt-3">
         {o.stage === 'in-transit' && <Button size="sm" onClick={() => scanOrders([o.id], 'in-factory')}>Received on the floor</Button>}
         {o.stage === 'in-factory' && <Button size="sm" variant="primary" onClick={() => scanOrders([o.id], 'out-factory')}>Out of the factory</Button>}
-        {factoryUnread(o) && <Button size="sm" onClick={() => markFactoryRead([o.id])}>Mark the change read</Button>}
       </div>}
     </div></Card>
     {o.spec && <Card className="mt-3" data-section="Order sheet · the job card">

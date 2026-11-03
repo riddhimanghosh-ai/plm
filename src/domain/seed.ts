@@ -747,6 +747,11 @@ const extraFabric: ExtraFabricRequest[] = xfOrders.map((o, k) => {
   return { id:`xf-${k}`, orderId: o.id, fabricId: o.fabricId!, factoryId: o.factoryId!, metres: PANEL_METRES[panel], reason: pick(EXTRA_FABRIC_REASONS), panel,
     planId: o.planId ?? null, raisedBy: `${V(o.factoryId!).name} merchandiser`, raisedOn: iso(raised), status: k === 1 && isBespoke(o) ? 'po-needed' : k < 4 ? 'requested' : k < 7 ? 'approved' : 'sent', decidedOn: k < 4 ? null : iso(addDays(raised, 1)), po: k === 1 && isBespoke(o) ? { handedOn: iso(raised), by: 'Swati', poNo: null, raisedOn: null, clothInOn: null } : null, note: k === 1 ? 'Second time this week on this fabric lot' : '' };
 });
+/* one normal ask on a fabric with nothing left on the shelf: it shows low inventory and cannot be approved */
+{ const r = extraFabric.find(x => x.status === 'requested' && !isBespoke(customerOrders.find(o => o.id === x.orderId)!));
+  const f = r && fabrics.find(x => x.id === r.fabricId); if (f) f.stockMetres = f.reservedMetres; }
+/* and one already declined, with the reason the factory reads */
+{ const r = extraFabric.find(x => x.status === 'sent'); if (r) { r.status = 'declined'; r.declineReason = 'Panel allowance is 0.3 m for a cuff; recut from the offcut in the bundle.'; } }
 
 /* what each factory keyed in as its own count for the last few days — the number
    the merchandiser stands behind, next to the one the scans produce */
