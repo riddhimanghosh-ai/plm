@@ -100,7 +100,7 @@ export function SheetChangePanel({ o, who }: { o: CustomerOrder; who: 'store' | 
   const saveHead = () => { editOrderSheet(o.id, { fabricId: head.fabricId || undefined, fit: head.fit || undefined, tag: head.tag as OrderTag, remarks: head.remarks }, why, who); setHeadOpen(false); setNote(''); };
 
   return (
-    <Section title={`Order sheet · ${sheetVersion(o)}${(o.revisions ?? []).length ? ` · changed ${(o.revisions ?? []).length === 1 ? 'once' : `${(o.revisions ?? []).length} times`}` : ' · as punched'}`} right={<div className="flex gap-2 items-center">
+    <Section title={<>Order sheet · <span style={{ color: (o.revisions ?? []).length ? 'var(--warn)' : 'var(--accent)', fontWeight: 700 }}>{sheetVersion(o)}</span>{(o.revisions ?? []).length ? ` · changed ${(o.revisions ?? []).length === 1 ? 'once' : `${(o.revisions ?? []).length} times`}` : ' · as punched'}</>} right={<div className="flex gap-2 items-center">
       {needsReprint(o) && <Pill tone="risk">amended · re-issue to factory</Pill>}
       <Pill tone="neutral">as ordered by the customer</Pill>
       {canEdit ? <span className="edit-hint">✎ click any field to correct it</span> : <Pill tone={(mode as string) === 'free' ? 'good' : mode === 'amend' ? 'warn' : mode === 'remarks' ? 'info' : 'neutral'}>{(mode as string) === 'free' ? (canEdit ? 'click a field to correct it' : 'correctable by the unit') : mode === 'amend' ? 'corrections re-issue the sheet' : mode === 'remarks' ? 'allocated — remarks only' : 'closed'}</Pill>}
