@@ -150,7 +150,7 @@ p("Here the desk runs from cloth in to the handover to Yusuf; cut, sticker, disp
 steps([
  ["7.1", "Cloth in → to Yusuf · warehouse", "1. Every new fabric with received metres, each with Handed to Yusuf (tick Priority-1 if urgent).\n2. The row keeps dates, who, files and conversation.", "the receiving line (6.5)", "steps in order", "design sees “with Yusuf”; Priority-1 reminds until done"],
 ])
-b("Phase two.", "Yusuf cuts swatches for every store, prints the sticker (fabric code, design name with article, book, price), dispatches one parcel per store and takes photos; design marks stores told; a name or price change after printing flags a reprint.")
+b("Phase two.", "Yusuf cuts swatches for every store, prints the fabric’s one sticker (fabric code, name with article, book, price; shared by its designs), dispatches one parcel per store and takes photos; design marks stores told; a name or price change after printing flags a reprint.")
 
 # ------------------------------------------------------------------ 11
 h2("11. Workflow 8 — Conversation and files on every record")
