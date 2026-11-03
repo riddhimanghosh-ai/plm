@@ -2,8 +2,8 @@
    warehouse writes the dates as the cloth moves (bulk received, handed to the
    swatch team, cut, sticker printed, dispatched, photos), one dispatch row per
    store fans out underneath, and design tells the stores and switches it on.
-   Priority-1 sorts to the top. The sticker page prints off the record — one box
-   per design on the fabric — so the tracker's empty "Sticker Link" column
+   Priority-1 sorts to the top. The sticker prints off the record — one per
+   fabric — so the tracker's empty "Sticker Link" column
    becomes a date. Go live is a button, not a gate: design can switch a fabric
    on whenever it decides to. */
 import { useMemo, useState } from 'react';
@@ -162,64 +162,46 @@ function SwatchDetail({ c, wh, design }: { c: Concept; wh: boolean; design: bool
   </>;
 }
 
-/** The sticker page: one label per design on the fabric (code, name and article, book, price). Shown on the swatch desk
-    and on the requirement once designs exist; printing marks the sticker step only on the swatch desk in the full edition. */
+/** The sticker page: one sticker per fabric (fabric code, name and article, book, price). The swatch at the store
+    carries the fabric, not each design, so the designs on it share the one sticker. Shown on the swatch desk and on
+    the requirement; printing marks the sticker step only on the swatch desk in the full edition. */
 export function StickerSheet({ c, canMark, title }: { c: Concept; canMark: boolean; title?: string }) {
   const { db, conceptSwatch } = useApp();
   const s = conceptOf(db, c); const f = s.fabric;
-  const designs = c.designs ?? [];
-  /* one sticker per design: there is no per-store copy count */
-  const [layout, setLayout] = useState<'labels' | 'pages'>('labels');
+  const d0 = (c.designs ?? [])[0];
+  const [layout, setLayout] = useState<'label' | 'page'>('label');
   /* The label, five lines, as the sheet they print today:
        BER.DOSOYE-1816            the fabric code
-       Purcell - 13728            the name, then the mill's article (or the product code)
+       Purcell - 13728            the name, then the mill's article (or the first design's product code)
        SOKTAS BESPOKE             the swatch book
-       MRP 6990
+       MRP 6990                   the fabric's price (the base design's when none is set)
        Incl. of all taxes */
-  const labels = (designs.length ? designs.map(d => ({ name: d.finalName ?? d.name, mrp: d.mrp, code: d.code })) : [{ name: f?.name ?? designName(c), mrp: c.naming.mrp, code: '' }])
-    .map(b => ({ l1: f?.code ?? '', l2: `${b.name}${f?.vendorCode ? ` - ${f.vendorCode}` : b.code ? ` - ${b.code}` : ''}`, l3: (f?.swatchBook ?? '').toUpperCase(), l4: b.mrp != null ? `MRP ${b.mrp.toLocaleString('en-IN')}` : 'MRP —', l5: 'Incl. of all taxes' }));
-  const perPage = 21;   // 3 across × 7 down on A4
-  /* the sticker sheet: every design's label, repeated once per swatch going out */
+  const name = c.naming.newName ?? d0?.finalName ?? d0?.name ?? f?.name ?? designName(c);
+  const mrp = c.naming.mrp ?? d0?.mrp ?? null;
+  const l = { l1: f?.code ?? '', l2: `${name}${f?.vendorCode ? ` - ${f.vendorCode}` : d0?.code ? ` - ${d0.code}` : ''}`, l3: (f?.swatchBook ?? '').toUpperCase(), l4: mrp != null ? `MRP ${mrp.toLocaleString('en-IN')}` : 'MRP —', l5: 'Incl. of all taxes' };
   const printSticker = () => {
-    const n = 1;
     const w = window.open('', '_blank', 'width=760,height=980'); if (!w) return;
-    if (layout === 'pages') {
-      /* one page per design: the big sticker the store cuts and sticks on the swatch */
-      const page = (l: typeof labels[number]) => `<div class="pg"><div class="b"><div class="c">${l.l1}</div><div class="n">${l.l2}</div><div class="k">${l.l3}</div><div class="p">${l.l4}</div><div class="s">${l.l5}</div></div></div>`;
-      w.document.write(`<!doctype html><title>Stickers · ${f?.name ?? designName(c)}</title><style>
-        @page { size: A4; margin: 14mm; } body { margin:0; font-family: Calibri, -apple-system, Helvetica, Arial, sans-serif; color:#222; }
-        .pg { page-break-after: always; height: calc(100vh - 28mm); display:flex; align-items:center; justify-content:center; }
-        .b { border: 1px dashed #999; padding: 18mm 16mm; text-align:center; min-width: 120mm; }
-        .c { font-family: ui-monospace, Menlo, monospace; font-size: 16px; color:#555; } .n { font-size: 30px; font-weight: 700; margin: 10px 0 6px; line-height: 1.2; } .k { font-size: 14px; letter-spacing:.04em; } .p { font-size: 24px; margin-top: 10px; } .s { font-size: 12px; margin-top: 6px; color:#666; }
-        </style>${labels.map(page).join('')}<script>window.onload=()=>{window.print();}</script>`);
-    } else {
-      const all = labels.flatMap(l => Array.from({ length: n }, () => l));
-      const cell = (l: typeof labels[number]) => `<div class="c"><div>${l.l1}</div><div>${l.l2}</div><div>${l.l3}</div><div>${l.l4}</div><div class="s">${l.l5}</div></div>`;
-      const pages: string[] = []; for (let i = 0; i < all.length; i += perPage) pages.push(`<div class="pg">${all.slice(i, i + perPage).map(cell).join('')}</div>`);
-      w.document.write(`<!doctype html><title>Stickers · ${f?.name ?? designName(c)}</title><style>
-        @page { size: A4; margin: 10mm; } body { margin:0; font-family: Calibri, -apple-system, Helvetica, Arial, sans-serif; color:#222; }
-        .pg { display:grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 36mm; page-break-after: always; border-top:1px solid #333; border-left:1px solid #333; }
-        .c { border-right:1px solid #333; border-bottom:1px solid #333; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-size: 12.5px; line-height: 1.45; padding: 2mm; }
-        .c .s { font-size: 9.5px; }
-        </style>${pages.join('')}<script>window.onload=()=>{window.print();}</script>`);
-    }
+    const css = layout === 'page'
+      ? `@page { size: A4; margin: 14mm; } .pg { height: calc(100vh - 28mm); display:flex; align-items:center; justify-content:center; }
+         .b { border: 1px dashed #999; padding: 18mm 16mm; text-align:center; min-width: 120mm; }
+         .c { font-family: ui-monospace, Menlo, monospace; font-size: 16px; color:#555; } .n { font-size: 30px; font-weight: 700; margin: 10px 0 6px; line-height: 1.2; } .k { font-size: 14px; letter-spacing:.04em; } .p { font-size: 24px; margin-top: 10px; } .s { font-size: 12px; margin-top: 6px; color:#666; }`
+      : `@page { size: A4; margin: 10mm; } .b { width: 63mm; height: 36mm; border:1px solid #333; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-size: 12.5px; line-height: 1.45; padding: 2mm; box-sizing:border-box; } .s { font-size: 9.5px; }`;
+    const body = `<div class="b"><div class="c">${l.l1}</div><div class="n">${l.l2}</div><div class="k">${l.l3}</div><div class="p">${l.l4}</div><div class="s">${l.l5}</div></div>`;
+    w.document.write(`<!doctype html><title>Sticker · ${f?.name ?? designName(c)}</title><style>body { margin:0; font-family: Calibri, -apple-system, Helvetica, Arial, sans-serif; color:#222; } ${css}</style>${layout === 'page' ? `<div class="pg">${body}</div>` : body}<script>window.onload=()=>{window.print();}</script>`);
     w.document.close();
     if (canMark && !MTM_ONLY && !c.swatch?.stickerOn) conceptSwatch(c.id, 'sticker');
   };
 
   return <>
-    {/* ── the sticker page: one box per design ── */}
-    <Section title={title ?? 'The sticker page'} collapsible={false} ownerRole="warehouse" pending={false} right={<Pill tone={c.swatch?.stickerOn ? 'good' : 'neutral'}>{c.swatch?.stickerOn ? `printed ${fmtDate(c.swatch.stickerOn)}` : 'not printed'}</Pill>}>
-      <div className="my-2" style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', borderTop:'1px solid var(--ink-soft)', borderLeft:'1px solid var(--ink-soft)', background:'var(--surface)', maxWidth: 560 }}>
-        {labels.map((l, i) => <div key={i} className="text-center" style={{ borderRight:'1px solid var(--ink-soft)', borderBottom:'1px solid var(--ink-soft)', padding:'10px 6px', fontSize: 11.5, lineHeight: 1.4 }}>
-          <div className="mono">{l.l1 || '—'}</div><div>{l.l2}</div><div>{l.l3 || <span style={{ color:'var(--warn)' }}>no swatch book</span>}</div><div style={{ color: l.l4 === 'MRP —' ? 'var(--warn)' : undefined }}>{l.l4}</div><div style={{ fontSize: 9, color:'var(--ink-faint)' }}>{l.l5}</div>
-        </div>)}
+    {/* ── the sticker page: one sticker for the fabric ── */}
+    <Section title={title ?? 'The sticker'} collapsible={false} ownerRole="warehouse" pending={false} right={<Pill tone={c.swatch?.stickerOn ? 'good' : 'neutral'}>{c.swatch?.stickerOn ? `printed ${fmtDate(c.swatch.stickerOn)}` : 'not printed'}</Pill>}>
+      <div className="my-2 text-center" style={{ border:'1px solid var(--ink-soft)', background:'var(--surface)', width: 220, padding:'10px 6px', fontSize: 11.5, lineHeight: 1.4 }}>
+        <div className="mono">{l.l1 || '—'}</div><div>{l.l2}</div><div>{l.l3 || <span style={{ color:'var(--warn)' }}>no swatch book</span>}</div><div style={{ color: l.l4 === 'MRP —' ? 'var(--warn)' : undefined }}>{l.l4}</div><div style={{ fontSize: 9, color:'var(--ink-faint)' }}>{l.l5}</div>
       </div>
       <div className="flex items-end gap-2 flex-wrap">
-        <div><span className="label">Layout</span><div className="seg"><button type="button" className={layout === 'labels' ? 'on' : ''} onClick={() => setLayout('labels')}>Label sheet · 3 × 7</button><button type="button" className={layout === 'pages' ? 'on' : ''} onClick={() => setLayout('pages')}>One page per design</button></div></div>
-
-        <Button variant="primary" onClick={printSticker}>Print {layout === 'pages' ? `${labels.length} sticker page${labels.length === 1 ? '' : 's'}` : 'sticker sheet'}{c.swatch?.stickerOn || !canMark || MTM_ONLY ? '' : ' & mark'}</Button>
-        <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{labels.length} sticker{labels.length === 1 ? '' : 's'}, one per design</span>
+        <div><span className="label">Layout</span><div className="seg"><button type="button" className={layout === 'label' ? 'on' : ''} onClick={() => setLayout('label')}>Label</button><button type="button" className={layout === 'page' ? 'on' : ''} onClick={() => setLayout('page')}>Full page</button></div></div>
+        <Button variant="primary" onClick={printSticker}>Print sticker{c.swatch?.stickerOn || !canMark || MTM_ONLY ? '' : ' & mark'}</Button>
+        <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>One sticker for the fabric{(c.designs ?? []).length > 1 ? `; its ${(c.designs ?? []).length} designs share it` : ''}</span>
       </div>
     </Section>
   </>;

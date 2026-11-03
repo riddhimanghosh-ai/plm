@@ -79,7 +79,7 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
   </div>;
 
   return <>
-    {!compact && <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>One fabric, several designs. The fabric — <span className="mono">{f?.code ?? '…'}</span>{f?.composition ? `, ${f.composition}` : ''}{f?.swatchBook ? `, ${f.swatchBook}` : ''} — is shared; each design is its own sellable shirt with its own product code, style, name, MRP, cost and description. Shopify sells the product code. The sticker sheet carries one label per design.</div>}
+    {!compact && <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>One fabric, several designs. The fabric — <span className="mono">{f?.code ?? '…'}</span>{f?.composition ? `, ${f.composition}` : ''}{f?.swatchBook ? `, ${f.swatchBook}` : ''} — is shared; each design is its own sellable shirt with its own product code, style, name, MRP, cost and description. Shopify sells the product code. The fabric has one sticker, shared by all its designs.</div>}
     {designs.length > 0 && <div style={{ overflowX:'auto' }}><table className="t compact">
       <thead><tr><th>Product code</th><th>Design</th><th>Style</th><th>Type</th><th className="num">MRP</th><th className="num">Cost</th><th>Status</th><th></th></tr></thead>
       <tbody>{designs.map(d => <tr key={d.id} style={{ background: editId === d.id ? 'var(--accent-soft)' : undefined }}>

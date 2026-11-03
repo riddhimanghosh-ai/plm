@@ -1013,7 +1013,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { const c = db.concepts.find(x => x.id === id); if (!c) return;
         const seq = 4200 + db.concepts.reduce((a, x) => a + (x.designs?.length ?? 0), 0);
         c.designs = [...(c.designs ?? []), { id:`dsn-${Date.now().toString(36)}-${seq}`, code:`BOM-SHI-${d.category === 'Formal' ? 'FM' : 'CS'}-${seq}`, name: d.name.trim(), finalName: null, style: d.style ?? null, category: d.category, mrp: d.mrp, cost: d.cost ?? null, productType: d.productType ?? 'CUSTOM_DESIGN', weightGrams: d.weightGrams ?? null, region: d.region ?? 'IND', stockMode: d.stockMode ?? 'track-quantity', status: d.status ?? 'ACTIVE', salesChannel: d.salesChannel ?? null, discountedPrice: d.discountedPrice ?? null, media: d.media ?? [], sizes: d.sizes ?? ['36', '38', '40', '42', '44', '46'], variants: d.variants ?? (d.sizes ?? ['36', '38', '40', '42', '44', '46']).map(sz => ({ size: sz, price: d.mrp, discountedPrice: d.discountedPrice ?? null, sku: `BOM-SHI-${d.category === 'Formal' ? 'FM' : 'CS'}-${seq}-${sz}` })), description: d.description ?? null, buzzwords: d.buzzwords ?? null, enigmaOn: null, liveOn: null, setOn: now(), by: who() }]; },
-        'Design added — its product code is minted; the sticker sheet gets one more label.');
+        'Design added — its product code is minted; the fabric\u2019s one sticker is unchanged.');
     },
     conceptUpdateDesign(id, designId, patch) {
       touch(db => { const d = (db.concepts.find(x => x.id === id)?.designs ?? []).find(x => x.id === designId); if (!d) return;

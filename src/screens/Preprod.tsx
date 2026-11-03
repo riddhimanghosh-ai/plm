@@ -169,7 +169,9 @@ function PrepOrderPanel({ o, step, onXml }: { o: CustomerOrder; step: PrepStep; 
           : !e ? <Button size="sm" variant="primary" onClick={() => prepTake([o.id], step)}>Take up</Button>
           : <><Input value={remark} onChange={ev => setRemark(ev.target.value)} placeholder="remark (optional)" style={{ width: 200 }} />
             <Button size="sm" variant="primary" disabled={step === 'cad' && !o.cadFile} onClick={() => { prepDone([o.id], step, remark.trim()); setRemark(''); }}>{step === 'compiling' ? 'Approve & mark compiled' : 'Mark done'}</Button>
-            {step === 'cad' && !o.cadFile && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>upload the CAD file first</span>}</>}
+            {step === 'cad' && <label className={`btn sm ${o.cadFile ? '' : 'primary'}`} style={{ cursor: 'pointer' }}>{o.cadFile ? 'Replace CAD file' : 'Upload CAD file'}
+              <input type="file" accept=".dxf,.plt,.cut,.pdf,.xml,.zip" style={{ display: 'none' }} onChange={ev => { const file = ev.target.files?.[0]; if (file) uploadCad(o.id, file.name); ev.target.value = ''; }} /></label>}
+            {step === 'cad' && !o.cadFile && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>upload the CAD file to mark done</span>}</>}
         {!bl && <span className="flex gap-1 items-center"><Input value={why} onChange={ev => setWhy(ev.target.value)} placeholder="why it is blocked" style={{ width: 180 }} /><Button size="sm" variant="ghost" disabled={!why.trim()} onClick={() => { prepBlock([o.id], step, why.trim()); setWhy(''); }}>Mark blocked</Button></span>}
       </div>}
     </Section>
