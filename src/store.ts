@@ -830,7 +830,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     pauseFabric(fabricId, note) { touch(db => { const f = db.fabrics.find(x => x.id === fabricId); if (f) f.paused = { at: now(), by: who(), note }; },
       'Paused — no store or the website can offer it until design resumes it. The reason is on the record.', 'warn'); },
     resumeFabric(fabricId) { touch(db => { const f = db.fabrics.find(x => x.id === fabricId); if (f) f.paused = null; }, 'Resumed — back in the book and orderable again.'); },
-    setFabricHold(fabricId, hold) { touch(db => { const f = db.fabrics.find(x => x.id === fabricId); if (f) f.onHold = hold; }, hold ? 'Switched off on Shopify and in stores.' : 'Restored to sale.'); },
+    setFabricHold(fabricId, hold) { touch(db => { const f = db.fabrics.find(x => x.id === fabricId); if (f) f.onHold = hold; }, hold ? 'Inactive: off Shopify and the stores.' : 'Active: back on sale.'); },
     raiseFabricPo(fabricId, metres) { touch(db => { const f = db.fabrics.find(x => x.id === fabricId); if (!f) return; f.incomingMetres = (f.incomingMetres ?? 0) + metres;
         const v = db.vendors.find(x => x.id === f.vendorId); db.fabricPos = db.fabricPos ?? [];
         db.fabricPos.unshift({ id:`fpo-${Date.now().toString(36)}`, poNo:`FPO-${7100 + db.fabricPos.length}`, fabricId, vendorId: f.vendorId, metres, raisedOn: now(), source: f.international ? 'manual' : 'auto', expectedOn: iso(addDays(TODAY, v?.leadDays ?? 14)), vendorConfirmedOn: null, vendorConfirmedBy: null, remark: '', receivedOn: null }); }, `PO for ${metres} m raised — now counting as incoming cover until the GRN lands.`); },
