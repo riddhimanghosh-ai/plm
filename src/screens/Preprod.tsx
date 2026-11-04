@@ -157,6 +157,7 @@ function PrepOrderPanel({ o, step, onXml }: { o: CustomerOrder; step: PrepStep; 
   const { db, prepTake, prepDone, prepBlock, uploadCad } = useApp();
   const [why, setWhy] = useState(''); const [remark, setRemark] = useState('');
   const f = db.fabrics.find(x => x.id === o.fabricId);
+  const rack = step === 'cutting' || step === 'compiling';   // the desks that go to the rack
   const e = o.prep?.[step]; const bl = o.prepBlocked?.[step]; const p = prepOf(o);
   const atThis = p.next?.key === step;
   const plan = (db.plans ?? []).find(x => x.id === o.planId);
@@ -176,23 +177,24 @@ function PrepOrderPanel({ o, step, onXml }: { o: CustomerOrder; step: PrepStep; 
       </div>}
     </Section>
 
+    {/* only cutting (and compiling, for contrast) goes to the rack: CAD and fusing see the cloth's name, not its image or bin */}
     <Section title="Fabric" collapsible={false} right={f && <span className="mono text-[11.5px]">{f.code}</span>}>
       {f ? <>
-        <FabricImage f={f} height={step === 'cutting' ? 340 : 220} />
-        <div className="text-[11px] pt-1" style={{ color: 'var(--ink-faint)' }}>Fabric image from the backend (fabric master).</div>
+        {rack && <><FabricImage f={f} height={step === 'cutting' ? 340 : 220} />
+        <div className="text-[11px] pt-1" style={{ color: 'var(--ink-faint)' }}>Fabric image from the backend (fabric master).</div></>}
         <div className="grid gap-x-4 pt-2" style={{ gridTemplateColumns: '1fr 1fr' }}>
           <KV k="Fabric" v={f.name} /><KV k="To cut" v={`${o.consumptionM ?? '—'} m`} note="from the order sheet" />
           {f.composition && <KV k="Composition" v={f.composition} />}
-          <KV k="Bin" v={f.bucket === 'BESPOKE' ? 'bespoke parcel for this order' : binOf(f) ? `${binOf(f)!.bin} · ${f.inventory!.warehouse}` : 'no bin'} note={binOf(f) ? `${binOf(f)!.metres} m in the bin` : undefined} />
+          {rack && <KV k="Bin" v={f.bucket === 'BESPOKE' ? 'bespoke parcel for this order' : binOf(f) ? `${binOf(f)!.bin} · ${f.inventory!.warehouse}` : 'no bin'} note={binOf(f) ? `${binOf(f)!.metres} m in the bin` : undefined} />}
         </div>
-        {binOf(f) && <div className="pt-2"><div className="label">Where the roll is · from the backend</div><BinMap bin={binOf(f)!.bin} warehouse={f.inventory!.warehouse} />
+        {rack && binOf(f) && <div className="pt-2"><div className="label">Where the roll is · from the backend</div><BinMap bin={binOf(f)!.bin} warehouse={f.inventory!.warehouse} />
           <div className="label pt-2">Bin photo</div>
           {binOf(f)!.photoUrl ? <img src={binOf(f)!.photoUrl!} alt={`Bin ${binOf(f)!.bin}`} style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--line)' }} />
             : <div className="text-[12px] px-3 py-4" style={{ border: '1px dashed var(--line)', borderRadius: 10, color: 'var(--ink-faint)', textAlign: 'center' }}>Bin {binOf(f)!.bin} photo comes from the backend</div>}</div>}
       </> : <span style={{ color: 'var(--ink-faint)' }}>No fabric on the order.</span>}
       {(o.contrast ?? []).map(c => { const cf = db.fabrics.find(x => x.id === c.fabricId); const b = binOf(cf); return <div key={c.id} className="flex gap-3 pt-3 items-start">
-        {cf && <div style={{ width: 90, flex: 'none' }}><FabricImage f={cf} height={64} /></div>}
-        <div className="text-[12.5px]"><b>Contrast · {c.part}</b><div>{cf?.name} · {c.metres} m</div><div style={{ color: 'var(--ink-faint)' }}>{b ? `bin ${b.bin} · ${cf!.inventory!.warehouse}` : 'no bin'}{c.approvedOn ? ' · deducted' : ''}</div></div></div>; })}
+        {rack && cf && <div style={{ width: 90, flex: 'none' }}><FabricImage f={cf} height={64} /></div>}
+        <div className="text-[12.5px]"><b>Contrast · {c.part}</b><div>{cf?.name} · {c.metres} m</div>{rack && <div style={{ color: 'var(--ink-faint)' }}>{b ? `bin ${b.bin} · ${cf!.inventory!.warehouse}` : 'no bin'}{c.approvedOn ? ' · deducted' : ''}</div>}</div></div>; })}
     </Section>
 
     <Section title="CAD" collapsible={false}>
