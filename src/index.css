@@ -162,7 +162,7 @@ table.t td.num, table.t th.num { text-align: right; font-family: var(--mono); fo
 .stat .l { font-family: var(--body); font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
 .stat .n { font-family: var(--display); font-size: 28px; font-weight: 600; line-height: 1.1; margin-top: 4px; color: var(--accent); }
 .stat .n.warn { color: var(--warn); } .stat .n.risk { color: var(--risk); } .stat .n.good { color: var(--good); }
-.drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 50vw; min-width: 380px; max-width: calc(100vw - 120px); background: #fbfbf8; border-top: 4px solid var(--accent); border-left: 1px solid var(--line); box-shadow: -12px 0 40px rgb(0 0 0/.18); z-index: 50; overflow-y: auto; overflow-x: hidden; }
+.drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 82vw; min-width: 380px; max-width: calc(100vw - 120px); background: #fbfbf8; border-top: 4px solid var(--accent); border-left: 1px solid var(--line); box-shadow: -12px 0 40px rgb(0 0 0/.18); z-index: 50; overflow-y: auto; overflow-x: hidden; }
 /* a wide table scrolls in its own box, never the drawer: once the drawer scrolled
    sideways the title, the index and every heading slid off the left edge */
 .drawer .card { min-width: 0; }

@@ -233,18 +233,18 @@ export function useOverlay(open: boolean) {
   return () => drawerStack[drawerStack.length - 1] === me.current;
 }
 
-const DRAWER_W = 'bsc-plm-drawer-share';   // a fraction, not pixels — old pixel values under the previous key are ignored
+const DRAWER_W = 'bsc-plm-drawer-share-2';   // a fraction of the window; new key so earlier saved widths open at the new default
 export function Drawer({ open, onClose, title, subtitle, back, children }: { open: boolean; onClose: () => void; title: React.ReactNode; subtitle?: React.ReactNode; back?: { label: string; onClick: () => void }; children: React.ReactNode }) {
   const body = useRef<HTMLDivElement>(null);
   const onTop = useOverlay(open);
   const [sections, setSections] = useState<string[]>([]);
   const [here, setHere] = useState('');
-  /* Half the window by default — a record is read beside the list it came from,
-     not through a letterbox. Drag the left edge to change it; the width is
+  /* Most of the window by default (82%, 4 Nov 2026) — a record's forms need the room;
+     a sliver of the list stays visible behind it. Drag the left edge to change it; the width is
      remembered, because a person who wants it wide wants it wide every time. */
   /* remembered as a share of the window (0.35–0.9), so a width saved on a small
      screen does not come back as a sliver on a large one */
-  const [width, setWidth] = useState(() => { const f = Number(localStorage.getItem(DRAWER_W)); const share = f > 0.3 && f <= 0.95 ? f : 0.5; return Math.max(380, Math.round(window.innerWidth * share)); });
+  const [width, setWidth] = useState(() => { const f = Number(localStorage.getItem(DRAWER_W)); const share = f > 0.3 && f <= 0.95 ? f : 0.82; return Math.max(380, Math.round(window.innerWidth * share)); });
   const drag = useRef<{ x: number; w: number } | null>(null);
   const clamp = (w: number) => Math.max(380, Math.min(window.innerWidth - 120, w));
   useEffect(() => {

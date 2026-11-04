@@ -2,7 +2,7 @@
    factory or mill, derived from the orders, quotes, fabrics and blocks that
    already name it. Nothing here is typed twice. The drawer is global: any
    vendor name anywhere opens it via ?vendor= on the current route. */
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { factoryLoadOf as _fl } from '../domain/engines';
 void _fl;
@@ -351,28 +351,15 @@ export function FabricSourcingTab() {
   const [typeF, setTypeF] = useState('all');          // domestic · international
   const [bucketF, setBucketF] = useState('all');
   const [bookF, setBookF] = useState('all');
-  const [stateF, setStateF] = useState<'all' | 'buyable' | 'below-rop' | 'stopped' | 'blocked'>('all');
-  const [sort, setSort] = useState<'name' | 'price' | 'lead' | 'cover'>('name');
-  const [alt, setAlt] = useState<string | null>(null);
+  const [sort, setSort] = useState<'name' | 'price' | 'lead'>('name');
 
   const mills = db.vendors.filter(v => v.kind.endsWith('mill'));
   const millOf = (id: string) => mills.find(m => m.id === id);
-  /* The blocks sheet names the cloth in the mill's own words — "2-ply poplin ·
-     ART-4471" — never by Enigma's code. Match on the mill plus its article
-     number when there is one, else on the fabric name appearing in the line. */
-  const blocksOf = (fid: string) => { const f = db.fabrics.find(x => x.id === fid); if (!f) return [];
-    return (db.blocks ?? []).filter(b => { if (b.status !== 'held' || b.vendorId !== f.vendorId) return false;
-      const line = b.fabricName.toLowerCase(); const name = f.name.toLowerCase();
-      if (f.vendorCode && line.includes(f.vendorCode.toLowerCase())) return true;
-      return line.includes(name) || name.includes(line.split(' · ')[0]); }); };
   const books = [...new Set(db.fabrics.map(f => f.swatchBook).filter(Boolean) as string[])].sort();
 
   const row = (f: typeof db.fabrics[number]) => {
     const m = millOf(f.vendorId);
-    const c = coverageOf(f, m?.leadDays ?? 30, m);
-    const held = blocksOf(f.id);
-    const stopped = f.onHold || !!f.paused || f.supply?.status === 'out' || f.millAvailable === false;
-    return { f, m, c, held, stopped };
+    return { f, m };
   };
   const all = db.fabrics.map(row);
   const t = q.trim().toLowerCase();
@@ -382,19 +369,14 @@ export function FabricSourcingTab() {
     .filter(r => typeF === 'all' || (typeF === 'intl' ? r.f.international : !r.f.international))
     .filter(r => bucketF === 'all' || r.f.bucket === bucketF)
     .filter(r => bookF === 'all' || r.f.swatchBook === bookF)
-    .filter(r => stateF === 'all' ? true
-      : stateF === 'buyable' ? !r.stopped
-      : stateF === 'below-rop' ? r.c.belowRop && r.f.bucket !== 'BESPOKE'
-      : stateF === 'blocked' ? r.held.length > 0
-      : r.stopped)
     .sort((a, b) => sort === 'price' ? (a.f.cpm ?? 9e9) - (b.f.cpm ?? 9e9)
       : sort === 'lead' ? (a.m?.leadDays ?? 999) - (b.m?.leadDays ?? 999)
-      : sort === 'cover' ? a.c.coverDays - b.c.coverDays
       : a.f.name.localeCompare(b.f.name));
-  const ex = useExamples(rows, r => r.stopped ? 'stopped' : r.held.length ? 'blocked' : r.c.belowRop && r.f.bucket !== 'BESPOKE' ? 'below ROP' : 'buyable', { noun: 'fabrics', done: r => !r.stopped && r.held.length === 0 && !r.c.belowRop });
+  /* only what Enigma holds for a fabric: name, code, composition, panna, mill, mill country, TAT, MOQ, cost per unit, inventory type, swatch book */
+  const ex = useExamples(rows, r => r.f.bucket, { noun: 'fabrics' });
   const pager = usePager(ex.rows, 25);
-  const any = !!t || millF !== 'all' || typeF !== 'all' || bucketF !== 'all' || bookF !== 'all' || stateF !== 'all';
-  const clear = () => { setQ(''); setMillF('all'); setTypeF('all'); setBucketF('all'); setBookF('all'); setStateF('all'); };
+  const any = !!t || millF !== 'all' || typeF !== 'all' || bucketF !== 'all' || bookF !== 'all';
+  const clear = () => { setQ(''); setMillF('all'); setTypeF('all'); setBucketF('all'); setBookF('all'); };
   const count = (fn: (r: ReturnType<typeof row>) => boolean) => all.filter(fn).length;
 
   return <>
@@ -405,7 +387,7 @@ export function FabricSourcingTab() {
       <div style={{ width: 150 }}><Field label="Where from"><Select value={typeF} onChange={setTypeF} options={[{ value:'all', label:'Anywhere' }, { value:'dom', label:'Domestic' }, { value:'intl', label:'International' }]} /></Field></div>
       <div style={{ width: 140 }}><Field label="Bucket"><Select value={bucketF} onChange={setBucketF} options={[{ value:'all', label:'All' }, { value:'CORE', label:'Core' }, { value:'NON_CORE', label:'Non-core' }, { value:'BESPOKE', label:'Bespoke' }]} /></Field></div>
       <div style={{ width: 210 }}><Field label="Swatch book"><Select value={bookF} onChange={setBookF} options={[{ value:'all', label:'Any book' }, ...books.map(b => ({ value:b, label:b }))]} /></Field></div>
-      <div style={{ width: 130 }}><Field label="Sort by"><Select value={sort} onChange={v => setSort(v as typeof sort)} options={[{ value:'name', label:'Name' }, { value:'price', label:'Cheapest' }, { value:'lead', label:'Fastest' }, { value:'cover', label:'Least cover' }]} /></Field></div>
+      <div style={{ width: 130 }}><Field label="Sort by"><Select value={sort} onChange={v => setSort(v as typeof sort)} options={[{ value:'name', label:'Name' }, { value:'price', label:'Cheapest' }, { value:'lead', label:'Fastest' }]} /></Field></div>
       {any && <Button size="sm" variant="ghost" onClick={clear}>Clear</Button>}
       <div className="flex-1" />
       <div className="pb-2">{ex.strip}</div>
@@ -415,16 +397,9 @@ export function FabricSourcingTab() {
         { label:'Composition', get: r => r.f.composition ?? '' }, { label:'Width in', get: r => r.f.widthIn ?? '' },
         { label:'Cost per Unit', get: r => r.f.mill?.costPerUnit ?? r.f.cpm ?? '' }, { label:'Currency', get: r => r.f.mill?.currency ?? 'INR' }, { label:'TAT hours', get: r => r.f.mill?.tatHours ?? '' },
         { label:'MOQ', get: r => r.f.mill?.moq ?? '' }, { label:'Bucket', get: r => r.f.bucket },
-        { label:'Cover days', get: r => r.c.coverDays }, { label:'Book', get: r => r.f.swatchBook ?? '' }]} />
+        { label:'Book', get: r => r.f.swatchBook ?? '' }]} />
     </div>
 
-    <div className="mb-3"><Seg value={stateF} onChange={setStateF} label="Show" options={[
-      { id:'all', label:'Everything', count: all.length },
-      { id:'buyable', label:'Can be bought today', count: count(r => !r.stopped), hint:'not paused, not on hold, mill has not said no' },
-      { id:'below-rop', label:'Below reorder point', count: count(r => r.c.belowRop && r.f.bucket !== 'BESPOKE'), hint:'stock plus what is on order will not cover the lead time' },
-      { id:'blocked', label:'Already blocked for us', count: count(r => blocksOf(r.f.id).length > 0), hint:'the mill is holding metres against this cloth — convert it to a PO or release it before the window runs out. Few match today because the blocks sheet names cloth in the mill\u2019s words and carries no Enigma code.' },
-      { id:'stopped', label:'Stopped', count: count(r => r.stopped), hint:'paused by design, on hold, supply out, or sold out at the mill' },
-    ]} /></div>
 
     <Card><table className="t">
       <thead><tr>
@@ -433,50 +408,22 @@ export function FabricSourcingTab() {
         <Th>Vendor</Th>
         <Th num hint="Turn-around time in hours · minimum order in metres.">TAT · MOQ</Th>
         <Th num hint="Cost per Unit, in the mill's currency.">Cost / m</Th>
-        <Th hint="Can it be bought today? Hover for why not.">Buy</Th>
-        <Th hint="Other mills that make this cloth.">Compare</Th>
+        <Th>Inventory type</Th>
+        <Th>Swatch book</Th>
       </tr></thead>
       <tbody>{pager.pageRows.length === 0 ? <tr><td colSpan={8}><Empty title="No fabric matches that." body="Try the mill's article number, the composition, or clear the filters." /></td></tr>
-        : pager.pageRows.map(({ f, m, c, held, stopped }) => {
-        /* "the same cloth from someone else" is the same range and the same
-           composition — one line per rival mill, its best price first. */
-        const rivals = all.filter(x => x.f.id !== f.id && x.f.vendorId !== f.vendorId && x.f.family === f.family
-          && (!f.composition || !x.f.composition || x.f.composition === f.composition));
-        const byMill = new Map<string, typeof rivals[number]>();
-        [...rivals].sort((a, b) => (a.f.cpm ?? 9e9) - (b.f.cpm ?? 9e9)).forEach(x => { if (!byMill.has(x.f.vendorId)) byMill.set(x.f.vendorId, x); });
-        const sameFamily = [...byMill.values()];
-        const why = f.paused ? `paused by design — ${f.paused.note}` : f.onHold ? 'on hold — switched off for stores and Shopify' : f.supply?.status === 'out' ? `supplier out${f.supply.backOn ? ` — back ${fmtDate(f.supply.backOn)}` : ''}` : f.millAvailable === false ? 'sold out at the mill' : null;
-        return <Fragment key={f.id}>
-          <tr className="row" onClick={() => openFabric(f.id)}>
-            <td><span className="font-medium">{f.name}</span><div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.code}</div></td>
+        : pager.pageRows.map(({ f, m }) => <tr key={f.id} className="row" onClick={() => openFabric(f.id)}>
+            <td><span className="font-medium">{f.name}</span><div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.code}{f.vendorCode ? ` · ${f.vendorCode}` : ''}</div></td>
             <td className="text-[12.5px]">{f.composition ?? '—'}{(f.attrs?.panna ?? f.widthIn) ? <span style={{ color:'var(--ink-faint)' }}> · {f.attrs?.panna ?? f.widthIn}"</span> : null}</td>
-            <td className="text-[12.5px]"><VendorLink id={f.vendorId} />{held.length > 0 && <div className="text-[11px]" style={{ color:'var(--accent)' }}>{held.reduce((a, b) => a + b.metres, 0)} m held</div>}</td>
+            <td className="text-[12.5px]"><VendorLink id={f.vendorId} /><div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.international ? 'international' : 'domestic'}</div></td>
             <td className="num text-[12.5px]">{f.mill?.tatHours != null ? `${f.mill.tatHours} h` : m ? `${m.leadDays * 24} h` : '—'} · {f.mill?.moq ?? m?.moq ?? '—'} m</td>
             <td className="num mono">{f.mill?.costPerUnit != null ? `${f.mill.currency} ${f.mill.costPerUnit}` : f.cpm != null ? `INR ${f.cpm}` : '—'}</td>
-            <td><span title={why ?? (f.bucket === 'BESPOKE' ? 'bespoke — cut from the mill\'s own stock' : c.belowRop ? `below the reorder point — order ${c.suggestedPo} m` : `${c.coverDays > 365 ? '1y+' : `${c.coverDays}d`} of cover`)}>{stopped ? <Pill tone="risk">no</Pill> : <Pill tone={c.belowRop && f.bucket !== 'BESPOKE' ? 'warn' : 'good'}>yes</Pill>}</span></td>
-            <td className="text-[12px]">{sameFamily.length ? <button type="button" className="vlink" onClick={e => { e.stopPropagation(); setAlt(alt === f.id ? null : f.id); }}>{alt === f.id ? 'hide' : `${sameFamily.length} mill${sameFamily.length === 1 ? '' : 's'}`}</button> : <span style={{ color:'var(--ink-faint)' }}>—</span>}</td>
-          </tr>
-          {alt === f.id && sameFamily.length > 0 && <tr><td colSpan={8} style={{ background:'var(--surface-2)' }}>
-            <div className="text-[12px] mb-1.5" style={{ color:'var(--ink-soft)' }}>{f.family}{f.composition ? ` · ${f.composition}` : ''} from another mill — one line per mill, its cheapest article, dearest last. This is the choice: price against lead time against whether that mill holds its dates.</div>
-            <table className="t compact" style={{ background:'var(--surface)' }}>
-              <thead><tr><th>Fabric</th><th>Mill</th><th className="num">₹ / m</th><th className="num">vs this</th><th className="num">Lead</th><th className="num">On time</th><th>Can I buy it</th></tr></thead>
-              <tbody>{[...sameFamily].sort((a, b) => (a.f.cpm ?? 9e9) - (b.f.cpm ?? 9e9) || (a.m?.leadDays ?? 999) - (b.m?.leadDays ?? 999)).slice(0, 8).map(x => {
-                const d = f.cpm != null && x.f.cpm != null ? x.f.cpm - f.cpm : null;
-                return <tr key={x.f.id} className="row" onClick={e => { e.stopPropagation(); openVendor(x.f.vendorId); }}>
-                  <td>{x.f.name}<div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{x.f.code}</div></td>
-                  <td className="text-[12.5px]">{x.m?.name}<div style={{ color:'var(--ink-faint)' }}>{x.f.international ? 'international' : 'domestic'}</div></td>
-                  <td className="num mono">{x.f.cpm != null ? `₹${x.f.cpm}` : '—'}</td>
-                  <td className="num mono" style={{ color: d == null ? undefined : d < 0 ? 'var(--good)' : d > 0 ? 'var(--risk)' : undefined }}>{d == null ? '—' : d === 0 ? 'same' : `${d < 0 ? '−' : '+'}₹${Math.abs(d)}`}</td>
-                  <td className="num">{x.m?.leadDays ?? '—'}d</td>
-                  <td className="num">{x.m ? `${Math.round(x.m.onTimeRate * 100)}%` : '—'}</td>
-                  <td>{x.stopped ? <Pill tone="risk">no</Pill> : <Pill tone="good">yes</Pill>}</td>
-                </tr>; })}</tbody>
-            </table>
-          </td></tr>}
-        </Fragment>; })}</tbody>
+            <td className="text-[12.5px]">{f.bucket === 'CORE' ? 'Core' : f.bucket === 'BESPOKE' ? 'Bespoke' : 'Non-core'}</td>
+            <td className="text-[12px]">{f.swatchBook ?? '—'}</td>
+          </tr>)}</tbody>
     </table>
     <Pager page={pager.page} pageCount={pager.pageCount} onChange={pager.setPage} from={pager.from} to={pager.to} total={pager.total} noun="fabrics" />
     </Card>
-    <div className="mt-3"><Note>Price, lead, block window and on-time record sit on one line so choosing a mill does not need three sheets.</Note></div>
+    <div className="mt-3"><Note>Only what Enigma holds for each fabric: name, code and mill article, composition and panna, mill and where it is, TAT, MOQ, cost per unit, inventory type and swatch book. A row opens the fabric.</Note></div>
   </>;
 }
