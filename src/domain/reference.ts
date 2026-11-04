@@ -272,7 +272,7 @@ export const AGING_DAYS = 5;                    // in-factory longer than this i
 export const MTM_STAGES: { id: string; label: string; scan: string | null; who: string }[] = [
   { id:'punched',     label:'Order',                 scan:null,                            who:'store / online — order sheet: fabric, measurements, collar, cuff, buttons' },
   { id:'pp',          label:'PP',                    scan:null,                            who:'planning — waiting for a factory; frozen for store-side changes' },
-  { id:'planned',     label:'PP · planned',          scan:'plan submitted · job card printed · fabric cut', who:'production unit' },
+  { id:'planned',     label:'PP · planned',          scan:'plan submitted', who:'production unit' },
   { id:'in-transit',  label:'In production',         scan:'QR out of production unit',     who:'production unit — material on its way to the factory' },
   { id:'in-factory',  label:'In factory',            scan:'QR in at factory',              who:'factory merchandiser — manufacturing begins' },
   { id:'out-factory', label:'Out factory',           scan:'QR piece ready — QC done at the factory',  who:'factory merchandiser' },

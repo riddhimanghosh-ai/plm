@@ -4,7 +4,7 @@
    for its merchandiser — WIP aging, mark ready, ask for fabric.
    Fabric: the extra-fabric email as a queue whose approval moves inventory.
    Output: the WhatsApp shipping table and the aging pivot, derived. */
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
@@ -543,8 +543,13 @@ export function OrderSheet({ o, mine }: { o: CustomerOrder; mine: boolean }) {
     <SheetChangePanel o={o} who="unit" />
     <Section title="Stages" right={<Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>}>
       {MTM_STAGES.map(s => { const sc = o.scans.find(x => x.stage === s.id); const isNow = o.stage === s.id; const done = !!sc || (s.id === 'punched') || (s.id === 'pp' && o.stage !== 'punched'); return (
-        <div key={s.id} className="kv"><span className="k flex items-center gap-2"><span className="dot" style={{ background: done ? 'var(--good)' : isNow ? 'var(--warn)' : 'var(--line)' }} />{s.label}<span className="text-[11px]">· {s.who}</span></span>
-          <span className="v" style={{ color: sc ? undefined : 'var(--ink-faint)' }}>{sc ? `${fmtDate(sc.at)} · ${sc.by}` : s.id === 'punched' ? fmtDate(o.punchedOn) : s.scan ?? '—'}</span></div>); })}
+        <Fragment key={s.id}><div className="kv"><span className="k flex items-center gap-2"><span className="dot" style={{ background: done ? 'var(--good)' : isNow ? 'var(--warn)' : 'var(--line)' }} />{s.label}<span className="text-[11px]">· {s.who}</span></span>
+          <span className="v" style={{ color: sc ? undefined : 'var(--ink-faint)' }}>{sc ? `${fmtDate(sc.at)} · ${sc.by}` : s.id === 'punched' ? fmtDate(o.punchedOn) : s.scan ?? '—'}</span></div>
+        {/* after planning, the four pre-production desks at the unit, each with who took it up and finished it */}
+        {s.id === 'planned' && prepOf(o).steps.map(p => { const bl = o.prepBlocked?.[p.key]; const e = p.entry; return (
+          <div key={p.key} className="kv" style={{ paddingLeft: 18 }}><span className="k flex items-center gap-2"><span className="dot" style={{ background: bl ? 'var(--risk)' : p.state === 'done' ? 'var(--good)' : p.state === 'in progress' ? 'var(--warn)' : 'var(--line)' }} />{p.label}<span className="text-[11px]">· {p.team}</span></span>
+            <span className="v" style={{ color: e || bl ? undefined : 'var(--ink-faint)' }}>{bl ? <span style={{ color:'var(--risk)' }}>blocked · {bl.reason}</span> : e?.doneOn ? `${fmtDate(e.doneOn)} · ${e.doneBy}` : e ? `taken up by ${e.takenBy} · ${fmtRel(e.takenOn)}` : p.state === 'done' ? 'done' : 'pending'}</span></div>); })}
+        </Fragment>); })}
       {mine && n && <div className="pt-3"><Button size="sm" variant="primary" onClick={() => scanOrders([o.id], n.stage)}>{n.label} →</Button></div>}
     </Section>
     {xfs.length > 0 && <Section title="Extra fabric on this order">{xfs.map(r => <KV key={r.id} k={`${r.panel} · ${r.metres} m`} v={<Pill tone={r.status === 'approved' ? 'good' : r.status === 'requested' ? 'warn' : 'neutral'}>{r.status}</Pill>} note={`${r.reason} · ${fmtRel(r.raisedOn)}`} />)}</Section>}
