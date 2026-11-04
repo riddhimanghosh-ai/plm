@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { PrepStep, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview } from './domain/types';
+import type { PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
 import { prepOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
@@ -292,6 +292,9 @@ const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 export const useAppStore = create<AppState>()(persist((set, get) => {
   const who = () => PEOPLE.find(p => p.id === get().personId)?.name ?? 'System';
+  /* the desk log: one line per action with its time, never edited; the data behind how long each desk takes */
+  const logPrep = (o: CustomerOrder, step: PrepStep, action: PrepEvent['action'], note: string | null = null) => {
+    o.prepLog = [...(o.prepLog ?? []), { step, action, by: who(), at: now(), note }]; };
   const round2 = (n: number) => Math.round(n * 100) / 100;
 /* every sourcing action starts from a well-formed handoff state */
 const ensureSourcing = (o: ProductionOrder) => { o.sourcing = o.sourcing ?? { stage:'vendors', submittedOn: null, extension: null, fabricPo: null }; };
@@ -1473,13 +1476,14 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     },
     prepTake(orderIds, step) {
       touch(db => orderIds.forEach(id => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (!o) return;
-        o.prep = o.prep ?? {}; if (!o.prep[step]) o.prep[step] = { takenBy: who(), takenOn: now(), doneBy: null, doneOn: null, remark: null }; }),
+        o.prep = o.prep ?? {}; if (!o.prep[step]) { o.prep[step] = { takenBy: who(), takenOn: now(), doneBy: null, doneOn: null, remark: null }; logPrep(o, step, 'taken up'); } }),
         `${orderIds.length} order${orderIds.length === 1 ? '' : 's'} taken up: your name is on ${orderIds.length === 1 ? 'it' : 'them'}.`);
     },
     prepDone(orderIds, step, remark) {
       touch(db => orderIds.forEach(id => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (!o) return;
         o.prep = o.prep ?? {}; const e = o.prep[step] ?? { takenBy: who(), takenOn: now(), doneBy: null, doneOn: null, remark: null };
-        e.doneBy = who(); e.doneOn = now(); e.remark = remark || null; o.prep[step] = e;
+        if (!o.prep[step]) logPrep(o, step, 'taken up');
+        e.doneBy = who(); e.doneOn = now(); e.remark = remark || null; o.prep[step] = e; logPrep(o, step, 'done', remark || null);
         /* compiling approves the bundle, and with it the contrast fabric: a little of another fabric, off the physical stock */
         if (step === 'compiling') (o.contrast ?? []).filter(c => !c.approvedOn).forEach(c => { const f = db.fabrics.find(x => x.id === c.fabricId); c.approvedOn = now(); c.approvedBy = who();
           if (f) { f.stockMetres = Math.max(0, round2(f.stockMetres - c.metres)); f.transactions = [{ on: now(), orderNo: o.orderNo, poId: null, type: 'ISSUE', by: who(), warehouse: f.inventory?.warehouse ?? 'Dadar unit', bin: f.inventory?.bins[0]?.bin ?? null, reason: 'Contrast fabric', desc: `${c.part} on ${o.orderNo}`, metres: -c.metres }, ...(f.transactions ?? [])]; } });
@@ -1488,12 +1492,13 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     prepBlock(orderIds, step, reason) {
       touch(db => orderIds.forEach(id => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (!o) return;
         o.prepBlocked = o.prepBlocked ?? {};
-        if (reason) o.prepBlocked[step] = { reason, by: who(), on: now() }; else delete o.prepBlocked[step]; }),
+        if (reason) { o.prepBlocked[step] = { reason, by: who(), on: now() }; logPrep(o, step, 'blocked', reason); }
+        else if (o.prepBlocked[step]) { delete o.prepBlocked[step]; logPrep(o, step, 'unblocked'); } }),
         reason ? `${orderIds.length} blocked: production sees why.` : `${orderIds.length} unblocked: back in the queue.`, reason ? 'warn' : 'ok');
     },
     uploadCad(orderId, fileName) {
       touch(db => { const o = (db.customerOrders ?? []).find(x => x.id === orderId); if (!o) return;
-        o.cadFile = { name: fileName, by: who(), on: now() }; }, `CAD file ${fileName} uploaded on the order.`);
+        o.cadFile = { name: fileName, by: who(), on: now() }; logPrep(o, 'cad', 'CAD file uploaded', fileName); }, `CAD file ${fileName} uploaded on the order.`);
     },
     addContrast(orderId, fabricId, part, metres) {
       touch(db => { const o = (db.customerOrders ?? []).find(x => x.id === orderId); if (!o || !metres) return;
@@ -1644,7 +1649,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 128,
+  version: 129,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1656,7 +1661,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 128 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 129 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

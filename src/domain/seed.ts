@@ -6,7 +6,7 @@
    record, a unit cost the sample left blank) is placed here and says so.
    ========================================================================== */
 
-import type { LostSale, SwatchBookRequest, CreditEntry, OptionRequest, RequestOption, ConceptFabricOption, FabricBrief, ReturnCase, StockWriteOff, FitSample, Grn, Attachment, Concept, Block, Db, Escalation, Fabric, ProductionOrder, RtwOption, Vendor, GarmentCategory, Thread, Comment, RoleId, CustomerOrder, StockRequest, Launch, ProductionPlan, ExtraFabricRequest, FactoryOutput, Scan, SwatchBook, TrimItem, StockTransfer, FabricQuote, FabricPo, SampleRound , PlanningReview } from './types';
+import type { LostSale, SwatchBookRequest, CreditEntry, OptionRequest, RequestOption, ConceptFabricOption, FabricBrief, ReturnCase, StockWriteOff, FitSample, Grn, Attachment, Concept, Block, Db, Escalation, Fabric, ProductionOrder, RtwOption, Vendor, GarmentCategory, Thread, Comment, RoleId, CustomerOrder, StockRequest, Launch, ProductionPlan, ExtraFabricRequest, FactoryOutput, Scan, SwatchBook, TrimItem, StockTransfer, FabricQuote, FabricPo, SampleRound , PlanningReview, PrepStep, PrepEvent } from './types';
 import { mainSizesOf, FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, SHEET_OPTIONS, MEASUREMENTS, defaultSpec, defaultPattern, PEOPLE, SIZE_SETS, MERCHANDISERS, DELAY_REASONS, RTW_SUBCATS, RANGES, STORES, isBottoms, BOTTOM_SIZES, SHIRT_SIZES, MTM_FITS, TRIM_MASTER, COLLAR_STYLES, POCKETS, EXTRA_FABRIC_REASONS, EXTRA_FABRIC_PANELS, PANEL_METRES, BOOK_EDITION, BIG_STORES, MTM_SWATCH_BOOKS } from './reference';
 import { REAL_MTM_FABRICS, REAL_BLOCKS, REAL_RTW_SHIRTS, REAL_RTW_BOTTOMS, REAL_MERCH, REAL_DROPS, REAL_STO } from './realdata';
 import { sourcingModeOf, buildMilestones, TODAY, addDays, iso, riskOf, coverageOf, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, daysBetween, consumptionFor, daysAgo, defaultMaterials, mintBespokeCode } from './engines';
@@ -1405,13 +1405,15 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
   const TEAM = { cad: ['Ganesh', 'Rupali'], cutting: ['Sanjay', 'Imran'], fusing: ['Meena'], compiling: ['Vishnu'] } as const;
   customerOrders.filter(o => o.kind === 'MTM' && o.stage === 'planned').forEach((o, k) => {
     const upto = k % 6;   // 0 nothing yet · 1 CAD taken · 2 CAD done · 3 cutting done · 4 fusing done · 5 compiled
-    const at = (d: number) => iso(addDays(new Date(o.punchedOn), d));
+    /* real clock times: a desk takes an order up during the shift and finishes it 20 to 90 minutes later */
+    const at = (d: number, mins: number) => { const t = addDays(new Date(o.punchedOn), d); t.setHours(10, 0, 0, 0); t.setMinutes(mins + (k * 17) % 180); return iso(t); };
+    const ev = (step: PrepStep, action: PrepEvent['action'], by: string, t: string, note: string | null = null) => { o.prepLog = [...(o.prepLog ?? []), { step, action, by, at: t, note }]; };
     o.prep = {};
-    if (upto >= 1) o.prep.cad = { takenBy: TEAM.cad[k % 2], takenOn: at(1), doneBy: upto >= 2 ? TEAM.cad[k % 2] : null, doneOn: upto >= 2 ? at(1) : null, remark: null };
-    if (upto >= 2) o.cadFile = { name: `${o.orderNo}.dxf`, by: TEAM.cad[k % 2], on: at(1) };
-    if (upto >= 3) o.prep.cutting = { takenBy: TEAM.cutting[k % 2], takenOn: at(1), doneBy: TEAM.cutting[k % 2], doneOn: at(1), remark: null };
-    if (upto >= 4) o.prep.fusing = { takenBy: TEAM.fusing[0], takenOn: at(2), doneBy: TEAM.fusing[0], doneOn: at(2), remark: null };
-    if (upto >= 5) o.prep.compiling = { takenBy: TEAM.compiling[0], takenOn: at(2), doneBy: TEAM.compiling[0], doneOn: at(2), remark: null };
+    if (upto >= 1) { const by = TEAM.cad[k % 2]; o.prep.cad = { takenBy: by, takenOn: at(1, 0), doneBy: upto >= 2 ? by : null, doneOn: upto >= 2 ? at(1, 35) : null, remark: null }; ev('cad', 'taken up', by, at(1, 0)); }
+    if (upto >= 2) { const by = TEAM.cad[k % 2]; o.cadFile = { name: `${o.orderNo}.dxf`, by, on: at(1, 30) }; ev('cad', 'CAD file uploaded', by, at(1, 30), `${o.orderNo}.dxf`); ev('cad', 'done', by, at(1, 35)); }
+    if (upto >= 3) { const by = TEAM.cutting[k % 2]; o.prep.cutting = { takenBy: by, takenOn: at(1, 90), doneBy: by, doneOn: at(1, 140), remark: null }; ev('cutting', 'taken up', by, at(1, 90)); ev('cutting', 'done', by, at(1, 140)); }
+    if (upto >= 4) { const by = TEAM.fusing[0]; o.prep.fusing = { takenBy: by, takenOn: at(2, 0), doneBy: by, doneOn: at(2, 25), remark: null }; ev('fusing', 'taken up', by, at(2, 0)); ev('fusing', 'done', by, at(2, 25)); }
+    if (upto >= 5) { const by = TEAM.compiling[0]; o.prep.compiling = { takenBy: by, takenOn: at(2, 60), doneBy: by, doneOn: at(2, 80), remark: null }; ev('compiling', 'taken up', by, at(2, 60)); ev('compiling', 'done', by, at(2, 80)); }
   });
   /* a few orders blocked at their desk, with the reason */
   const BLOCKS: Record<string, string> = { cad: 'order sheet XML missing the sleeve length', cutting: 'roll short by 0.4 m: waiting for the warehouse', fusing: 'collar interlining out of stock' };
@@ -1419,7 +1421,8 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
   const nextOf = (o: CustomerOrder) => !o.prep?.cad?.doneOn ? 'cad' : !o.prep?.cutting?.doneOn ? 'cutting' : !o.prep?.fusing?.doneOn ? 'fusing' : null;
   (['cad', 'cutting', 'fusing'] as const).flatMap(st => plannedNow.filter(o => nextOf(o) === st && !o.prep?.[st]).slice(0, 2)).forEach(o => {
     const next = nextOf(o);
-    if (next) o.prepBlocked = { [next]: { reason: BLOCKS[next], by: next === 'cad' ? 'Rupali' : next === 'cutting' ? 'Imran' : 'Meena', on: iso(addDays(new Date(o.punchedOn), 2)) } }; });
+    if (next) { const by = next === 'cad' ? 'Rupali' : next === 'cutting' ? 'Imran' : 'Meena'; const on = (() => { const t = addDays(new Date(o.punchedOn), 2); t.setHours(11, 20, 0, 0); return iso(t); })();
+      o.prepBlocked = { [next]: { reason: BLOCKS[next], by, on } }; o.prepLog = [...(o.prepLog ?? []), { step: next, action: 'blocked', by, at: on, note: BLOCKS[next] }]; } });
   /* contrast: a little of another inventory fabric on some pieces */
   const inv = fabrics.filter(f => f.bucket !== 'BESPOKE' && f.stockMetres > 20);
   customerOrders.filter(o => o.kind === 'MTM' && ['pp', 'planned'].includes(o.stage)).filter((_, k) => k % 5 === 0).slice(0, 10).forEach((o, k) => {

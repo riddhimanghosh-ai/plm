@@ -4,7 +4,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { CustomerOrder } from '../domain/types';
 import { MTM_STAGES } from '../domain/reference';
-import { fmtDate, fmtRel, prepOf } from '../domain/engines';
+import { fmtDate, fmtTime, prepOf } from '../domain/engines';
 import { Pill } from '../ui';
 
 const stageLabel = (id: string) => MTM_STAGES.find(s => s.id === id)?.label ?? id;
@@ -17,7 +17,7 @@ export function StagesList({ o }: { o: CustomerOrder }) {
         {/* after planning, the four pre-production desks at the unit, each with who took it up and finished it */}
         {s.id === 'planned' && prepOf(o).steps.map(p => { const bl = o.prepBlocked?.[p.key]; const e = p.entry; return (
           <div key={p.key} className="kv" style={{ paddingLeft: 18 }}><span className="k flex items-center gap-2"><span className="dot" style={{ background: bl ? 'var(--risk)' : p.state === 'done' ? 'var(--good)' : p.state === 'in progress' ? 'var(--warn)' : 'var(--line)' }} />{p.label}<span className="text-[11px]">· {p.team}</span></span>
-            <span className="v" style={{ color: e || bl ? undefined : 'var(--ink-faint)' }}>{bl ? <span style={{ color:'var(--risk)' }}>blocked · {bl.reason}</span> : e?.doneOn ? `${fmtDate(e.doneOn)} · ${e.doneBy}` : e ? `taken up by ${e.takenBy} · ${fmtRel(e.takenOn)}` : p.state === 'done' ? 'done' : 'pending'}</span></div>); })}
+            <span className="v" style={{ color: e || bl ? undefined : 'var(--ink-faint)' }}>{bl ? <span style={{ color:'var(--risk)' }}>blocked · {bl.reason}</span> : e?.doneOn ? `${fmtTime(e.takenOn)} → ${fmtTime(e.doneOn)} · ${e.doneBy}` : e ? `taken up ${fmtTime(e.takenOn)} · ${e.takenBy}` : p.state === 'done' ? 'done' : 'pending'}</span></div>); })}
         </Fragment>); })}
   </>;
 }

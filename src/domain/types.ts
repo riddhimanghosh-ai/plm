@@ -566,6 +566,8 @@ export type OrderTag = 'normal' | 'urgent' | 'corporate';
 export interface Scan { stage: CustomerOrderStage; at: string; by: string }
 export type PreConfirmReason = 'Measurement not done' | 'On hold' | 'Payment pending';
 export type PrepStep = 'cad' | 'cutting' | 'fusing' | 'compiling';
+/** every desk action, kept for good (4 Nov 2026): who did what to which order, at what time; the data behind desk times */
+export interface PrepEvent { step: PrepStep; action: 'taken up' | 'done' | 'blocked' | 'unblocked' | 'CAD file uploaded'; by: string; at: string; note?: string | null }
 export interface PrepEntry { takenBy: string; takenOn: string; doneBy: string | null; doneOn: string | null; remark: string | null }
 export interface ContrastLine { id: string; fabricId: string; part: string; metres: number; approvedOn: string | null; approvedBy: string | null }
 export interface CustomerOrder {
@@ -606,6 +608,7 @@ export interface CustomerOrder {
   cadFile?: { name: string; by: string; on: string } | null;
   /* a desk can mark an order blocked with a reason (XML missing a measurement, short roll, interlining out); it leaves the desk's queue until unblocked */
   prepBlocked?: Partial<Record<PrepStep, { reason: string; by: string; on: string }>>;
+  prepLog?: PrepEvent[];   // append-only: take up, done, blocked, unblocked, CAD upload, each with its time
   /* contrast fabric on this piece (a pocket, a collar band): a little of another inventory fabric, deducted from physical stock when compiling approves it */
   contrast?: ContrastLine[];
   /* MTM production */

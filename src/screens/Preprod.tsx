@@ -9,10 +9,10 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { CustomerOrder, PrepStep } from '../domain/types';
-import { PREP_STEPS, prepOf, prepQueueOf, fmtDate, fmtRel } from '../domain/engines';
+import { PREP_STEPS, prepOf, prepQueueOf, fmtDate, fmtRel, fmtTime } from '../domain/engines';
 import { STORES, SHEET_LABEL } from '../domain/reference';
 import { FabricImage, BinMap } from './FabricImage';
-import { Page, Card, Pill, Button, Input, Empty, Note, Tabs, Select, Seg, Drawer, Section, KV } from '../ui';
+import { Page, Card, Pill, Button, Input, Empty, Note, Tabs, Select, Seg, Drawer, Section, KV, ExportButton } from '../ui';
 
 const stepOf = (k: PrepStep) => PREP_STEPS.find(s => s.key === k)!;
 
@@ -226,6 +226,22 @@ const BUCKETS: { key: Bucket; label: string; tone?: string }[] = [
   { key: 'ready', label: 'Ready for it' }, { key: 'blocked', label: 'Blocked', tone: 'var(--risk)' },
   { key: 'wip', label: 'Work in progress' }, { key: 'handedOff', label: 'Hand-offs · 7 days', tone: 'var(--good)' },
 ];
+/** how long a desk held an order: taken up to done */
+const took = (from: string, to: string) => { const m = Math.max(0, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`; };
+const avgTook = (orders: CustomerOrder[], step: PrepStep) => { const d = orders.map(o => o.prep?.[step]).filter(e => e?.doneOn).map(e => new Date(e!.doneOn!).getTime() - new Date(e!.takenOn).getTime());
+  return d.length ? took(new Date(0).toISOString(), new Date(d.reduce((a, b) => a + b, 0) / d.length).toISOString()) : '—'; };
+
+/** the order's desk log: every take up, done, block, unblock and CAD upload, with the time, oldest first */
+function DeskLog({ o }: { o: CustomerOrder }) {
+  const log = o.prepLog ?? [];
+  if (!log.length) return null;
+  return <details className="pt-2"><summary className="cl-status" style={{ cursor: 'pointer' }}>Desk log · {log.length} {log.length === 1 ? 'entry' : 'entries'}</summary>
+    <table className="t compact mt-1"><tbody>{log.map((e, i) => <tr key={i}>
+      <td className="mono text-[11.5px]" style={{ whiteSpace: 'nowrap' }}>{fmtTime(e.at)}</td><td className="text-[12px]">{stepOf(e.step).label}</td>
+      <td className="text-[12px]" style={{ color: e.action === 'blocked' ? 'var(--risk)' : undefined }}>{e.action}</td><td className="text-[12px]">{e.by}</td>
+      <td className="text-[11.5px]" style={{ color: 'var(--ink-faint)', whiteSpace: 'normal' }}>{e.note ?? ''}</td></tr>)}</tbody></table></details>;
+}
+
 export function PrepOverview({ onOpen }: { onOpen: (id: string) => void }) {
   const { db } = useApp();
   const [at, setAt] = useState<{ step: PrepStep; b: Bucket } | 'ready-to-send' | null>(null);
@@ -236,17 +252,23 @@ export function PrepOverview({ onOpen }: { onOpen: (id: string) => void }) {
   const rows = at === null ? planned : at === 'ready-to-send' ? ready : q[at.step][at.b];
   const TONE = { done: 'good', 'in progress': 'info', pending: 'neutral' } as const;
   const on = (k: PrepStep, b: Bucket) => at !== null && at !== 'ready-to-send' && at.step === k && at.b === b;
+  /* every desk action on every order, one row each, with its time: the data for desk times and who did what */
+  const log = orders.flatMap(o => (o.prepLog ?? []).map(e => ({ o, e }))).sort((a, b) => b.e.at.localeCompare(a.e.at));
   return <>
+    <div className="flex justify-end mb-2"><ExportButton filename="desk-log" sheetName="Desk log" rows={log} cols={[
+      { label:'Time', get: r => r.e.at }, { label:'Order', get: r => r.o.orderNo }, { label:'Desk', get: r => stepOf(r.e.step).label }, { label:'Action', get: r => r.e.action },
+      { label:'By', get: r => r.e.by }, { label:'Note', get: r => r.e.note ?? '' }, { label:'Plan', get: r => (db.plans ?? []).find(x => x.id === r.o.planId)?.planNo ?? '' }, { label:'Factory', get: r => db.vendors.find(v => v.id === r.o.factoryId)?.name ?? '' }]} /></div>
     <Card className="mb-3"><table className="t">
-      <thead><tr><th>Team</th>{BUCKETS.map(b => <th key={b.key} className="num">{b.label}</th>)}</tr></thead>
+      <thead><tr><th>Team</th>{BUCKETS.map(b => <th key={b.key} className="num">{b.label}</th>)}<th className="num" title="taken up to done, over every order finished at this desk">Avg time</th></tr></thead>
       <tbody>{PREP_STEPS.map(s => <tr key={s.key}>
         <td><a className="vlink" href={`#/${s.key}`}>{s.team}</a></td>
         {BUCKETS.map(b => { const n = q[s.key][b.key].length; return <td key={b.key} className="num">
           <button type="button" className="mono text-[15px]" onClick={() => setAt(on(s.key, b.key) ? null : { step: s.key, b: b.key })}
             style={{ color: n ? b.tone : 'var(--ink-faint)', textDecoration: on(s.key, b.key) ? 'underline' : undefined, cursor: 'pointer', background: 'none', border: 0 }}>{n}</button></td>; })}
+        <td className="num mono text-[13px]">{avgTook(orders, s.key)}</td>
       </tr>)}
       <tr><td><b>Ready to send</b> <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>all four desks done</span></td>
-        <td className="num" colSpan={4}><button type="button" className="mono text-[15px]" onClick={() => setAt(at === 'ready-to-send' ? null : 'ready-to-send')} style={{ color: 'var(--good)', cursor: 'pointer', background: 'none', border: 0, textDecoration: at === 'ready-to-send' ? 'underline' : undefined }}>{ready.length}</button></td></tr>
+        <td className="num" colSpan={5}><button type="button" className="mono text-[15px]" onClick={() => setAt(at === 'ready-to-send' ? null : 'ready-to-send')} style={{ color: 'var(--good)', cursor: 'pointer', background: 'none', border: 0, textDecoration: at === 'ready-to-send' ? 'underline' : undefined }}>{ready.length}</button></td></tr>
       </tbody></table></Card>
     <div className="mb-2 text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>{at === null ? `Every planned order (${planned.length}). Click a number to see those orders.` : at === 'ready-to-send' ? `Ready to send · ${rows.length}` : `${stepOf(at.step).team} · ${BUCKETS.find(b => b.key === at.b)!.label} · ${rows.length}`}{at !== null && <> · <button type="button" className="vlink" onClick={() => setAt(null)}>show all</button></>}</div>
     {rows.length === 0 ? <Card><Empty title="Nothing here." body="Planned orders appear here until they are compiled and scanned out." /></Card>
@@ -273,10 +295,11 @@ export function PrepOnOrder({ o }: { o: CustomerOrder }) {
     {p.steps.map((s, i) => { const bl = o.prepBlocked?.[s.key] && s.state !== 'done'; const tone = bl ? 'var(--risk)' : s.state === 'done' ? 'var(--good)' : s.state === 'in progress' ? 'var(--accent)' : 'var(--line)';
       return <div key={s.key} className="px-3 py-2" style={{ border: `1px solid ${tone}`, borderRadius: 8, background: s.state === 'done' ? 'var(--accent-soft)' : undefined, position: 'relative' }}>
         <div className="flex items-center gap-1.5"><span className="cl-box" aria-hidden style={{ width: 18, height: 18, fontSize: 11, color: 'var(--ink-faint)', ...(s.state === 'done' ? { background: 'var(--good)', borderColor: 'var(--good)', color: '#fff' } : {}) }}>{s.state === 'done' ? '✓' : i + 1}</span><b className="text-[13px]">{s.label}</b></div>
-        <div className="cl-status pt-1" style={{ color: bl ? 'var(--risk)' : undefined }}>{bl ? `blocked · ${o.prepBlocked![s.key]!.reason}` : s.entry?.doneOn ? `done ${fmtDate(s.entry.doneOn)} · ${s.entry.doneBy}${s.entry.remark ? ` · “${s.entry.remark}”` : ''}` : s.entry ? `with ${s.entry.takenBy} · ${fmtRel(s.entry.takenOn)}` : s.state === 'done' ? 'done' : 'not started'}</div>
+        <div className="cl-status pt-1" style={{ color: bl ? 'var(--risk)' : undefined }}>{bl ? `blocked · ${o.prepBlocked![s.key]!.reason}` : s.entry?.doneOn ? `done ${fmtTime(s.entry.doneOn)} · ${s.entry.doneBy} · took ${took(s.entry.takenOn, s.entry.doneOn)}${s.entry.remark ? ` · “${s.entry.remark}”` : ''}` : s.entry ? `taken up ${fmtTime(s.entry.takenOn)} · ${s.entry.takenBy}` : s.state === 'done' ? 'done' : 'not started'}</div>
       </div>; })}
     </div>
-    {o.cadFile && <div className="cl-status pt-2">CAD file: <span className="mono">{o.cadFile.name}</span> · uploaded by {o.cadFile.by} · {fmtDate(o.cadFile.on)}</div>}
+    {o.cadFile && <div className="cl-status pt-2">CAD file: <span className="mono">{o.cadFile.name}</span> · uploaded by {o.cadFile.by} · {fmtTime(o.cadFile.on)}</div>}
+    <DeskLog o={o} />
     {(o.contrast ?? []).length > 0 && <div className="cl-status pt-2">Contrast fabric: {(o.contrast ?? []).map(c => `${c.part} · ${db.fabrics.find(f => f.id === c.fabricId)?.name ?? c.fabricId} · ${c.metres} m${c.approvedOn ? ' (deducted)' : ''}`).join('; ')}</div>}
   </div>;
 }
