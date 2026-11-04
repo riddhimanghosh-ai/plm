@@ -464,7 +464,7 @@ function TrimsTab() {
 
 /* ---------- fabric POs — raised by Enigma or by planning; confirmed by sourcing with the mill ---- */
 function FabricPosTab({ canSource }: { canSource: boolean }) {
-  const { db, remarkFabricPo } = useApp();
+  const { db } = useApp();
   const [q, setQ] = useState('');
   const [only, setOnly] = useState<'all' | 'auto' | 'hand' | 'needs'>('all');
   /* fabrics under their reorder point that Enigma will NOT order — a person has to */
@@ -477,11 +477,8 @@ function FabricPosTab({ canSource }: { canSource: boolean }) {
   const pos = allPos.filter(p => (!q.trim() || q.toLowerCase().split(/\s+/).every(w => hay(p).includes(w)))
     && (only === 'all' || only === 'needs' || (only === 'auto' && p.source === 'auto') || (only === 'hand' && p.source !== 'auto')));
   const ex = useExamples(pos, p => fabricPoStatus(p), { noun: 'fabric POs', score: p => (p.remark ? 1 : 0), done: p => fabricPoStatus(p) === 'on order' });
-  const [edit, setEdit] = useState<string | null>(null);
-  const [date, setDate] = useState(''); const [remark, setRemark] = useState('');
   const fabric = (id: string) => db.fabrics.find(f => f.id === id);
   const TONE: Record<string, 'neutral' | 'info' | 'warn' | 'good' | 'risk'> = { 'on order':'neutral', overdue:'risk', received:'neutral' };
-  const begin = (id: string, expectedOn: string, r: string) => { setEdit(id); setDate(dateInput(expectedOn)); setRemark(r); };
   return <>
     <div className="flex items-end gap-3 flex-wrap mb-3">
       <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search PO, fabric, code, mill, remark…" style={{ width: 300 }} aria-label="search fabric POs" />
@@ -498,29 +495,19 @@ function FabricPosTab({ canSource }: { canSource: boolean }) {
         <td onClick={e => e.stopPropagation()}>{canSource ? <Button size="sm" variant="primary" onClick={() => raiseFabricPo(f.id, c.suggestedPo)}>Raise PO · {c.suggestedPo} m</Button> : <ActsBy role="sourcing" does="raises it" inline />}</td>
       </tr>)}</tbody></table>}</Card>}
     {only === 'needs' ? null : pos.length === 0 ? <Card><Empty title={allPos.length ? 'Nothing matches.' : 'No fabric POs open.'} body={allPos.length ? 'Try a shorter word — the search covers PO number, fabric name and code, mill and remark.' : "Enigma's auto-POs and the manual international ones appear here until the rolls are received."} /></Card> : <Card><div style={{ overflowX:'auto' }}><table className="t compact">
-      <thead><tr><th>PO</th><th>Fabric</th><th>Mill</th><th className="num">Metres</th><th>Expected · remark</th><th>Status</th><th></th></tr></thead>
-      <tbody>{ex.rows.map(p => { const f = fabric(p.fabricId); const st = fabricPoStatus(p); const editing = edit === p.id; return (
-        <tr key={p.id} style={{ background: editing ? 'var(--accent-soft)' : undefined }}>
+      <thead><tr><th>PO</th><th>Fabric</th><th>Mill</th><th className="num">Metres</th><th>Expected</th><th>Status</th></tr></thead>
+      <tbody>{ex.rows.map(p => { const f = fabric(p.fabricId); const st = fabricPoStatus(p); return (
+        <tr key={p.id}>
           <td className="mono text-[12.5px]">{p.poNo}<div className="pt-0.5"><Pill tone={p.source === 'auto' ? 'info' : 'accent'}>{p.source === 'auto' ? 'Enigma · auto' : /concept|RTW bulk|REQ-\d/i.test(p.remark) ? 'by hand · design' : 'by hand · sourcing'}</Pill></div><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{fmtRel(p.raisedOn)}</div></td>
           <td style={{ whiteSpace:'normal', minWidth: 180 }}>{f?.name}<div className="text-[11px] mono" style={{ color:'var(--ink-faint)' }}>{f?.code} · {f?.bucket.toLowerCase().replace('_', '-')}</div></td>
           <td style={{ whiteSpace:'normal' }}><VendorLink id={p.vendorId} /></td>
           <td className="num">{p.metres} m</td>
-          <td className="text-[12px]" style={{ whiteSpace:'normal', minWidth: 190 }}><span style={{ color: daysAgo(p.expectedOn) > 0 ? 'var(--risk)' : undefined }}>{fmtDate(p.expectedOn)}</span>{p.remark && <div style={{ color:'var(--warn)' }}>“{p.remark}”</div>}</td>
+          <td className="text-[12px]" style={{ whiteSpace:'normal', minWidth: 190 }}><span style={{ color: daysAgo(p.expectedOn) > 0 ? 'var(--risk)' : undefined }}>{fmtDate(p.expectedOn)}</span></td>
           <td><Pill tone={TONE[st]}>{st}</Pill></td>
-          <td>{canSource && !editing && <Button size="sm" onClick={() => begin(p.id, p.expectedOn, p.remark)}>Update date / remark</Button>}</td>
         </tr>); })}</tbody>
     </table></div>
-    {edit && (() => { const p = pos.find(x => x.id === edit)!; const f = fabric(p.fabricId); return <div className="px-4 py-3" style={{ borderTop:'1px solid var(--line)' }}>
-      <div className="label">{p.poNo} · {f?.name} · {p.metres} m — expected date and remark</div>
-      <div className="grid gap-2.5 items-end" style={{ gridTemplateColumns:'160px 1fr auto auto' }}>
-        <Field label="Expected date"><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></Field>
-        <Field label="Remark" hint="a few days more, why; shade lot changed; two lots…"><Input value={remark} onChange={e => setRemark(e.target.value)} placeholder="e.g. loom down last week — 4 days more" /></Field>
-        <Button variant="primary" size="sm" onClick={() => { remarkFabricPo(p.id, fromDateInput(date), remark.trim()); setEdit(null); }}>Save</Button>
-        <Button size="sm" variant="ghost" onClick={() => setEdit(null)}>Cancel</Button>
-      </div>
-    </div>; })()}
     </Card>}
-    <div className="mt-3"><Note>No mill confirmation step: a PO is on order until its rolls are received, and overdue once the expected date passes. Update date / remark records a new date or a note from the mill.</Note></div>
+    <div className="mt-3"><Note>A PO is on order until its rolls are received, and overdue once the expected date passes.</Note></div>
   </>;
 }
 
