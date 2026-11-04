@@ -564,24 +564,21 @@ function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
         { label:'Saleable Stock', get: r => saleable(r.f) }, { label:'Physical Stock', get: r => r.f.stockMetres }, { label:'Reserved Stock', get: r => r.f.reservedMetres }, { label:'Threshold', get: r => r.f.thresholdMetres }, { label:'Swatch book', get: r => r.f.swatchBook ?? '' }]} />
       <span className="ml-auto flex items-center gap-3">{ex.strip}{book !== 'all' && books.find(x => x.b === book)!.gap > 0 && <a className="cta" href="#/design?new=mtm">raise an MTM fabric ask for the {books.find(x => x.b === book)!.gap} short →</a>}</span>
     </div>
-    {rows.length === 0 ? <Card><Empty title="Nothing matches." body="Widen the filter or the search." /></Card> : <Card><div className="tbox" style={{ maxHeight:'calc(100vh - 380px)' }}><table className="t compact frozen">
-      <thead><tr><th>Image</th><th>Code</th><th>Name</th><th>Category</th><th>Inventory Type</th><th>Product Type</th><th className="num">Saleable Stock</th><th className="num">Physical Stock</th><th className="num">Reserved Stock</th><th className="num">Threshold</th><th>Status</th><th>Actions</th></tr></thead>
+    {rows.length === 0 ? <Card><Empty title="Nothing matches." body="Widen the filter or the search." /></Card> : <Card><div className="tbox" style={{ maxHeight:'calc(100vh - 380px)' }}><table className="t compact frozen tight">
+      <thead><tr><th>Fabric · code</th><th>Category</th><th style={{ whiteSpace:'normal' }}>Inventory type</th><th style={{ whiteSpace:'normal' }}>Product type</th><th className="num" style={{ whiteSpace:'normal' }}>Saleable</th><th className="num" style={{ whiteSpace:'normal' }}>Physical</th><th className="num" style={{ whiteSpace:'normal' }}>Reserved</th><th className="num" style={{ whiteSpace:'normal' }}>Threshold</th><th>Status · action</th></tr></thead>
       <tbody>{pager.pageRows.map(({ f, c, state }) => { const ds = c?.designs ?? []; const sal = saleable(f);
         return <tr key={f.id} className="row" onClick={() => onOpen(f.id)}>
-          <td><span aria-hidden style={{ display:'inline-block', width: 34, height: 34, borderRadius: 4, background: `hsl(${[...f.code].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 360} 30% 78%)`, border:'1px solid var(--line)' }} title={ds[0] ? (ds[0].finalName ?? ds[0].name) : f.name} /></td>
-          <td className="mono text-[12px]" style={{ whiteSpace:'nowrap' }}>{f.code}</td>
-          <td style={{ whiteSpace:'normal', minWidth: 200 }}><span className="font-medium">{f.name}</span>{formerNames(f).length ? <div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>formerly {formerNames(f)[0]}</div> : null}<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.swatchBook}{ds.length ? ` · ${ds.length} design${ds.length === 1 ? '' : 's'}` : ''}</div></td>
+          <td style={{ whiteSpace:'normal', minWidth: 180 }}><div className="flex gap-2 items-start"><span aria-hidden style={{ display:'inline-block', width: 28, height: 28, flex:'none', borderRadius: 4, background: `hsl(${[...f.code].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 360} 30% 78%)`, border:'1px solid var(--line)' }} title={ds[0] ? (ds[0].finalName ?? ds[0].name) : f.name} /><div><span className="font-medium">{f.name}</span><div className="mono text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.code}</div>{formerNames(f).length ? <div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>formerly {formerNames(f)[0]}</div> : null}<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{f.swatchBook}{ds.length ? ` · ${ds.length} design${ds.length === 1 ? '' : 's'}` : ''}</div></div></div></td>
           <td className="text-[12px]">{f.family}</td>
-          <td className="mono text-[11.5px]">{f.bucket}</td>
-          <td className="mono text-[11.5px]">CUSTOM_DESIGN</td>
+          <td className="mono text-[11px]">{f.bucket}</td>
+          <td className="mono text-[11px]" style={{ whiteSpace:'normal', wordBreak:'break-all' }}>CUSTOM_DESIGN</td>
           <td className="num" style={{ color: sal < 0 ? 'var(--risk)' : undefined }}>{sal}</td>
           <td className="num">{f.stockMetres}{f.incomingMetres ? <div className="text-[10.5px]" style={{ color:'var(--info)' }}>+{f.incomingMetres} coming</div> : null}</td>
           <td className="num">{f.reservedMetres}</td>
           <td className="num">{f.thresholdMetres}</td>
-          <td><Pill tone={STATE[state].tone}>{STATE[state].label}</Pill></td>
-          <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'nowrap' }}>{state === 'hold'
+          <td onClick={e => e.stopPropagation()}><div className="flex flex-col gap-1 items-start"><Pill tone={STATE[state].tone}>{STATE[state].label}</Pill>{state === 'hold'
             ? <Button size="sm" onClick={() => { setFabricHold(f.id, false); if (f.paused) resumeFabric(f.id); }}>Make active</Button>
-            : <Button size="sm" onClick={() => setFabricHold(f.id, true)}>Make inactive</Button>} <button type="button" className="cta" onClick={() => onOpen(f.id)}>Open →</button></td>
+            : <Button size="sm" onClick={() => setFabricHold(f.id, true)}>Make inactive</Button>}</div></td>
         </tr>; })}</tbody>
     </table></div><Pager {...pager} onChange={pager.setPage} noun="fabrics" /></Card>}
     <div className="mt-3"><Note>The columns are Enigma's Fabric Inventory, metres. Saleable = physical − reserved − threshold, the number a store can sell against. Click a book to filter; Inactive is set by hand (Make inactive / Make active; Enigma's On Hold); out of stock is the system's, when saleable falls to the threshold. Open a fabric to rename it or see its POs and stock.</Note></div>

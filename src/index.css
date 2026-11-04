@@ -253,6 +253,7 @@ table.t td.num, table.t th.num { text-align: right; font-family: var(--mono); fo
   box-shadow: 1px 0 0 var(--line);
 }
 .t.frozen thead th:first-child { z-index: 3; }
+.t.tight th, .t.tight td { padding-left: 7px; padding-right: 7px; }
 .t.frozen tr.row:hover td:first-child { background: var(--surface-2); }
 
 /* Long drawers get an index down the side: twelve sections is a scroll, and the
