@@ -290,6 +290,15 @@ function FabricPoList({ f, flat, canSource }: { f: Fabric; flat: boolean; canSou
   </>;
 }
 
+/* the three selling states, the same on every screen: on hold by hand, out of stock by the threshold, else can sell */
+const sellStateOf = (f: Fabric) => f.onHold || f.paused ? { label:'on hold', tone:'warn' as const } : f.stockMetres - f.reservedMetres <= f.thresholdMetres ? { label:'out of stock', tone:'risk' as const } : { label:'can sell', tone:'good' as const };
+function HoldButton({ f }: { f: Fabric }) {
+  const { setFabricHold, resumeFabric } = useApp();
+  return f.onHold || f.paused
+    ? <Button size="sm" onClick={() => { setFabricHold(f.id, false); if (f.paused) resumeFabric(f.id); }}>Release hold</Button>
+    : <Button size="sm" onClick={() => setFabricHold(f.id, true)}>Hold</Button>;
+}
+
 /** The fabric record: a facts strip, then tabs. The page keeps the tab in the URL; the drawer keeps it in state. */
 export function FabricRecord({ f, view, setView }: { f: Fabric; view: FabricView; setView: (v: FabricView) => void }) {
   const { db, role } = useApp();
@@ -307,7 +316,7 @@ export function FabricRecord({ f, view, setView }: { f: Fabric; view: FabricView
       {fact('Threshold', `${f.thresholdMetres} m`)}
       {fact('Cost / m', f.mill?.costPerUnit != null ? `${f.mill.currency} ${f.mill.costPerUnit}` : f.cpm != null ? `INR ${f.cpm}` : '—')}
       {fact('Sells', `${c.ros.toFixed(1)} / wk`)}
-      {fact('Status', <Pill tone={live === 'Active' ? 'good' : live === 'Low Stock' ? 'warn' : 'risk'}>{live}</Pill>)}
+      {fact('Status', <span className="flex items-center gap-2 flex-wrap"><Pill tone={sellStateOf(f).tone}>{sellStateOf(f).label}</Pill><HoldButton f={f} /></span>)}
     </div></Card>
     <Tabs wrap active={view} onChange={v => setView(v as FabricView)} tabs={[{ id:'overview', label:'Overview' }, { id:'pos', label:'Purchase orders', count: pos.filter(p => !p.closedOn && !p.receivedOn).length || undefined }, { id:'enigma', label:'Fabric info · Enigma' }, { id:'inventory', label:'Inventory & movements' }, { id:'files', label:'Files & conversation' }]} />
     <Fabric360 f={f} view={view} flat canSource={role === 'sourcing' || role === 'owner'} canPlan={role === 'design' || role === 'owner'} />
@@ -360,7 +369,7 @@ function Fabric360({ f, canSource, canPlan, view = 'all', flat = false }: { f: F
         <Button size="sm" variant="ghost" onClick={() => setRenaming(false)}>Cancel</Button>
       </div>}
     </div>
-    {show('overview') && <Section collapsible={!flat} defaultOpen={flat || undefined} title="Where it stands" right={<Pill tone={live === 'Active' ? 'good' : live === 'Low Stock' ? 'warn' : 'risk'}>{live}</Pill>}>
+    {show('overview') && <Section collapsible={!flat} defaultOpen={flat || undefined} title="Where it stands" right={<span className="flex items-center gap-2"><Pill tone={sellStateOf(f).tone}>{sellStateOf(f).label}</Pill><HoldButton f={f} /></span>}>
       <KV k="Bucket" v={f.bucket === 'CORE' ? 'Core — must never run out' : f.bucket === 'NON_CORE' ? 'Non-core — one buy, refill the slot' : 'Bespoke — held at the mill, not by BSC'} note={f.bucket === 'NON_CORE' ? 'a non-core that keeps selling is promoted to core — then it is replenished, not left to sell out' : f.bucket === 'CORE' ? 'a core that stops earning its place is moved back to non-core and allowed to sell out' : undefined} />
       {/* an action, not a value — on its own labelled row, so it cannot be read
           as "this core fabric is in non-core" */}
