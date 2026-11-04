@@ -55,7 +55,7 @@ export function Mtm() {
 
       {tab === 'allocate' && isProd && <AllocateTab mine={mine} onOpen={id => set('open', id)} />}
       {tab === 'plans' && isProd && <PlansTab mine={mine} onOpen={id => set('open', id)} />}
-      {tab === 'floor' && isProd && <FloorTab mine={mine} factoryId={params.get('factory') ?? factories[0]?.id} onFactory={id => set('factory', id)} onOpen={id => set('open', id)} />}
+      {tab === 'floor' && isProd && <FloorTab mine={mine} factoryId={params.get('factory') ?? 'all'} onFactory={id => set('factory', id)} onOpen={id => set('open', id)} />}
       {tab === 'prep' && isProd && <PrepOverview onOpen={id => set('open', id)} />}
       {tab === 'changes' && isProd && <ChangesTab onOpen={id => set('open', id)} />}
       {tab === 'fabric' && <FabricTab mine={mine} wh={isWh} onOpen={id => set('open', id)} />}
@@ -332,28 +332,27 @@ function PlansTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string) => voi
 function FloorTab({ mine, factoryId, onFactory, onOpen }: { mine: boolean; factoryId: string | undefined; onFactory: (id: string) => void; onOpen: (id: string) => void }) {
   const { reviseShipBy } = useApp();
   const [bulk, setBulk] = useState(false); const [bulkDays, setBulkDays] = useState('2'); const [bulkWhy, setBulkWhy] = useState('');
-  const { db, scanOrders } = useApp();
+  const { db } = useApp();
   const factories = db.vendors.filter(v => v.mtm && v.kind !== 'Hemming unit');   // MTM is made from scratch — hemming is an RTW step, never an MTM order
-  const v = factories.find(x => x.id === factoryId) ?? factories[0];
-  const [xf, setXf] = useState<string | null>(null);
+  /* production's view is read-only: the list of orders at the factories and where each is; the scans are the merchandiser's */
+  const v = factories.find(x => x.id === factoryId) ?? null;   // null = every factory
   const [stageF, setStageF] = useState('all');
   const [floorSearch, setFloorSearch] = useState('');
-  const l = v ? factoryLoadOf(db, v.id) : null;
   const inAt = (o: CustomerOrder) => o.scans.find(sc => sc.stage === 'in-factory')?.at;
-  const all = l ? [...l.inTransit, ...l.wip, ...l.ready].sort((a, b) => a.promisedOn.localeCompare(b.promisedOn)) : [];
+  const all = (v ? [v] : factories).flatMap(f => { const l = factoryLoadOf(db, f.id); return [...l.inTransit, ...l.wip, ...l.ready]; }).sort((a, b) => a.promisedOn.localeCompare(b.promisedOn));
+  const factoryName = (id: string | null) => factories.find(f => f.id === id)?.name ?? '—';
   const stageCount = (st: string) => all.filter(o => o.stage === st).length;
   const filtered = all
-    .filter(o => stageF === 'all' ? true : stageF === 'urgent' ? o.tag === 'urgent' : stageF === 'late' ? daysAgo(o.promisedOn) > 0 : stageF === 'amended' ? needsReprint(o) : o.stage === stageF)
+    .filter(o => stageF === 'all' ? true : stageF === 'urgent' ? o.tag === 'urgent' : stageF === 'late' ? daysAgo(o.promisedOn) > 0 : o.stage === stageF)
     .sort((a, b) => (a.tag === 'urgent' ? 0 : 1) - (b.tag === 'urgent' ? 0 : 1))   // urgent pieces are worked first, so they sit on top
     .filter(o => { const t = floorSearch.trim().toLowerCase(); return !t || o.orderNo.toLowerCase().includes(t) || o.customer.toLowerCase().includes(t) || o.styleName.toLowerCase().includes(t); });
   /* one piece per stage on the floor, a late one and an on-time one of each */
   const ex = useExamples(filtered, o => `${o.stage}·${daysAgo(o.promisedOn) > 0}`, { noun:'pieces', done: o => o.stage === 'out-factory' });
   const rows = ex.rows;
-  if (!v) return <Card><Empty title="No MTM factories." body="" /></Card>;
-  const xfOrder = (db.customerOrders ?? []).find(o => o.id === xf) ?? null;
+  if (!factories.length) return <Card><Empty title="No MTM factories." body="" /></Card>;
   return <>
     <div className="flex gap-3 items-end flex-wrap mb-3">
-      <div style={{ width: 220 }}><Field label="Factory"><Select value={v.id} onChange={onFactory} options={factories.map(f => ({ value:f.id, label:f.name }))} /></Field></div>
+      <div style={{ width: 220 }}><Field label="Factory"><Select value={v?.id ?? 'all'} onChange={onFactory} options={[{ value:'all', label:'All factories' }, ...factories.map(f => ({ value:f.id, label:f.name }))]} /></Field></div>
       <div className="pb-[1px]"><Seg value={stageF} onChange={setStageF} options={[
         { id:'all', label:'Everything', count: all.length },
         { id:'urgent', label:'Urgent', count: all.filter(o => o.tag === 'urgent').length, hint:'urgent orders (7–8 days, express): work these first' },
@@ -361,11 +360,10 @@ function FloorTab({ mine, factoryId, onFactory, onOpen }: { mine: boolean; facto
         { id:'in-factory', label:'On the floor', count: stageCount('in-factory') },
         { id:'out-factory', label:'Ready to come back', count: stageCount('out-factory') },
         { id:'late', label:'Past ship-by', count: all.filter(o => daysAgo(o.promisedOn) > 0).length, hint:'promised date already gone' },
-        { id:'amended', label:'Amended', count: all.filter(needsReprint).length, hint:'the store changed the sheet after it left — the floor needs the new one' },
       ]} /></div>
       <div style={{ width: 190 }}><Field label="Search"><Input value={floorSearch} onChange={e => setFloorSearch(e.target.value)} placeholder="order, customer, fabric" /></Field></div>
       <span className="ml-auto pb-2">{ex.strip}</span>
-      {mine && <div className="pb-2">{bulk
+      {mine && v && <div className="pb-2">{bulk
         ? <div className="flex gap-2 items-end flex-wrap">
             <Field label="Push every open piece here by · days"><Input type="number" min={1} value={bulkDays} onChange={e => setBulkDays(e.target.value)} style={{ width: 80 }} /></Field>
             <div style={{ minWidth: 240 }}><Field label="Why" hint="the stores read this to their customers"><Input value={bulkWhy} onChange={e => setBulkWhy(e.target.value)} placeholder={`${v.name} shut for two days`} /></Field></div>
@@ -378,48 +376,22 @@ function FloorTab({ mine, factoryId, onFactory, onOpen }: { mine: boolean; facto
     </div>
 
     <Card><table className="t">
-      <thead><tr><th>Order</th><th>Customer</th><th>Fabric · m</th><th>Tag</th><th>Ship by</th><th>Stage</th><th>Reached factory</th><th>Days in factory</th><th></th></tr></thead>
+      <thead><tr><th>Order</th><th>Customer</th><th>Fabric · m</th><th>Factory</th><th>Tag</th><th>Ship by</th><th>Stage</th><th>Reached factory</th><th>Days in factory</th></tr></thead>
       <tbody>{rows.length === 0 ? <tr><td colSpan={9}><Empty title={all.length ? 'Nothing matches that filter.' : 'Nothing on this floor.'} body={all.length ? 'Loosen the stage filter or clear the search.' : ''} /></td></tr> : rows.map(o => { const d = inAt(o) ? daysAgo(inAt(o)!) : null; const late = daysAgo(o.promisedOn) > 0; return (
         <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
           <td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}</td><td className="text-[12.5px]">{o.styleName} <span style={{ color:'var(--ink-faint)' }}>· {o.consumptionM} m</span></td>
+          <td className="text-[12.5px]">{factoryName(o.factoryId)}</td>
           <td><Pill tone={TAG_TONE[o.tag]}>{o.tag}</Pill></td>
           <td style={{ color: late ? 'var(--risk)' : undefined }}>{fmtDate(o.promisedOn)}{late && <span className="text-[11px]"> · {daysAgo(o.promisedOn)}d late</span>}{(o.promiseRevisions?.length ?? 0) > 0 && <span className="pill warn ml-1">moved</span>}</td>
-          <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>{needsReprint(o) && <Pill tone="risk">amended · {sheetVersion(o)}</Pill>}</td>
+          <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill></td>
           <td className="text-[12px]">{inAt(o) ? fmtDate(inAt(o)!) : <span style={{ color:'var(--ink-faint)' }}>{o.scans.find(x => x.stage === 'in-transit') ? `sent ${fmtDate(o.scans.find(x => x.stage === 'in-transit')!.at)}` : '—'}</span>}</td>
           <td className="num" style={{ color: d != null && d > AGING_DAYS ? 'var(--risk)' : undefined }}>{d != null ? `${d}d` : '—'}</td>
-          <td onClick={e => e.stopPropagation()} className="flex gap-1">
-            {mine && o.stage === 'in-transit' && <Button size="sm" onClick={() => scanOrders([o.id], 'in-factory')}>Received</Button>}
-            {mine && o.stage === 'in-factory' && <><Button size="sm" variant="primary" onClick={() => scanOrders([o.id], 'out-factory')}>Ready</Button><Button size="sm" variant="ghost" onClick={() => setXf(o.id)}>+ fabric</Button></>}
-          </td>
         </tr>); })}</tbody>
     </table></Card>
-    <div className="mt-3"><Note>"Ready" is the merchandiser's out-factory scan; pieces past {AGING_DAYS} days are the aging report.</Note></div>
-
-    <Drawer open={!!xfOrder} onClose={() => setXf(null)} title={xfOrder ? `Extra fabric · ${xfOrder.orderNo}` : ''} subtitle={xfOrder && <span>{xfOrder.styleName} · order sheet {xfOrder.consumptionM} m</span>}>
-      {xfOrder && <ExtraFabricForm o={xfOrder} onDone={() => setXf(null)} />}
-    </Drawer>
+    <div className="mt-3"><Note>Every order at the factories and where it is. The merchandiser scans received and out on My factory and asks for extra cloth there; pieces past {AGING_DAYS} days are the aging report. A row opens the order.</Note></div>
   </>;
 }
 
-function ExtraFabricForm({ o, onDone }: { o: CustomerOrder; onDone: () => void }) {
-  const { raiseExtraFabric } = useApp();
-  const [panel, setPanel] = useState<ExtraFabricRequest['panel']>('Single front');
-  const [reason, setReason] = useState<ExtraFabricRequest['reason']>('Damaged / yarn pull — factory error');
-  const [metres, setMetres] = useState(String(PANEL_METRES['Single front']));
-  const [note, setNote] = useState('');
-  return (
-    <Section title="Ask for extra cloth" right={<Pill tone="accent">Factory merchandiser</Pill>}>
-      <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'1fr 1fr' }}>
-        <Field label="Panel"><Select value={panel} onChange={v => { setPanel(v as ExtraFabricRequest['panel']); setMetres(String(PANEL_METRES[v])); }} options={EXTRA_FABRIC_PANELS.map(x => ({ value:x, label:x }))} /></Field>
-        <Field label="Metres" hint="a single panel is 80 cm, a full-width panel 90 cm"><Input type="number" step="0.1" value={metres} onChange={e => setMetres(e.target.value)} /></Field>
-        <div style={{ gridColumn:'1 / -1' }}><Field label="Reason — whose error"><Select value={reason} onChange={v => setReason(v as ExtraFabricRequest['reason'])} options={EXTRA_FABRIC_REASONS.map(x => ({ value:x, label:x }))} /></Field></div>
-        <div style={{ gridColumn:'1 / -1' }}><Field label="Note"><Input value={note} onChange={e => setNote(e.target.value)} placeholder="optional" /></Field></div>
-      </div>
-      <Button variant="primary" size="sm" onClick={() => { raiseExtraFabric({ orderId: o.id, metres: Number(metres), reason, panel, note: note.trim() }); onDone(); }}>Ask the production unit</Button>
-      <div className="pt-2"><Note>Factory errors go on the vendor's record; PP errors go back to the consumption formula.</Note></div>
-    </Section>
-  );
-}
 
 /* ---------- Extra fabric queue --------------------------------------------- */
 /** Decline asks why: the reason is kept on the ask and the factory reads it */

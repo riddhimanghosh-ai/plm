@@ -31,7 +31,6 @@ import { Planning } from './screens/Planning';
 import { Analyse } from './screens/Analyse';
 import { Sheet } from './screens/Sheet';
 import { Fabrics, FabricPage } from './screens/Fabrics';
-import { DesignsPage } from './screens/Designs';
 import { PrepDesk } from './screens/Preprod';
 import { MTM_ONLY, OPTIONS_OFF } from './domain/edition';
 
@@ -73,7 +72,7 @@ export default function App() {
           <Route path="/design" element={<DesignHome />} />
           <Route path="/fabrics" element={<Fabrics />} />
           <Route path="/fabric/:id" element={<FabricPage />} />
-          <Route path="/designs" element={<DesignsPage />} />
+          <Route path="/designs" element={<Navigate to="/fabrics?tab=designs" replace />} />
           <Route path="/vendors" element={<VendorsPage only="factories" />} />
           <Route path="/mills" element={<VendorsPage only="mills" />} />
         </Route>

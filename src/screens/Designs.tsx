@@ -103,7 +103,8 @@ export function DesignsOnFabric({ c, canEdit, compact = false }: { c: Concept; c
 }
 
 /** Every design on every fabric in one list: the place to find a design once it has been added on a fabric. */
-export function DesignsPage() {
+/** The list itself, also a toggle inside the MTM fabric master (What sells → Designs). */
+export function DesignsList() {
   const { db } = useApp();
   const [q, setQ] = useState('');
   const [state, setState] = useState<'all' | 'not-pushed' | 'in-enigma'>('all');
@@ -113,7 +114,7 @@ export function DesignsPage() {
     && (state === 'all' || (state === 'in-enigma' ? !!d.enigmaOn : !d.enigmaOn)))
     .sort((a, b) => (b.d.setOn ?? '').localeCompare(a.d.setOn ?? ''));
   const pager = usePager(shown, 25);
-  return <Page title="Designs" lede="Every design (product code) on every fabric. A design is added on its fabric's requirement, in section 3 · Fabric in; this list is where you find it afterwards.">
+  return <>
     <div className="flex gap-3 items-end flex-wrap mb-3">
       <div style={{ width: 320 }}><Field label="Search"><Input value={q} onChange={e => setQ(e.target.value)} placeholder="product code, design name, fabric or code…" /></Field></div>
       <div className="seg">{([['all', `All · ${rows.length}`], ['not-pushed', `Not in Enigma · ${rows.filter(r => !r.d.enigmaOn).length}`], ['in-enigma', `In Enigma · ${rows.filter(r => r.d.enigmaOn).length}`]] as const).map(([k, l]) =>
@@ -136,5 +137,5 @@ export function DesignsPage() {
     </table>
     <Pager page={pager.page} pageCount={pager.pageCount} onChange={pager.setPage} from={pager.from} to={pager.to} total={pager.total} noun="designs" />
     </Card>}
-  </Page>;
+  </>;
 }

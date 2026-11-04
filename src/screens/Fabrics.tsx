@@ -21,6 +21,7 @@ import { Field, Input, dateInput, fromDateInput } from '../ui';
 import { STORES, STORE_LOW_METRES, METRES_PER_SHIRT, MTM_SWATCH_BOOKS, MTM_ACTIVE_TARGET } from '../domain/reference';
 import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, KV, Section, Bars, usePager, Pager, Seg, useExamples, Select, ExportButton } from '../ui';
 import { ActsBy } from './Who';
+import { DesignsList } from './Designs';
 import { FabricInfo } from './FabricInfo';
 import { PoReceiving } from './PoReceiving';
 
@@ -141,7 +142,8 @@ export function Fabrics() {
         const groups: { id: string; label: string; tabs: T[] }[] = [
           { id:'sell', label:'What sells', tabs: [
             { id:'books', label:'Fabric inventory', hint:'every MTM fabric as Enigma lists it — code, name, category, inventory type, saleable, physical, reserved, threshold — filtered by swatch book' },
-            { id:'noncore', label:'Ranges', hint:'each range against its plan of options' } ] },
+            { id:'noncore', label:'Ranges', hint:'each range against its plan of options' },
+            { id:'designs', label:'Designs', hint:'every design (product code) on every fabric: one per fabric' } ] },
           { id:'orders', label:'Purchase orders & supply', tabs: [
             { id:'pos', label:'Purchase orders', count: designSide ? undefined : fpoUnconfirmed, hint:'every fabric PO — raised by Enigma on its own or by a person — and the fabrics that still need one' },
             ...(designSide ? [] : [
@@ -156,6 +158,8 @@ export function Fabrics() {
           </div>}
         </>; })()}
       {tab === 'books' && <BooksTab onOpen={id => set('open', id)} />}
+
+      {tab === 'designs' && <DesignsList />}
 
       {tab === 'trims' && <TrimsTab />}
 
