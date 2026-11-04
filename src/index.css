@@ -126,6 +126,8 @@ h3 { font-family: var(--body); font-size: 14px; font-weight: 600; letter-spacing
 .role-edge.role-warehouse { border-left-color: var(--role-warehouse) !important; }
 .kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
 .kv:last-child { border-bottom: 0; }
+.stages-pop .kv { padding: 3px 0; font-size: 12.5px; }
+.stages-pop .kv .k, .stages-pop .kv .v { white-space: nowrap; }
 .kv .k { color: var(--ink-soft); }
 .kv .v { text-align: right; font-weight: 600; color: var(--ink); }
 table.t { width: 100%; border-collapse: collapse; font-size: 13px; }

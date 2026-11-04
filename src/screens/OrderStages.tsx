@@ -31,12 +31,12 @@ export function StagesInfo({ o }: { o: CustomerOrder }) {
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setAt(null); } };
     window.addEventListener('mousedown', close); window.addEventListener('keydown', esc, true);
     return () => { window.removeEventListener('mousedown', close); window.removeEventListener('keydown', esc, true); }; }, [at]);
-  const W = 520;
+  const W = Math.min(900, window.innerWidth - 32);   // wide, so each stage sits on one line and the list barely scrolls
   return <>
     <button type="button" aria-label={`Stages of ${o.orderNo}`} title="Stages" className="ml-1 align-middle"
       style={{ width: 18, height: 18, borderRadius: 9, border: '1px solid var(--line)', fontSize: 11, lineHeight: '16px', color: 'var(--ink-soft)', background: 'var(--surface)', cursor: 'pointer', fontFamily: 'Georgia, serif', fontStyle: 'italic' }}
       onClick={e => { e.stopPropagation(); const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setAt(at ? null : { x: Math.max(8, Math.min(r.left, window.innerWidth - W - 8)), y: r.bottom + 6 }); }}>i</button>
-    {at && <div ref={box} onClick={e => e.stopPropagation()} className="card" style={{ position: 'fixed', left: at.x, top: Math.min(at.y, window.innerHeight - 120), width: W, maxHeight: `calc(100vh - ${Math.min(at.y, window.innerHeight - 120) + 12}px)`, overflowY: 'auto', zIndex: 80, padding: '10px 14px', boxShadow: '0 12px 40px rgb(0 0 0/.18)', fontFamily: 'var(--body)', fontSize: 13, fontVariantNumeric: 'normal', textAlign: 'left', whiteSpace: 'normal' }}>
+    {at && <div ref={box} onClick={e => e.stopPropagation()} className="card stages-pop" style={{ position: 'fixed', left: at.x, top: Math.min(at.y, window.innerHeight - 120), width: W, maxHeight: `calc(100vh - ${Math.min(at.y, window.innerHeight - 120) + 12}px)`, overflowY: 'auto', zIndex: 80, padding: '10px 14px', boxShadow: '0 12px 40px rgb(0 0 0/.18)', fontFamily: 'var(--body)', fontSize: 13, fontVariantNumeric: 'normal', textAlign: 'left', whiteSpace: 'normal' }}>
       <div className="flex items-center justify-between pb-1"><b className="mono text-[13px]">{o.orderNo} · stages</b><Pill tone="neutral">{stageLabel(o.stage)}</Pill></div>
       <StagesList o={o} />
     </div>}
