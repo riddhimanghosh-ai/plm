@@ -159,7 +159,7 @@ function FabricGrnTab({ mine }: { mine: boolean }) {
   const { db, receiveFabricPo } = useApp();
   const [openPo, setOpenPo] = useState<string | null>(null);
   const rows = openFabricPos(db).map(p => { const f = db.fabrics.find(x => x.id === p.fabricId)!; const v = db.vendors.find(x => x.id === p.vendorId); return { p, f, v, c: coverageOf(f, v?.leadDays ?? 14, v), st: fabricPoStatus(p) }; }).sort((a, b) => a.p.expectedOn.localeCompare(b.p.expectedOn));
-  const ex = useExamples(rows, r => r.st, { noun: 'fabric POs', done: r => r.st === 'confirmed' });
+  const ex = useExamples(rows, r => r.st, { noun: 'fabric POs', done: r => r.st === 'on order' });
   return <>
     {rows.length === 0 ? <Card><Empty title="Nothing on the way." body="Enigma's auto-POs and the manual international POs appear here until the rolls are received." /></Card> : <>{ex.strip && <div className="flex justify-end mb-2">{ex.strip}</div>}<Card><table className="t compact">
       <thead><tr><th>PO</th><th>Fabric</th><th>Mill</th><th className="num">Metres</th><th>Mill's date</th><th>Confirmed</th><th className="num">On shelf</th><th></th></tr></thead>
@@ -169,7 +169,7 @@ function FabricGrnTab({ mine }: { mine: boolean }) {
         <td className="text-[12.5px]">{v?.name}<div style={{ color:'var(--ink-faint)' }}>{f.international ? 'international' : 'domestic'} · {v?.leadDays}d lead</div></td>
         <td className="num" style={{ color:'var(--info)' }}>+{p.metres} m</td>
         <td style={{ color: daysAgo(p.expectedOn) > 0 ? 'var(--risk)' : undefined }}>{fmtDate(p.expectedOn)}{p.remark && <div className="text-[11px]" style={{ color:'var(--warn)', whiteSpace:'normal' }}>“{p.remark}”</div>}</td>
-        <td><Pill tone={st === 'confirmed' ? 'good' : st === 'confirmed · overdue' ? 'risk' : st === 'unconfirmed · chase' ? 'warn' : 'neutral'}>{p.vendorConfirmedOn ? `mill · ${fmtRel(p.vendorConfirmedOn)}` : 'not confirmed'}</Pill></td>
+        <td><Pill tone={st === 'overdue' ? 'risk' : 'neutral'}>{st}</Pill></td>
         <td className="num">{c.saleable} m</td>
         <td><Button size="sm" variant={openPo === p.id ? undefined : 'primary'} onClick={() => setOpenPo(openPo === p.id ? null : p.id)}>{openPo === p.id ? 'Close' : `Receive · ${Math.max(0, p.metres - (p.receivedMetres ?? 0))} m pending`}</Button></td>
       </tr>{openPo === p.id && <tr><td colSpan={8} style={{ background:'var(--surface-2)' }}><PoReceiving po={p} editable={mine} /></td></tr>}</Fragment>)}</tbody>

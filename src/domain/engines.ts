@@ -1209,8 +1209,8 @@ export function trimShortfall(db: Db, o: ProductionOrder) {
 export function openFabricPos(db: Db) { return (db.fabricPos ?? []).filter(p => !p.receivedOn); }
 export function fabricPoStatus(p: { vendorConfirmedOn: string | null; expectedOn: string; raisedOn: string; receivedOn: string | null }) {
   if (p.receivedOn) return 'received' as const;
-  if (!p.vendorConfirmedOn) return daysAgo(p.raisedOn) >= 2 ? 'unconfirmed · chase' as const : 'awaiting confirmation' as const;
-  return daysAgo(p.expectedOn) > 0 ? 'confirmed · overdue' as const : 'confirmed' as const;
+  /* no mill confirmation step (4 Nov 2026): a PO is on order until received, overdue once its expected date passes */
+  return daysAgo(p.expectedOn) > 0 ? 'overdue' as const : 'on order' as const;
 }
 
 /* ---------- waiting on you — the conditions the tool already knows about -----

@@ -34,7 +34,8 @@ export function Fabrics() {
   const [coreFilter, setCoreFilter] = useState<'all' | 'below' | 'manual' | 'intl' | 'soldout' | 'paused' | 'off' | 'unchecked'>('all');
   const [pausing, setPausing] = useState<string | null>(null);
   const [pauseNote, setPauseNote] = useState(''); const [rvStatus, setRvStatus] = useState<'ok' | 'delayed' | 'out'>('ok'); const [rvNote, setRvNote] = useState(''); const [rvBack, setRvBack] = useState('');
-  const fpoOpen = openFabricPos(db); const fpoUnconfirmed = fpoOpen.filter(p => !p.vendorConfirmedOn).length;
+  
+  const fpoOpen = openFabricPos(db);
   const [params, setParams] = useSearchParams();
   const { myRole } = useApp();
   const designSide = !demoAll && (myRole === 'design' || myRole === 'planning');   // a super admin sees both front pages
@@ -44,43 +45,17 @@ export function Fabrics() {
   const canSource = role === 'sourcing' || role === 'owner';
   const canPlan = role === 'design' || role === 'owner';        // design owns what the book offers
 
-  /* ONE answer to the only question a store asks: can I sell this today? It is
-     derived, never typed — design's pause first, then sourcing's switch-off,
-     then our own shelf, then the store floor. The same cell on core, non-core
-     and bespoke, because the question does not change with the bucket. */
+  /* ONE answer to "can I sell this today?", three states, the same everywhere:
+     on hold is a person's (Hold / Release hold); out of stock is the system's,
+     when saleable falls to the threshold; otherwise it can sell. */
   const OfferCell = ({ f }: { f: Fabric }) => {
-    const live = liveStatusOf(f, lead(f.vendorId));
-    const c = coverageOf(f, lead(f.vendorId));
-    const tone = live === 'Active' ? 'good' : live === 'Low Stock' ? 'warn' : 'risk';
-    const why = live === 'Paused' ? `${f.paused!.by} · ${fmtRel(f.paused!.at)}`
-      : live === 'On Hold' ? 'switched off — supplier'
-      : live === 'Sold Out' ? (f.bucket === 'BESPOKE' ? 'the mill has none' : 'nothing left to cut from')
-      : live === 'Low Stock' ? `${c.saleable} m — about ${Math.floor(c.saleable / METRES_PER_SHIRT)} shirts` : null;
-    return <>
-      <Pill tone={tone}>{live === 'Active' ? 'can sell' : live === 'Low Stock' ? 'low' : live === 'On Hold' ? 'off' : live.toLowerCase()}</Pill>
-      {why && <div className="text-[10.5px] mt-0.5" style={{ color:'var(--ink-faint)' }}>{why}</div>}
-      {f.paused && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)', fontStyle:'italic' }}>“{f.paused.note}”</div>}
-      <div className="mt-1 flex flex-col gap-1 items-start">
-        {canPlan && !f.onHold ? (f.paused
-          ? <Button size="sm" variant="primary" onClick={() => resumeFabric(f.id)}>Resume selling</Button>
-          : pausing === f.id
-            ? <div className="flex flex-col gap-1" style={{ minWidth: 210 }}>
-                <div className="flex gap-1 flex-wrap">{PAUSE_REASONS.map(r => <button key={r} type="button" className="btn sm" style={{ padding:'2px 7px', fontSize:10.5 }} onClick={() => { pauseFabric(f.id, r); setPausing(null); setPauseNote(''); }}>{r}</button>)}</div>
-                <Input autoFocus value={pauseNote} onChange={e => setPauseNote(e.target.value)} placeholder="…or type your own reason" style={{ padding:'3px 6px' }}
-                  onKeyDown={e => { if (e.key === 'Enter' && pauseNote.trim()) { pauseFabric(f.id, pauseNote.trim()); setPausing(null); setPauseNote(''); } if (e.key === 'Escape') setPausing(null); }} />
-                <div className="flex gap-1 items-center"><Button size="sm" variant="primary" disabled={!pauseNote.trim()} onClick={() => { pauseFabric(f.id, pauseNote.trim()); setPausing(null); setPauseNote(''); }}>Pause</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setPausing(null)}>Cancel</Button>
-                  {!pauseNote.trim() && <span className="text-[10px]" style={{ color:'var(--ink-faint)' }}>pick a reason, or write one</span>}</div>
-              </div>
-            : <Button size="sm" onClick={() => { setPausing(f.id); setPauseNote(''); }}>Pause selling…</Button>)
-          : !f.paused && !f.onHold && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>design pauses it</div>}
-        {f.onHold && f.supply?.status === 'ok' && <div className="text-[10.5px]" style={{ color:'var(--warn)' }}>the mill says it is back — nothing has switched it on</div>}
-        {canSource && !f.paused && (f.onHold
-          ? <Button size="sm" variant={f.supply?.status === 'ok' ? 'primary' : undefined} onClick={() => setFabricHold(f.id, false)}>Switch back on</Button>
-          : (f.supply && f.supply.status !== 'ok') || f.millAvailable === false
-            ? <Button size="sm" onClick={() => setFabricHold(f.id, true)}>Switch off · supplier</Button> : null)}
-      </div>
-    </>;
+    const held = f.onHold || !!f.paused;
+    const out = !held && f.stockMetres - f.reservedMetres <= f.thresholdMetres;
+    return <div className="flex flex-col gap-1 items-start">
+      <Pill tone={held ? 'warn' : out ? 'risk' : 'good'}>{held ? 'on hold' : out ? 'out of stock' : 'can sell'}</Pill>
+      {held ? <Button size="sm" onClick={() => { setFabricHold(f.id, false); if (f.paused) resumeFabric(f.id); }}>Release hold</Button>
+        : <Button size="sm" onClick={() => setFabricHold(f.id, true)}>Hold</Button>}
+    </div>;
   };
 
   /* What the reorder point has already done about it — the auto-PO made visible
@@ -140,14 +115,14 @@ export function Fabrics() {
       {(() => {
         type T = { id: string; label: string; count?: number; hint?: string };
         const groups: { id: string; label: string; tabs: T[] }[] = [
-          { id:'sell', label:'What sells', tabs: [
+          { id:'sell', label:'Fabric master data', tabs: [
             { id:'books', label:'Fabric inventory', hint:'every MTM fabric as Enigma lists it — code, name, category, inventory type, saleable, physical, reserved, threshold — filtered by swatch book' },
+            { id:'core', label:'Core · weekly review', count: reviewDue.length, hint:'sourcing reviews every core fabric with its mill once a week' },
             { id:'noncore', label:'Ranges', hint:'each range against its plan of options' },
             { id:'designs', label:'Designs', hint:'every design (product code) on every fabric: one per fabric' } ] },
           { id:'orders', label:'Purchase orders & supply', tabs: [
-            { id:'pos', label:'Purchase orders', count: designSide ? undefined : fpoUnconfirmed, hint:'every fabric PO — raised by Enigma on its own or by a person — and the fabrics that still need one' },
+            { id:'pos', label:'Purchase orders', hint:'every fabric PO — raised by Enigma on its own or by a person — and the fabrics that still need one' },
             ...(designSide ? [] : [
-              { id:'core', label:'Core · weekly stock review', count: reviewDue.length, hint:'sourcing reviews every core fabric with its mill once a week; an out fabric is escalated to design' },
               { id:'trims', label:'Trims & packaging', count: (db.trims ?? []).filter(t => trimCoverageOf(db, t).belowThreshold).length } ]) ] },
         ];
         const group = groups.find(g => g.tabs.some(t => t.id === tab)) ?? groups[0];
@@ -165,26 +140,25 @@ export function Fabrics() {
 
       {tab === 'core' && <>
         <div className="flex gap-1.5 flex-wrap mb-2 items-center">
-          {([['all', `All ${core.length}`], ['unchecked', `Review due ${reviewDue.length}`], ['below', `Under the reorder point ${belowRop.length}`], ['manual', `PO by hand ${toRaiseByHand.length}`], ['off', `Switched off ${core.filter(x => x.f.onHold).length}`]] as const).map(([k, label]) =>
+          {([['all', `All ${core.length}`], ['unchecked', `Review due ${reviewDue.length}`], ['below', `Under the reorder point ${belowRop.length}`], ['manual', `PO by hand ${toRaiseByHand.length}`], ['off', `On hold ${core.filter(x => x.f.onHold || x.f.paused).length}`]] as const).map(([k, label]) =>
             <button key={k} type="button" className={`btn sm ${coreFilter === k ? 'primary' : ''}`} onClick={() => setCoreFilter(k)}>{label}</button>)}
           {exCore.strip && <span className="ml-auto self-center">{exCore.strip}</span>}
         </div>
         <Card><div style={{ overflowX:'auto' }}><table className="t compact">
-          <thead><tr><th>Fabric</th><th>Mill</th><th className="num">Saleable</th><th>Reorder</th><th>Mill said</th><th>Weekly review</th><th>Selling</th></tr></thead>
+          <thead><tr><th>Fabric</th><th>Mill</th><th className="num">Saleable</th><th>Reorder</th><th>Weekly review · the mill</th><th>Status</th></tr></thead>
           <tbody>{corePager.pageRows.map(({ f, c }) => { const po = fpoOpen.filter(p => p.fabricId === f.id).sort((a, b) => b.raisedOn.localeCompare(a.raisedOn))[0]; const due = !f.supply || daysAgo(f.supply.reviewedOn) >= 7; const editing = review === f.id; return <tr key={f.id} className="row" onClick={() => set('open', f.id)} style={{ background: editing ? 'var(--accent-soft)' : undefined }}>
             <td className="font-medium" style={{ whiteSpace:'normal', minWidth: 160 }}>{f.name}<div className="text-[11px] font-normal mono" style={{ color:'var(--ink-faint)' }}>{f.code}</div></td>
             <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{vendorName(f.vendorId)}<div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{f.international ? 'international' : 'domestic'} · {lead(f.vendorId)}d</div></td>
             <td className="num mono" style={{ color: c.saleable <= 0 ? 'var(--risk)' : undefined }}>{c.saleable} m{c.incoming ? <div className="text-[10.5px]" style={{ color:'var(--info)' }}>+{c.incoming} m on order</div> : null}</td>
             <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'normal' }}>
-              {po ? <Pill tone={po.vendorConfirmedOn ? 'good' : 'info'}>PO {po.metres} m · {po.source === 'auto' ? 'Enigma' : 'by hand'}</Pill>
+              {po ? <Pill tone="info">PO {po.metres} m · {po.source === 'auto' ? 'Enigma' : 'by hand'}</Pill>
                 : !c.belowRop ? <Pill tone="good">above {c.rop} m</Pill>
                 : f.international ? <span className="flex gap-1 items-center flex-wrap"><Pill tone="risk">under {c.rop} m</Pill>{(canPlan || canSource) && <Button size="sm" variant="primary" onClick={() => raiseFabricPo(f.id, c.suggestedPo)}>Raise PO · {c.suggestedPo} m</Button>}</span>
                 : <Pill tone="info">under {c.rop} m · Enigma fires tonight</Pill>}
             </td>
-            <td style={{ whiteSpace:'normal' }}>{f.supply ? <><Pill tone={f.supply.status === 'ok' ? 'good' : f.supply.status === 'delayed' ? 'warn' : 'risk'}>{f.supply.status === 'ok' ? 'in stock' : f.supply.status === 'delayed' ? 'delayed' : 'run out'}</Pill><div className="text-[10.5px]" style={{ color: due ? 'var(--warn)' : 'var(--ink-faint)' }}>{fmtRel(f.supply.reviewedOn)}{f.supply.backOn ? ` · back ${fmtDate(f.supply.backOn)}` : ''}</div></> : <Pill tone="warn">never asked</Pill>}</td>
             <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'normal', minWidth: editing ? 420 : 120 }}>
               {!canSource ? <span className="text-[11px]" style={{ color:'var(--ink-faint)' }}>sourcing</span>
-                : !editing ? <Button size="sm" variant={due ? 'primary' : 'ghost'} onClick={() => beginReview(f)}>{due ? 'Review' : 'Update'}</Button>
+                : !editing ? <div className="flex flex-col gap-1 items-start">{f.supply ? <><Pill tone={f.supply.status === 'ok' ? 'good' : f.supply.status === 'delayed' ? 'warn' : 'risk'}>{f.supply.status === 'ok' ? 'in stock' : f.supply.status === 'delayed' ? 'delayed' : 'run out'}</Pill><div className="text-[10.5px]" style={{ color: due ? 'var(--warn)' : 'var(--ink-faint)' }}>{fmtRel(f.supply.reviewedOn)}{f.supply.backOn ? ` · back ${fmtDate(f.supply.backOn)}` : ''}</div></> : <Pill tone="warn">never asked</Pill>}<Button size="sm" variant={due ? 'primary' : 'ghost'} onClick={() => beginReview(f)}>{due ? 'Review' : 'Update'}</Button></div>
                 : <div className="flex gap-1.5 items-center flex-wrap">
                   <Select value={rvStatus} onChange={v => setRvStatus(v as 'ok' | 'delayed' | 'out')} options={[{ value:'ok', label:'In stock' }, { value:'delayed', label:'Delayed' }, { value:'out', label:'Run out' }]} />
                   {rvStatus !== 'ok' && <Input type="date" value={rvBack} onChange={e => setRvBack(e.target.value)} title="back in stock by" style={{ width: 140 }} />}
@@ -306,8 +280,8 @@ function FabricPoList({ f, flat, canSource }: { f: Fabric; flat: boolean; canSou
             <span className="mono font-medium">{p.poNo}</span>
             <Pill tone={p.source === 'auto' ? 'info' : 'neutral'}>{p.source === 'auto' ? 'Enigma · auto' : 'by hand'}</Pill>
             <span className="mono">{p.metres} m</span>
-            <span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>raised {fmtDate(p.raisedOn)}{p.vendorConfirmedOn ? ` · mill ships ${fmtDate(p.expectedOn)}` : ` · expected ${fmtDate(p.expectedOn)}, mill not confirmed`}</span>
-            <span className="ml-auto"><Pill tone={st === 'confirmed' ? 'good' : st.includes('overdue') ? 'risk' : st.includes('chase') ? 'warn' : 'neutral'}>{p.closedOn ? (p.closedShort ? 'closed short' : 'received') : st}</Pill></span>
+            <span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>raised {fmtDate(p.raisedOn)} · expected {fmtDate(p.expectedOn)}</span>
+            <span className="ml-auto"><Pill tone={st === 'overdue' ? 'risk' : 'neutral'}>{p.closedOn ? (p.closedShort ? 'closed short' : 'received') : st}</Pill></span>
           </div>
           {p.remark && <div className="text-[12px] pt-0.5" style={{ color:'var(--ink-soft)' }}>“{p.remark}”</div>}
           <PoReceiving po={p} editable={canSource} />
@@ -481,28 +455,28 @@ function TrimsTab() {
 
 /* ---------- fabric POs — raised by Enigma or by planning; confirmed by sourcing with the mill ---- */
 function FabricPosTab({ canSource }: { canSource: boolean }) {
-  const { db, confirmFabricPo, remarkFabricPo } = useApp();
+  const { db, remarkFabricPo } = useApp();
   const [q, setQ] = useState('');
-  const [only, setOnly] = useState<'all' | 'auto' | 'hand' | 'needs' | 'chase' | 'confirmed'>('all');
+  const [only, setOnly] = useState<'all' | 'auto' | 'hand' | 'needs'>('all');
   /* fabrics under their reorder point that Enigma will NOT order — a person has to */
   const needs = db.fabrics.filter(f => f.bucket === 'CORE' && f.international).map(f => { const m = db.vendors.find(v => v.id === f.vendorId); return { f, m, c: coverageOf(f, m?.leadDays ?? 30, m) }; })
     .filter(x => x.c.belowRop && !openFabricPos(db).some(p => p.fabricId === x.f.id));
   const { raiseFabricPo } = useApp();
-  const allPos = openFabricPos(db).sort((a, b) => Number(!!a.vendorConfirmedOn) - Number(!!b.vendorConfirmedOn) || a.raisedOn.localeCompare(b.raisedOn));
+  const allPos = openFabricPos(db).sort((a, b) => a.expectedOn.localeCompare(b.expectedOn));
   /* search by PO number, fabric name or code, mill, remark — anything on the row */
   const hay = (p: typeof allPos[number]) => { const f = db.fabrics.find(x => x.id === p.fabricId); const v = db.vendors.find(x => x.id === p.vendorId); return `${p.poNo} ${f?.name ?? ''} ${f?.code ?? ''} ${f?.bucket ?? ''} ${v?.name ?? ''} ${p.remark ?? ''}`.toLowerCase(); };
   const pos = allPos.filter(p => (!q.trim() || q.toLowerCase().split(/\s+/).every(w => hay(p).includes(w)))
-    && (only === 'all' || only === 'needs' || (only === 'auto' && p.source === 'auto') || (only === 'hand' && p.source !== 'auto') || (only === 'chase' && !p.vendorConfirmedOn) || (only === 'confirmed' && !!p.vendorConfirmedOn)));
-  const ex = useExamples(pos, p => fabricPoStatus(p), { noun: 'fabric POs', score: p => (p.vendorConfirmedOn ? 1 : 0) + (p.remark ? 1 : 0), done: p => fabricPoStatus(p) === 'confirmed' });
+    && (only === 'all' || only === 'needs' || (only === 'auto' && p.source === 'auto') || (only === 'hand' && p.source !== 'auto')));
+  const ex = useExamples(pos, p => fabricPoStatus(p), { noun: 'fabric POs', score: p => (p.remark ? 1 : 0), done: p => fabricPoStatus(p) === 'on order' });
   const [edit, setEdit] = useState<string | null>(null);
   const [date, setDate] = useState(''); const [remark, setRemark] = useState('');
   const fabric = (id: string) => db.fabrics.find(f => f.id === id);
-  const TONE: Record<string, 'neutral' | 'info' | 'warn' | 'good' | 'risk'> = { 'awaiting confirmation':'neutral', 'unconfirmed · chase':'warn', confirmed:'good', 'confirmed · overdue':'risk', received:'neutral' };
+  const TONE: Record<string, 'neutral' | 'info' | 'warn' | 'good' | 'risk'> = { 'on order':'neutral', overdue:'risk', received:'neutral' };
   const begin = (id: string, expectedOn: string, r: string) => { setEdit(id); setDate(dateInput(expectedOn)); setRemark(r); };
   return <>
     <div className="flex items-end gap-3 flex-wrap mb-3">
       <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search PO, fabric, code, mill, remark…" style={{ width: 300 }} aria-label="search fabric POs" />
-      <Seg value={only} onChange={setOnly} options={[{ id:'all', label:'All open', count: allPos.length }, { id:'auto', label:'Enigma raised · auto', count: allPos.filter(p => p.source === 'auto').length, hint:'Enigma\'s batch run raised these on its own — domestic core under its threshold' }, { id:'hand', label:'Raised by hand', count: allPos.filter(p => p.source !== 'auto').length, hint:'a person pushed these — international core, a design\'s new fabric, an RTW requirement' }, { id:'needs', label:'Needs a PO by hand', count: needs.length, hint:'international core under its reorder point with no PO — Enigma will not raise it' }, { id:'chase', label:'Mill not confirmed', count: allPos.filter(p => !p.vendorConfirmedOn).length }, { id:'confirmed', label:'Confirmed', count: allPos.filter(p => !!p.vendorConfirmedOn).length }]} />
+      <Seg value={only} onChange={setOnly} options={[{ id:'all', label:'All open', count: allPos.length }, { id:'auto', label:'Enigma raised · auto', count: allPos.filter(p => p.source === 'auto').length, hint:'Enigma\'s batch run raised these on its own — domestic core under its threshold' }, { id:'hand', label:'Raised by hand', count: allPos.filter(p => p.source !== 'auto').length, hint:'a person pushed these — international core, a design\'s new fabric, an RTW requirement' }, { id:'needs', label:'Needs a PO by hand', count: needs.length, hint:'international core under its reorder point with no PO — Enigma will not raise it' }]} />
       {q && <span className="text-[12px]" style={{ color:'var(--ink-soft)' }}>{pos.length} of {allPos.length}</span>}
       {ex.strip && <span className="ml-auto">{ex.strip}</span>}
     </div>
@@ -515,29 +489,29 @@ function FabricPosTab({ canSource }: { canSource: boolean }) {
         <td onClick={e => e.stopPropagation()}>{canSource ? <Button size="sm" variant="primary" onClick={() => raiseFabricPo(f.id, c.suggestedPo)}>Raise PO · {c.suggestedPo} m</Button> : <ActsBy role="sourcing" does="raises it" inline />}</td>
       </tr>)}</tbody></table>}</Card>}
     {only === 'needs' ? null : pos.length === 0 ? <Card><Empty title={allPos.length ? 'Nothing matches.' : 'No fabric POs open.'} body={allPos.length ? 'Try a shorter word — the search covers PO number, fabric name and code, mill and remark.' : "Enigma's auto-POs and the manual international ones appear here until the rolls are received."} /></Card> : <Card><div style={{ overflowX:'auto' }}><table className="t compact">
-      <thead><tr><th>PO</th><th>Fabric</th><th>Mill</th><th className="num">Metres</th><th>Mill says</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>PO</th><th>Fabric</th><th>Mill</th><th className="num">Metres</th><th>Expected · remark</th><th>Status</th><th></th></tr></thead>
       <tbody>{ex.rows.map(p => { const f = fabric(p.fabricId); const st = fabricPoStatus(p); const editing = edit === p.id; return (
         <tr key={p.id} style={{ background: editing ? 'var(--accent-soft)' : undefined }}>
           <td className="mono text-[12.5px]">{p.poNo}<div className="pt-0.5"><Pill tone={p.source === 'auto' ? 'info' : 'accent'}>{p.source === 'auto' ? 'Enigma · auto' : /concept|RTW bulk|REQ-\d/i.test(p.remark) ? 'by hand · design' : 'by hand · sourcing'}</Pill></div><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{fmtRel(p.raisedOn)}</div></td>
           <td style={{ whiteSpace:'normal', minWidth: 180 }}>{f?.name}<div className="text-[11px] mono" style={{ color:'var(--ink-faint)' }}>{f?.code} · {f?.bucket.toLowerCase().replace('_', '-')}</div></td>
           <td style={{ whiteSpace:'normal' }}><VendorLink id={p.vendorId} /></td>
           <td className="num">{p.metres} m</td>
-          <td className="text-[12px]" style={{ whiteSpace:'normal', minWidth: 190 }}>{p.vendorConfirmedOn ? <><span style={{ color: daysAgo(p.expectedOn) > 0 ? 'var(--risk)' : undefined }}>ships {fmtDate(p.expectedOn)}</span><div style={{ color:'var(--ink-faint)' }}>confirmed {fmtRel(p.vendorConfirmedOn)} · {p.vendorConfirmedBy}</div>{p.remark && <div style={{ color:'var(--warn)' }}>“{p.remark}”</div>}</> : <span style={{ color:'var(--ink-faint)' }}>nothing heard · lead time says {fmtDate(p.expectedOn)}</span>}</td>
+          <td className="text-[12px]" style={{ whiteSpace:'normal', minWidth: 190 }}><span style={{ color: daysAgo(p.expectedOn) > 0 ? 'var(--risk)' : undefined }}>{fmtDate(p.expectedOn)}</span>{p.remark && <div style={{ color:'var(--warn)' }}>“{p.remark}”</div>}</td>
           <td><Pill tone={TONE[st]}>{st}</Pill></td>
-          <td>{canSource && !editing && <Button size="sm" variant={p.vendorConfirmedOn ? undefined : 'primary'} onClick={() => begin(p.id, p.expectedOn, p.remark)}>{p.vendorConfirmedOn ? 'Update date / remark' : 'Mill confirmed…'}</Button>}</td>
+          <td>{canSource && !editing && <Button size="sm" onClick={() => begin(p.id, p.expectedOn, p.remark)}>Update date / remark</Button>}</td>
         </tr>); })}</tbody>
     </table></div>
     {edit && (() => { const p = pos.find(x => x.id === edit)!; const f = fabric(p.fabricId); return <div className="px-4 py-3" style={{ borderTop:'1px solid var(--line)' }}>
-      <div className="label">{p.poNo} · {f?.name} · {p.metres} m — what did the mill say?</div>
+      <div className="label">{p.poNo} · {f?.name} · {p.metres} m — expected date and remark</div>
       <div className="grid gap-2.5 items-end" style={{ gridTemplateColumns:'160px 1fr auto auto' }}>
-        <Field label="Mill's dispatch date"><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></Field>
+        <Field label="Expected date"><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></Field>
         <Field label="Remark" hint="a few days more, why; shade lot changed; two lots…"><Input value={remark} onChange={e => setRemark(e.target.value)} placeholder="e.g. loom down last week — 4 days more" /></Field>
-        {!p.vendorConfirmedOn ? <Button variant="primary" size="sm" onClick={() => { confirmFabricPo(p.id, fromDateInput(date), remark.trim()); setEdit(null); }}>Confirmed by mill</Button> : <Button variant="primary" size="sm" onClick={() => { remarkFabricPo(p.id, fromDateInput(date), remark.trim()); setEdit(null); }}>Save</Button>}
+        <Button variant="primary" size="sm" onClick={() => { remarkFabricPo(p.id, fromDateInput(date), remark.trim()); setEdit(null); }}>Save</Button>
         <Button size="sm" variant="ghost" onClick={() => setEdit(null)}>Cancel</Button>
       </div>
     </div>; })()}
     </Card>}
-    <div className="mt-3"><Note>An auto-PO the mill has not confirmed shows here as a chase after two days, not as a surprise at the GRN.</Note></div>
+    <div className="mt-3"><Note>No mill confirmation step: a PO is on order until its rolls are received, and overdue once the expected date passes. Update date / remark records a new date or a note from the mill.</Note></div>
   </>;
 }
 
@@ -546,13 +520,14 @@ function FabricPosTab({ canSource }: { canSource: boolean }) {
    One block per book, the fabrics in it as rows: is it on the shelf, what does it
    sell as (the designs and their product codes), is cloth coming, when did stores
    and online go live. No reorder maths — that is sourcing's page. */
-type BookState = 'active' | 'coming' | 'hold' | 'paused';
-const BOOK_STATE: Record<BookState, { label: string; tone: 'good' | 'info' | 'warn' | 'neutral' }> = {
-  active: { label:'on the shelf', tone:'good' }, coming: { label:'cloth coming', tone:'info' }, hold: { label:'on hold', tone:'warn' }, paused: { label:'paused', tone:'neutral' } };
+/* on hold = a person switched it off by hand; out of stock = the system's, saleable has fallen to the threshold */
+type BookState = 'active' | 'coming' | 'hold' | 'out';
+const BOOK_STATE: Record<BookState, { label: string; tone: 'good' | 'info' | 'warn' | 'risk' }> = {
+  active: { label:'on the shelf', tone:'good' }, coming: { label:'cloth coming', tone:'info' }, hold: { label:'on hold', tone:'warn' }, out: { label:'out of stock', tone:'risk' } };
 function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
-  const { db } = useApp();
+  const { db, setFabricHold, resumeFabric } = useApp();
   const [q, setQ] = useState('');
-  const [show, setShow] = useState<'all' | 'active' | 'hold' | 'coming' | 'paused'>('all');
+  const [show, setShow] = useState<'all' | 'active' | 'hold' | 'coming' | 'out'>('all');
   const [book, setBook] = useState<string>('all');
   const [wh, setWh] = useState('factory');
   const [bucket, setBucket] = useState<'all' | 'CORE' | 'NON_CORE'>('all');   // Enigma's warehouse picker — one stock today; per-warehouse once the read is live
@@ -562,7 +537,7 @@ function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
      old one-card-per-book layout did with a page of scroll */
   const all = db.fabrics.filter(f => f.swatchBook && f.bucket !== 'BESPOKE').map(f => {
     const c = (db.concepts ?? []).find(x => x.fabricId === f.id) ?? null;
-    const state: BookState = f.paused ? 'paused' : f.onHold ? (f.incomingMetres > 0 && f.stockMetres === 0 ? 'coming' : 'hold') : 'active';
+    const state: BookState = f.onHold || f.paused ? 'hold' : f.stockMetres === 0 && f.incomingMetres > 0 ? 'coming' : saleable(f) <= 0 ? 'out' : 'active';
     return { f, c, state };
   });
   const books = MTM_SWATCH_BOOKS.map(bk => { const fs = all.filter(x => x.f.swatchBook === bk); const active = fs.filter(x => x.state === 'active').length;
@@ -570,7 +545,7 @@ function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
   const rows = all
     .filter(x => (book === 'all' || x.f.swatchBook === book) && (show === 'all' || x.state === show) && (bucket === 'all' || x.f.bucket === bucket)
       && (!q.trim() || q.toLowerCase().split(/\s+/).every(w => `${x.f.name} ${x.f.code} ${x.f.swatchBook} ${(x.c?.designs ?? []).map(d => `${d.name} ${d.finalName ?? ''} ${d.code}`).join(' ')}`.toLowerCase().includes(w))))
-    .sort((a, b) => (a.f.swatchBook ?? '').localeCompare(b.f.swatchBook ?? '') || ({ active: 0, coming: 1, hold: 2, paused: 3 })[a.state] - ({ active: 0, coming: 1, hold: 2, paused: 3 })[b.state] || a.f.name.localeCompare(b.f.name));
+    .sort((a, b) => (a.f.swatchBook ?? '').localeCompare(b.f.swatchBook ?? '') || ({ active: 0, coming: 1, out: 2, hold: 3 })[a.state] - ({ active: 0, coming: 1, out: 2, hold: 3 })[b.state] || a.f.name.localeCompare(b.f.name));
   const count = (f: (x: typeof all[number]) => boolean) => all.filter(x => (book === 'all' || x.f.swatchBook === book) && (bucket === 'all' || x.f.bucket === bucket) && f(x)).length;
   const ex = useExamples(rows, r => `${r.f.swatchBook}·${r.state}`, { noun: 'fabrics', score: r => (r.c ? 1 : 0) + (r.c?.designs?.length ? 1 : 0) + (r.c?.liveOn ? 1 : 0) + (r.c?.swatch ? 1 : 0), done: r => r.state === 'active' && !!r.c?.liveOn });
   const pager = usePager(ex.rows, 25);
@@ -584,7 +559,7 @@ function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
         <div className="text-[15px] font-semibold">{bk.active} <span className="text-[11.5px] font-normal" style={{ color:'var(--ink-faint)' }}>/ {MTM_ACTIVE_TARGET}</span> {bk.gap > 0 ? <span className="pill warn" style={{ marginLeft: 4 }}>{bk.gap} short</span> : <span className="pill good" style={{ marginLeft: 4 }}>met</span>}</div></button>)}
     </div>
     <div className="flex items-end gap-3 flex-wrap mb-2">
-      <Seg value={show} onChange={setShow} options={[{ id:'all', label:'Every fabric', count: count(() => true) }, { id:'active', label:'On the shelf', count: count(x => x.state === 'active'), hint:'sellable now — not paused by design, not on hold' }, { id:'coming', label:'Cloth coming', count: count(x => x.state === 'coming') }, { id:'hold', label:'On hold', count: count(x => x.state === 'hold') }, { id:'paused', label:'Paused', count: count(x => x.state === 'paused') }]} />
+      <Seg value={show} onChange={setShow} options={[{ id:'all', label:'Every fabric', count: count(() => true) }, { id:'active', label:'On the shelf', count: count(x => x.state === 'active'), hint:'sellable now: above the threshold and not on hold' }, { id:'coming', label:'Cloth coming', count: count(x => x.state === 'coming') }, { id:'out', label:'Out of stock', count: count(x => x.state === 'out'), hint:'saleable has fallen to the threshold (physical − reserved ≤ threshold); set by the system' }, { id:'hold', label:'On hold', count: count(x => x.state === 'hold'), hint:'switched off by hand; Release puts it back on sale' }]} />
       <Seg value={bucket} onChange={v => setBucket(v as typeof bucket)} options={[{ id:'all', label:'Core + non-core' }, { id:'CORE', label:'Core', count: all.filter(x => x.f.bucket === 'CORE' && (book === 'all' || x.f.swatchBook === book)).length }, { id:'NON_CORE', label:'Non-core', count: all.filter(x => x.f.bucket === 'NON_CORE' && (book === 'all' || x.f.swatchBook === book)).length }]} />
       <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name…" style={{ width: 280 }} aria-label="search books" />
       <Select value={wh} onChange={setWh} options={[{ value:'factory', label:'Factory Warehouse' }, { value:'ho', label:'HO Warehouse' }]} />
@@ -608,10 +583,12 @@ function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
           <td className="num">{f.reservedMetres}</td>
           <td className="num">{f.thresholdMetres}</td>
           <td><Pill tone={STATE[state].tone}>{STATE[state].label}</Pill></td>
-          <td onClick={e => e.stopPropagation()}><button type="button" className="cta" onClick={() => onOpen(f.id)}>Open →</button></td>
+          <td onClick={e => e.stopPropagation()} style={{ whiteSpace:'nowrap' }}>{state === 'hold'
+            ? <Button size="sm" onClick={() => { setFabricHold(f.id, false); if (f.paused) resumeFabric(f.id); }}>Release hold</Button>
+            : <Button size="sm" onClick={() => setFabricHold(f.id, true)}>Hold</Button>} <button type="button" className="cta" onClick={() => onOpen(f.id)}>Open →</button></td>
         </tr>; })}</tbody>
     </table></div><Pager {...pager} onChange={pager.setPage} noun="fabrics" /></Card>}
-    <div className="mt-3"><Note>The columns are Enigma's Fabric Inventory, metres. Saleable = physical − reserved − threshold, the number a store can sell against. Click a book to filter; open a fabric to rename, pause or resume it, or see its POs and stock.</Note></div>
+    <div className="mt-3"><Note>The columns are Enigma's Fabric Inventory, metres. Saleable = physical − reserved − threshold, the number a store can sell against. Click a book to filter; On hold is set by hand (Hold / Release hold); out of stock is the system's, when saleable falls to the threshold. Open a fabric to rename it or see its POs and stock.</Note></div>
   </>;
 }
 

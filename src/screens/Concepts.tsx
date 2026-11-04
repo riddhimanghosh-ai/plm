@@ -224,7 +224,7 @@ export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean
           <KV k="Fabric PO" v={<>{po?.poNo ?? `${c.fabricPo!.metres} m`} <span style={{ color:'var(--ink-faint)' }}>· {c.fabricPo!.metres} m</span></>}
             note={`raised ${fmtDate(c.fabricPo!.on)}${s.fabric?.cpm ? ` · ${fmtMoney(c.fabricPo!.metres * s.fabric.cpm)} at ₹${s.fabric.cpm}/m` : ''}${po ? ` · expected ${fmtDate(po.expectedOn)}` : ''}`} />
           {po && <PoReceiving po={po} editable={role === 'warehouse' || role === 'owner'} />}
-          {po && <KV k="On the fabric master" v={<a className="cta" href="#/fabrics?tab=pos">{po.poNo} · {po.vendorConfirmedOn ? 'mill confirmed' : 'waiting on the mill'} →</a>} note="sourcing chases it there; the warehouse receives it against this number" />}
+          {po && <KV k="On the fabric master" v={<a className="cta" href="#/fabrics?tab=pos">{po.poNo} · expected {fmtDate(po.expectedOn)} →</a>} note="sourcing chases it there; the warehouse receives it against this number" />}
         </>; })()}
       {false && <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>A concept that fails costs a sample, not a bulk.</div>}
       {!s.fabric && !c.fabricPo && <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Waits for step 2 — a vendor against the cloth, then design pushes the PO from there.</div>}
