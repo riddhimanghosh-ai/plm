@@ -6,10 +6,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import { outboundOf, fmtDate, fmtRel, daysAgo } from '../domain/engines';
 import { Page, Card, Pill, Button, Note, Empty, Tabs, useExamples } from '../ui';
-import { FabricOutTab } from './FabricOut';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
-import { MTM_ONLY } from '../domain/edition';
 
 /* One screen, three things that leave the unit for a factory: the order-sheet
    bundles, the extra cloth a factory has asked for, and the RTW bulk materials
@@ -17,19 +15,15 @@ import { MTM_ONLY } from '../domain/edition';
 export function OutboundPage() {
   const { db } = useApp();
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') ?? 'bundles';
+  /* MTM bundles and the extra-fabric cut list are already on Plans and Extra fabric (4 Nov 2026):
+     this page is RTW only, and hidden in the MTM edition */
+  const tab = 'rtw'; void params;
   const set = (t: string) => { const n = new URLSearchParams(params); n.set('tab', t); setParams(n, { replace:true }); };
   const ob = outboundOf(db);
-  const toPick = (db.extraFabric ?? []).filter(r => r.status === 'approved').length;
   return (
-    <Page title="Outbound to factories" lede="Everything that leaves the production unit for a factory: order sheets, extra cloth, and RTW materials against a PO."
-      replaces="the vehicle's load list on a WhatsApp, the extra-fabric printout, and the RTW fabric that leaves without a record">
-      <Tabs active={tab} onChange={set} tabs={[
-        { id:'bundles', label:'MTM bundles · cut & dispatch', count: ob.totals.factoryPcs },
-        { id:'fabric', label:'Extra fabric · the cut list', count: toPick },
-        ...(MTM_ONLY ? [] : [{ id:'rtw', label:'RTW bulk · materials to issue', count: ob.rtwIssue.length }]),
-      ]} />
-      {tab === 'fabric' ? <FabricOutTab /> : <OutboundTab side="factories" onTab={set} rtw={tab === 'rtw'} />}
+    <Page title="RTW materials to factories" lede={`RTW materials to issue against a PO · ${ob.rtwIssue.length}`}
+      replaces="the RTW fabric that leaves without a record">
+      <OutboundTab side="factories" onTab={set} rtw={tab === 'rtw'} />
     </Page>
   );
 }

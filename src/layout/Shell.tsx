@@ -43,7 +43,7 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   { path:'/compiling',    label:'Compiling desk',             hint:'check the bundle, approve contrast fabric',     group:'Production', roles:['owner','production','warehouse'] },
   { path:'/factory',      label:'My factory · merchandiser',   hint:"the floor's own day: output, pieces, cloth",     group:'Merchandiser', roles:['owner','merchandiser','production'] , hideFor:['production']},
   { path:'/tracker',      label:'RTW production tracker',     hint:'every bulk PO, date by date',                    group:'Production', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
-  { path:'/outbound',     label:'Outbound to factories',      hint:'bundles to cut, extra fabric, RTW materials',    group:'Production', roles:['owner','production','warehouse'] , hideFor:['production','warehouse']},
+  { path:'/outbound',     label:'RTW materials to factories', hint:'RTW materials to issue against a PO',    group:'Production', roles:['owner','production','warehouse'] , hideFor:['production','warehouse']},
   { path:'/otif',         label:'RTW production analytics',   hint:'OTIF, daily monitor, escalations, merchandiser alerts — read off the tracker', group:'Production', roles:['owner','production','planning'] },
 
   /* moving */
