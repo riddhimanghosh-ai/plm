@@ -4,7 +4,7 @@
    for its merchandiser — WIP aging, mark ready, ask for fabric.
    Fabric: the extra-fabric email as a queue whose approval moves inventory.
    Output: the WhatsApp shipping table and the aging pivot, derived. */
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import type React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
@@ -19,6 +19,7 @@ import { FILE_LABELS } from '../domain/reference';
 import { SheetChangePanel, PullBackButton } from './OrderSheet';
 import { VendorLink } from './Vendors';
 import { PrepOverview, PrepOnOrder } from './Preprod';
+import { StagesInfo } from './OrderStages';
 import { ActsBy } from './Who';
 
 const TAG_TONE: Record<OrderTag, Tone> = { normal:'neutral', urgent:'risk', corporate:'info' };
@@ -60,7 +61,7 @@ export function Mtm() {
       {tab === 'changes' && isProd && <ChangesTab onOpen={id => set('open', id)} />}
       {tab === 'fabric' && <FabricTab mine={mine} wh={isWh} onOpen={id => set('open', id)} />}
 
-      <Drawer open={!!openOrder} onClose={() => set('open', null)} title={openOrder?.orderNo ?? ''} subtitle={openOrder && <><Pill tone={STAGE_TONE[openOrder.stage] ?? 'neutral'}>{stageLabel(openOrder.stage)}</Pill><Pill tone={TAG_TONE[openOrder.tag]}>{openOrder.tag}</Pill><span>{openOrder.customer} · {STORES.find(s => s.id === openOrder.storeId)?.name}</span></>}>
+      <Drawer open={!!openOrder} onClose={() => set('open', null)} title={openOrder?.orderNo ?? ''} subtitle={openOrder && <><Pill tone={STAGE_TONE[openOrder.stage] ?? 'neutral'}>{stageLabel(openOrder.stage)}</Pill><StagesInfo o={openOrder} /><Pill tone={TAG_TONE[openOrder.tag]}>{openOrder.tag}</Pill><span>{openOrder.customer} · {STORES.find(s => s.id === openOrder.storeId)?.name}</span></>}>
         {openOrder && <OrderSheet o={openOrder} mine={mine} />}
       </Drawer>
     </Page>
@@ -96,7 +97,7 @@ function ChangesTab({ onOpen }: { onOpen: (id: string) => void }) {
       : <Card><div style={{ overflowX:'auto' }}><table className="t compact">
         <thead><tr><th>Order</th><th>Customer · store</th><th>What changed</th><th>Why · who</th><th>When</th><th>{side === 'me' ? 'Where it is' : 'Who to ring'}</th><th></th></tr></thead>
         <tbody>{ex.rows.map(({ o, rev }) => { const f = factory(o.factoryId); return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
-          <td className="mono text-[12.5px]">{o.orderNo}<div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{o.styleName}</div></td>
+          <td className="mono text-[12.5px]">{o.orderNo}<StagesInfo o={o} /><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{o.styleName}</div></td>
           <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{o.customer}<div style={{ color:'var(--ink-faint)' }}>{store(o.storeId)}</div></td>
           <td style={{ whiteSpace:'normal', minWidth: 210 }}>{rev.changes.map((c, i) => <div key={i} className="text-[12.5px]"><b>{c.field}</b> <span style={{ color:'var(--ink-faint)' }}>{c.from}</span> → <span style={{ color:'var(--accent)' }}>{c.to}</span></div>)}
             {o.remarks && <div className="text-[11px]" style={{ color:'var(--ink-soft)' }}>remark: “{o.remarks}”</div>}</td>
@@ -188,7 +189,7 @@ function AllocateTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string) => 
       {conf === 'only' && <Card className="mt-2">{q.preConfirmed.length === 0 ? <Empty title="No pre-confirmed orders." body="Every order taken at the store is confirmed." /> : <table className="t">
         <thead><tr><th>Order</th><th>Customer · store</th><th>Fabric</th><th>Why it is not confirmed</th><th className="num">Days pre-confirmed</th><th></th></tr></thead>
         <tbody>{[...q.preConfirmed].sort((a, b) => a.preConfirmed!.since.localeCompare(b.preConfirmed!.since)).map(o => <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
-          <td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}<div style={{ color:'var(--ink-faint)' }}>{STORES.find(st => st.id === o.storeId)?.name}</div></td>
+          <td className="mono text-[12.5px]">{o.orderNo}<StagesInfo o={o} /></td><td className="text-[12.5px]">{o.customer}<div style={{ color:'var(--ink-faint)' }}>{STORES.find(st => st.id === o.storeId)?.name}</div></td>
           <td className="text-[12.5px]">{o.styleName}</td>
           <td><Pill tone="warn">{o.preConfirmed!.reason}</Pill><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{o.preConfirmed!.note}</div></td>
           <td className="num text-[12.5px]" style={{ color: daysAgo(o.preConfirmed!.since) > 7 ? 'var(--risk)' : undefined }}>{daysAgo(o.preConfirmed!.since)}d<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>since {fmtDate(o.preConfirmed!.since)}</div></td>
@@ -228,7 +229,7 @@ function AllocateTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string) => 
         <tbody>{shown.map(o => { const pf = proposedFor(o.id); const prop = proposals.find(p => p.orderIds.includes(o.id)); return (
           <tr key={o.id} className="row" onClick={() => onOpen(o.id)} style={{ background: selected.has(o.id) ? 'var(--accent-soft)' : undefined }}>
             <td onClick={e => e.stopPropagation()}><input type="checkbox" checked={selected.has(o.id)} onChange={() => toggle(o.id)} /></td>
-            <td className="mono text-[12.5px]">{o.orderNo}</td>
+            <td className="mono text-[12.5px]">{o.orderNo}<StagesInfo o={o} /></td>
             <td className="text-[12.5px]">{o.customer}<div style={{ color:'var(--ink-faint)' }}>{STORES.find(s => s.id === o.storeId)?.name}</div></td>
             <td className="text-[12.5px]">{o.styleName}{(o.revisions ?? []).length > 0 && <Pill tone="info">changed</Pill>}<div className="mono text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{o.consumptionM} m{o.bespoke ? ` · bespoke ${o.bespoke.code}` : ''}</div></td>
             <td onClick={e => e.stopPropagation()}>{mine ? <Select value={o.tag} onChange={v => setOrderTag(o.id, v as OrderTag)} options={ORDER_TAGS.map(t => ({ value:t, label:t }))} style={{ width: 110, padding:'2px 6px' }} /> : <Pill tone={TAG_TONE[o.tag]}>{o.tag}</Pill>}</td>
@@ -245,7 +246,7 @@ function AllocateTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string) => 
       <button type="button" className="vlink text-[12.5px]" onClick={() => setShowFrozen(v => !v)}>{q.frozen.length} order{q.frozen.length === 1 ? '' : 's'} punched in the last {settings.ppFreezeHours} h held back — stores still change them · {showFrozen ? 'hide' : 'show'}</button>
       {showFrozen && exFrozen.strip && <span className="ml-3">{exFrozen.strip}</span>}
       {showFrozen && <Card className="mt-2"><table className="t"><thead><tr><th>Order</th><th>Customer · store</th><th>Fabric</th><th>Tag</th><th>Punched</th><th>Enters the plan at</th></tr></thead>
-        <tbody>{exFrozen.rows.map(o => <tr key={o.id} className="row" onClick={() => onOpen(o.id)}><td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}<div style={{ color:'var(--ink-faint)' }}>{STORES.find(s => s.id === o.storeId)?.name}</div></td><td className="text-[12.5px]">{o.styleName}</td><td><Pill tone={TAG_TONE[o.tag]}>{o.tag}</Pill></td><td className="mono text-[12.5px]">{fmtTime(o.punchedOn)}</td><td className="mono text-[12.5px]" style={{ color:'var(--ink-faint)' }}>{fmtTime(new Date(new Date(o.punchedOn).getTime() + settings.ppFreezeHours * 36e5))}</td></tr>)}</tbody></table></Card>}
+        <tbody>{exFrozen.rows.map(o => <tr key={o.id} className="row" onClick={() => onOpen(o.id)}><td className="mono text-[12.5px]">{o.orderNo}<StagesInfo o={o} /></td><td className="text-[12.5px]">{o.customer}<div style={{ color:'var(--ink-faint)' }}>{STORES.find(s => s.id === o.storeId)?.name}</div></td><td className="text-[12.5px]">{o.styleName}</td><td><Pill tone={TAG_TONE[o.tag]}>{o.tag}</Pill></td><td className="mono text-[12.5px]">{fmtTime(o.punchedOn)}</td><td className="mono text-[12.5px]" style={{ color:'var(--ink-faint)' }}>{fmtTime(new Date(new Date(o.punchedOn).getTime() + settings.ppFreezeHours * 36e5))}</td></tr>)}</tbody></table></Card>}
     </div>}
   </>;
 }
@@ -316,7 +317,7 @@ function PlansTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string) => voi
         <Section title={`Pieces · ${os.length}`} defaultOpen>
           <table className="t compact"><thead><tr><th>Order</th><th>Customer</th><th>Fabric</th><th>Ship by</th><th>Stage</th><th>Sent to factory</th><th>At factory</th><th>Ready</th><th>Back at unit</th></tr></thead>
             <tbody>{os.map(o => { const when = (st: string) => { const sc = o.scans.find(x => x.stage === st); return sc ? <span title={`${fmtDate(sc.at)} · ${sc.by}`}>{fmtDate(sc.at)}</span> : <span style={{ color:'var(--ink-faint)' }}>—</span>; }; return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
-              <td className="mono text-[12px]">{o.orderNo}{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}</td><td>{o.customer}<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{STORES.find(st => st.id === o.storeId)?.name}</div></td>
+              <td className="mono text-[12px]">{o.orderNo}<StagesInfo o={o} />{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}</td><td>{o.customer}<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{STORES.find(st => st.id === o.storeId)?.name}</div></td>
               <td className="text-[12.5px]">{o.styleName}<div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{o.consumptionM} m</div></td><td>{fmtDate(o.promisedOn)}</td>
               <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>{needsReprint(o) && <> <Pill tone="risk">sheet {sheetVersion(o)}</Pill></>}</td>
               <td className="text-[12px]">{when('in-transit')}</td><td className="text-[12px]">{when('in-factory')}</td><td className="text-[12px]">{when('out-factory')}</td><td className="text-[12px]">{when('rts')}</td>
@@ -379,7 +380,7 @@ function FloorTab({ mine, factoryId, onFactory, onOpen }: { mine: boolean; facto
       <thead><tr><th>Order</th><th>Customer</th><th>Fabric · m</th><th>Factory</th><th>Tag</th><th>Ship by</th><th>Stage</th><th>Reached factory</th><th>Days in factory</th></tr></thead>
       <tbody>{rows.length === 0 ? <tr><td colSpan={9}><Empty title={all.length ? 'Nothing matches that filter.' : 'Nothing on this floor.'} body={all.length ? 'Loosen the stage filter or clear the search.' : ''} /></td></tr> : rows.map(o => { const d = inAt(o) ? daysAgo(inAt(o)!) : null; const late = daysAgo(o.promisedOn) > 0; return (
         <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
-          <td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}</td><td className="text-[12.5px]">{o.styleName} <span style={{ color:'var(--ink-faint)' }}>· {o.consumptionM} m</span></td>
+          <td className="mono text-[12.5px]">{o.orderNo}<StagesInfo o={o} /></td><td className="text-[12.5px]">{o.customer}</td><td className="text-[12.5px]">{o.styleName} <span style={{ color:'var(--ink-faint)' }}>· {o.consumptionM} m</span></td>
           <td className="text-[12.5px]">{factoryName(o.factoryId)}</td>
           <td><Pill tone={TAG_TONE[o.tag]}>{o.tag}</Pill></td>
           <td style={{ color: late ? 'var(--risk)' : undefined }}>{fmtDate(o.promisedOn)}{late && <span className="text-[11px]"> · {daysAgo(o.promisedOn)}d late</span>}{(o.promiseRevisions?.length ?? 0) > 0 && <span className="pill warn ml-1">moved</span>}</td>
@@ -541,17 +542,7 @@ export function OrderSheet({ o, mine }: { o: CustomerOrder; mine: boolean }) {
       {mine && o.stage === 'planned' && <div className="pt-3"><PullBackButton o={o} /> <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>nothing is cut yet — pulling it back frees the factory's slot and lets the store edit</span></div>}
     </Section>
     <SheetChangePanel o={o} who="unit" />
-    <Section title="Stages" right={<Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill>}>
-      {MTM_STAGES.map(s => { const sc = o.scans.find(x => x.stage === s.id); const isNow = o.stage === s.id; const done = !!sc || (s.id === 'punched') || (s.id === 'pp' && o.stage !== 'punched'); return (
-        <Fragment key={s.id}><div className="kv"><span className="k flex items-center gap-2"><span className="dot" style={{ background: done ? 'var(--good)' : isNow ? 'var(--warn)' : 'var(--line)' }} />{s.label}<span className="text-[11px]">· {s.who}</span></span>
-          <span className="v" style={{ color: sc ? undefined : 'var(--ink-faint)' }}>{sc ? `${fmtDate(sc.at)} · ${sc.by}` : s.id === 'punched' ? fmtDate(o.punchedOn) : s.scan ?? '—'}</span></div>
-        {/* after planning, the four pre-production desks at the unit, each with who took it up and finished it */}
-        {s.id === 'planned' && prepOf(o).steps.map(p => { const bl = o.prepBlocked?.[p.key]; const e = p.entry; return (
-          <div key={p.key} className="kv" style={{ paddingLeft: 18 }}><span className="k flex items-center gap-2"><span className="dot" style={{ background: bl ? 'var(--risk)' : p.state === 'done' ? 'var(--good)' : p.state === 'in progress' ? 'var(--warn)' : 'var(--line)' }} />{p.label}<span className="text-[11px]">· {p.team}</span></span>
-            <span className="v" style={{ color: e || bl ? undefined : 'var(--ink-faint)' }}>{bl ? <span style={{ color:'var(--risk)' }}>blocked · {bl.reason}</span> : e?.doneOn ? `${fmtDate(e.doneOn)} · ${e.doneBy}` : e ? `taken up by ${e.takenBy} · ${fmtRel(e.takenOn)}` : p.state === 'done' ? 'done' : 'pending'}</span></div>); })}
-        </Fragment>); })}
-      {mine && n && <div className="pt-3"><Button size="sm" variant="primary" onClick={() => scanOrders([o.id], n.stage)}>{n.label} →</Button></div>}
-    </Section>
+      {mine && n && <div className="pb-2"><Button size="sm" variant="primary" onClick={() => scanOrders([o.id], n.stage)}>{n.label} →</Button></div>}
     {xfs.length > 0 && <Section title="Extra fabric on this order">{xfs.map(r => <KV key={r.id} k={`${r.panel} · ${r.metres} m`} v={<Pill tone={r.status === 'approved' ? 'good' : r.status === 'requested' ? 'warn' : 'neutral'}>{r.status}</Pill>} note={`${r.reason} · ${fmtRel(r.raisedOn)}`} />)}</Section>}
     <Files kind="customerOrder" subjectId={o.id} labels={FILE_LABELS.customerOrder} editable />
     <ThreadPanel kind="order" subjectId={o.id} steps={['General', 'Change from store', 'Fabric', 'Alteration']} />
@@ -610,7 +601,7 @@ export function InwardTab({ mine, onOpen }: { mine: boolean; onOpen: (id: string
     {total > 0 && <Card className="mt-2"><table className="t">
       <thead><tr><th>Order</th><th>Factory</th><th>Customer</th><th>Ready since</th><th>Ship by</th><th></th></tr></thead>
       <tbody>{ex.rows.map(({ r, o }) => <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
-        <td className="mono text-[12.5px]">{o.orderNo}{o.receiving?.shortOn && <span className="pill warn" style={{ marginLeft: 6 }}>missed the vehicle</span>}{(o.receiving?.rejected.length ?? 0) > 0 && <span className="pill risk" style={{ marginLeft: 6 }}>turned back ×{o.receiving!.rejected.length}</span>}</td><td className="text-[12.5px]">{r.v.name}</td><td className="text-[12.5px]">{o.customer}</td>
+        <td className="mono text-[12.5px]">{o.orderNo}<StagesInfo o={o} />{o.receiving?.shortOn && <span className="pill warn" style={{ marginLeft: 6 }}>missed the vehicle</span>}{(o.receiving?.rejected.length ?? 0) > 0 && <span className="pill risk" style={{ marginLeft: 6 }}>turned back ×{o.receiving!.rejected.length}</span>}</td><td className="text-[12.5px]">{r.v.name}</td><td className="text-[12.5px]">{o.customer}</td>
         <td className="text-[12.5px]">{fmtRel(o.scans.find(sc => sc.stage === 'out-factory')?.at ?? o.punchedOn)}</td>
         <td style={{ color: daysAgo(o.promisedOn) > 0 ? 'var(--risk)' : undefined }}>{fmtDate(o.promisedOn)}</td>
         <td onClick={e => e.stopPropagation()}>{mine && <Button size="sm" onClick={() => scanOrders([o.id], 'rts')} title="receive this one piece — the RTS scan">RTS</Button>}</td>
@@ -660,7 +651,7 @@ function RoundDrawer({ factoryId, onClose, onOpen }: { factoryId: string; onClos
       <div style={{ overflowX:'auto' }}><table className="t">
         <thead><tr><th>Order</th><th>Customer</th><th>Ready since</th><th>Ship by</th><th>What happened</th><th>Reason</th></tr></thead>
         <tbody>{shown.map(o => { const f = of(o.id); return <tr key={o.id} style={{ background: f === 'rejected' ? 'var(--risk-soft)' : f === 'short' ? 'var(--warn-soft)' : undefined }}>
-          <td className="mono text-[12.5px]"><button type="button" className="vlink" onClick={() => onOpen(o.id)}>{o.orderNo}</button>{o.receiving?.shortOn && <div className="text-[10.5px]" style={{ color:'var(--warn)' }}>missed the last vehicle</div>}{o.tag !== 'normal' && <div className="text-[10.5px]" style={{ color:'var(--warn)' }}>{o.tag}</div>}</td>
+          <td className="mono text-[12.5px]"><button type="button" className="vlink" onClick={() => onOpen(o.id)}>{o.orderNo}</button><StagesInfo o={o} />{o.receiving?.shortOn && <div className="text-[10.5px]" style={{ color:'var(--warn)' }}>missed the last vehicle</div>}{o.tag !== 'normal' && <div className="text-[10.5px]" style={{ color:'var(--warn)' }}>{o.tag}</div>}</td>
           <td className="text-[12.5px]">{o.customer}<div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{o.styleName}</div></td>
           <td className="text-[12.5px]">{fmtRel(o.scans.find(sc => sc.stage === 'out-factory')?.at ?? o.punchedOn)}</td>
           <td className="text-[12.5px]" style={{ color: daysAgo(o.promisedOn) > 0 ? 'var(--risk)' : undefined }}>{fmtDate(o.promisedOn)}</td>
@@ -737,7 +728,7 @@ export function BespokeTab({ mine, onOpen }: { mine: boolean; onOpen: (id: strin
         <div className="px-4 pb-1 flex items-center"><span className="label" style={{ margin:0 }}>Awaited · {bq.awaiting.length}</span><span className="ml-auto">{exAwait.strip}</span></div>
         <div style={{ maxHeight: 360, overflowY:'auto' }}><table className="t compact"><thead><tr><th>Code</th><th>Order</th><th>Fabric · mill</th><th>Called</th><th>Ship by</th><th></th></tr></thead>
           <tbody>{exAwait.rows.map(o => { const f = db.fabrics.find(x => x.id === o.fabricId); const age = daysAgo(o.bespoke!.requestedOn!); return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
-            <td className="mono font-medium">{o.bespoke!.code}</td><td className="mono text-[12.5px]">{o.orderNo}</td>
+            <td className="mono font-medium">{o.bespoke!.code}</td><td className="mono text-[12.5px]">{o.orderNo}<StagesInfo o={o} /></td>
             <td className="text-[12.5px]">{o.styleName}<div style={{ color:'var(--ink-faint)' }}>{f ? name(f.vendorId) : ''}</div></td>
             <td className="text-[12.5px]" style={{ color: age > 10 ? 'var(--risk)' : undefined }}>{age}d ago</td>
             <td style={{ color: daysAgo(o.promisedOn) > -3 ? 'var(--risk)' : undefined }}>{fmtDate(o.promisedOn)}</td>
@@ -812,7 +803,7 @@ export function AgingTab({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
       <table className="t"><thead><tr><th>Order</th><th>Customer · store</th><th>Fabric</th><th>Tag</th><th>Factory</th><th>Stage</th><th>Punched</th><th>Ship by</th><th className="num">Days late</th></tr></thead>
         <tbody>{rows.map(o => <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
-          <td className="mono text-[12.5px]">{o.orderNo}</td><td className="text-[12.5px]">{o.customer}<div style={{ color:'var(--ink-faint)' }}>{STORES.find(s => s.id === o.storeId)?.name}</div></td>
+          <td className="mono text-[12.5px]">{o.orderNo}<StagesInfo o={o} /></td><td className="text-[12.5px]">{o.customer}<div style={{ color:'var(--ink-faint)' }}>{STORES.find(s => s.id === o.storeId)?.name}</div></td>
           <td className="text-[12.5px]">{o.styleName}{o.bespoke && <span style={{ color:'var(--ink-faint)' }}> · bespoke</span>}</td>
           <td><Pill tone={TAG_TONE[o.tag]}>{o.tag}</Pill></td><td className="text-[12.5px]">{o.factoryId ? <VendorLink id={o.factoryId} /> : '—'}</td>
           <td><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill></td>

@@ -12,6 +12,7 @@ import type { CustomerOrder, PrepStep } from '../domain/types';
 import { PREP_STEPS, prepOf, prepQueueOf, fmtDate, fmtRel } from '../domain/engines';
 import { STORES, SHEET_LABEL } from '../domain/reference';
 import { FabricImage, BinMap } from './FabricImage';
+import { StagesInfo } from './OrderStages';
 import { Page, Card, Pill, Button, Input, Empty, Note, Tabs, Select, Seg, Drawer, Section, KV } from '../ui';
 
 const stepOf = (k: PrepStep) => PREP_STEPS.find(s => s.key === k)!;
@@ -102,7 +103,7 @@ export function PrepDesk({ step }: { step: PrepStep }) {
         <thead><tr>{view !== 'done' && <th><input type="checkbox" checked={all} onChange={e => setSel(new Set(e.target.checked ? rows.map(o => o.id) : []))} /></th>}<th>Order</th><th>Customer · store</th><th>Fabric</th><th>Plan · factory</th><th>Ship by</th><th>Desks</th>{step === 'cad' && <th>CAD file</th>}{step === 'compiling' && <th>Contrast fabric</th>}<th>{view === 'done' ? 'Done' : view === 'mine' ? 'Taken up' : view === 'blocked' ? 'Blocked' : 'Previous desk'}</th></tr></thead>
         <tbody>{rows.map(o => { const f = fabric(o.fabricId); const e = o.prep?.[step]; const prev = PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1]; const pe = prev ? o.prep?.[prev.key] : null; return <tr key={o.id} className="row" onClick={() => setOpen(o.id)} style={{ background: sel.has(o.id) ? 'var(--accent-soft)' : undefined }}>
           {view !== 'done' && <td onClick={ev => ev.stopPropagation()}><input type="checkbox" checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>}
-          <td className="mono text-[12.5px]">{o.orderNo}{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}{step === 'cad' && <div className="text-[10.5px]" style={{ fontFamily: 'var(--body)' }} onClick={ev => ev.stopPropagation()}><button type="button" className="vlink" onClick={() => setXml(o.id)}>View XML</button></div>}</td>
+          <td className="mono text-[12.5px]">{o.orderNo}<StagesInfo o={o} />{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}{step === 'cad' && <div className="text-[10.5px]" style={{ fontFamily: 'var(--body)' }} onClick={ev => ev.stopPropagation()}><button type="button" className="vlink" onClick={() => setXml(o.id)}>View XML</button></div>}</td>
           <td className="text-[12.5px]">{o.customer}<div style={{ color: 'var(--ink-faint)' }}>{STORES.find(x => x.id === o.storeId)?.name}</div></td>
           <td className="text-[12.5px]">{f?.name ?? o.styleName}<div className="mono text-[11px]" style={{ color: 'var(--ink-faint)' }}>{f?.code} · {o.consumptionM ?? '—'} m</div></td>
           <td className="text-[12.5px]"><span className="mono">{plan(o)?.planNo ?? '—'}</span><div style={{ color: 'var(--ink-faint)' }}>{factory(o)}</div></td>
@@ -253,7 +254,7 @@ export function PrepOverview({ onOpen }: { onOpen: (id: string) => void }) {
       : <Card><table className="t">
         <thead><tr><th>Order</th><th>Customer</th><th>Plan · factory</th>{PREP_STEPS.map(s => <th key={s.key}>{s.label}</th>)}<th>Ship by</th></tr></thead>
         <tbody>{rows.map(o => { const p = prepOf(o); return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
-          <td className="mono text-[12.5px]">{o.orderNo}{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}</td><td className="text-[12.5px]">{o.customer}</td>
+          <td className="mono text-[12.5px]">{o.orderNo}<StagesInfo o={o} />{o.tag === 'urgent' && <> <Pill tone="risk">urgent</Pill></>}</td><td className="text-[12.5px]">{o.customer}</td>
           <td className="text-[12.5px]"><span className="mono">{(db.plans ?? []).find(x => x.id === o.planId)?.planNo ?? '—'}</span><div style={{ color: 'var(--ink-faint)' }}>{db.vendors.find(v => v.id === o.factoryId)?.name}</div></td>
           {p.steps.map(s => { const bl = o.prepBlocked?.[s.key]; return <td key={s.key}>{bl && s.state !== 'done' ? <span title={bl.reason}><Pill tone="risk">blocked</Pill><div className="text-[10.5px]" style={{ color: 'var(--ink-faint)', maxWidth: 140, whiteSpace: 'normal' }}>{bl.reason}</div></span> : <Pill tone={TONE[s.state]}>{s.state === 'in progress' ? `with ${s.entry?.takenBy}` : s.state}</Pill>}</td>; })}
           <td className="text-[12.5px]">{fmtDate(o.promisedOn)}</td>
