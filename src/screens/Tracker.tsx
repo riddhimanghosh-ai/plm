@@ -22,6 +22,8 @@ import { MILESTONES, MILESTONE_OWNER, PRE_PRODUCTION, MERCHANDISERS, DELAY_REASO
 import type { GarmentCategory, RoleId } from '../domain/types';
 import { Page, Card, Pill, Field, Input, Select, Button, Drawer, KV, Section, Note, dateInput, fromDateInput, Tabs, Empty, usePager, Pager, ExportButton, Seg, useExamples, type Tone } from '../ui';
 import { ActsBy, OwnerPill } from './Who';
+import { StepFlow } from './Flow';
+import type { DesignStep } from '../domain/engines';
 
 export const RISK_TONE: Record<Risk, Tone> = { pending:'neutral', 'on-track':'good', watch:'warn', 'at-risk':'warn', critical:'risk', delayed:'risk', closed:'neutral' };
 
@@ -136,7 +138,7 @@ export function Tracker() {
       </Card>}
 
       <Drawer open={!!active} onClose={() => set('open', null)} title={active?.poNo ?? active?.styleName ?? ''} subtitle={active && <><Pill tone={RISK_TONE[riskOf(active).risk]}>{riskOf(active).risk.replace('-', ' ')}</Pill><span>{active.styleName} · {vendorName(active.vendorId)} · {active.merchant}</span></>}>
-        {active && <OrderDetail o={active} role={role} vendorName={vendorName} />}
+        {active && <OrderDetail key={active.id} o={active} role={role} vendorName={vendorName} />}
       </Drawer>
     </Page>
   );
@@ -151,9 +153,22 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
   const yesNo = (v: boolean) => <Pill tone={v ? 'good' : 'warn'}>{v ? 'Yes' : 'No'}</Pill>;
   const fabricReady = o.fabricReady || !!o.fabricSupply?.receipt;
   const trimsReady = o.trimsReady || !!o.materialsCovered;
+  /* the four steps of the tracker sheet as connected blocks; only the one clicked is open below */
+  const flowSteps: DesignStep[] = [
+    { key:'request', label:'Request from design', state: o.status !== 'Requirement' ? 'done' : 'later', owner:'design', note: docs.missing.length ? `${docs.missing.length} document${docs.missing.length === 1 ? '' : 's'} missing` : `${o.orderQty} pcs · in-house by ${fmtDate(o.targetInhouse)}` },
+    { key:'vendors', label:'Factory finalisation', state: o.poNo ? 'done' : 'later', owner: (fst.owner === 'merchandiser' ? 'production' : fst.owner) as RoleId, note: fst.label },
+    { key:'fabric-in', label:'Fabric finalisation', state: fab.key === 'received' || fab.key === 'vendor-sources' ? 'done' : 'later', owner: (fab.owner === 'merchandiser' ? 'production' : fab.owner) as RoleId, note: fab.label },
+    { key:'live', label:'TNA & final steps', state: o.status === 'Closed' ? 'done' : 'later', owner:'production', note: o.poNo ? `${s.stage}${r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : ''}` : 'after the PO' },
+  ];
+  { const ni = flowSteps.findIndex(x => x.state !== 'done'); if (ni >= 0) flowSteps[ni] = { ...flowSteps[ni], state:'now' }; }
+  const KEYS: Record<string, 'request' | 'factory' | 'fabric' | 'tna'> = { request:'request', vendors:'factory', 'fabric-in':'fabric', live:'tna' };
+  const nowStep = flowSteps.find(x => x.state === 'now') ?? flowSteps[flowSteps.length - 1];
+  const [picked, setPicked] = useState<'request' | 'factory' | 'fabric' | 'tna' | null>(null);
+  const shown = picked ?? KEYS[nowStep.key];
   return <>
+    <Card className="mb-3"><div className="px-4 py-3"><StepFlow steps={flowSteps} onJump={k => setPicked(KEYS[k])} cols={4} /></div></Card>
     {/* ── 1 · Style details + order qty break-up — the sheet's first two sections, design and planning ── */}
-    <Section title="1 · Request from design" pending={false} defaultOpen={o.status === 'Requirement'} ownerRole="design"
+    {shown === 'request' && <Section collapsible={false} title="1 · Request from design" pending={false} ownerRole="design"
       right={<div className="flex gap-2 items-center"><Pill tone={docs.missing.length ? (o.poNo ? 'risk' : 'warn') : 'good'}>{docs.missing.length ? `${docs.missing.length} document${docs.missing.length === 1 ? '' : 's'} missing` : 'complete'}</Pill></div>}>
       <KV k="Category" v={o.category} />
       <KV k="Sub category" v={o.subCategory} />
@@ -172,29 +187,30 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
       {(o.cutRatios ?? []).filter(c => c.given).map((c, i) => <div key={i} className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>originally {c.originalBreakup.filter(x => x.qty).map(x => `${x.size}:${x.qty}`).join(' ')} · changed {fmtDate(c.given!.on)} because {c.reason}</div>)}
       <div className="label pt-3">Job card · trim card · BOM · tech pack</div>
       <DocsChecklist o={o} editable={mine('design')} />
-    </Section>
+    </Section>}
 
     {/* ── 2 · Factory finalisation — the sheet's columns, then the proposal loop ── */}
-    <Section title="2 · Factory finalisation" ownerRole={fst.owner === 'merchandiser' ? 'production' : fst.owner}
+    {shown === 'factory' && <Section collapsible={false} title="2 · Factory finalisation" ownerRole={fst.owner === 'merchandiser' ? 'production' : fst.owner}
       right={<Pill tone={fst.tone}>{fst.label}</Pill>}>
       <FactoryFinalisationSection o={o} bare columns={<>
         <KV k="Factory" v={o.vendorId ? <VendorLink id={o.vendorId}>{vendorName(o.vendorId)}</VendorLink> : '—'} />
         <KV k="Region" v={db_vendor_loc(o.vendorId) || '—'} />
-        <KV k="Merchant" v={o.merchant ?? '—'} />
+        {mine('production') ? <ExecutionEditor o={o} /> : <KV k="Merchant" v={o.merchant ?? '—'} />}
         <KV k="PO No." v={o.poNo ?? '—'} note={o.poNo ? undefined : 'after design raises the factory PO'} />
         <KV k="PO date" v={fmtDate(o.poDate)} />
         <KV k="PO status" v={o.poNo ? o.status : '—'} />
         <KV k="BOM / Jobcard" v={o.jobCardNo ?? (o.bom.length ? `${o.bom.length} BOM lines` : '—')} note={docs.owedAfterPo.length ? `owed to the factory: ${docs.owedAfterPo.join(', ')}` : undefined} />
+        {!mine('production') && <>
         <KV k="Costing closure target" v={fmtDate(o.costingClosure.plan)} />
         <KV k="Costing closure revised plan" v={o.costingClosure.revised ? fmtDate(o.costingClosure.revised) : '—'} />
         <KV k="Costing closure actual" v={o.costingClosure.actual ? fmtDate(o.costingClosure.actual) : '—'} />
-        <KV k="Final FOB cost (₹ / $)" v={o.finalFob != null ? fmtMoney(o.finalFob) : '—'} note={o.finalFob != null ? `target ${fmtMoney(o.targetCost)}` : undefined} />
+        <KV k="Final FOB cost (₹ / $)" v={o.finalFob != null ? fmtMoney(o.finalFob) : '—'} note={o.finalFob != null ? `target ${fmtMoney(o.targetCost)}` : undefined} /></>}
         <div className="pt-2" style={{ borderTop:'1px solid var(--line-soft)' }} />
       </>} />
-    </Section>
+    </Section>}
 
     {/* ── 3 · Fabric details — the sheet's columns, then bought · sent · counted in · cut ratio ── */}
-    <Section title="3 · Fabric finalisation" ownerRole={fab.owner === 'merchandiser' ? 'production' : fab.owner}
+    {shown === 'fabric' && <Section collapsible={false} title="3 · Fabric finalisation" ownerRole={fab.owner === 'merchandiser' ? 'production' : fab.owner}
       right={<Pill tone={fab.tone}>{fab.label}</Pill>}>
       <FabricFinalisationSection o={o} bare columns={(() => { const fromPo = o.sourcing?.fabricPo ? undefined : 'fills in from the fabric PO'; return <>
         <KV k="Fabric vendor" v={o.fabricVendorId ? <VendorLink id={o.fabricVendorId}>{vendorName(o.fabricVendorId)}</VendorLink> : '—'} note={o.fabricVendorId ? undefined : fromPo} />
@@ -206,10 +222,10 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
         <KV k="Actual consumption (mtrs)" v={o.costing.actualConsumption != null ? `${o.costing.actualConsumption} m/pc` : '—'} note={o.costing.actualConsumption != null ? undefined : 'after cutting'} />
         <div className="pt-2" style={{ borderTop:'1px solid var(--line-soft)' }} />
       </>; })()} />
-    </Section>
+    </Section>}
 
     {/* ── 4 · Production milestones / TNA + Final steps ── */}
-    <Section title="4 · TNA milestones & final steps" ownerRole="production" defaultOpen={!!o.poNo}
+    {shown === 'tna' && <Section collapsible={false} title="4 · TNA milestones & final steps" ownerRole="production"
       right={<Pill tone={o.poNo ? RISK_TONE[r.risk] : 'neutral'}>{o.poNo ? r.risk.replace('-', ' ') : 'after the PO'}</Pill>}>
       {!o.poNo ? <div className="py-1 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>The milestones are generated from the PO date once design raises the PO.</div> : <>
         {r.risk !== 'on-track' && r.risk !== 'closed' && r.risk !== 'pending' && <div className="pb-2"><Note tone={r.risk === 'watch' || r.risk === 'at-risk' ? 'warn' : 'risk'}>
@@ -230,12 +246,33 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
         <KV k="Planned lead time" v={`${lt.planned}d`} />
         <KV k="Actual lead time" v={lt.actual != null ? `${lt.actual}d` : '—'} note={lt.actual != null ? (lt.actual > lt.planned ? `${lt.actual - lt.planned}d longer than planned` : 'at or under plan') : undefined} />
       </>}
-    </Section>
+    </Section>}
 
     {/* ── files · conversation · activity ── */}
     <RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable steps={ORDER_STEPS} activity={o.activity} />
     {defaultStep && null}
   </>;
+}
+
+/* the sheet's execution columns, edited in place by production once the PO is out */
+function ExecutionEditor({ o }: { o: ProductionOrder }) {
+  const { updateExecution } = useApp();
+  const [merchant, setMerchant] = useState(o.merchant ?? ''); const [jc, setJc] = useState(o.jobCardNo ?? '');
+  const [plan, setPlan] = useState(dateInput(o.costingClosure.plan)); const [rev, setRev] = useState(dateInput(o.costingClosure.revised)); const [act, setAct] = useState(dateInput(o.costingClosure.actual));
+  const [fob, setFob] = useState(o.finalFob != null ? String(o.finalFob) : '');
+  const dirty = merchant !== (o.merchant ?? '') || jc !== (o.jobCardNo ?? '') || plan !== dateInput(o.costingClosure.plan) || rev !== dateInput(o.costingClosure.revised) || act !== dateInput(o.costingClosure.actual) || fob !== (o.finalFob != null ? String(o.finalFob) : '');
+  return <div className="py-2">
+    <div className="grid gap-2.5" style={{ gridTemplateColumns:'repeat(3, 1fr)' }}>
+      <Field label="Merchant"><Select value={merchant} onChange={setMerchant} options={[{ value:'', label:'— unassigned —' }, ...MERCHANDISERS.map(m => ({ value:m, label:m }))]} /></Field>
+      <Field label="BOM / Jobcard no."><Input value={jc} onChange={e => setJc(e.target.value)} placeholder={o.bom.length ? `${o.bom.length} BOM lines` : 'BOM 337'} /></Field>
+      <Field label="Final FOB cost · ₹/pc" hint={`target ${fmtMoney(o.targetCost)}`}><Input type="number" value={fob} onChange={e => setFob(e.target.value)} /></Field>
+      <Field label="Costing closure target"><Input type="date" value={plan} onChange={e => setPlan(e.target.value)} /></Field>
+      <Field label="Costing closure revised plan"><Input type="date" value={rev} onChange={e => setRev(e.target.value)} /></Field>
+      <Field label="Costing closure actual"><Input type="date" value={act} onChange={e => setAct(e.target.value)} /></Field>
+    </div>
+    <div className="pt-2"><Button size="sm" variant="primary" disabled={!dirty} onClick={() => updateExecution(o.id, { merchant: merchant || null, jobCardNo: jc.trim() || null, finalFob: fob === '' ? null : Number(fob), costingClosure: { plan: fromDateInput(plan), revised: fromDateInput(rev), actual: fromDateInput(act) } })}>Save</Button>
+      <span className="text-[11.5px] pl-2" style={{ color:'var(--ink-faint)' }}>Factory, PO number, date and status come from the PO design raised.</span></div>
+  </div>;
 }
 
 function db_vendor_loc(id: string | null) { const v = useAppStore.getState().db.vendors.find(x => x.id === id); return v ? `${v.region} · ${v.location}` : undefined; }

@@ -198,7 +198,7 @@ export interface AppState {
   recordQcAudit(orderId: string, input: Omit<QcAudit, 'at' | 'by'>): void;
 
   /* production */
-  updateExecution(orderId: string, patch: Partial<Pick<ProductionOrder, 'merchant' | 'jobCardNo' | 'fabricReady' | 'trimsReady' | 'finalFob' | 'remarks'>>): void;
+  updateExecution(orderId: string, patch: Partial<Pick<ProductionOrder, 'merchant' | 'jobCardNo' | 'fabricReady' | 'trimsReady' | 'finalFob' | 'remarks'>> & { costingClosure?: Partial<ProductionOrder['costingClosure']> }): void;
   setMilestone(orderId: string, key: string, patch: Partial<Pick<Milestone, 'plan' | 'revised' | 'actual' | 'delayReason'>>): void;
   /** production agrees with the factory: part now, balance later — the same PO, split */
   splitDispatch(orderId: string, lots: { qty: number; dispatchOn: string }[], reason: string): void;
@@ -1180,7 +1180,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     },
 
     /* ---------- production ---------- */
-    updateExecution(orderId, patch) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; Object.assign(o, patch); if (patch.finalFob != null && !o.costingClosure.actual) o.costingClosure.actual = now(); log(o, `Execution updated · ${Object.keys(patch).join(', ')}`); }, 'Saved.'); },
+    updateExecution(orderId, patch) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; const { costingClosure, ...rest } = patch; Object.assign(o, rest); if (costingClosure) o.costingClosure = { ...o.costingClosure, ...costingClosure }; if (patch.finalFob != null && !o.costingClosure.actual) o.costingClosure.actual = now(); log(o, `Execution updated · ${Object.keys(patch).join(', ')}`); }, 'Saved.'); },
 
     /** Plan | Revised | Actual, written in one go. An actual that lands late
         pushes every open step behind it by the same number of days. */
