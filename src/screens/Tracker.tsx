@@ -178,15 +178,13 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
       <KV k="Launch month" v={o.launchMonth ?? '—'} />
       <KV k="Target inhouse date" v={fmtDate(o.targetInhouse)} />
       <KV k="Fit" v={o.fit ?? '—'} />
-      <KV k="Target price" v={fmtMoney(o.targetCost)} note="per piece" />
+      <KV k="Target FOB price" v={fmtMoney(o.targetCost)} note="per piece" />
       <KV k="Fabric readiness" v={yesNo(fabricReady)} note={fabricReady ? (o.fabricSupply?.receipt ? `counted in at the factory ${fmtDate(o.fabricSupply.receipt.on)}` : undefined) : fab.label} />
       <KV k="Trims readiness" v={yesNo(trimsReady)} note={trimsReady && o.materialsCovered ? `covered by sourcing ${fmtDate(o.materialsCovered.on)}` : undefined} />
       <KV k="Style handover date" v={fmtDate(o.styleHandover)} note={`${daysAgo(o.styleHandover)}d ago`} />
       <div className="label pt-2">Order qty break-up{(o.cutRatios ?? []).some(c => c.given) ? ' · current cut ratio' : ''}</div>
       <SizeGrid breakup={o.sizeBreakup} />
       {(o.cutRatios ?? []).filter(c => c.given).map((c, i) => <div key={i} className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>originally {c.originalBreakup.filter(x => x.qty).map(x => `${x.size}:${x.qty}`).join(' ')} · changed {fmtDate(c.given!.on)} because {c.reason}</div>)}
-      <div className="label pt-3">Job card · trim card · BOM · tech pack</div>
-      <DocsChecklist o={o} editable={mine('design')} />
     </Section>}
 
     {/* ── 2 · Factory finalisation — the sheet's columns, then the proposal loop ── */}
@@ -228,15 +226,8 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
     {shown === 'tna' && <Section collapsible={false} title="4 · TNA milestones & final steps" ownerRole="production"
       right={<Pill tone={o.poNo ? RISK_TONE[r.risk] : 'neutral'}>{o.poNo ? r.risk.replace('-', ' ') : 'after the PO'}</Pill>}>
       {!o.poNo ? <div className="py-1 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>The milestones are generated from the PO date once design raises the PO.</div> : <>
-        {r.risk !== 'on-track' && r.risk !== 'closed' && r.risk !== 'pending' && <div className="pb-2"><Note tone={r.risk === 'watch' || r.risk === 'at-risk' ? 'warn' : 'risk'}>
-          {r.risk === 'watch' && `"${r.flagged?.key}" is past its planned date with nothing recorded — done and unlogged, or actually late?`}
-          {r.risk === 'at-risk' && `${r.slipDays}d of slip so far, ${r.bufferDays}d of buffer left before the target inhouse date.`}
-          {r.risk === 'critical' && `Buffer down to ${r.bufferDays}d (critical at ≤${RISK.criticalBufferDays}d) — final delivery is at genuine risk.`}
-          {r.risk === 'delayed' && `Target inhouse date has passed with ${r.slipDays}d of slip.`}
-        </Note></div>}
         <MilestoneGrid o={o} editable={mine('production') || mine('merchandiser')} bare />
         <div className="label pt-3">Final steps</div>
-        {(() => { const ln = (db.launches ?? []).find(l => l.orderId === o.id); return <KV k="Design code" v={ln?.designCode ?? '—'} note={ln?.designCode ? `minted ${fmtDate(ln.designCodeOn)} by ${ln.designCodeBy}` : ln?.receivedAtHo ? 'goods received — design mints it' : 'after the goods are received'} />; })()}
         <KV k="Remarks" v={o.remarks || '—'} />
         <KV k="Status" v={o.status} />
         <KV k="Risk factor" v={<Pill tone={RISK_TONE[r.risk]}>{r.risk.replace('-', ' ')}</Pill>} note={r.bufferDays != null ? `${r.bufferDays}d buffer · expected ${fmtDate(r.expectedInhouse)}` : undefined} />
