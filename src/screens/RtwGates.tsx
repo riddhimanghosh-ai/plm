@@ -394,9 +394,9 @@ export function FabricFinalisationSection({ o, bare, columns }: { o: ProductionO
             <Pill tone={fs?.sentToFactoryOn ? 'good' : 'neutral'}>{fs?.sentToFactoryOn ? `sent to ${nameOf(o.vendorId)} ${fmtDate(fs.sentToFactoryOn)} · ${fs.metresSent ?? '—'} m` : 'not sent to the factory'}</Pill>
             <Pill tone={fs?.receipt ? (st.short > 0 ? 'risk' : 'good') : 'neutral'}>{fs?.receipt ? `factory counted ${fs.receipt.metresOk} m usable${fs.receipt.metresDamaged ? `, ${fs.receipt.metresDamaged} m damaged` : ''}` : 'not yet counted at the factory'}</Pill>
           </div>
-          {isSourcing && !fs?.sentToFactoryOn && !o.poNo && <div className="pt-2 text-[12.5px]" style={faint}>The cloth goes straight to the factory, so it waits until design has raised the PO to one.</div>}
-          {isSourcing && o.poNo && !fs?.sentToFactoryOn && <div className="flex gap-2 items-end pt-2"><div style={{ width: 140 }}><Field label="Metres sent"><Input type="number" value={sent} onChange={e => setSent(e.target.value)} /></Field></div><Button size="sm" variant="primary" onClick={() => markFabricSent(o.id, sent === '' ? null : Number(sent))}>Sent to {nameOf(o.vendorId)}</Button></div>}
-          {!isSourcing && !fs?.sentToFactoryOn && <ActsBy role="sourcing" does="records the mill and the cloth, buys it, and sends it straight to the factory" />}
+          {isProd && !fs?.sentToFactoryOn && !o.poNo && <div className="pt-2 text-[12.5px]" style={faint}>The cloth goes straight to the factory, so it waits until design has raised the PO to one.</div>}
+          {isProd && o.poNo && !fs?.sentToFactoryOn && <div className="flex gap-2 items-end pt-2"><div style={{ width: 140 }}><Field label="Metres sent"><Input type="number" value={sent} onChange={e => setSent(e.target.value)} /></Field></div><Button size="sm" variant="primary" onClick={() => markFabricSent(o.id, sent === '' ? null : Number(sent))}>Sent to {nameOf(o.vendorId)}</Button></div>}
+          {!isProd && !fs?.sentToFactoryOn && <ActsBy role="production" does="takes the cloth over once the fabric PO is raised and sends it to the factory" />}
           {fs?.sentToFactoryOn && !fs.receipt && (isFactory ? <div className="pt-2">
             <div className="label">What landed at the factory</div>
             <div className="grid gap-2 items-end" style={{ gridTemplateColumns:'120px 120px 1fr auto' }}>
