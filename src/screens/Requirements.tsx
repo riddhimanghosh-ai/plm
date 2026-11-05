@@ -14,7 +14,7 @@ import { SampleSection, ProtoSection, MaterialsCoverSection, FactoryFinalisation
 import { Files } from './Files';
 import { sourcingStateOf, designFlowOf, sourcingModeOf, sendReadinessOf, type DesignStepKey } from '../domain/engines';
 import type { SourcingMode } from '../domain/types';
-import { Stepper } from './Flow';
+import { Stepper, StepFlow } from './Flow';
 import { ROLE_LABEL } from '../domain/reference';
 import { RecordTail } from './RecordTail';
 import { FILE_LABELS } from '../domain/reference';
@@ -113,8 +113,8 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
     {/* ── the call: where it is, whose move, and the way to that step ── */}
     <Section title="The call" look="lead" collapsible={false} pending={false} ownerRole={f.now.state === 'done' ? null : f.now.owner}
       right={f.now.state === 'done' ? <Pill tone="good">live</Pill> : <span className={`pill role-${f.now.owner}`}>{ROLE_LABEL[f.now.owner]}</span>}>
-      <div className="py-1"><Stepper steps={f.steps} /></div>
-      {f.now.state !== 'done' && <div className="flex items-baseline gap-2 flex-wrap pt-2 text-[12.5px]">
+      <div className="py-1"><StepFlow steps={f.steps} onJump={jump} /></div>
+      {f.now.state !== 'done' && <div className="flex items-baseline gap-2 flex-wrap pt-3 text-[12.5px]">
         <span style={faint}>Next:</span>
         <b>{f.now.action ?? f.now.label}</b>
         <span style={faint}>{f.now.note}</span>
