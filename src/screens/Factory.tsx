@@ -8,7 +8,7 @@ import { useApp } from '../store';
 import type { CustomerOrder, ExtraFabricRequest, ProductionOrder } from '../domain/types';
 import { FabricFinalisationSection, DocsChecklist, SizeGrid } from './RtwGates';
 import { MilestoneGrid } from './Tracker';
-import { fabricStateOf, riskOf, rtwDocsOf, factoryStateOf, fmtMoney } from '../domain/engines';
+import { fabricStateOf, otifOf, riskOf, rtwDocsOf, factoryStateOf, fmtMoney } from '../domain/engines';
 import { factoryLoadOf, needsReprint, sheetRev, sheetVersion, fmtDate, fmtRel, daysAgo, iso, TODAY } from '../domain/engines';
 import { EXTRA_FABRIC_PANELS, EXTRA_FABRIC_REASONS, PANEL_METRES, AGING_DAYS, MTM_STAGES, STORES } from '../domain/reference';
 import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, Field, Input, Select, useExamples, Seg, Section, KV, type Tone } from '../ui';
@@ -43,7 +43,7 @@ export function Factory() {
   /* two different jobs on one floor: customer shirts by the piece, and bulk POs by the hundred */
   const side: 'mtm' | 'rtw' = MTM_ONLY ? 'mtm' : ((sideParam as 'mtm' | 'rtw' | null) ?? (v.mtm ? 'mtm' : 'rtw'));
   const setSide = (k: string) => { const n = new URLSearchParams(params); n.set('side', k); n.delete('tab'); n.delete('open'); setParams(n, { replace:true }); };
-  const openRtw = rtw.find(o => o.id === params.get('open')) ?? null;
+  const openRtw = [...rtw, ...rtwDone].find(o => o.id === params.get('open')) ?? null;
   const keyed = (db.factoryOutputs ?? []).filter(f => f.factoryId === v.id).sort((a, b) => b.date.localeCompare(a.date));
 
   return (
@@ -307,19 +307,34 @@ function RtwTab({ rows, onOpen, done }: { rows: ProductionOrder[]; onOpen: (id: 
     } };
   return <>
     <Card><table className="t">
-      <thead><tr><th>PO</th><th>Style</th><th className="num">Pcs</th><th>In-house by</th><th>Cloth</th><th>Trims</th><th>Documents</th><th>Risk</th></tr></thead>
-      <tbody>{rows.map(o => { const r = riskOf(o); const d = rtwDocsOf(db, o); const trims = (o.materials ?? []).filter(m => o.bom[m.bomIndex]?.kind !== 'fabric'); const got = trims.filter(m => m.receivedOn).length; const c = cloth(o); return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
+      <thead>{done
+        ? <tr><th>PO</th><th>Style</th><th className="num">Ordered</th><th className="num">Delivered</th><th>In-house by</th><th>Delivered on</th><th>On time · in full</th><th>Documents</th></tr>
+        : <tr><th>PO</th><th>Style</th><th className="num">Pcs</th><th>In-house by</th><th>Cloth</th><th>Trims</th><th>Documents</th><th>Risk</th></tr>}</thead>
+      <tbody>{rows.map(o => { const r = riskOf(o); const d = rtwDocsOf(db, o); const trims = (o.materials ?? []).filter(m => o.bom[m.bomIndex]?.kind !== 'fabric'); const got = trims.filter(m => m.receivedOn).length; const c = cloth(o);
+        const docs = d.owedAfterPo.length ? <span className="text-[12.5px]" style={{ color:'var(--risk)' }}>waiting for {d.owedAfterPo.join(', ').toLowerCase()}</span> : <span className="text-[12.5px]" style={{ color:'var(--good)' }}>all in</span>;
+        if (done) { const landed = o.milestones.find(m => m.key === 'Inhouse ETA')?.actual ?? o.milestones.find(m => m.key === 'Dispatch')?.actual ?? null; const ot = otifOf(o); const late = landed && new Date(landed) > new Date(o.targetInhouse) ? Math.round((new Date(landed).getTime() - new Date(o.targetInhouse).getTime()) / 86400000) : 0;
+          return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
+            <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo}</td>
+            <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{o.category}</div></td>
+            <td className="num">{o.orderQty}</td>
+            <td className="num">{o.deliveredQty ?? o.cutQty ?? o.orderQty}{o.rejectedQty ? <div className="text-[11px]" style={{ color:'var(--risk)' }}>{o.rejectedQty} rejected</div> : null}</td>
+            <td style={{ whiteSpace:'nowrap' }}>{fmtDate(o.targetInhouse)}</td>
+            <td style={{ whiteSpace:'nowrap' }}>{fmtDate(landed)}{late > 0 && <span className="pill risk ml-1">+{late}d</span>}</td>
+            <td><Pill tone={ot === 'OTIF' ? 'good' : ot === 'Pending' ? 'neutral' : 'risk'}>{ot}</Pill></td>
+            <td>{docs}</td>
+          </tr>; }
+        return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
         <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo}</td>
         <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{o.category}</div></td>
         <td className="num">{o.orderQty}</td>
         <td style={{ whiteSpace:'nowrap' }}>{fmtDate(o.targetInhouse)}</td>
         <td style={{ minWidth: 150 }}><Pill tone={c.tone}>{c.text}</Pill></td>
         <td style={{ whiteSpace:'nowrap' }}>{trims.length ? <span style={{ color: got === trims.length ? 'var(--good)' : got ? 'var(--warn)' : 'var(--ink-faint)' }}>{got}/{trims.length} in</span> : '—'}</td>
-        <td>{d.owedAfterPo.length ? <span className="text-[12.5px]" style={{ color:'var(--risk)' }}>waiting for {d.owedAfterPo.join(', ').toLowerCase()}</span> : <span className="text-[12.5px]" style={{ color:'var(--good)' }}>all in</span>}</td>
+        <td>{docs}</td>
         <td><Pill tone={r.risk === 'on-track' ? 'good' : r.risk === 'delayed' || r.risk === 'critical' ? 'risk' : r.risk === 'closed' ? 'neutral' : 'warn'}>{r.risk === 'closed' ? 'delivered' : r.risk.replace('-', ' ')}</Pill></td>
       </tr>; })}</tbody>
     </table></Card>
-    {!done && <div className="mt-3"><Note>Open a PO to see what design asked for, count in the cloth and trims, and keep the dates current.</Note></div>}
+    <div className="mt-3"><Note>{done ? 'Open a PO to see its TNA as it ran, what was delivered and what the invoice should carry.' : 'Open a PO to see what design asked for, count in the cloth and trims, and keep the dates current.'}</Note></div>
   </>;
 }
 
