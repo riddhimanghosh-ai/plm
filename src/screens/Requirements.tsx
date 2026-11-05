@@ -145,7 +145,7 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
         <KV k="Target cost" v={fmtMoney(o.targetCost)} />
       </>}
       <KV k="Style handover" v={fmtDate(o.styleHandover)} note={`lead time clock started ${daysAgo(o.styleHandover)}d ago`} />
-      <KV k="Cloth" v={mode === 'bsc-buys' ? 'BSC buys it — after the PO, sourcing buys the cloth and sends it to the factory' : mode === 'fob-nominated' ? 'FOB — BSC names the supplier, the vendor buys and makes' : 'Vendor sources its own cloth'} note={mode === 'fob-nominated' ? 'BSC buys finished garments; labels and trims BSC sends are charged through the BOM' : undefined} />
+      <KV k="Cloth" v={mode === 'bsc-buys' ? 'BSC buys it — sourcing puts a vendor against the cloth, design pushes the fabric PO, RTW production gets it to the factory' : mode === 'fob-nominated' ? 'FOB — BSC names the cloth vendor, the factory buys and makes' : 'Factory sources its own cloth'} note={mode === 'fob-nominated' ? 'BSC buys finished garments; labels and trims BSC sends are charged through the BOM' : undefined} />
       {o.fit && <KV k="Fit" v={o.fit} />}
       {o.program && <KV k="Program" v={o.program} />}
       {editable && <div className="flex gap-2 pt-3">
@@ -169,11 +169,11 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
 </>,
       'vendors': <>
       {mode === 'fob-nominated' ? <>
-          <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}><b>FOB.</b> BSC finalises the cloth and names the supplier; the vendor buys it from there, funds the run and makes the garment. The nomination goes to the vendor by email — this is the record of it.</div>
+          <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}><b>FOB.</b> BSC finalises the cloth and names its vendor; the factory buys it from there, funds the run and makes the garment. The nomination goes to the factory by email — this is the record of it.</div>
           {o.fobNomination?.emailedOn ? <>
             <KV k="Nominated supplier" v={<VendorLink id={o.fobNomination.supplierVendorId} />} note={`emailed to the vendor ${fmtDate(o.fobNomination.emailedOn)} by ${o.fobNomination.by}`} />
             {o.fobNomination.note && <KV k="Terms" v={o.fobNomination.note} />}
-            {o.vendorId && <KV k="Vendor" v={<VendorLink id={o.vendorId} />} note="buys the nominated cloth and makes the garment" />}
+            {o.vendorId && <KV k="Factory" v={<VendorLink id={o.vendorId} />} note="buys the nominated cloth and makes the garment" />}
           </> : (editable || editableAlloc) ? <div className="flex items-end gap-2 flex-wrap">
             <div style={{ minWidth: 260, flex:'1 1 260px' }}><Field label="Supplier the vendor must buy from"><Select value={fobSupplier} onChange={setFobSupplier} options={[{ value:'', label:'Pick the mill…' }, ...mills.map(m => ({ value:m.id, label:m.name }))]} /></Field></div>
             <Button size="sm" disabled={!fobSupplier} onClick={() => setSourcingMode(o.id, 'fob-nominated', fobSupplier, o.fobNomination?.note ?? 'buy the nominated cloth; BSC sends labels and trims, charged through the BOM')}>Save supplier</Button>
@@ -183,7 +183,7 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
         : <FactoryFinalisationSection o={o} />}
 </>,
       'po': <>
-      {mode === 'fob-nominated' ? <div className="py-2 text-[12.5px]" style={faint}>Not needed — the vendor buys the nominated cloth and BSC buys finished garments.</div>
+      {mode === 'fob-nominated' ? <div className="py-2 text-[12.5px]" style={faint}>Not needed — the factory buys the nominated cloth and BSC buys finished garments.</div>
         : o.poNo ? <><KV k="PO" v={<b>{o.poNo}</b>} note={`raised ${fmtDate(o.poDate)}${o.factoryPo ? ` by ${o.factoryPo.by}` : ''}`} /><KV k="Factory" v={<VendorLink id={o.vendorId} />} note={o.finalFob != null ? `₹${o.finalFob}/pc agreed` : undefined} />{o.factoryPo && <KV k="Documents with the PO" v={o.factoryPo.docsSent.join(', ') || 'none'} note={o.factoryPo.docsMissing.length ? `owed: ${o.factoryPo.docsMissing.join(', ')}` : undefined} />}</>
         : <div className="py-2 text-[12.5px]" style={faint}>{at('po').note} — <button type="button" className="vlink" onClick={() => jump('vendors')}>step {no('vendors')}</button></div>}
 </>,
@@ -277,7 +277,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       <div className="pt-3">
         <Seg value={mode} onChange={setMode} label="The cloth" options={[
           { id:'bsc-buys', label:'BSC buys it', hint:'after the PO, sourcing buys the cloth against the brief and sends it straight to the factory' },
-          { id:'vendor-sources', label:'Vendor sources', hint:'the vendor finds and buys its own cloth' },
+          { id:'vendor-sources', label:'Factory sources', hint:'the factory finds and buys its own cloth' },
         ]} />
       </div>
     </Section>

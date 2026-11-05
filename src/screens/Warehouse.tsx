@@ -61,7 +61,7 @@ export function Warehouse() {
       {tab === 'inward' && (inbound.length === 0 ? <Card><Empty title="Nothing inbound." body="No dispatched PO is awaiting receipt." /></Card> : (<>
         {exInbound.strip && <div className="flex justify-end mb-2">{exInbound.strip}</div>}
         <Card><table className="t">
-          <thead><tr><th>PO</th><th>Style</th><th>Vendor</th><th>Dispatched</th><th>Target inhouse</th><th className="num">Cut qty</th><th></th></tr></thead>
+          <thead><tr><th>PO</th><th>Style</th><th>Factory</th><th>Dispatched</th><th>Target inhouse</th><th className="num">Cut qty</th><th></th></tr></thead>
           <tbody>{exInbound.rows.map(o => { const d = o.milestones.find(m => m.key === 'Dispatch')!.actual!; return <tr key={o.id} className="row" onClick={() => set('open', o.id)}>
             <td className="mono text-[12.5px]">{o.poNo}</td><td className="font-medium">{o.styleName}</td><td className="text-[12.5px]">{vendorName(o.vendorId)}</td>
             <td>{fmtDate(d)} <span className="text-[11px]" style={{ color:'var(--ink-faint)' }}>({daysAgo(d)}d ago)</span></td>

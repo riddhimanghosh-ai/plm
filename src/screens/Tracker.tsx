@@ -79,7 +79,7 @@ export function Tracker() {
             { label:'PO', get: (x: typeof rows[number]) => x.o.poNo ?? '' },
             { label:'Style', get: x => x.o.styleName },
             { label:'Category', get: x => x.o.category },
-            { label:'Vendor', get: x => db.vendors.find(v => v.id === x.o.vendorId)?.name ?? '' },
+            { label:'Factory', get: x => db.vendors.find(v => v.id === x.o.vendorId)?.name ?? '' },
             { label:'Merchant', get: x => x.o.merchant },
             { label:'Qty', get: x => x.o.orderQty },
             { label:'Where it is', get: x => x.s.stage },
@@ -116,7 +116,7 @@ export function Tracker() {
 
       {tab === 'settings' ? <TrackerSettings /> : tab === 'orders' ? <HubOrdersTab /> : view === 'sheet' ? <SheetColumns rows={ex.rows.map(x => x.o)} onOpen={id => set('open', id)} /> : rows.length === 0 ? <Card><Empty title="Nothing matches those filters." body="Loosen one of them, or clear the search." /></Card> : <Card>
         <table className="t">
-          <thead><tr><th>PO</th><th>Style</th><th>Vendor</th><th>Merchant</th><th>Where it is</th><th>Target inhouse</th><th>Expected</th><th className="num">Buffer</th><th>Risk factor</th></tr></thead>
+          <thead><tr><th>PO</th><th>Style</th><th>Factory</th><th>Merchant</th><th>Where it is</th><th>Target inhouse</th><th>Expected</th><th className="num">Buffer</th><th>Risk factor</th></tr></thead>
           <tbody>{pager.pageRows.map(({ o, r, s }) => (
             <tr key={o.id} className="row" onClick={() => set('open', o.id)}>
               <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo ?? <span className="text-[12px]" style={{ color:'var(--ink-faint)', fontFamily:'var(--body)' }}>no PO yet</span>}</td>
@@ -176,7 +176,7 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
     <Section title="2 · Factory finalisation" ownerRole={fst.owner === 'merchandiser' ? 'production' : fst.owner}
       right={<Pill tone={fst.tone}>{fst.label}</Pill>}>
       <FactoryFinalisationSection o={o} bare columns={<>
-        <KV k="Vendor / factory" v={o.vendorId ? <VendorLink id={o.vendorId}>{vendorName(o.vendorId)}</VendorLink> : '—'} />
+        <KV k="Factory" v={o.vendorId ? <VendorLink id={o.vendorId}>{vendorName(o.vendorId)}</VendorLink> : '—'} />
         <KV k="Region" v={db_vendor_loc(o.vendorId) || '—'} />
         <KV k="Merchant" v={o.merchant ?? '—'} />
         <KV k="PO No." v={o.poNo ?? '—'} note={o.poNo ? undefined : 'after design raises the factory PO'} />
@@ -475,7 +475,7 @@ function SheetColumns({ rows, onOpen }: { rows: ProductionOrder[]; onOpen: (id: 
         <tr>
           <th>Category</th><th>Sub category</th><th>Style / colour</th><th>Shiphero style name</th><th>Programme</th><th>Launch month</th><th>Target inhouse</th><th>Fit</th><th className="num">Target FOB</th><th>Fabric ready</th><th>Trims ready</th><th>Style handover</th>
           {SHEET_SIZES.map(sz => <th key={sz} className="num">{sz}</th>)}<th className="num">Order qty</th>
-          <th>Vendor</th><th>Region</th><th>Merchant</th><th>PO no.</th><th>PO date</th><th>PO status</th><th>BOM / job card</th><th>Costing target</th><th>Costing revised</th><th>Costing actual</th><th className="num">Final FOB</th>
+          <th>Factory</th><th>Region</th><th>Merchant</th><th>PO no.</th><th>PO date</th><th>PO status</th><th>BOM / job card</th><th>Costing target</th><th>Costing revised</th><th>Costing actual</th><th className="num">Final FOB</th>
           <th>Fabric vendor</th><th>Vendor fabric code</th><th>Enigma code</th><th className="num">Fabric CPM</th><th className="num">Fabric blocked</th><th className="num">Planned cons.</th><th className="num">Actual cons.</th>
           {MILESTONES.map(m => <th key={m}>{m}</th>)}
           <th>Status</th><th>Risk factor</th><th className="num">Cut qty</th><th>OTIF flag</th><th className="num">Delivered qty</th><th className="num">Planned lead</th><th className="num">Actual lead</th>

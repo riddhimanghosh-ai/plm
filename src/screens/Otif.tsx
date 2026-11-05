@@ -225,7 +225,7 @@ function EscalationLog() {
     <Stats items={[{ label:'POs needing action', value: rows.length, tone: rows.length ? 'risk' : 'good' }, { label:'Delayed', value: n('delayed'), tone: n('delayed') ? 'risk' : undefined }, { label:'Critical', value: n('critical'), tone: n('critical') ? 'warn' : undefined }, { label:'At risk', value: n('at-risk') }, ...byM.map(x => ({ label: x.m, value: x.n }))]} />
     <Card className="mb-3"><div className="flex items-center gap-3 flex-wrap px-3 py-2.5"><Seg value={merchant} onChange={setMerchant} options={[{ id:'all', label:'Every merchant', count: rows.length }, ...byM.map(x => ({ id:x.m, label:x.m, count:x.n }))]} /></div></Card>
     {shown.length === 0 ? <Card><Empty title="Nothing to escalate." body="Every open PO still has its buffer." /></Card> : <Card><div style={{ overflowX:'auto' }}><table className="t compact">
-      <thead><tr><th>Merchant</th><th>PO</th><th>Style</th><th>Vendor</th><th>Risk</th><th>Last milestone</th><th>Target inhouse</th><th>Expected</th><th className="num">Days impact</th><th>Recommended action</th><th>Escalation</th></tr></thead>
+      <thead><tr><th>Merchant</th><th>PO</th><th>Style</th><th>Factory</th><th>Risk</th><th>Last milestone</th><th>Target inhouse</th><th>Expected</th><th className="num">Days impact</th><th>Recommended action</th><th>Escalation</th></tr></thead>
       <tbody>{shown.map(({ o, r, e }) => <tr key={o.id}>
         <td className="text-[12.5px]">{o.merchant ?? '—'}</td>
         <td className="mono text-[12.5px]"><a className="vlink" href={`#/tracker?open=${o.id}`}>{o.poNo}</a></td>
@@ -266,7 +266,7 @@ function AlertDashboard() {
       <div style={{ width: 150 }}><Field label="Alert window · days ahead"><Input type="number" min={0} max={30} value={window} onChange={e => setWindow(e.target.value)} /></Field></div>
     </div></Card>
     {shown.length === 0 ? <Card><Empty title="No alerts." body="Nothing is overdue or due inside the window." /></Card> : <Card><div style={{ overflowX:'auto' }}><table className="t compact">
-      <thead><tr><th>Merchant</th><th>PO</th><th>Style</th><th>Vendor</th><th>Stage</th><th>Alert</th><th>Effective date</th><th className="num">Days left</th><th>Planned</th><th>Revised</th><th>Target inhouse</th><th>Risk</th><th></th></tr></thead>
+      <thead><tr><th>Merchant</th><th>PO</th><th>Style</th><th>Factory</th><th>Stage</th><th>Alert</th><th>Effective date</th><th className="num">Days left</th><th>Planned</th><th>Revised</th><th>Target inhouse</th><th>Risk</th><th></th></tr></thead>
       <tbody>{pager.pageRows.map(({ o, m, eff, type, daysLeft, r, sent }) => <tr key={`${o.id}-${m.key}`}>
         <td className="text-[12.5px]">{o.merchant ?? '—'}</td>
         <td className="mono text-[12.5px]"><a className="vlink" href={`#/tracker?open=${o.id}`}>{o.poNo}</a></td>
