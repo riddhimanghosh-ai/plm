@@ -344,10 +344,14 @@ function RtwTab({ rows, onOpen, done }: { rows: ProductionOrder[]; onOpen: (id: 
    the documents the cut needs — CAD, tech pack, style sheet, job card, trim card. No cost,
    no mill, no sourcing detail: those belong to the production unit. */
 function RtwPoPanel({ o, mine }: { o: ProductionOrder; mine: boolean }) {
-  const { db, receiveMaterial } = useApp();
+  const { db, receiveMaterial, askCutRatio } = useApp();
   const d = rtwDocsOf(db, o); const fab = fabricStateOf(o);
+  const [counting, setCounting] = useState<number | null>(null); const [cnt, setCnt] = useState(''); const [cnote, setCnote] = useState('');
+  const [shortOpen, setShortOpen] = useState(false); const [shortQty, setShortQty] = useState<Record<string, string>>({}); const [shortWhy, setShortWhy] = useState('');
   const trims = (o.materials ?? []).map(m => ({ m, line: o.bom[m.bomIndex] })).filter(x => x.line && x.line.kind !== 'fabric');
   const got = trims.filter(x => x.m.receivedOn).length;
+  const trimsShort = trims.filter(x => x.m.receivedOn && x.m.receivedQty != null && x.m.receivedQty < x.m.requiredQty);
+  const shortFactor = trimsShort.length ? Math.min(1, ...trimsShort.map(x => (x.m.receivedQty ?? 0) / x.m.requiredQty)) : 1;
   const fs = o.fabricSupply; const r = riskOf(o);
   const faint = { color:'var(--ink-faint)' } as const;
   const given = (o.cutRatios ?? []).filter(c => c.given && c.sentToFactoryOn).slice(-1)[0];
@@ -365,18 +369,55 @@ function RtwPoPanel({ o, mine }: { o: ProductionOrder; mine: boolean }) {
       <MilestoneGrid o={o} editable={mine && o.status !== 'Closed'} bare />
     </Section>
 
-    <Section title="2 · What we received" ownerRole={fab.owner === 'merchandiser' ? 'production' : fab.owner} defaultOpen right={<div className="flex gap-2 items-center"><Pill tone={fab.tone}>{fab.label}</Pill><Pill tone={trims.length && got === trims.length ? 'good' : got ? 'warn' : 'neutral'}>trims {got}/{trims.length}</Pill></div>}>
-      <div className="label">Cloth</div>
-      {o.costing.consumption != null && <div className="text-[12.5px] pb-1" style={faint}>{o.costing.consumption} m/pc planned · {Math.round(o.costing.consumption * o.orderQty)} m for {o.orderQty} pcs{fs?.receipt ? ` · we counted ${fs.receipt.metresOk} m usable` : ''}</div>}
-      {/* the count-in form, and the cut-ratio ask when it falls short, live in the shared fabric section; the merchant sees only its factory half */}
-      <FabricFinalisationSection o={o} bare />
-      <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line-soft)' }}>
-        <div className="label">Trims & accessories · {got}/{trims.length} received</div>
-        {trims.length === 0 ? <div className="py-1 text-[12.5px]" style={faint}>No trim lines on the BOM yet.</div> : trims.map(({ m, line }) => <div key={m.bomIndex} className="kv"><span className="k">{line.item}<div className="text-[11px]">{m.requiredQty} {line.unit} needed{line.spec ? ` · ${line.spec}` : ''}</div></span>
-          <span className="v flex gap-1 items-center justify-end">{m.receivedOn ? <Pill tone={m.checked === 'ok' ? 'good' : 'risk'}>{m.checked === 'ok' ? `received ${fmtDate(m.receivedOn)}` : 'received · not OK'}</Pill> : <Pill tone="neutral">not yet</Pill>}
-            {mine && !m.receivedOn && <><Button size="sm" onClick={() => receiveMaterial(o.id, m.bomIndex, 'ok')}>Received</Button><Button size="sm" variant="ghost" onClick={() => receiveMaterial(o.id, m.bomIndex, 'fail')}>Short / wrong</Button></>}</span></div>)}
-        {!mine && trims.some(x => !x.m.receivedOn) && <ActsBy role="merchandiser" does="ticks each trim line as it lands at the factory" />}
-      </div>
+    <Section title="2 · What is coming, what we received" ownerRole={fab.owner === 'merchandiser' ? 'production' : fab.owner} defaultOpen right={<div className="flex gap-2 items-center"><Pill tone={fab.tone}>{fab.label}</Pill><Pill tone={trims.length && got === trims.length ? (trimsShort.length ? 'risk' : 'good') : got ? 'warn' : 'neutral'}>materials {got}/{trims.length}{trimsShort.length ? ` · ${trimsShort.length} short` : ''}</Pill></div>}>
+      <div className="intro text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Everything this PO brings to the floor, against the order: the cloth from the mill sourcing bought it from, trims and packaging from the production unit. Count each line in as it lands; a short line can go back to design as a cut-short.</div>
+      <table className="t compact">
+        <thead><tr><th>Item</th><th>From</th><th className="num">Expected</th><th>Sent</th><th className="num">Received</th><th className="num">Short</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><div className="font-medium">{o.bom.find(l => l.kind === 'fabric')?.item ?? 'Cloth'}</div><div className="text-[11px]" style={faint}>{o.bom.find(l => l.kind === 'fabric')?.spec ?? ''}{o.costing.consumption != null ? ` · ${o.costing.consumption} m/pc` : ''}</div></td>
+            <td className="text-[12px]">{o.fabricNominated ? (db.vendors.find(v => v.id === o.fabricVendorId)?.name ?? 'the mill') : 'we buy it'}</td>
+            <td className="num">{fab.need != null ? `${fab.need} m` : o.sourcing?.fabricPo ? `${o.sourcing.fabricPo.metres} m` : '—'}</td>
+            <td className="text-[12px]">{fs?.sentToFactoryOn ? `${fs.metresSent ?? '—'} m · ${fmtDate(fs.sentToFactoryOn)}` : <span style={faint}>not yet</span>}</td>
+            <td className="num">{fs?.receipt ? <>{fs.receipt.metresOk} m{fs.receipt.metresDamaged ? <div className="text-[11px]" style={{ color:'var(--risk)' }}>{fs.receipt.metresDamaged} m damaged</div> : null}</> : <span style={faint}>—</span>}</td>
+            <td className="num" style={{ color: fab.short > 0 ? 'var(--risk)' : undefined }}>{fs?.receipt ? (fab.short > 0 ? `${fab.short} m` : '—') : ''}</td>
+            <td><Pill tone={fs?.receipt ? (fab.short > 0 ? 'risk' : 'good') : fs?.sentToFactoryOn ? 'warn' : 'neutral'}>{fs?.receipt ? (fab.short > 0 ? 'short' : 'in') : fs?.sentToFactoryOn ? 'on its way · count it in' : 'not sent'}</Pill></td>
+            <td className="text-[11.5px]" style={faint}>{fs?.sentToFactoryOn && !fs.receipt ? 'count in below ↓' : ''}</td>
+          </tr>
+          {trims.map(({ m, line }) => { const short = m.receivedOn && m.receivedQty != null ? Math.max(0, m.requiredQty - m.receivedQty) : 0; const isEditing = counting === m.bomIndex;
+            return <tr key={m.bomIndex}>
+              <td><div className="font-medium">{line.item}</div>{line.spec && <div className="text-[11px]" style={faint}>{line.spec}</div>}</td>
+              <td className="text-[12px]">production unit</td>
+              <td className="num">{m.requiredQty} {line.unit}</td>
+              <td className="text-[12px]">{o.factoryPo ? `with the PO · ${fmtDate(o.factoryPo.raisedOn)}` : <span style={faint}>—</span>}</td>
+              <td className="num">{m.receivedOn ? `${m.receivedQty ?? m.requiredQty} ${line.unit}` : <span style={faint}>—</span>}{m.note && <div className="text-[11px]" style={faint}>{m.note}</div>}</td>
+              <td className="num" style={{ color: short ? 'var(--risk)' : undefined }}>{m.receivedOn ? (short ? `${short} ${line.unit}` : '—') : ''}</td>
+              <td><Pill tone={m.receivedOn ? (m.checked === 'ok' ? 'good' : 'risk') : 'neutral'}>{m.receivedOn ? (m.checked === 'ok' ? `in · ${fmtDate(m.receivedOn)}` : short ? 'short' : 'not OK') : 'not yet'}</Pill></td>
+              <td style={{ whiteSpace:'nowrap' }}>{mine && !m.receivedOn && (isEditing
+                ? <span className="flex gap-1 items-center"><Input type="number" min={0} value={cnt} onChange={e => setCnt(e.target.value)} placeholder={String(m.requiredQty)} style={{ width: 80, padding:'4px 6px' }} /><Input value={cnote} onChange={e => setCnote(e.target.value)} placeholder="note" style={{ width: 120, padding:'4px 6px' }} />
+                  <Button size="sm" variant="primary" onClick={() => { const q = cnt === '' ? m.requiredQty : Number(cnt); receiveMaterial(o.id, m.bomIndex, q >= m.requiredQty ? 'ok' : 'fail', q, cnote.trim()); setCounting(null); setCnt(''); setCnote(''); }}>Save</Button><Button size="sm" variant="ghost" onClick={() => setCounting(null)}>×</Button></span>
+                : <span className="flex gap-1"><Button size="sm" onClick={() => receiveMaterial(o.id, m.bomIndex, 'ok', m.requiredQty)}>All in</Button><Button size="sm" variant="ghost" onClick={() => { setCounting(m.bomIndex); setCnt(''); setCnote(''); }}>Count…</Button></span>)}</td>
+            </tr>; })}
+        </tbody>
+      </table>
+      {!mine && trims.some(x => !x.m.receivedOn) && <ActsBy role="merchandiser" does="counts each line in as it lands at the factory" />}
+
+      {/* the cloth count-in, and the cut-ratio ask when the cloth is short, live in the shared fabric section; the merchant sees only its factory half */}
+      <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line-soft)' }}><div className="label">Cloth · count-in and cut ratio</div><FabricFinalisationSection o={o} bare /></div>
+
+      {/* materials short while the cloth is fine: the same cut-short ask, for the lines that fell short */}
+      {trimsShort.length > 0 && fab.key !== 'short' && !(fab.cr && !fab.cr.given) && <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line-soft)' }}>
+        <div className="label">Materials short · cut-short</div>
+        <Note tone="risk">{trimsShort.map(x => `${x.line.item} ${x.m.receivedQty}/${x.m.requiredQty} ${x.line.unit}`).join(' · ')}. The order cannot be made in full with what landed; ask the production unit to top up, or propose to design to cut short.</Note>
+        {mine && (shortOpen ? <div className="pt-2">
+          <div className="text-[11.5px] pb-1" style={faint}>What the shortest line allows ({Math.round(shortFactor * 100)}% of the order) — pro-rata to start with, change any size</div>
+          <div className="grid gap-1.5 py-1" style={{ gridTemplateColumns:`repeat(${breakup.length}, minmax(52px, 1fr))` }}>{breakup.map(x => <Field key={x.size} label={`${x.size} · was ${x.qty}`}><Input type="number" min={0} value={shortQty[x.size] ?? '0'} onChange={e => setShortQty(r => ({ ...r, [x.size]: e.target.value }))} style={{ padding:'4px 6px' }} /></Field>)}</div>
+          <div className="flex gap-2 items-end flex-wrap"><div style={{ flex:'1 1 240px' }}><Field label="Why"><Input value={shortWhy} onChange={e => setShortWhy(e.target.value)} placeholder={`${trimsShort.map(x => x.line.item).join(', ')} short`} /></Field></div>
+            <Button size="sm" variant="primary" onClick={() => { const bk = breakup.map(x => ({ size: x.size, qty: Number(shortQty[x.size] ?? 0) || 0 })); askCutRatio(o.id, shortWhy.trim() || `cut short to ${bk.reduce((a, x) => a + x.qty, 0)} pcs — ${trimsShort.map(x => `${x.line.item} ${x.m.receivedQty}/${x.m.requiredQty}`).join(', ')}`, 'cut-short', bk); setShortOpen(false); setShortWhy(''); }}>Propose this cut-short to design</Button>
+            <Button size="sm" variant="ghost" onClick={() => setShortOpen(false)}>Cancel</Button></div>
+        </div> : <div className="pt-2"><Button size="sm" variant="primary" onClick={() => { setShortQty(Object.fromEntries(breakup.map(x => [x.size, String(Math.floor(x.qty * shortFactor))]))); setShortOpen(true); }}>Propose to cut short…</Button></div>)}
+      </div>}
+
       <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line-soft)' }}>
         <div className="label">Size ratio to cut{given ? ' · revised by design' : ''}</div>
         <SizeGrid breakup={breakup} />

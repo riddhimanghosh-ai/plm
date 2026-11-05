@@ -189,7 +189,7 @@ export interface AppState {
   /* production unit — RTW gates */
   submitSample(orderId: string, vendorId: string | null): void;
   reviewSample(orderId: string, round: number, comments: SampleRound['comments'], decision: 'resubmit' | 'approved'): void;
-  receiveMaterial(orderId: string, bomIndex: number, checked: 'ok' | 'fail'): void;
+  receiveMaterial(orderId: string, bomIndex: number, checked: 'ok' | 'fail', receivedQty?: number | null, note?: string): void;
   orderTrims(trimId: string, qty: number): void;
   receiveTrims(trimId: string): void;
   setGrnInvoice(grnId: string, invoiceNo: string): void;
@@ -1144,13 +1144,13 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, decision === 'approved' ? `PP go-ahead on sample round ${round}${comments.length ? ` · ${comments.length} comment(s) to carry into bulk` : ''}` : `Sample round ${round} sent back — ${comments.filter(c => c.major).length} major comment(s) on the green slip`);
       }, decision === 'approved' ? 'PP go-ahead given. Bulk can be planned.' : 'Sent back with the green slip. The factory owes another round.', decision === 'approved' ? 'ok' : 'warn');
     },
-    receiveMaterial(orderId, bomIndex, checked) {
+    receiveMaterial(orderId, bomIndex, checked, receivedQty = null, note = '') {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; if (!o.materials?.length) o.materials = defaultMaterials(o);
-        const m = o.materials.find(x => x.bomIndex === bomIndex); if (!m) return; m.receivedOn = m.receivedOn ?? now(); m.checked = checked;
+        const m = o.materials.find(x => x.bomIndex === bomIndex); if (!m) return; m.receivedOn = m.receivedOn ?? now(); m.checked = checked; if (receivedQty != null) m.receivedQty = receivedQty; if (note) m.note = note;
         const line = o.bom[bomIndex]; if (line?.kind === 'fabric') { const ms = o.milestones.find(x => x.key === 'Fabric ETA'); if (ms && !ms.actual && checked === 'ok') ms.actual = now(); }
         /* the sheet's Trims Readiness flips to Yes when every trim and packaging line has landed at the factory */
         const trimLines = o.materials.filter(x => o.bom[x.bomIndex]?.kind !== 'fabric'); if (trimLines.length && trimLines.every(x => x.receivedOn && x.checked === 'ok')) { o.trimsReady = true; const te = o.milestones.find(x => x.key === 'Trims ETA'); if (te && !te.actual) te.actual = now(); }
-        log(o, `${line?.item ?? 'material'} received and checked · ${checked}`); }, checked === 'ok' ? 'Received and checked. Ready to issue.' : 'Received — failed the check. Not going to the factory.', checked === 'ok' ? 'ok' : 'warn');
+        log(o, `${line?.item ?? 'material'} received and checked · ${checked}${receivedQty != null ? ` · ${receivedQty} of ${m.requiredQty} ${line?.unit ?? ''}` : ''}${note ? ` · ${note}` : ''}`); }, checked === 'ok' ? 'Received and checked.' : receivedQty != null ? 'Received short. Ask for a cut-short below if the order cannot be made in full.' : 'Received — failed the check.', checked === 'ok' ? 'ok' : 'warn');
     },
     orderTrims(trimId, qty) { touch(db => { const t = (db.trims ?? []).find(x => x.id === trimId); if (!t) return; t.incoming += qty; t.lastOrderedOn = now(); },
       'Bulk order raised. It counts as cover until the delivery lands — head office buys these against the forecast, nothing auto-fires.'); },

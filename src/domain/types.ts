@@ -179,6 +179,9 @@ export interface MaterialLine {
   receivedOn: string | null;
   checked: 'pending' | 'ok' | 'fail';
   issuedOn: string | null;
+  /* the factory's own count (merchandiser, My factory): what landed against what was expected; a note when it differs */
+  receivedQty?: number | null;
+  note?: string;
 }
 
 /* BSC's own merchandiser and QC at the factory audit the output before it leaves. */
