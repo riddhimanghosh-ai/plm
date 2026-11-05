@@ -25,6 +25,20 @@ import { ActsBy, OwnerPill } from './Who';
 
 export const RISK_TONE: Record<Risk, Tone> = { pending:'neutral', 'on-track':'good', watch:'warn', 'at-risk':'warn', critical:'risk', delayed:'risk', closed:'neutral' };
 
+/* the last step logged, said the way the floor says it */
+const PLAIN: Record<string, string> = { 'Yarn PO':'Yarn ordered', 'Fabric PO':'Fabric ordered', 'Yarn ETA':'Yarn in', 'Fabric ETA':'Fabric at factory', 'Trims ETA':'Trims in', 'PPS Submission':'Sample sent', 'PPS Approval':'Sample approved', 'Size Set Sub':'Size set sent', 'Size Set Appvl':'Size set approved', FI:'Final inspection done', Dispatch:'Dispatched', 'Inhouse ETA':'Arrived' };
+const plainStep = (k: string) => PLAIN[k] ?? (k.endsWith(' Start') ? `${k.slice(0, -6)} underway` : k.endsWith(' End') ? `${k.slice(0, -4)} done` : k);
+/* one status per row: where it is now, and only if it is late, by how much */
+const LATE = ['delayed', 'critical', 'at-risk', 'watch'];
+function statusOf(o: ProductionOrder, r: ReturnType<typeof riskOf>, s: { stage: string }): { text: string; tone: Tone } {
+  if (o.status === 'Closed') { const landed = o.milestones.find(m => m.key === 'Inhouse ETA')?.actual ?? o.milestones.find(m => m.key === 'Dispatch')?.actual ?? null; const late = landed ? Math.round((new Date(landed).getTime() - new Date(o.targetInhouse).getTime()) / 86400000) : 0;
+    return { text: `Delivered${landed ? ` ${fmtDate(landed)}` : ''}${late > 0 ? ` · ${late}d late` : ''}`, tone: late > 0 ? 'warn' : 'good' }; }
+  if (!o.poNo) return { text: s.stage.replace('No PO yet · ', 'Before the PO · '), tone: 'neutral' };
+  const where = s.stage.endsWith(' done') ? plainStep(s.stage.slice(0, -5)) : s.stage;
+  const late = r.bufferDays != null && r.bufferDays < 0 ? -r.bufferDays : 0;
+  return { text: late ? `${where} · ${late}d late` : where, tone: late || r.risk === 'delayed' || r.risk === 'critical' ? 'risk' : LATE.includes(r.risk) ? 'warn' : 'good' };
+}
+
 export function Tracker() {
   const { db, role } = useApp();
   const [params, setParams] = useSearchParams();
@@ -57,7 +71,7 @@ export function Tracker() {
     if (merchant !== 'all' && x.o.merchant !== merchant) return false;
     if (vendor !== 'all' && x.o.vendorId !== vendor) return false;
     if (stage !== 'all' && x.s.stage !== stage) return false;
-    if (risk === 'trouble' ? !['delayed', 'critical', 'at-risk'].includes(x.r.risk) : risk === 'pre' ? !!x.o.poNo : risk !== 'all' && x.r.risk !== risk) return false;
+    if (risk === 'late' ? !LATE.includes(x.r.risk) : risk === 'pre' ? !!x.o.poNo : risk === 'ok' ? x.r.risk !== 'on-track' : false) return false;
     const t = search.trim().toLowerCase();
     if (t && !(x.o.styleName.toLowerCase().includes(t) || (x.o.poNo ?? '').toLowerCase().includes(t))) return false;
     return true;
@@ -82,12 +96,8 @@ export function Tracker() {
             { label:'Factory', get: x => db.vendors.find(v => v.id === x.o.vendorId)?.name ?? '' },
             { label:'Merchant', get: x => x.o.merchant },
             { label:'Qty', get: x => x.o.orderQty },
-            { label:'Where it is', get: x => x.s.stage },
-            { label:'Next', get: x => x.s.next ?? '' },
-            { label:'Target inhouse', get: x => x.o.targetInhouse },
-            { label:'Expected', get: x => x.r.expectedInhouse ?? '' },
-            { label:'Buffer days', get: x => x.r.bufferDays ?? '' },
-            { label:'Risk', get: x => x.r.risk },
+            { label:'Status', get: x => statusOf(x.o, x.r, x.s).text },
+            { label:'Due in-house', get: x => x.o.targetInhouse },
           ]} /></div>
           <div style={{ width:200 }}><Field label="Merchandiser"><Select value={merchant} onChange={setMerchant} options={[{ value:'all', label:'Everyone' }, ...MERCHANDISERS.map(m => ({ value:m, label:m }))]} /></Field></div>
           <div style={{ width:190 }}><Field label="View"><Select value={view} onChange={v => set('view', v === 'summary' ? null : v)} options={[{ value:'summary', label:'Summary' }, { value:'sheet', label:'Every column, as the sheet' }]} /></Field></div>
@@ -95,39 +105,31 @@ export function Tracker() {
       </div>
 
       {tab !== 'orders' && tab !== 'settings' && <Card className="mb-3"><div className="flex items-center gap-3 flex-wrap px-3 py-2.5">
-        <Seg value={risk} onChange={setRisk} options={[
+        {tab === 'open' && <Seg value={risk} onChange={setRisk} options={[
           { id:'all', label:'All', count: inTab.length },
           { id:'pre', label:'Before the PO', count: inTab.filter(x => !x.o.poNo).length, hint:'sent by design; the factory, cost and PO are still being settled' },
-          { id:'trouble', label:'Needs attention', count: riskCount('delayed') + riskCount('critical') + riskCount('at-risk'), hint:'delayed, critical, or eating into the buffer' },
-          { id:'delayed', label:'Delayed', count: riskCount('delayed') },
-          { id:'critical', label:'Critical', count: riskCount('critical') },
-          { id:'watch', label:'Watch', count: riskCount('watch'), hint:'a milestone is past its planned date with nothing recorded' },
-          { id:'on-track', label:'On track', count: riskCount('on-track') },
-        ]} />
+          { id:'late', label:'Running late', count: LATE.reduce((a, k) => a + riskCount(k), 0), hint:'past a planned date, or the in-house date is at risk' },
+          { id:'ok', label:'On time', count: riskCount('on-track') },
+        ]} />}
         <Select value={vendor} onChange={setVendor} style={{ width:'auto' }}
           options={[{ value:'all', label:`Every factory · ${vendors.length}` }, ...vendors.map(v => ({ value:v.id, label:v.name }))]} />
-        <Select value={stage} onChange={setStage} style={{ width:'auto' }}
-          options={[{ value:'all', label:'Anywhere on the floor' }, ...stages.map(st => ({ value:st, label:st }))]} />
         <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="style or PO number" style={{ width:190 }} />
-        {(vendor !== 'all' || stage !== 'all' || risk !== 'all' || search.trim() || merchant !== 'all') &&
+        {(vendor !== 'all' || risk !== 'all' || search.trim() || merchant !== 'all') &&
           <Button size="sm" variant="ghost" onClick={() => { setVendor('all'); setStage('all'); setRisk('all'); setSearch(''); setMerchant('all'); }}>Clear</Button>}
         <span className="ml-auto">{ex.strip}</span>
       </div></Card>}
 
       {tab === 'settings' ? <TrackerSettings /> : tab === 'orders' ? <HubOrdersTab /> : view === 'sheet' ? <SheetColumns rows={ex.rows.map(x => x.o)} onOpen={id => set('open', id)} /> : rows.length === 0 ? <Card><Empty title="Nothing matches those filters." body="Loosen one of them, or clear the search." /></Card> : <Card>
         <table className="t">
-          <thead><tr><th>PO</th><th>Style</th><th>Factory</th><th>Merchant</th><th>Where it is</th><th>Target inhouse</th><th>Expected</th><th className="num">Buffer</th><th>Risk factor</th></tr></thead>
+          <thead><tr><th>PO</th><th>Style</th><th>Factory</th><th>Merchant</th><th>Status</th><th>Due in-house</th></tr></thead>
           <tbody>{pager.pageRows.map(({ o, r, s }) => (
             <tr key={o.id} className="row" onClick={() => set('open', o.id)}>
               <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo ?? <span className="text-[12px]" style={{ color:'var(--ink-faint)', fontFamily:'var(--body)' }}>no PO yet</span>}</td>
               <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{o.category}</div></td>
               <td className="text-[12.5px]">{o.vendorId ? <VendorLink id={o.vendorId}>{vendorName(o.vendorId)}</VendorLink> : (() => { const f = factoryStateOf(o); return f.last ? <span style={{ color:'var(--ink-faint)' }}>{vendorName(f.last.vendorId)} · proposed</span> : <span style={{ color:'var(--ink-faint)' }}>—</span>; })()}</td>
               <td className="text-[12.5px]">{o.merchant ?? <span style={{ color:'var(--ink-faint)' }}>—</span>}</td>
-              <td className="text-[12.5px]"><div>{s.stage}</div>{s.next && <div style={{ color:'var(--ink-faint)' }}>next: {s.next}</div>}</td>
-              <td>{fmtDate(o.targetInhouse)}</td>
-              <td style={{ color: r.bufferDays != null && r.bufferDays < 0 ? 'var(--risk)' : undefined }}>{fmtDate(r.expectedInhouse)}</td>
-              <td className="num" style={{ color: r.bufferDays == null ? undefined : r.bufferDays <= RISK.criticalBufferDays ? 'var(--risk)' : r.bufferDays <= RISK.atRiskBufferDays ? 'var(--warn)' : 'var(--good)' }}>{r.bufferDays != null ? `${r.bufferDays}d` : '—'}</td>
-              <td><Pill tone={RISK_TONE[r.risk]}>{r.risk === 'pending' ? 'before PO' : r.risk.replace('-', ' ')}</Pill></td>
+              <td>{(() => { const st = statusOf(o, r, s); return <Pill tone={st.tone}>{st.text}</Pill>; })()}</td>
+              <td style={{ whiteSpace:'nowrap' }}>{fmtDate(o.targetInhouse)}</td>
             </tr>))}</tbody>
         </table>
         <Pager page={pager.page} pageCount={pager.pageCount} onChange={pager.setPage} from={pager.from} to={pager.to} total={pager.total} noun="purchase orders" />
