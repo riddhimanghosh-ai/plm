@@ -347,7 +347,7 @@ export const TRIM_MASTER: { name: string; kind: 'trim' | 'packaging'; costPer: n
 /* ---------- files each record actually carries today — in Drive, Slack, WhatsApp — now on the record ---------- */
 export const FILE_LABELS = {
   concept:       ['PAT file', 'CAD / pattern', 'Tech pack', 'Sketch / reference image', 'Sample photo', 'Green slip', 'Approval note', 'Fabric swatch image'],
-  order:         ['Tech pack', 'Job card', 'Trim card', 'PAT / CAD', 'PPS sample photo', 'Size-set photo', 'QC report', 'Vendor quote', 'Invoice', 'Packing list'],
+  order:         ['Tech pack', 'Job card', 'Trim card', 'PAT / CAD', 'Style sheet', 'PPS sample photo', 'Size-set photo', 'QC report', 'Vendor quote', 'Invoice', 'Packing list'],
   fabric:        ['Swatch image', 'Test report', 'Mill stock sheet', 'Vendor quote', 'Block confirmation', 'Datasheet'],
   option:        ['Product shots', 'Tech pack', 'Size chart'],
   launch:        ['Marketing brief', 'Display allocation sheet', 'Product shots', 'Key pointers'],

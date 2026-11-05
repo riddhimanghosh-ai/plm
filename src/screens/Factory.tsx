@@ -5,7 +5,8 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
-import type { CustomerOrder, ExtraFabricRequest, ProductionOrder } from '../domain/types';
+import type { Attachment, CustomerOrder, ExtraFabricRequest, ProductionOrder } from '../domain/types';
+import { useFileUrl } from '../domain/files';
 import { FabricFinalisationSection, DocsChecklist, SizeGrid } from './RtwGates';
 import { MilestoneGrid } from './Tracker';
 import { fabricStateOf, otifOf, riskOf, rtwDocsOf, factoryStateOf, fmtMoney } from '../domain/engines';
@@ -338,31 +339,36 @@ function RtwTab({ rows, onOpen, done }: { rows: ProductionOrder[]; onOpen: (id: 
   </>;
 }
 
-/* the merchandiser's view of one PO: what was asked, what is coming, what has landed, the dates */
+/* the factory merchant's view of one PO. Three jobs and nothing else: report the TNA,
+   count in what landed (and ask design for a cut ratio when the cloth is short), and read
+   the documents the cut needs — CAD, tech pack, style sheet, job card, trim card. No cost,
+   no mill, no sourcing detail: those belong to the production unit. */
 function RtwPoPanel({ o, mine }: { o: ProductionOrder; mine: boolean }) {
   const { db, receiveMaterial } = useApp();
-  const d = rtwDocsOf(db, o); const fab = fabricStateOf(o); const fst = factoryStateOf(o); void fst;
+  const d = rtwDocsOf(db, o); const fab = fabricStateOf(o);
   const trims = (o.materials ?? []).map(m => ({ m, line: o.bom[m.bomIndex] })).filter(x => x.line && x.line.kind !== 'fabric');
   const got = trims.filter(x => x.m.receivedOn).length;
+  const fs = o.fabricSupply; const r = riskOf(o);
   const faint = { color:'var(--ink-faint)' } as const;
+  const given = (o.cutRatios ?? []).filter(c => c.given && c.sentToFactoryOn).slice(-1)[0];
+  const breakup = given?.given?.breakup ?? o.sizeBreakup;
+  const docFiles = (db.attachments ?? []).filter(a => a.kind === 'order' && a.subjectId === o.id && FACTORY_DOCS.includes(a.label));
   return <>
-    <Section title="1 · What design asked for" ownerRole="design" defaultOpen right={<Pill tone={d.owedAfterPo.length ? 'risk' : 'good'}>{d.owedAfterPo.length ? `${d.owedAfterPo.length} document${d.owedAfterPo.length === 1 ? '' : 's'} owed` : 'documents complete'}</Pill>}>
-      <KV k="Style / colour" v={o.styleName} note={`${o.category} · ${o.subCategory}`} />
-      <KV k="Order qty" v={`${o.orderQty} pcs`} />
-      <KV k="Target inhouse date" v={fmtDate(o.targetInhouse)} />
-      <KV k="Agreed cost" v={o.finalFob != null ? fmtMoney(o.finalFob) : '—'} note="per piece, as agreed with production" />
-      {o.fit && <KV k="Fit" v={o.fit} />}
-      <div className="label pt-2">Size ratio{(o.cutRatios ?? []).some(c => c.given) ? ' · revised' : ''}</div>
-      <SizeGrid breakup={o.sizeBreakup} />
-      {(o.cutRatios ?? []).filter(c => c.given && c.sentToFactoryOn).map((c, i) => <div key={i} className="text-[11.5px]" style={{ color:'var(--warn)' }}>cut ratio revised {fmtDate(c.sentToFactoryOn!)} — {c.reason}</div>)}
-      <div className="label pt-3">Documents · job card, trim card, BOM, tech pack</div>
-      <DocsChecklist o={o} editable={false} />
-      <div className="label pt-3">Bill of materials</div>
-      {o.bom.map((l, i) => <KV key={i} k={l.item} v={l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit} / pc` : '—'} note={l.spec ?? undefined} />)}
+    <div className="flex gap-2 flex-wrap items-center pb-3 text-[12.5px]">
+      <KV k="Style / colour" v={o.styleName} note={`${o.category} · ${o.subCategory}${o.fit ? ` · ${o.fit}` : ''}`} />
+      <KV k="Order qty" v={`${o.orderQty} pcs`} note={given ? `cut ratio revised ${fmtDate(given.sentToFactoryOn!)}` : undefined} />
+      <KV k="In-house by" v={fmtDate(o.targetInhouse)} note={r.bufferDays != null ? `${r.bufferDays}d buffer · expected ${fmtDate(r.expectedInhouse)}` : undefined} />
+    </div>
+
+    <Section title="1 · Report the TNA" ownerRole="production" defaultOpen right={<Pill tone={o.status === 'Closed' ? 'neutral' : r.risk === 'on-track' ? 'good' : r.risk === 'delayed' || r.risk === 'critical' ? 'risk' : 'warn'}>{o.status === 'Closed' ? 'delivered' : r.risk.replace('-', ' ')}</Pill>}>
+      {mine && o.status !== 'Closed' && <div className="intro text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Click a block to log the date a step actually happened, or the date it has moved to and why. The production unit reads this the moment it is saved.</div>}
+      <MilestoneGrid o={o} editable={mine && o.status !== 'Closed'} bare />
     </Section>
 
-    <Section title="2 · Fabric & trims" ownerRole={fab.owner === 'merchandiser' ? 'production' : fab.owner} defaultOpen right={<div className="flex gap-2 items-center"><Pill tone={fab.tone}>{fab.label}</Pill><Pill tone={trims.length && got === trims.length ? 'good' : got ? 'warn' : 'neutral'}>trims {got}/{trims.length}</Pill></div>}>
-      <div className="intro text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>The cloth comes straight from the mill sourcing bought it from; trims and packaging come from the unit. Count both in here — short or damaged cloth goes back to production for a new cut ratio.</div>
+    <Section title="2 · What we received" ownerRole={fab.owner === 'merchandiser' ? 'production' : fab.owner} defaultOpen right={<div className="flex gap-2 items-center"><Pill tone={fab.tone}>{fab.label}</Pill><Pill tone={trims.length && got === trims.length ? 'good' : got ? 'warn' : 'neutral'}>trims {got}/{trims.length}</Pill></div>}>
+      <div className="label">Cloth</div>
+      {o.costing.consumption != null && <div className="text-[12.5px] pb-1" style={faint}>{o.costing.consumption} m/pc planned · {Math.round(o.costing.consumption * o.orderQty)} m for {o.orderQty} pcs{fs?.receipt ? ` · we counted ${fs.receipt.metresOk} m usable` : ''}</div>}
+      {/* the count-in form, and the cut-ratio ask when it falls short, live in the shared fabric section; the merchant sees only its factory half */}
       <FabricFinalisationSection o={o} bare />
       <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line-soft)' }}>
         <div className="label">Trims & accessories · {got}/{trims.length} received</div>
@@ -370,14 +376,30 @@ function RtwPoPanel({ o, mine }: { o: ProductionOrder; mine: boolean }) {
           <span className="v flex gap-1 items-center justify-end">{m.receivedOn ? <Pill tone={m.checked === 'ok' ? 'good' : 'risk'}>{m.checked === 'ok' ? `received ${fmtDate(m.receivedOn)}` : 'received · not OK'}</Pill> : <Pill tone="neutral">not yet</Pill>}
             {mine && !m.receivedOn && <><Button size="sm" onClick={() => receiveMaterial(o.id, m.bomIndex, 'ok')}>Received</Button><Button size="sm" variant="ghost" onClick={() => receiveMaterial(o.id, m.bomIndex, 'fail')}>Short / wrong</Button></>}</span></div>)}
         {!mine && trims.some(x => !x.m.receivedOn) && <ActsBy role="merchandiser" does="ticks each trim line as it lands at the factory" />}
-        {trims.length > 0 && got === trims.length && <div className="pt-2"><Note tone="good">All trims in — the sheet's Trims Readiness reads Yes.</Note></div>}
+      </div>
+      <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line-soft)' }}>
+        <div className="label">Size ratio to cut{given ? ' · revised by design' : ''}</div>
+        <SizeGrid breakup={breakup} />
       </div>
     </Section>
 
-    <Section title="3 · TNA milestones" ownerRole="production" defaultOpen right={null}>
-      <MilestoneGrid o={o} editable={mine} bare />
+    <Section title="3 · Documents for the cut" ownerRole="design" defaultOpen right={<Pill tone={d.owedAfterPo.length ? 'risk' : 'good'}>{d.owedAfterPo.length ? `${d.owedAfterPo.length} still owed` : 'all in'}</Pill>}>
+      <div className="intro text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>What design and the production unit sent with the PO. Open any file; nothing here is edited at the factory.</div>
+      <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))' }}>
+        {FACTORY_DOCS.map(label => { const f = docFiles.filter(a => a.label === label); const fromLines = label === 'Trim card' && o.bom.some(l => l.kind === 'trim'); const ok = f.length > 0 || fromLines;
+          return <div key={label} className="rounded-[6px] p-2.5" style={{ border:`1px solid ${ok ? 'var(--line)' : 'var(--risk)'}`, background: ok ? 'var(--surface)' : 'color-mix(in srgb, var(--risk) 5%, #fff)' }}>
+            <div className="flex items-center gap-2"><span className="font-medium text-[12.5px]">{label}</span><Pill tone={ok ? 'good' : 'risk'}>{ok ? (f.length ? `${f.length} file${f.length > 1 ? 's' : ''}` : 'on the BOM') : 'not sent yet'}</Pill></div>
+            {f.map(a => <DocLink key={a.id} a={a} />)}
+            {fromLines && !f.length && <div className="text-[11.5px] pt-1" style={faint}>{o.bom.filter(l => l.kind === 'trim').map(l => l.item).join(', ')}</div>}
+            {!ok && <div className="text-[11.5px] pt-1" style={faint}>{label === 'PAT / CAD' ? 'design uploads the pattern' : label === 'Style sheet' ? 'the production unit attaches it' : 'owed by the production unit'}</div>}
+          </div>; })}
+      </div>
+      <div className="label pt-3">Bill of materials</div>
+      {o.bom.map((l, i) => <KV key={i} k={l.item} v={l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit} / pc` : '—'} note={l.spec ?? undefined} />)}
     </Section>
 
-    <RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable={mine} steps={ORDER_STEPS} activity={o.activity} />
+    <RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable={false} steps={ORDER_STEPS} activity={o.activity} />
   </>;
 }
+function DocLink({ a }: { a: Attachment }) { const url = useFileUrl(a.id, a.stored); return <div className="text-[11.5px] pt-1 truncate" title={a.name}>{url ? <a className="vlink" href={url} download={a.name} target="_blank" rel="noreferrer">{a.name}</a> : <span>{a.name}</span>} <span style={{ color:'var(--ink-faint)' }}>· {fmtDate(a.at)}{a.stored ? '' : ' · on the record, not in this browser'}</span></div>; }
+const FACTORY_DOCS = ['PAT / CAD', 'Tech pack', 'Style sheet', 'Job card', 'Trim card'] as const as readonly string[];
