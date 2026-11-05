@@ -285,85 +285,114 @@ function allSteps(o: ProductionOrder): (Milestone & { na?: boolean })[] {
     ?? { key, label: key, owner: (MILESTONE_OWNER[key] ?? 'production') as RoleId, stage: PRE_PRODUCTION.has(key) ? 'pre-production' : 'production', plan: '', revised: null, actual: null, delayReason: null, na: true } as Milestone & { na?: boolean });
 }
 
+/* The TNA as a flow: blocks connected left to right, then down and back right to left,
+   the way a process chart reads. Each block is one milestone with its plan, revised and
+   actual dates and its state; click a block to log a date. The sheet's three columns
+   (Plan | Revised | Actual) stay in a "Table" view for anyone who wants them side by side. */
+type FlowState = 'done' | 'late' | 'overdue' | 'now' | 'pending';
+function flowStateOf(m: Milestone, isNext: boolean): { state: FlowState; late: number } {
+  const late = m.actual && new Date(m.actual) > new Date(m.plan) ? Math.round((new Date(m.actual).getTime() - new Date(m.plan).getTime()) / 86400000) : 0;
+  if (m.actual) return { state: late ? 'late' : 'done', late };
+  if (new Date(m.revised ?? m.plan) < new Date()) return { state: 'overdue', late };
+  return { state: isNext ? 'now' : 'pending', late };
+}
+const FLOW_COLOR: Record<FlowState, string> = { done: 'var(--good)', late: 'var(--risk)', overdue: 'var(--warn)', now: 'var(--accent)', pending: 'var(--line)' };
+const FLOW_LABEL: Record<FlowState, string> = { done: 'done', late: 'done late', overdue: 'past plan, nothing logged', now: 'next up', pending: 'planned' };
+
 export function MilestoneGrid({ o, editable, bare }: { o: ProductionOrder; editable: boolean; bare?: boolean }) {
   const { setMilestone } = useApp();
+  const [view, setView] = useState<'flow' | 'table'>('flow');
+  const [open, setOpen] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, Partial<Milestone>>>({});
   const d = (m: Milestone) => ({ ...m, ...draft[m.key] });
   const changed = (m: Milestone) => !!draft[m.key];
   const save = (m: Milestone) => { const p = draft[m.key]; if (!p) return; setMilestone(o.id, m.key, p); setDraft(x => { const n = { ...x }; delete n[m.key]; return n; }); };
-  const stages = ['pre-production', 'production'] as const;
+  const steps = allSteps(o); const live = steps.filter(m => !m.na); const na = steps.filter(m => m.na);
+  const nextKey = live.find(m => !m.actual)?.key ?? null;
+  const COLS = 4; const rows: typeof live[] = []; for (let i = 0; i < live.length; i += COLS) rows.push(live.slice(i, i + COLS));
+  const faint = { color: 'var(--ink-faint)' } as const;
+  const editing = open ? live.find(m => m.key === open) ?? null : null;
 
-  return (
-    bare ? <>
-      {!editable && <ActsBy role="production" does="logs each milestone's actual or revised date and the reason it moved" />}
-      <table className="t">
-        <thead><tr><th style={{ width:'26%' }}>Milestone</th><th>Plan</th><th>Revised</th><th>Actual</th><th>Why it moved</th><th></th></tr></thead>
-        <tbody>
-          {stages.map(st => {
-            const list = allSteps(o).filter(m => m.stage === st);
-            return [
-              <tr key={`${st}-h`}><td colSpan={6} className="mono text-[10px] uppercase tracking-[.08em] pt-3" style={{ color:'var(--ink-faint)' }}>{st.replace('-', ' ')}</td></tr>,
-              ...list.map(m => {
-                if (m.na) return <tr key={m.key} style={{ opacity:.5 }}><td><div className="flex items-center gap-2"><span className="dot" style={{ background:'var(--line)' }} /><span>{m.key}</span></div></td><td className="mono text-[12px]" colSpan={3}>NA · not in this category's plan</td><td colSpan={2} /></tr>;
-                const v = d(m); const late = m.actual && new Date(m.actual) > new Date(m.plan) ? Math.round((new Date(m.actual).getTime() - new Date(m.plan).getTime()) / 86400000) : 0;
-                const overdue = !m.actual && new Date(m.revised ?? m.plan) < new Date();
-                return <tr key={m.key}>
-                  <td><div className="flex items-center gap-2"><span className="dot" style={{ background: m.actual ? (late ? 'var(--risk)' : 'var(--good)') : overdue ? 'var(--warn)' : 'var(--ink-faint)' }} /><span className="font-medium">{m.key}</span></div><div className="text-[10.5px] pl-4" style={{ color:'var(--ink-faint)' }}>{ROLE_LABEL[m.owner]}</div></td>
-                  {editable ? <>
-                    <td><Input type="date" value={dateInput(v.plan)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], plan: fromDateInput(e.target.value) ?? m.plan } }))} style={{ width:132 }} /></td>
-                    <td><Input type="date" value={dateInput(v.revised)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], revised: fromDateInput(e.target.value) } }))} style={{ width:132 }} /></td>
-                    <td><Input type="date" value={dateInput(v.actual)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], actual: fromDateInput(e.target.value) } }))} style={{ width:132 }} /></td>
-                    <td>{(v.revised && !v.actual) ? <Select value={v.delayReason ?? ''} onChange={val => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], delayReason: val || null } }))} options={[{ value:'', label:'— reason —' }, ...DELAY_REASONS.map(rz => ({ value:rz, label:rz }))]} /> : <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{m.delayReason ?? '—'}</span>}</td>
-                    <td>{changed(m) && <Button size="sm" variant="primary" onClick={() => save(m)}>Save</Button>}</td>
-                  </> : <>
-                    <td className="mono text-[12px]" style={{ textDecoration: m.revised ? 'line-through' : undefined, color: m.revised ? 'var(--ink-faint)' : undefined }}>{fmtDate(m.plan)}</td>
-                    <td className="mono text-[12px]" style={{ color:'var(--warn)' }}>{fmtDate(m.revised)}</td>
-                    <td className="mono text-[12px]">{fmtDate(m.actual)}{late > 0 && <span className="pill risk ml-1">+{late}d</span>}</td>
-                    <td className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{m.delayReason ?? '—'}</td><td />
-                  </>}
-                </tr>;
-              }),
-            ];
-          })}
-        </tbody>
-      </table>
-      <div className="text-[11.5px] py-2" style={{ color:'var(--ink-faint)' }}>An actual that lands late pushes every open step behind it by the same number of days. A revised date wants a reason — a moved cell without one is what makes a tracker untrustworthy.</div>
-</> : <Section title={`Time & action · ${o.milestones.length} of ${MILESTONES.length} steps planned`} right={<OwnerPill editable={editable} owner="Production" />}>
-      {!editable && <ActsBy role="production" does="logs each milestone's actual or revised date and the reason it moved" />}
-      <table className="t">
-        <thead><tr><th style={{ width:'26%' }}>Milestone</th><th>Plan</th><th>Revised</th><th>Actual</th><th>Why it moved</th><th></th></tr></thead>
-        <tbody>
-          {stages.map(st => {
-            const list = allSteps(o).filter(m => m.stage === st);
-            return [
-              <tr key={`${st}-h`}><td colSpan={6} className="mono text-[10px] uppercase tracking-[.08em] pt-3" style={{ color:'var(--ink-faint)' }}>{st.replace('-', ' ')}</td></tr>,
-              ...list.map(m => {
-                if (m.na) return <tr key={m.key} style={{ opacity:.5 }}><td><div className="flex items-center gap-2"><span className="dot" style={{ background:'var(--line)' }} /><span>{m.key}</span></div></td><td className="mono text-[12px]" colSpan={3}>NA · not in this category's plan</td><td colSpan={2} /></tr>;
-                const v = d(m); const late = m.actual && new Date(m.actual) > new Date(m.plan) ? Math.round((new Date(m.actual).getTime() - new Date(m.plan).getTime()) / 86400000) : 0;
-                const overdue = !m.actual && new Date(m.revised ?? m.plan) < new Date();
-                return <tr key={m.key}>
-                  <td><div className="flex items-center gap-2"><span className="dot" style={{ background: m.actual ? (late ? 'var(--risk)' : 'var(--good)') : overdue ? 'var(--warn)' : 'var(--ink-faint)' }} /><span className="font-medium">{m.key}</span></div><div className="text-[10.5px] pl-4" style={{ color:'var(--ink-faint)' }}>{ROLE_LABEL[m.owner]}</div></td>
-                  {editable ? <>
-                    <td><Input type="date" value={dateInput(v.plan)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], plan: fromDateInput(e.target.value) ?? m.plan } }))} style={{ width:132 }} /></td>
-                    <td><Input type="date" value={dateInput(v.revised)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], revised: fromDateInput(e.target.value) } }))} style={{ width:132 }} /></td>
-                    <td><Input type="date" value={dateInput(v.actual)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], actual: fromDateInput(e.target.value) } }))} style={{ width:132 }} /></td>
-                    <td>{(v.revised && !v.actual) ? <Select value={v.delayReason ?? ''} onChange={val => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], delayReason: val || null } }))} options={[{ value:'', label:'— reason —' }, ...DELAY_REASONS.map(rz => ({ value:rz, label:rz }))]} /> : <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{m.delayReason ?? '—'}</span>}</td>
-                    <td>{changed(m) && <Button size="sm" variant="primary" onClick={() => save(m)}>Save</Button>}</td>
-                  </> : <>
-                    <td className="mono text-[12px]" style={{ textDecoration: m.revised ? 'line-through' : undefined, color: m.revised ? 'var(--ink-faint)' : undefined }}>{fmtDate(m.plan)}</td>
-                    <td className="mono text-[12px]" style={{ color:'var(--warn)' }}>{fmtDate(m.revised)}</td>
-                    <td className="mono text-[12px]">{fmtDate(m.actual)}{late > 0 && <span className="pill risk ml-1">+{late}d</span>}</td>
-                    <td className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{m.delayReason ?? '—'}</td><td />
-                  </>}
-                </tr>;
-              }),
-            ];
-          })}
-        </tbody>
-      </table>
-      <div className="text-[11.5px] py-2" style={{ color:'var(--ink-faint)' }}>An actual that lands late pushes every open step behind it by the same number of days. A revised date wants a reason — a moved cell without one is what makes a tracker untrustworthy.</div>
-    </Section>
-  );
+  const editor = (m: Milestone) => { const v = d(m); return <div className="mt-3 p-3" style={{ border: '1px solid var(--accent)', borderRadius: 8, background: 'color-mix(in srgb, var(--accent) 5%, #fff)' }}>
+    <div className="flex items-center gap-2 mb-2"><span className="font-medium">{m.key}</span><span className="text-[11.5px]" style={faint}>{ROLE_LABEL[m.owner]} · {m.stage.replace('-', ' ')}</span><button className="ml-auto text-[12px]" style={faint} onClick={() => setOpen(null)}>close ×</button></div>
+    {editable ? <div className="flex flex-wrap gap-2 items-end">
+      <Field label="Plan"><Input type="date" value={dateInput(v.plan)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], plan: fromDateInput(e.target.value) ?? m.plan } }))} style={{ width: 140 }} /></Field>
+      <Field label="Revised"><Input type="date" value={dateInput(v.revised)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], revised: fromDateInput(e.target.value) } }))} style={{ width: 140 }} /></Field>
+      <Field label="Actual"><Input type="date" value={dateInput(v.actual)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], actual: fromDateInput(e.target.value) } }))} style={{ width: 140 }} /></Field>
+      <Field label="Why it moved"><Select value={v.delayReason ?? ''} onChange={val => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], delayReason: val || null } }))} options={[{ value: '', label: '— reason —' }, ...DELAY_REASONS.map(rz => ({ value: rz, label: rz }))]} /></Field>
+      <Button size="sm" variant="primary" disabled={!changed(m)} onClick={() => { save(m); setOpen(null); }}>Save</Button>
+      {!editable && null}
+    </div> : <div className="flex gap-4 text-[12.5px]"><span><span style={faint}>Plan </span>{fmtDate(m.plan)}</span><span><span style={faint}>Revised </span>{fmtDate(m.revised)}</span><span><span style={faint}>Actual </span>{fmtDate(m.actual)}</span><span><span style={faint}>Why </span>{m.delayReason ?? '—'}</span></div>}
+    <div className="text-[11.5px] pt-2" style={faint}>An actual that lands late pushes every open step behind it by the same number of days. A revised date wants a reason.</div>
+  </div>; };
+
+  const flow = <>
+    <div className="flex items-center gap-3 mb-2 text-[11.5px]" style={faint}>
+      {(['done', 'late', 'overdue', 'now', 'pending'] as FlowState[]).map(st => <span key={st} className="flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: 3, background: FLOW_COLOR[st], display: 'inline-block' }} />{FLOW_LABEL[st]}</span>)}
+      {na.length > 0 && <span className="ml-auto">{na.length} steps not in this category's plan</span>}
+      <span className={na.length ? '' : 'ml-auto'}><Seg options={[{ id: 'flow', label: 'Flow' }, { id: 'table', label: 'Table' }]} value={view} onChange={setView} /></span>
+    </div>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, columnGap: 28, rowGap: 26 }}>
+      {rows.flatMap((row, ri) => { const rev = ri % 2 === 1; const cells = rev ? [...row].reverse() : row; const pad = COLS - row.length;
+        const items = cells.map((m, ci) => { const idx = ri * COLS + (rev ? row.length - 1 - ci : ci); const { state, late } = flowStateOf(m, m.key === nextKey); const isLastInRow = rev ? ci === 0 : ci === row.length - 1; const hasNext = idx < live.length - 1; const col = FLOW_COLOR[state];
+          const hArrow = hasNext && !isLastInRow; const vArrow = hasNext && isLastInRow; const selected = open === m.key;
+          return <div key={m.key} style={{ position: 'relative', gridColumn: rev ? ci + 1 + pad : undefined }}>
+            <button onClick={() => setOpen(selected ? null : m.key)} className="text-left w-full" style={{ border: `1.5px solid ${state === 'pending' ? 'var(--line)' : col}`, boxShadow: selected ? `0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent)` : undefined, borderRadius: 8, padding: '8px 10px', background: state === 'now' ? 'color-mix(in srgb, var(--accent) 7%, #fff)' : state === 'done' ? 'color-mix(in srgb, var(--good) 6%, #fff)' : '#fff', minHeight: 78, cursor: 'pointer' }}>
+              <div className="flex items-center gap-2"><span className="mono text-[10px]" style={{ color: state === 'pending' ? 'var(--ink-faint)' : col, fontWeight: 700 }}>{String(idx + 1).padStart(2, '0')}</span><span className="font-medium text-[12.5px] truncate">{m.key}</span>{late > 0 && <span className="pill risk ml-auto" style={{ fontSize: 10 }}>+{late}d</span>}{state === 'now' && <span className="pill accent ml-auto" style={{ fontSize: 10 }}>next</span>}{state === 'overdue' && <span className="pill warn ml-auto" style={{ fontSize: 10 }}>overdue</span>}</div>
+              <div className="text-[10.5px] mt-0.5" style={faint}>{ROLE_LABEL[m.owner]}</div>
+              <div className="mono text-[11px] mt-1 flex gap-2 flex-wrap">
+                <span style={{ textDecoration: m.revised ? 'line-through' : undefined, color: m.revised || m.actual ? 'var(--ink-faint)' : undefined }}>{fmtDate(m.plan)}</span>
+                {m.revised && !m.actual && <span style={{ color: 'var(--warn)' }}>→ {fmtDate(m.revised)}</span>}
+                {m.actual && <span style={{ color: late ? 'var(--risk)' : 'var(--good)', fontWeight: 600 }}>✓ {fmtDate(m.actual)}</span>}
+              </div>
+              {m.delayReason && <div className="text-[10.5px] mt-0.5 truncate" style={{ color: 'var(--warn)' }}>{m.delayReason}</div>}
+            </button>
+            {hArrow && <span style={{ position: 'absolute', top: '50%', [rev ? 'left' : 'right']: -28, width: 28, height: 0, borderTop: `2px solid ${col}`, transform: 'translateY(-1px)' }}><span style={{ position: 'absolute', top: -5, [rev ? 'left' : 'right']: -1, borderTop: '4.5px solid transparent', borderBottom: '4.5px solid transparent', [rev ? 'borderRight' : 'borderLeft']: `7px solid ${col}` }} /></span>}
+            {vArrow && <span style={{ position: 'absolute', left: '50%', bottom: -26, height: 26, width: 0, borderLeft: `2px solid ${col}`, transform: 'translateX(-1px)' }}><span style={{ position: 'absolute', bottom: -1, left: -5, borderLeft: '4.5px solid transparent', borderRight: '4.5px solid transparent', borderTop: `7px solid ${col}` }} /></span>}
+          </div>; });
+        return items; })}
+    </div>
+    {editing && editor(editing)}
+    {!editing && <div className="text-[11.5px] pt-3" style={faint}>Reads left to right, then down and back. Click a block to {editable ? 'log its actual or revised date' : 'see its dates'}.</div>}
+  </>;
+
+  const table = <>
+    <div className="flex items-center mb-2"><span className="ml-auto"><Seg options={[{ id: 'flow', label: 'Flow' }, { id: 'table', label: 'Table' }]} value={view} onChange={setView} /></span></div>
+    <table className="t">
+      <thead><tr><th style={{ width: '26%' }}>Milestone</th><th>Plan</th><th>Revised</th><th>Actual</th><th>Why it moved</th><th></th></tr></thead>
+      <tbody>
+        {(['pre-production', 'production'] as const).map(st => {
+          const list = steps.filter(m => m.stage === st);
+          return [
+            <tr key={`${st}-h`}><td colSpan={6} className="mono text-[10px] uppercase tracking-[.08em] pt-3" style={faint}>{st.replace('-', ' ')}</td></tr>,
+            ...list.map(m => {
+              if (m.na) return <tr key={m.key} style={{ opacity: .5 }}><td><div className="flex items-center gap-2"><span className="dot" style={{ background: 'var(--line)' }} /><span>{m.key}</span></div></td><td className="mono text-[12px]" colSpan={3}>NA · not in this category's plan</td><td colSpan={2} /></tr>;
+              const v = d(m); const { state, late } = flowStateOf(m, m.key === nextKey);
+              return <tr key={m.key}>
+                <td><div className="flex items-center gap-2"><span className="dot" style={{ background: state === 'pending' ? 'var(--ink-faint)' : FLOW_COLOR[state] }} /><span className="font-medium">{m.key}</span></div><div className="text-[10.5px] pl-4" style={faint}>{ROLE_LABEL[m.owner]}</div></td>
+                {editable ? <>
+                  <td><Input type="date" value={dateInput(v.plan)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], plan: fromDateInput(e.target.value) ?? m.plan } }))} style={{ width: 132 }} /></td>
+                  <td><Input type="date" value={dateInput(v.revised)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], revised: fromDateInput(e.target.value) } }))} style={{ width: 132 }} /></td>
+                  <td><Input type="date" value={dateInput(v.actual)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], actual: fromDateInput(e.target.value) } }))} style={{ width: 132 }} /></td>
+                  <td>{(v.revised && !v.actual) ? <Select value={v.delayReason ?? ''} onChange={val => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], delayReason: val || null } }))} options={[{ value: '', label: '— reason —' }, ...DELAY_REASONS.map(rz => ({ value: rz, label: rz }))]} /> : <span className="text-[11.5px]" style={faint}>{m.delayReason ?? '—'}</span>}</td>
+                  <td>{changed(m) && <Button size="sm" variant="primary" onClick={() => save(m)}>Save</Button>}</td>
+                </> : <>
+                  <td className="mono text-[12px]" style={{ textDecoration: m.revised ? 'line-through' : undefined, color: m.revised ? 'var(--ink-faint)' : undefined }}>{fmtDate(m.plan)}</td>
+                  <td className="mono text-[12px]" style={{ color: 'var(--warn)' }}>{fmtDate(m.revised)}</td>
+                  <td className="mono text-[12px]">{fmtDate(m.actual)}{late > 0 && <span className="pill risk ml-1">+{late}d</span>}</td>
+                  <td className="text-[11.5px]" style={faint}>{m.delayReason ?? '—'}</td><td />
+                </>}
+              </tr>;
+            }),
+          ];
+        })}
+      </tbody>
+    </table>
+    <div className="text-[11.5px] py-2" style={faint}>An actual that lands late pushes every open step behind it by the same number of days. A revised date wants a reason — a moved cell without one is what makes a tracker untrustworthy.</div>
+  </>;
+
+  const body = <>{!editable && <ActsBy role="production" does="logs each milestone's actual or revised date and the reason it moved" />}{view === 'flow' ? flow : table}</>;
+  return bare ? body : <Section title={`Time & action · ${o.milestones.length} of ${MILESTONES.length} steps planned`} right={<OwnerPill editable={editable} owner="Production" />}>{body}</Section>;
 }
 
 
