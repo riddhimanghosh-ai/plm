@@ -252,7 +252,7 @@ export function MaterialsCoverSection({ o, editable }: { o: ProductionOrder; edi
   const faint = { color:'var(--ink-faint)' } as const;
   const afterPo = !!o.sourcing?.fabricPo || !o.fabricNominated;
   return (
-    <Section title="Trims & packaging" right={<div className="flex gap-2 items-center"><Pill tone={mc.signedOff ? 'good' : mc.short.length ? 'risk' : mc.allCovered ? 'info' : 'neutral'}>{mc.signedOff ? 'covered' : mc.short.length ? `${mc.short.length} short` : mc.allCovered ? 'on the shelf · sign off' : 'no trim lines'}</Pill><OwnerPill editable={editable} owner="Sourcing" /></div>}>
+    <Section title="Trims & packaging" defaultOpen right={<div className="flex gap-2 items-center"><Pill tone={mc.signedOff ? 'good' : mc.short.length ? 'risk' : mc.allCovered ? 'info' : 'neutral'}>{mc.signedOff ? 'covered' : mc.short.length ? `${mc.short.length} short` : mc.allCovered ? 'on the shelf · sign off' : 'no trim lines'}</Pill><OwnerPill editable={editable} owner="Sourcing" /></div>}>
       {!afterPo && <div className="py-1 text-[12.5px]" style={faint}>Starts once the fabric PO is raised — trims and packaging are checked against the unit's shelf for this order's quantity.</div>}
       {afterPo && mc.lines.map(l => <div key={l.bomIndex} className="kv"><span className="k">{l.item}<div className="text-[11px]">{l.needed} {l.unit} needed · {l.trim ? `${l.onHand} on the shelf${l.incoming ? ` · ${l.incoming} on order` : ''}` : 'not on the trims master'}</div></span>
         <span className="v flex gap-1 items-center justify-end flex-wrap">

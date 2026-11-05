@@ -102,7 +102,10 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
   const state = (k: DesignStepKey) => at(k).state === 'done' ? <Pill tone="good">done</Pill> : <Pill tone={at(k).state === 'now' ? 'warn' : 'neutral'}>pending</Pill>;
   const owner = (k: DesignStepKey) => <OwnerPill owner={ROLE_LABEL[at(k).owner]} />;
   /* open the live step from the call — the drawer's own index does the same on click */
-  const jump = (k: DesignStepKey) => { const el = document.querySelector(`[data-section="${title(k)}"]`) as HTMLElement | null; if (!el) return; if (el.dataset.collapsed === 'true') el.querySelector('button')?.click(); el.scrollIntoView({ behavior:'smooth', block:'start' }); };
+  /* one step on screen at a time: the live one until a block in the flow is clicked */
+  const [picked, setPicked] = useState<DesignStepKey | null>(null);
+  const shown: DesignStepKey = picked ?? f.now.key;
+  const jump = (k: DesignStepKey) => { setPicked(k); setTimeout(() => { const el = document.querySelector(`[data-section="${title(k)}"]`) as HTMLElement | null; el?.scrollIntoView({ behavior:'smooth', block:'start' }); }, 0); };
   const chosen = o.fabricQuotes.find(q => q.selected);
   const nameOf = (id: string | null | undefined) => db.vendors.find(v => v.id === id)?.name ?? '—';
   const fabricLine = (o.materials ?? []).find(m => o.bom[m.bomIndex]?.kind === 'fabric');
@@ -202,7 +205,12 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
     };
       /* one flat list: Step 1, Step 2 … each done or pending; the live step opens, the rest stay folded */
       const nowKey = f.now.state === 'done' ? null : f.now.key;
-      return <>{f.steps.map(x => <Section key={x.key} title={title(x.key)} defaultOpen={x.key === nowKey} right={state(x.key)} ownerRole={x.key === nowKey ? at(x.key).owner : null} pending={false}>{bodies[x.key]}</Section>)}</>; })()}
+      void nowKey;
+      const x = f.steps.find(s => s.key === shown)!; const i = f.steps.findIndex(s => s.key === shown);
+      return <Section key={x.key} title={title(x.key)} collapsible={false} right={<span className="flex items-center gap-2">{state(x.key)}
+          <button type="button" className="cta" disabled={i === 0} onClick={() => jump(f.steps[i - 1].key)}>← step {i}</button>
+          <button type="button" className="cta" disabled={i === f.steps.length - 1} onClick={() => jump(f.steps[i + 1].key)}>step {i + 2} →</button></span>}
+        ownerRole={x.state === 'now' ? x.owner : null} pending={false}>{bodies[x.key]}</Section>; })()}
 
     {/* ── the style sheet: today typed by hand per style; here it prints off the record ── */}
     <Section title="Style sheet · job card" pending={false} ownerRole="design" right={<Pill tone="neutral">prints off the record</Pill>}>

@@ -21,7 +21,8 @@ import { fabricNeededBy, factoryOptions, sourcingStateOf, suggestMills, fmtDate,
 import { Page, Card, Pill, Field, Input, Select, Button, Drawer, KV, Section, Note, dateInput, fromDateInput, Empty, Seg, usePager, Pager, ExportButton, Th, useExamples, type Tone } from '../ui';
 import { ActsBy } from './Who';
 import { MaterialsCoverSection, FabricFinalisationSection, SizeGrid } from './RtwGates';
-import { fabricStateOf, designFlowOf, conceptOf, openFabricPos, rtwDocsOf } from '../domain/engines';
+import { fabricStateOf, designFlowOf, conceptOf, openFabricPos, rtwDocsOf, type DesignStep } from '../domain/engines';
+import { StepFlow } from './Flow';
 import type { Concept, OptionRequest } from '../domain/types';
 import { MTM_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
 
@@ -122,12 +123,7 @@ export function Sourcing() {
         {activeRequest && <RequestDetail r={activeRequest} focusOptionId={params.get('slot')} />}
       </Drawer>
       <Drawer open={!!active} onClose={() => open(null)} title={active?.styleName ?? ''} subtitle={active && <><Pill tone={TONE[rowState(active).tone]}>{shortLabel(rowState(active).key, rowState(active).label)}</Pill><span>{active.orderQty} pcs · {active.poNo ?? 'no PO yet'} · in-house by {fmtDate(active.targetInhouse)}</span></>}>
-        {active && <>
-          <FabricBriefSection o={active} />
-          <FabricFinalisationSection o={active} />
-          {active.poNo && <MaterialsCoverSection o={active} editable />}
-          <RecordTail kind="order" subjectId={active.id} labels={FILE_LABELS.order} editable steps={ORDER_STEPS} activity={active.activity} />
-        </>}
+        {active && <SourcingSteps key={active.id} o={active} />}
       </Drawer>
     </Page>
   );
@@ -481,5 +477,33 @@ function MtmBrief({ c }: { c: Concept }) {
       <ConceptOptions c={c} sourcing={sourcing} design={design} />
     </Section>
     <RecordTail kind="concept" subjectId={c.id} labels={FILE_LABELS.concept} editable steps={['General']} />
+  </>;
+}
+
+/* the sourcing drawer as the same flow of blocks as design's: brief → cloth → materials.
+   Only the step clicked is open below the flow — the live one until another is picked. */
+function SourcingSteps({ o }: { o: ProductionOrder }) {
+  const fab = fabricStateOf(o);
+  const briefDone = !!o.fabricBrief || !o.fabricNominated;
+  const clothDone = fab.key === 'received' || fab.key === 'vendor-sources';
+  const matsDone = !!o.materialsCovered;
+  const raw: DesignStep[] = [
+    { key: 'request', label: 'What design asked for', state: briefDone ? 'done' : 'later', owner: 'design', note: o.fabricBrief ? [o.fabricBrief.look, o.fabricBrief.composition, o.fabricBrief.colour].filter(Boolean).join(' · ') : o.fabricNominated ? 'brief not written yet' : 'the factory buys its own cloth' },
+    { key: 'fabric-in', label: 'Cloth · vendor to factory', state: clothDone ? 'done' : 'later', owner: fab.owner === 'merchandiser' ? 'production' : fab.owner, note: fab.label },
+    { key: 'po', label: 'Trims & packaging', state: matsDone ? 'done' : 'later', owner: 'sourcing', note: !o.poNo ? 'after the PO to the factory' : matsDone ? `covered ${fmtDate(o.materialsCovered!.on)} by ${o.materialsCovered!.by}` : 'walk the lines against stock at the unit and sign off' },
+  ];
+  const ni = raw.findIndex(x => x.state !== 'done'); if (ni >= 0) raw[ni] = { ...raw[ni], state: 'now' };
+  const [picked, setPicked] = useState<DesignStep['key'] | null>(null);
+  const shown = picked ?? raw[ni >= 0 ? ni : raw.length - 1].key;
+  const i = raw.findIndex(x => x.key === shown);
+  return <>
+    <Card className="mb-3"><div className="px-4 py-3"><StepFlow steps={raw} onJump={setPicked} cols={3} />
+      <div className="flex items-center gap-2 pt-3 text-[12.5px]"><span style={{ color:'var(--ink-faint)' }}>Showing step {i + 1}</span>
+        <button type="button" className="cta" disabled={i === 0} onClick={() => setPicked(raw[i - 1].key)}>← step {i}</button>
+        <button type="button" className="cta" disabled={i === raw.length - 1} onClick={() => setPicked(raw[i + 1].key)}>step {i + 2} →</button></div></div></Card>
+    {shown === 'request' && <FabricBriefSection o={o} />}
+    {shown === 'fabric-in' && <Section title="Cloth · vendor to factory" collapsible={false} right={<Pill tone={fab.tone}>{fab.label}</Pill>}><FabricFinalisationSection o={o} bare /></Section>}
+    {shown === 'po' && (o.poNo ? <MaterialsCoverSection o={o} editable /> : <Card><div className="px-4 py-3 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>The trim and packaging lines open once design raises the PO to the factory.</div></Card>)}
+    <RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable steps={ORDER_STEPS} activity={o.activity} />
   </>;
 }
