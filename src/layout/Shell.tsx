@@ -35,16 +35,16 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   { path:'/mills',        label:'Fabric vendors · mills',     hint:'lead times and block windows, by vendor',        group:'Sourcing', roles:['owner','sourcing'] },
 
   /* making */
-  { path:'/vendors',      label:'Factories & capacity',       hint:'capacity, assigning MTM orders, daily output, how late',       group:'Production', roles:['owner','production'] },
-  { path:'/mtm',          label:'MTM daily production',       hint:'customer shirts: plan, factory, dispatch',       group:'Production', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
-  { path:'/cad',          label:'CAD desk',                   hint:'order sheet XML → CAD file and print, before cutting',  group:'Production', roles:['owner','production','warehouse'] },
-  { path:'/cutting',      label:'Cutting desk',               hint:'cut the cloth to the CAD, attach the print',    group:'Production', roles:['owner','production','warehouse'] },
-  { path:'/fusing',       label:'Fusing desk',                hint:'fuse collar, cuff and placket interlining',     group:'Production', roles:['owner','production','warehouse'] },
-  { path:'/compiling',    label:'Compiling desk',             hint:'check the bundle, approve contrast fabric',     group:'Production', roles:['owner','production','warehouse'] },
+  { path:'/vendors',      label:'Factories & capacity',       hint:'capacity, assigning MTM orders, daily output, how late',       group:'Production · MTM', roles:['owner','production'] },
+  { path:'/mtm',          label:'MTM daily production',       hint:'customer shirts: plan, factory, dispatch',       group:'Production · MTM', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
+  { path:'/cad',          label:'CAD desk',                   hint:'order sheet XML → CAD file and print, before cutting',  group:'Production · MTM', roles:['owner','production','warehouse'] },
+  { path:'/cutting',      label:'Cutting desk',               hint:'cut the cloth to the CAD, attach the print',    group:'Production · MTM', roles:['owner','production','warehouse'] },
+  { path:'/fusing',       label:'Fusing desk',                hint:'fuse collar, cuff and placket interlining',     group:'Production · MTM', roles:['owner','production','warehouse'] },
+  { path:'/compiling',    label:'Compiling desk',             hint:'check the bundle, approve contrast fabric',     group:'Production · MTM', roles:['owner','production','warehouse'] },
+  { path:'/tracker',      label:'RTW production tracker',     hint:'every bulk PO, date by date',                    group:'Production · RTW', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
+  { path:'/outbound',     label:'RTW materials to factories', hint:'RTW materials to issue against a PO',    group:'Production · RTW', roles:['owner','production','warehouse'] , hideFor:['production','warehouse']},
+  { path:'/otif',         label:'RTW production analytics',   hint:'OTIF, daily monitor, escalations, merchandiser alerts — read off the tracker', group:'Production · RTW', roles:['owner','production','planning'] },
   { path:'/factory',      label:'My factory · merchandiser',   hint:"the floor's own day: output, pieces, cloth",     group:'Merchandiser', roles:['owner','merchandiser','production'] , hideFor:['production']},
-  { path:'/tracker',      label:'RTW production tracker',     hint:'every bulk PO, date by date',                    group:'Production', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
-  { path:'/outbound',     label:'RTW materials to factories', hint:'RTW materials to issue against a PO',    group:'Production', roles:['owner','production','warehouse'] , hideFor:['production','warehouse']},
-  { path:'/otif',         label:'RTW production analytics',   hint:'OTIF, daily monitor, escalations, merchandiser alerts — read off the tracker', group:'Production', roles:['owner','production','planning'] },
 
   /* moving */
   { path:'/warehouse',    label:'Warehouse & unit',           hint:'goods in, bundles out, STOs, swatch books',      group:'Warehouse', roles:['owner','warehouse','production'] , hideFor:['production']},
@@ -116,7 +116,7 @@ export function Shell() {
   /* a record page sits under the screen that lists it: a fabric's page is part of the MTM fabric master */
   const navPath = loc.pathname.startsWith('/fabric/') ? '/fabrics' : loc.pathname;
   const here = items.find(n => navPath.startsWith(n.path))?.group;
-  const GROUP_ROLE: Record<string, string> = { Design:'design', Sourcing:'sourcing', Planning:'planning', Production:'production', Merchandiser:'merchandiser', Warehouse:'warehouse', Store:'store', Finance:'finance', Owner:'owner', Company:'owner' };
+  const GROUP_ROLE: Record<string, string> = { Design:'design', Sourcing:'sourcing', Planning:'planning', Production:'production', 'Production · MTM':'production', 'Production · RTW':'production', Merchandiser:'merchandiser', Warehouse:'warehouse', Store:'store', Finance:'finance', Owner:'owner', Company:'owner' };
   const groups = useMemo(() => {
     const out: { name: string; items: typeof items; hasActive: boolean }[] = [];
     items.forEach(n => { const name = n.group ?? '—'; const g = out.find(x => x.name === name) ?? (out.push({ name, items: [], hasActive: false }), out[out.length - 1]); g.items.push(n); });
