@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
-import type { Attachment, CustomerOrder, ExtraFabricRequest, ProductionOrder } from '../domain/types';
+import type { Attachment, CustomerOrder, Db, ExtraFabricRequest, ProductionOrder } from '../domain/types';
 import { useFileUrl } from '../domain/files';
 import { FabricFinalisationSection, DocsChecklist, SizeGrid } from './RtwGates';
 import { MilestoneGrid } from './Tracker';
@@ -70,12 +70,17 @@ export function Factory() {
       </>}
 
       {side === 'rtw' && <>
-        <Tabs active={tab === 'today' ? 'rtw' : tab} onChange={t => set('tab', t)} tabs={[
-          { id:'rtw', label:'POs on our floor', count: rtw.length },
-          { id:'rtw-done', label:'Delivered', count: rtwDone.length },
+        <Tabs active={tab === 'today' ? 'rtw' : tab === 'rtw-done' ? 'rtw' : tab} onChange={t => set('tab', t)} tabs={[
+          { id:'rtw', label:'POs on our floor', count: rtw.length, hint:'every PO with where its cloth, materials and documents stand' },
+          { id:'fabric', label:'Fabric in · cut short', count: rtw.filter(o => (o.fabricSupply?.sentToFactoryOn && !o.fabricSupply.receipt) || fabricStateOf(o).key === 'short').length || undefined, hint:'count the cloth and materials in; ask design when short' },
+          { id:'tna', label:'TNA update', count: rtw.reduce((a, o) => a + o.milestones.filter(m => !m.actual && new Date(m.revised ?? m.plan) < new Date()).length, 0) || undefined, hint:'log each step as it happens' },
         ]} />
-        {(tab === 'today' || tab === 'rtw') && <RtwTab rows={rtw} onOpen={id => set('open', id)} />}
-        {tab === 'rtw-done' && <RtwTab rows={rtwDone} onOpen={id => set('open', id)} done />}
+        {(tab === 'today' || tab === 'rtw' || tab === 'rtw-done') && <>
+          <div className="mb-2"><Seg value={tab === 'rtw-done' ? 'done' : 'floor'} onChange={k => set('tab', k === 'done' ? 'rtw-done' : 'rtw')} options={[{ id:'floor', label:'On the floor', count: rtw.length }, { id:'done', label:'Delivered', count: rtwDone.length }]} /></div>
+          {tab === 'rtw-done' ? <RtwTab rows={rtwDone} onOpen={id => set('open', id)} done /> : <RtwTab rows={rtw} onOpen={id => set('open', id)} />}
+        </>}
+        {tab === 'fabric' && (rtw.length === 0 ? <Card><Empty title="No PO on this floor." body="" /></Card> : rtw.map(o => <Card key={o.id} className="mb-3"><PoStrip o={o} onOpen={() => set('open', o.id)} /><MaterialsPanel o={o} mine={mine} /></Card>))}
+        {tab === 'tna' && (rtw.length === 0 ? <Card><Empty title="No PO on this floor." body="" /></Card> : rtw.map(o => <Card key={o.id} className="mb-3"><PoStrip o={o} onOpen={() => set('open', o.id)} /><div className="px-4 pb-3"><MilestoneGrid o={o} editable={mine} bare /></div></Card>))}
       </>}
 
       <Drawer open={!!openOrder} onClose={() => set('open', null)} title={openOrder?.orderNo ?? ''} subtitle={openOrder && <><Pill tone={STAGE_TONE[openOrder.stage] ?? 'neutral'}>{stageLabel(openOrder.stage)}</Pill><span>{openOrder.customer} · {store(openOrder.storeId)}</span></>}>
@@ -287,160 +292,205 @@ function OrderPanel({ o, mine }: { o: CustomerOrder; mine: boolean }) {
 }
 
 
-/* ---------- RTW purchase orders on this floor: the fabric, the documents, the TNA ---- */
+/* ---------- RTW purchase orders on this floor ----------------------------------------
+   The merchant's whole job on a PO is three things: count in what landed (and say when it
+   is short), log the dates as the work happens, and read the documents the cut needs.
+   So the list answers "what do I need to do?" per PO, and the drawer leads with that. */
+type Todo = { tab: 'dates' | 'materials' | 'docs'; text: string; tone: Tone };
+function todosOf(db: Db, o: ProductionOrder): { todos: Todo[]; next: { key: string; due: string; overdue: boolean } | null; info: string[] } {
+  const fab = fabricStateOf(o); const fs = o.fabricSupply; const todos: Todo[] = []; const info: string[] = [];
+  const trims = (o.materials ?? []).filter(m => o.bom[m.bomIndex]?.kind !== 'fabric');
+  const notIn = trims.filter(m => !m.receivedOn).length;
+  const short = trims.filter(m => m.receivedOn && m.receivedQty != null && m.receivedQty < m.requiredQty);
+  const openAsk = fab.cr && !fab.cr.given;
+  if (fs?.sentToFactoryOn && !fs.receipt) todos.push({ tab:'materials', text:`Count the cloth in · ${fs.metresSent ?? '—'} m sent ${fmtDate(fs.sentToFactoryOn)}`, tone:'warn' });
+  if (notIn) todos.push({ tab:'materials', text:`Count in ${notIn} material${notIn > 1 ? 's' : ''} as they land`, tone:'neutral' });
+  if (fab.key === 'short' && !openAsk) todos.push({ tab:'materials', text:`Cloth short by ${fab.short} m · ask design for a cut ratio`, tone:'risk' });
+  if (short.length && fab.key !== 'short' && !openAsk) todos.push({ tab:'materials', text:`${short.map(m => o.bom[m.bomIndex]?.item).join(', ')} short · propose a cut-short`, tone:'risk' });
+  if (openAsk) info.push(`Your ${fab.cr!.kind === 'cut-short' ? 'cut-short' : 'cut ratio ask'} is with design`);
+  const given = (o.cutRatios ?? []).filter(c => c.given && c.sentToFactoryOn).slice(-1)[0];
+  if (given) info.push(`Design gave a new cut ratio on ${fmtDate(given.sentToFactoryOn!)} · cut ${given.given!.breakup.reduce((a, x) => a + x.qty, 0)} pcs`);
+  const live = o.milestones.filter(m => !m.actual); const nxt = live[0] ?? null;
+  const next = nxt ? { key: nxt.key, due: nxt.revised ?? nxt.plan, overdue: new Date(nxt.revised ?? nxt.plan) < new Date() } : null;
+  if (next?.overdue && o.status !== 'Closed') todos.push({ tab:'dates', text:`Log ${next.key} · was due ${fmtDate(next.due)}${live.length > 1 ? `, then ${live.length - 1} more step${live.length > 2 ? 's' : ''}` : ''}`, tone:'warn' });
+  const d = rtwDocsOf(db, o); if (d.owedAfterPo.length) info.push(`Still owed to you: ${d.owedAfterPo.join(', ').toLowerCase()}`);
+  return { todos, next, info };
+}
+
 function RtwTab({ rows, onOpen, done }: { rows: ProductionOrder[]; onOpen: (id: string) => void; done?: boolean }) {
   const { db } = useApp();
   const { setFactory } = useApp();
   const elsewhere = db.vendors.filter(v => v.kind.endsWith('factory') && db.orders.some(o => o.vendorId === v.id && o.status === (done ? 'Closed' : 'Open'))).map(v => ({ v, n: db.orders.filter(o => o.vendorId === v.id && o.status === (done ? 'Closed' : 'Open')).length }));
+  const faint = { color:'var(--ink-faint)' } as const;
   if (rows.length === 0) return <Card><Empty title={done ? 'Nothing delivered from this floor yet.' : 'No ready-to-wear PO on this floor right now.'} body={done ? '' : 'A bulk PO appears here the moment design raises it to this factory — with the documents, and the cloth to come.'} />
     {elsewhere.length > 0 && <div className="px-4 pb-4 text-[12.5px]" style={{ color:'var(--ink-soft)' }}>Floors with {done ? 'delivered' : 'open'} POs: {elsewhere.map(x => <button key={x.v.id} type="button" className="vlink" style={{ marginRight: 10 }} onClick={() => setFactory(x.v.id)}>{x.v.name} · {x.n}</button>)}</div>}
   </Card>;
-  /* the factory's own words for where the cloth is — not sourcing's */
-  const cloth = (o: ProductionOrder): { text: string; tone: Tone } => { const f = fabricStateOf(o);
-    switch (f.key) {
-      case 'received': return { text:`cloth in · ${o.fabricSupply?.receipt?.metresOk ?? ''} m`, tone:'good' };
-      case 'sent': return { text:`cloth on its way · ${o.fabricSupply?.metresSent ?? ''} m — count it in`, tone:'warn' };
-      case 'short': return { text:`cloth short · ${f.short} m`, tone:'risk' };
-      case 'ratio-asked': return { text:'waiting on design for the cut', tone:'warn' };
-      case 'ratio-given': return { text:'new cut ratio coming', tone:'info' };
-      case 'vendor-sources': return { text:'you buy the cloth', tone:'neutral' };
-      default: return { text:'cloth not sent yet', tone:'neutral' };
-    } };
   return <>
     <Card><table className="t">
       <thead>{done
-        ? <tr><th>PO</th><th>Style</th><th className="num">Ordered</th><th className="num">Delivered</th><th>In-house by</th><th>Delivered on</th><th>On time · in full</th><th>Documents</th></tr>
-        : <tr><th>PO</th><th>Style</th><th className="num">Pcs</th><th>In-house by</th><th>Cloth</th><th>Trims</th><th>Documents</th><th>Risk</th></tr>}</thead>
-      <tbody>{rows.map(o => { const r = riskOf(o); const d = rtwDocsOf(db, o); const trims = (o.materials ?? []).filter(m => o.bom[m.bomIndex]?.kind !== 'fabric'); const got = trims.filter(m => m.receivedOn).length; const c = cloth(o);
-        const docs = d.owedAfterPo.length ? <span className="text-[12.5px]" style={{ color:'var(--risk)' }}>waiting for {d.owedAfterPo.join(', ').toLowerCase()}</span> : <span className="text-[12.5px]" style={{ color:'var(--good)' }}>all in</span>;
+        ? <tr><th>PO</th><th>Style</th><th className="num">Ordered</th><th className="num">Delivered</th><th>Due</th><th>Delivered on</th><th>On time · in full</th></tr>
+        : <tr><th>PO</th><th>Style</th><th className="num">Pcs</th><th>Due</th><th>Fabric</th><th>Materials</th><th>Documents</th><th>Next step</th></tr>}</thead>
+      <tbody>{rows.map(o => { const r = riskOf(o); const t = todosOf(db, o);
         if (done) { const landed = o.milestones.find(m => m.key === 'Inhouse ETA')?.actual ?? o.milestones.find(m => m.key === 'Dispatch')?.actual ?? null; const ot = otifOf(o); const late = landed && new Date(landed) > new Date(o.targetInhouse) ? Math.round((new Date(landed).getTime() - new Date(o.targetInhouse).getTime()) / 86400000) : 0;
           return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
             <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo}</td>
-            <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{o.category}</div></td>
+            <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={faint}>{o.category}</div></td>
             <td className="num">{o.orderQty}</td>
             <td className="num">{o.deliveredQty ?? o.cutQty ?? o.orderQty}{o.rejectedQty ? <div className="text-[11px]" style={{ color:'var(--risk)' }}>{o.rejectedQty} rejected</div> : null}</td>
             <td style={{ whiteSpace:'nowrap' }}>{fmtDate(o.targetInhouse)}</td>
             <td style={{ whiteSpace:'nowrap' }}>{fmtDate(landed)}{late > 0 && <span className="pill risk ml-1">+{late}d</span>}</td>
             <td><Pill tone={ot === 'OTIF' ? 'good' : ot === 'Pending' ? 'neutral' : 'risk'}>{ot}</Pill></td>
-            <td>{docs}</td>
           </tr>; }
         return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
-        <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo}</td>
-        <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{o.category}</div></td>
-        <td className="num">{o.orderQty}</td>
-        <td style={{ whiteSpace:'nowrap' }}>{fmtDate(o.targetInhouse)}</td>
-        <td style={{ minWidth: 150 }}><Pill tone={c.tone}>{c.text}</Pill></td>
-        <td style={{ whiteSpace:'nowrap' }}>{trims.length ? <span style={{ color: got === trims.length ? 'var(--good)' : got ? 'var(--warn)' : 'var(--ink-faint)' }}>{got}/{trims.length} in</span> : '—'}</td>
-        <td>{docs}</td>
-        <td><Pill tone={r.risk === 'on-track' ? 'good' : r.risk === 'delayed' || r.risk === 'critical' ? 'risk' : r.risk === 'closed' ? 'neutral' : 'warn'}>{r.risk === 'closed' ? 'delivered' : r.risk.replace('-', ' ')}</Pill></td>
-      </tr>; })}</tbody>
+          <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo}</td>
+          <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={faint}>{o.category}</div></td>
+          <td className="num">{o.orderQty}</td>
+          <td style={{ whiteSpace:'nowrap' }}>{fmtDate(o.targetInhouse)}{r.bufferDays != null && r.bufferDays < 0 && <div className="text-[11px]" style={{ color:'var(--risk)' }}>{-r.bufferDays}d late</div>}{r.bufferDays != null && r.bufferDays >= 0 && <div className="text-[11px]" style={faint}>{r.bufferDays}d to spare</div>}</td>
+          <td>{(() => { const fab = fabricStateOf(o); const fs = o.fabricSupply; return <Pill tone={fs?.receipt ? (fab.short > 0 ? 'risk' : 'good') : fs?.sentToFactoryOn ? 'warn' : 'neutral'}>{fs?.receipt ? (fab.short > 0 ? `short ${fab.short} m` : `received · ${fs.receipt.metresOk} m`) : fs?.sentToFactoryOn ? `on its way · ${fs.metresSent ?? '—'} m` : 'pending'}</Pill>; })()}</td>
+          <td>{(() => { const tr = (o.materials ?? []).filter(m => o.bom[m.bomIndex]?.kind !== 'fabric'); const inn = tr.filter(m => m.receivedOn).length; const sh = tr.filter(m => m.receivedOn && m.receivedQty != null && m.receivedQty < m.requiredQty).length; return <Pill tone={sh ? 'risk' : tr.length && inn === tr.length ? 'good' : inn ? 'warn' : 'neutral'}>{sh ? `${sh} short` : tr.length && inn === tr.length ? 'all received' : inn ? `${inn}/${tr.length} received` : `pending · ${tr.length}`}</Pill>; })()}</td>
+          <td>{(() => { const d = rtwDocsOf(db, o); return d.owedAfterPo.length ? <span className="text-[12.5px]" style={{ color:'var(--risk)' }}>{d.owedAfterPo.join(', ').toLowerCase()} pending</span> : <span className="text-[12.5px]" style={{ color:'var(--good)' }}>all in</span>; })()}</td>
+          <td>{t.next ? <><div className="font-medium text-[12.5px]" style={{ color: t.next.overdue ? 'var(--warn)' : undefined }}>{t.next.key}</div><div className="text-[11px]" style={faint}>{t.next.overdue ? 'was due' : 'due'} {fmtDate(t.next.due)}</div></> : <span style={faint}>all steps logged</span>}</td>
+        </tr>; })}</tbody>
     </table></Card>
-    <div className="mt-3"><Note>{done ? 'Open a PO to see its TNA as it ran, what was delivered and what the invoice should carry.' : 'Open a PO to see what design asked for, count in the cloth and trims, and keep the dates current.'}</Note></div>
   </>;
 }
 
-/* the factory merchant's view of one PO. Three jobs and nothing else: report the TNA,
-   count in what landed (and ask design for a cut ratio when the cloth is short), and read
-   the documents the cut needs — CAD, tech pack, style sheet, job card, trim card. No cost,
-   no mill, no sourcing detail: those belong to the production unit. */
+/* the merchant's view of one PO: what to do first, then three plain tabs — dates, materials, documents */
 function RtwPoPanel({ o, mine }: { o: ProductionOrder; mine: boolean }) {
-  const { db, receiveMaterial, askCutRatio } = useApp();
-  const d = rtwDocsOf(db, o); const fab = fabricStateOf(o);
-  const [counting, setCounting] = useState<number | null>(null); const [cnt, setCnt] = useState(''); const [cnote, setCnote] = useState('');
-  const [shortOpen, setShortOpen] = useState(false); const [shortQty, setShortQty] = useState<Record<string, string>>({}); const [shortWhy, setShortWhy] = useState('');
+  const { db } = useApp();
+  const [tab, setTab] = useState<'dates' | 'materials' | 'docs'>('dates');
+  const d = rtwDocsOf(db, o); const fs = o.fabricSupply; const r = riskOf(o); const t = todosOf(db, o);
   const trims = (o.materials ?? []).map(m => ({ m, line: o.bom[m.bomIndex] })).filter(x => x.line && x.line.kind !== 'fabric');
-  const got = trims.filter(x => x.m.receivedOn).length;
-  const trimsShort = trims.filter(x => x.m.receivedOn && x.m.receivedQty != null && x.m.receivedQty < x.m.requiredQty);
-  const shortFactor = trimsShort.length ? Math.min(1, ...trimsShort.map(x => (x.m.receivedQty ?? 0) / x.m.requiredQty)) : 1;
-  const fs = o.fabricSupply; const r = riskOf(o);
   const faint = { color:'var(--ink-faint)' } as const;
   const given = (o.cutRatios ?? []).filter(c => c.given && c.sentToFactoryOn).slice(-1)[0];
   const breakup = given?.given?.breakup ?? o.sizeBreakup;
   const docFiles = (db.attachments ?? []).filter(a => a.kind === 'order' && a.subjectId === o.id && FACTORY_DOCS.includes(a.label));
+  const closed = o.status === 'Closed';
+
   return <>
-    <div className="flex gap-2 flex-wrap items-center pb-3 text-[12.5px]">
-      <KV k="Style / colour" v={o.styleName} note={`${o.category} · ${o.subCategory}${o.fit ? ` · ${o.fit}` : ''}`} />
-      <KV k="Order qty" v={`${o.orderQty} pcs`} note={given ? `cut ratio revised ${fmtDate(given.sentToFactoryOn!)}` : undefined} />
-      <KV k="In-house by" v={fmtDate(o.targetInhouse)} note={r.bufferDays != null ? `${r.bufferDays}d buffer · expected ${fmtDate(r.expectedInhouse)}` : undefined} />
+    {/* the order in one line */}
+    <div className="flex gap-5 flex-wrap items-baseline pb-3 text-[13px]">
+      <span><b>{o.orderQty} pcs</b> {o.styleName}{o.fit ? <span style={faint}> · {o.fit}</span> : ''}</span>
+      <span>due <b>{fmtDate(o.targetInhouse)}</b>{r.bufferDays != null && !closed && <span style={{ color: r.bufferDays < 0 ? 'var(--risk)' : 'var(--ink-faint)' }}> · {r.bufferDays < 0 ? `${-r.bufferDays} days late` : `${r.bufferDays} days to spare`}</span>}</span>
+      {given && <span style={{ color:'var(--warn)' }}>cut ratio revised · {breakup.reduce((a, x) => a + x.qty, 0)} pcs</span>}
     </div>
 
-    <Section title="1 · Report the TNA" ownerRole="production" defaultOpen right={<Pill tone={o.status === 'Closed' ? 'neutral' : r.risk === 'on-track' ? 'good' : r.risk === 'delayed' || r.risk === 'critical' ? 'risk' : 'warn'}>{o.status === 'Closed' ? 'delivered' : r.risk.replace('-', ' ')}</Pill>}>
-      {mine && o.status !== 'Closed' && <div className="intro text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Click a block to log the date a step actually happened, or the date it has moved to and why. The production unit reads this the moment it is saved.</div>}
-      <MilestoneGrid o={o} editable={mine && o.status !== 'Closed'} bare />
-    </Section>
+    {/* what to do first */}
+    {!closed && <Card className="mb-3" style={{ borderColor: t.todos.length ? 'var(--warn)' : 'var(--good)' }}><div className="px-4 py-3">
+      <div className="label">What you need to do</div>
+      {t.todos.length === 0 && <div className="text-[13px]" style={{ color:'var(--good)' }}>Nothing waiting on you{t.next ? <span style={faint}> · next step {t.next.key}, due {fmtDate(t.next.due)}</span> : ''}.</div>}
+      {t.todos.map((x, i) => <div key={i} className="flex items-center gap-2 py-0.5 text-[13px]"><span style={{ color: x.tone === 'risk' ? 'var(--risk)' : x.tone === 'warn' ? 'var(--warn)' : 'var(--ink)' }}>• {x.text}</span><button className="vlink text-[12px]" onClick={() => setTab(x.tab)}>{x.tab === 'dates' ? 'log it →' : x.tab === 'materials' ? 'count it →' : 'open →'}</button></div>)}
+      {t.info.map((x, i) => <div key={i} className="text-[12px] pt-0.5" style={faint}>{x}</div>)}
+    </div></Card>}
 
-    <Section title="2 · What is coming, what we received" ownerRole={fab.owner === 'merchandiser' ? 'production' : fab.owner} defaultOpen right={<div className="flex gap-2 items-center"><Pill tone={fab.tone}>{fab.label}</Pill><Pill tone={trims.length && got === trims.length ? (trimsShort.length ? 'risk' : 'good') : got ? 'warn' : 'neutral'}>materials {got}/{trims.length}{trimsShort.length ? ` · ${trimsShort.length} short` : ''}</Pill></div>}>
-      <div className="intro text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Everything this PO brings to the floor, against the order: the cloth from the mill sourcing bought it from, trims and packaging from the production unit. Count each line in as it lands; a short line can go back to design as a cut-short.</div>
+    <Tabs active={tab} onChange={v => setTab(v as typeof tab)} tabs={[
+      { id:'dates', label:'Dates', count: o.milestones.filter(m => !m.actual).length, hint:'log each step as it happens' },
+      { id:'materials', label:'Cloth & materials', count: trims.filter(x => !x.m.receivedOn).length + (fs?.sentToFactoryOn && !fs.receipt ? 1 : 0), hint:'what is coming, what landed' },
+      { id:'docs', label:'Documents', count: d.owedAfterPo.length || undefined, hint:'CAD, tech pack, style sheet, job card' },
+    ]} />
+
+    {tab === 'dates' && <Card><div className="px-4 py-3">
+      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>{closed ? 'The dates as they ran.' : 'Click the step you have just finished and put the date in. If a step has moved, give the new date and why. The production unit sees it straight away.'}</div>
+      <MilestoneGrid o={o} editable={mine && !closed} bare />
+    </div></Card>}
+
+    {tab === 'materials' && <Card><MaterialsPanel o={o} mine={mine} /></Card>}
+
+    {tab === 'docs' && <Card><div className="px-4 py-3">
+      <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))' }}>
+        {FACTORY_DOCS.map(label => { const f = docFiles.filter(a => a.label === label); const fromLines = label === 'Trim card' && o.bom.some(l => l.kind === 'trim'); const have = f.length > 0 || fromLines;
+          return <div key={label} className="rounded-[6px] p-2.5" style={{ border:`1px solid ${have ? 'var(--line)' : 'var(--risk)'}`, background: have ? 'var(--surface)' : 'color-mix(in srgb, var(--risk) 5%, #fff)' }}>
+            <div className="flex items-center gap-2"><span className="font-medium text-[12.5px]">{label}</span><Pill tone={have ? 'good' : 'risk'}>{have ? (f.length ? `${f.length} file${f.length > 1 ? 's' : ''}` : 'on the BOM') : 'not sent yet'}</Pill></div>
+            {f.map(a => <DocLink key={a.id} a={a} />)}
+            {fromLines && !f.length && <div className="text-[11.5px] pt-1" style={faint}>{o.bom.filter(l => l.kind === 'trim').map(l => l.item).join(', ')}</div>}
+            {!have && <div className="text-[11.5px] pt-1" style={faint}>{label === 'PAT / CAD' ? 'design uploads the pattern' : 'the production unit sends it'}</div>}
+          </div>; })}
+      </div>
+      <div className="text-[11.5px] pt-3" style={faint}>Open any file. Nothing here is edited at the factory; if something is missing, it shows above as still owed to you.</div>
+    </div></Card>}
+
+    <div className="mt-3"><RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable={false} steps={ORDER_STEPS} activity={o.activity} /></div>
+  </>;
+}
+
+/* one PO's cloth and materials: what is coming, what landed, the ask when short. Used on the Fabric in tab and in the drawer. */
+function MaterialsPanel({ o, mine }: { o: ProductionOrder; mine: boolean }) {
+  const { db, receiveMaterial, askCutRatio, confirmFabricReceipt } = useApp();
+  const [counting, setCounting] = useState<number | null>(null); const [cnt, setCnt] = useState(''); const [cnote, setCnote] = useState('');
+  const [ok, setOk] = useState(''); const [dmg, setDmg] = useState('0'); const [rnote, setRnote] = useState('');
+  const [shortOpen, setShortOpen] = useState(false); const [shortQty, setShortQty] = useState<Record<string, string>>({}); const [shortWhy, setShortWhy] = useState('');
+  const fab = fabricStateOf(o); const fs = o.fabricSupply;
+  const trims = (o.materials ?? []).map(m => ({ m, line: o.bom[m.bomIndex] })).filter(x => x.line && x.line.kind !== 'fabric');
+  const trimsShort = trims.filter(x => x.m.receivedOn && x.m.receivedQty != null && x.m.receivedQty < x.m.requiredQty);
+  const shortFactor = trimsShort.length ? Math.min(1, ...trimsShort.map(x => (x.m.receivedQty ?? 0) / x.m.requiredQty)) : 1;
+  const clothFactor = fab.key === 'short' && fab.need ? Math.min(1, (fs?.receipt?.metresOk ?? 0) / fab.need) : 1;
+  const faint = { color:'var(--ink-faint)' } as const;
+  const given = (o.cutRatios ?? []).filter(c => c.given && c.sentToFactoryOn).slice(-1)[0];
+  const breakup = given?.given?.breakup ?? o.sizeBreakup;
+  const cloth = o.bom.find(l => l.kind === 'fabric');
+  const openAsk = fab.cr && !fab.cr.given;
+  const closed = o.status === 'Closed';
+  const askShort = (why: string, bk: { size: string; qty: number }[]) => { askCutRatio(o.id, why, 'cut-short', bk); setShortOpen(false); setShortWhy(''); };
+  return <div className="px-4 py-3">
       <table className="t compact">
-        <thead><tr><th>Item</th><th>From</th><th className="num">Expected</th><th>Sent</th><th className="num">Received</th><th className="num">Short</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>What</th><th className="num">Coming</th><th className="num">Landed</th><th>Status</th><th></th></tr></thead>
         <tbody>
           <tr>
-            <td><div className="font-medium">{o.bom.find(l => l.kind === 'fabric')?.item ?? 'Cloth'}</div><div className="text-[11px]" style={faint}>{o.bom.find(l => l.kind === 'fabric')?.spec ?? ''}{o.costing.consumption != null ? ` · ${o.costing.consumption} m/pc` : ''}</div></td>
-            <td className="text-[12px]">{o.fabricNominated ? (db.vendors.find(v => v.id === o.fabricVendorId)?.name ?? 'the mill') : 'we buy it'}</td>
-            <td className="num">{fab.need != null ? `${fab.need} m` : o.sourcing?.fabricPo ? `${o.sourcing.fabricPo.metres} m` : '—'}</td>
-            <td className="text-[12px]">{fs?.sentToFactoryOn ? `${fs.metresSent ?? '—'} m · ${fmtDate(fs.sentToFactoryOn)}` : <span style={faint}>not yet</span>}</td>
+            <td><div className="font-medium">Cloth · {cloth?.item ?? '—'}</div><div className="text-[11px]" style={faint}>{o.fabricNominated ? `from ${db.vendors.find(v => v.id === o.fabricVendorId)?.name ?? 'the mill'}` : 'we buy it'}{fs?.sentToFactoryOn ? ` · sent ${fmtDate(fs.sentToFactoryOn)}` : ''}</div></td>
+            <td className="num">{fs?.sentToFactoryOn ? `${fs.metresSent ?? '—'} m` : fab.need != null ? `${fab.need} m` : '—'}{fab.need != null && <div className="text-[11px]" style={faint}>need {fab.need} m</div>}</td>
             <td className="num">{fs?.receipt ? <>{fs.receipt.metresOk} m{fs.receipt.metresDamaged ? <div className="text-[11px]" style={{ color:'var(--risk)' }}>{fs.receipt.metresDamaged} m damaged</div> : null}</> : <span style={faint}>—</span>}</td>
-            <td className="num" style={{ color: fab.short > 0 ? 'var(--risk)' : undefined }}>{fs?.receipt ? (fab.short > 0 ? `${fab.short} m` : '—') : ''}</td>
-            <td><Pill tone={fs?.receipt ? (fab.short > 0 ? 'risk' : 'good') : fs?.sentToFactoryOn ? 'warn' : 'neutral'}>{fs?.receipt ? (fab.short > 0 ? 'short' : 'in') : fs?.sentToFactoryOn ? 'on its way · count it in' : 'not sent'}</Pill></td>
-            <td className="text-[11.5px]" style={faint}>{fs?.sentToFactoryOn && !fs.receipt ? 'count in below ↓' : ''}</td>
+            <td><Pill tone={fs?.receipt ? (fab.short > 0 ? 'risk' : 'good') : fs?.sentToFactoryOn ? 'warn' : 'neutral'}>{fs?.receipt ? (fab.short > 0 ? `short ${fab.short} m` : 'in') : fs?.sentToFactoryOn ? 'count it in' : 'not sent yet'}</Pill></td>
+            <td style={{ whiteSpace:'nowrap' }}>{mine && fs?.sentToFactoryOn && !fs.receipt && <span className="flex gap-1 items-center"><Input type="number" value={ok} onChange={e => setOk(e.target.value)} placeholder={`${fs.metresSent ?? ''} usable`} style={{ width: 96, padding:'4px 6px' }} /><Input type="number" value={dmg} onChange={e => setDmg(e.target.value)} placeholder="damaged" style={{ width: 80, padding:'4px 6px' }} /><Input value={rnote} onChange={e => setRnote(e.target.value)} placeholder="note" style={{ width: 110, padding:'4px 6px' }} /><Button size="sm" variant="primary" disabled={ok === ''} onClick={() => confirmFabricReceipt(o.id, Number(ok), Number(dmg) || 0, rnote.trim())}>Save</Button></span>}</td>
           </tr>
           {trims.map(({ m, line }) => { const short = m.receivedOn && m.receivedQty != null ? Math.max(0, m.requiredQty - m.receivedQty) : 0; const isEditing = counting === m.bomIndex;
             return <tr key={m.bomIndex}>
               <td><div className="font-medium">{line.item}</div>{line.spec && <div className="text-[11px]" style={faint}>{line.spec}</div>}</td>
-              <td className="text-[12px]">production unit</td>
               <td className="num">{m.requiredQty} {line.unit}</td>
-              <td className="text-[12px]">{o.factoryPo ? `with the PO · ${fmtDate(o.factoryPo.raisedOn)}` : <span style={faint}>—</span>}</td>
               <td className="num">{m.receivedOn ? `${m.receivedQty ?? m.requiredQty} ${line.unit}` : <span style={faint}>—</span>}{m.note && <div className="text-[11px]" style={faint}>{m.note}</div>}</td>
-              <td className="num" style={{ color: short ? 'var(--risk)' : undefined }}>{m.receivedOn ? (short ? `${short} ${line.unit}` : '—') : ''}</td>
-              <td><Pill tone={m.receivedOn ? (m.checked === 'ok' ? 'good' : 'risk') : 'neutral'}>{m.receivedOn ? (m.checked === 'ok' ? `in · ${fmtDate(m.receivedOn)}` : short ? 'short' : 'not OK') : 'not yet'}</Pill></td>
+              <td><Pill tone={m.receivedOn ? (short || m.checked !== 'ok' ? 'risk' : 'good') : 'neutral'}>{m.receivedOn ? (short ? `short ${short} ${line.unit}` : m.checked === 'ok' ? 'in' : 'not OK') : 'not yet'}</Pill></td>
               <td style={{ whiteSpace:'nowrap' }}>{mine && !m.receivedOn && (isEditing
-                ? <span className="flex gap-1 items-center"><Input type="number" min={0} value={cnt} onChange={e => setCnt(e.target.value)} placeholder={String(m.requiredQty)} style={{ width: 80, padding:'4px 6px' }} /><Input value={cnote} onChange={e => setCnote(e.target.value)} placeholder="note" style={{ width: 120, padding:'4px 6px' }} />
+                ? <span className="flex gap-1 items-center"><Input type="number" min={0} value={cnt} onChange={e => setCnt(e.target.value)} placeholder={String(m.requiredQty)} style={{ width: 80, padding:'4px 6px' }} /><Input value={cnote} onChange={e => setCnote(e.target.value)} placeholder="note" style={{ width: 110, padding:'4px 6px' }} />
                   <Button size="sm" variant="primary" onClick={() => { const q = cnt === '' ? m.requiredQty : Number(cnt); receiveMaterial(o.id, m.bomIndex, q >= m.requiredQty ? 'ok' : 'fail', q, cnote.trim()); setCounting(null); setCnt(''); setCnote(''); }}>Save</Button><Button size="sm" variant="ghost" onClick={() => setCounting(null)}>×</Button></span>
-                : <span className="flex gap-1"><Button size="sm" onClick={() => receiveMaterial(o.id, m.bomIndex, 'ok', m.requiredQty)}>All in</Button><Button size="sm" variant="ghost" onClick={() => { setCounting(m.bomIndex); setCnt(''); setCnote(''); }}>Count…</Button></span>)}</td>
+                : <span className="flex gap-1"><Button size="sm" onClick={() => receiveMaterial(o.id, m.bomIndex, 'ok', m.requiredQty)}>All in</Button><Button size="sm" variant="ghost" onClick={() => { setCounting(m.bomIndex); setCnt(''); setCnote(''); }}>Less…</Button></span>)}</td>
             </tr>; })}
         </tbody>
       </table>
-      {!mine && trims.some(x => !x.m.receivedOn) && <ActsBy role="merchandiser" does="counts each line in as it lands at the factory" />}
 
-      {/* the cloth count-in, and the cut-ratio ask when the cloth is short, live in the shared fabric section; the merchant sees only its factory half */}
-      <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line-soft)' }}><div className="label">Cloth · count-in and cut ratio</div><FabricFinalisationSection o={o} bare /></div>
-
-      {/* materials short while the cloth is fine: the same cut-short ask, for the lines that fell short */}
-      {trimsShort.length > 0 && fab.key !== 'short' && !(fab.cr && !fab.cr.given) && <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line-soft)' }}>
-        <div className="label">Materials short · cut-short</div>
-        <Note tone="risk">{trimsShort.map(x => `${x.line.item} ${x.m.receivedQty}/${x.m.requiredQty} ${x.line.unit}`).join(' · ')}. The order cannot be made in full with what landed; ask the production unit to top up, or propose to design to cut short.</Note>
-        {mine && (shortOpen ? <div className="pt-2">
-          <div className="text-[11.5px] pb-1" style={faint}>What the shortest line allows ({Math.round(shortFactor * 100)}% of the order) — pro-rata to start with, change any size</div>
-          <div className="grid gap-1.5 py-1" style={{ gridTemplateColumns:`repeat(${breakup.length}, minmax(52px, 1fr))` }}>{breakup.map(x => <Field key={x.size} label={`${x.size} · was ${x.qty}`}><Input type="number" min={0} value={shortQty[x.size] ?? '0'} onChange={e => setShortQty(r => ({ ...r, [x.size]: e.target.value }))} style={{ padding:'4px 6px' }} /></Field>)}</div>
-          <div className="flex gap-2 items-end flex-wrap"><div style={{ flex:'1 1 240px' }}><Field label="Why"><Input value={shortWhy} onChange={e => setShortWhy(e.target.value)} placeholder={`${trimsShort.map(x => x.line.item).join(', ')} short`} /></Field></div>
-            <Button size="sm" variant="primary" onClick={() => { const bk = breakup.map(x => ({ size: x.size, qty: Number(shortQty[x.size] ?? 0) || 0 })); askCutRatio(o.id, shortWhy.trim() || `cut short to ${bk.reduce((a, x) => a + x.qty, 0)} pcs — ${trimsShort.map(x => `${x.line.item} ${x.m.receivedQty}/${x.m.requiredQty}`).join(', ')}`, 'cut-short', bk); setShortOpen(false); setShortWhy(''); }}>Propose this cut-short to design</Button>
+      {/* short → one plain ask */}
+      {(fab.key === 'short' || trimsShort.length > 0) && !openAsk && !closed && <div className="mt-3 p-3 rounded-[6px]" style={{ background:'color-mix(in srgb, var(--risk) 6%, #fff)', border:'1px solid var(--risk)' }}>
+        <div className="font-medium text-[13px]">Not enough to make {o.orderQty} pcs</div>
+        <div className="text-[12.5px] pt-0.5" style={{ color:'var(--ink-soft)' }}>{fab.key === 'short' ? `Cloth is ${fab.short} m short of the ${fab.need} m needed. ` : ''}{trimsShort.length ? `${trimsShort.map(x => `${x.line.item} ${x.m.receivedQty}/${x.m.requiredQty} ${x.line.unit}`).join(', ')} short. ` : ''}Tell design: either they change the sizes, or you cut fewer pieces with what is here.</div>
+        {mine && !shortOpen && <div className="flex gap-2 pt-2 flex-wrap">
+          {fab.key === 'short' && <Button size="sm" variant="primary" onClick={() => askCutRatio(o.id, `cloth short by ${fab.short} m`, 'ratio')}>Ask design to change the sizes</Button>}
+          <Button size="sm" variant={fab.key === 'short' ? undefined : 'primary'} onClick={() => { const f = Math.min(clothFactor, shortFactor); setShortQty(Object.fromEntries(breakup.map(x => [x.size, String(Math.floor(x.qty * f))]))); setShortOpen(true); }}>Propose to cut fewer…</Button>
+        </div>}
+        {mine && shortOpen && <div className="pt-2">
+          <div className="text-[11.5px] pb-1" style={faint}>What is here allows about {Math.round(Math.min(clothFactor, shortFactor) * 100)}% of the order; change any size</div>
+          <div className="grid gap-1.5 py-1" style={{ gridTemplateColumns:`repeat(${breakup.length}, minmax(52px, 1fr))` }}>{breakup.map(x => <Field key={x.size} label={`${x.size} · was ${x.qty}`}><Input type="number" min={0} value={shortQty[x.size] ?? '0'} onChange={e => setShortQty(q => ({ ...q, [x.size]: e.target.value }))} style={{ padding:'4px 6px' }} /></Field>)}</div>
+          <div className="flex gap-2 items-end flex-wrap"><div style={{ flex:'1 1 240px' }}><Field label="Why"><Input value={shortWhy} onChange={e => setShortWhy(e.target.value)} placeholder="what was short" /></Field></div>
+            <Button size="sm" variant="primary" onClick={() => { const bk = breakup.map(x => ({ size: x.size, qty: Number(shortQty[x.size] ?? 0) || 0 })); askShort(shortWhy.trim() || `cut ${bk.reduce((a, x) => a + x.qty, 0)} of ${o.orderQty}: ${fab.key === 'short' ? `cloth short ${fab.short} m` : ''}${trimsShort.map(x => ` ${x.line.item} ${x.m.receivedQty}/${x.m.requiredQty}`).join(',')}`, bk); }}>Send to design</Button>
             <Button size="sm" variant="ghost" onClick={() => setShortOpen(false)}>Cancel</Button></div>
-        </div> : <div className="pt-2"><Button size="sm" variant="primary" onClick={() => { setShortQty(Object.fromEntries(breakup.map(x => [x.size, String(Math.floor(x.qty * shortFactor))]))); setShortOpen(true); }}>Propose to cut short…</Button></div>)}
+        </div>}
       </div>}
+      {openAsk && <div className="mt-3"><Note tone="warn">Your {fab.cr!.kind === 'cut-short' ? 'proposal to cut fewer' : 'ask to change the sizes'} is with design since {fmtDate(fab.cr!.askedOn)}. You will see the new sizes here when they answer.</Note></div>}
 
-      <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line-soft)' }}>
-        <div className="label">Size ratio to cut{given ? ' · revised by design' : ''}</div>
+      <div className="pt-3 mt-3" style={{ borderTop:'1px solid var(--line-soft)' }}>
+        <div className="label">Sizes to cut{given ? ` · design changed these on ${fmtDate(given.sentToFactoryOn!)}` : ''}</div>
         <SizeGrid breakup={breakup} />
       </div>
-    </Section>
-
-    <Section title="3 · Documents for the cut" ownerRole="design" defaultOpen right={<Pill tone={d.owedAfterPo.length ? 'risk' : 'good'}>{d.owedAfterPo.length ? `${d.owedAfterPo.length} still owed` : 'all in'}</Pill>}>
-      <div className="intro text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>What design and the production unit sent with the PO. Open any file; nothing here is edited at the factory.</div>
-      <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))' }}>
-        {FACTORY_DOCS.map(label => { const f = docFiles.filter(a => a.label === label); const fromLines = label === 'Trim card' && o.bom.some(l => l.kind === 'trim'); const ok = f.length > 0 || fromLines;
-          return <div key={label} className="rounded-[6px] p-2.5" style={{ border:`1px solid ${ok ? 'var(--line)' : 'var(--risk)'}`, background: ok ? 'var(--surface)' : 'color-mix(in srgb, var(--risk) 5%, #fff)' }}>
-            <div className="flex items-center gap-2"><span className="font-medium text-[12.5px]">{label}</span><Pill tone={ok ? 'good' : 'risk'}>{ok ? (f.length ? `${f.length} file${f.length > 1 ? 's' : ''}` : 'on the BOM') : 'not sent yet'}</Pill></div>
-            {f.map(a => <DocLink key={a.id} a={a} />)}
-            {fromLines && !f.length && <div className="text-[11.5px] pt-1" style={faint}>{o.bom.filter(l => l.kind === 'trim').map(l => l.item).join(', ')}</div>}
-            {!ok && <div className="text-[11.5px] pt-1" style={faint}>{label === 'PAT / CAD' ? 'design uploads the pattern' : label === 'Style sheet' ? 'the production unit attaches it' : 'owed by the production unit'}</div>}
-          </div>; })}
-      </div>
-      <div className="label pt-3">Bill of materials</div>
-      {o.bom.map((l, i) => <KV key={i} k={l.item} v={l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit} / pc` : '—'} note={l.spec ?? undefined} />)}
-    </Section>
-
-    <RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable={false} steps={ORDER_STEPS} activity={o.activity} />
-  </>;
+    </div>;
 }
+
+/* the PO in one strip, above a panel on the Fabric in and TNA tabs */
+function PoStrip({ o, onOpen }: { o: ProductionOrder; onOpen: () => void }) {
+  const r = riskOf(o); const fab = fabricStateOf(o); const asks = (o.cutRatios ?? []);
+  return <div className="px-4 py-3 flex gap-4 flex-wrap items-baseline" style={{ borderBottom:'1px solid var(--line-soft)' }}>
+    <button className="mono font-medium text-[13px] vlink" onClick={onOpen}>{o.poNo}</button>
+    <span className="font-medium">{o.styleName}</span>
+    <span className="text-[12.5px]" style={{ color:'var(--ink-soft)' }}>{o.orderQty} pcs · due {fmtDate(o.targetInhouse)}{r.bufferDays != null && <span style={{ color: r.bufferDays < 0 ? 'var(--risk)' : undefined }}> · {r.bufferDays < 0 ? `${-r.bufferDays} days late` : `${r.bufferDays} days to spare`}</span>}</span>
+    <span className="ml-auto flex gap-2 items-center"><Pill tone={fab.tone}>{fab.label}</Pill>{asks.length > 0 && <Pill tone={asks.some(c => !c.given) ? 'warn' : 'info'}>{asks.length} cut-short ask{asks.length > 1 ? 's' : ''}{asks.some(c => !c.given) ? ' · with design' : ''}</Pill>}</span>
+  </div>;
+}
+
 function DocLink({ a }: { a: Attachment }) { const url = useFileUrl(a.id, a.stored); return <div className="text-[11.5px] pt-1 truncate" title={a.name}>{url ? <a className="vlink" href={url} download={a.name} target="_blank" rel="noreferrer">{a.name}</a> : <span>{a.name}</span>} <span style={{ color:'var(--ink-faint)' }}>· {fmtDate(a.at)}{a.stored ? '' : ' · on the record, not in this browser'}</span></div>; }
 const FACTORY_DOCS = ['PAT / CAD', 'Tech pack', 'Style sheet', 'Job card', 'Trim card'] as const as readonly string[];
