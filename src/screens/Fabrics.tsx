@@ -246,7 +246,7 @@ export function Fabrics() {
         <div className="mt-3"><Note>A block is a handshake: no money paid, the mill holds 2–5 months, and it expires unless someone acts.</Note></div>
       </>)}
 
-      <Drawer open={!!active} onClose={() => set('open', null)} title={active?.name ?? ''} subtitle={active && <><Pill tone="accent">{active.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{active.code}</span><span>· {vendorName(active.vendorId)}{active.international ? ' · International' : ' · Domestic'}</span></>}>
+      <Drawer open={!!active} onClose={() => set('open', null)} title={active?.name ?? ''} subtitle={active && <><Pill tone="accent">{active.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{active.code}</span><span>· {vendorName(active.vendorId)} · {active.international ? 'international' : 'domestic'}{active.swatchBook ? ` · ${active.swatchBook}` : ''}</span></>}>
         {active && <FabricRecord f={active} view={(params.get('view') as FabricView) ?? 'overview'} setView={v => set('view', v)} />}
       </Drawer>
     </Page>
@@ -257,42 +257,44 @@ export function Fabrics() {
 /** The fabric as its own page — `#/fabric/<id>`. Opened from the mills page and any list that names a fabric. */
 /** This fabric's purchase orders, and how the next one gets raised — the question
     "who orders this, Enigma or a person?" answered on the record itself. */
-function FabricPoList({ f, flat, canSource }: { f: Fabric; flat: boolean; canSource: boolean }) {
+function FabricPoList({ f, canSource }: { f: Fabric; flat: boolean; canSource: boolean }) {
   const { db, raiseFabricPo } = useApp();
   const mill = db.vendors.find(v => v.id === f.vendorId)!;
   const c = coverageOf(f, mill.leadDays, mill);
   const pos = (db.fabricPos ?? []).filter(p => p.fabricId === f.id).sort((a, b) => b.raisedOn.localeCompare(a.raisedOn));
   const open = pos.filter(p => !p.closedOn && !p.receivedOn);
   const auto = f.inventory?.autoReplenish ?? (f.bucket === 'CORE' && !f.international);
-  const sec = { collapsible: !flat, defaultOpen: flat || undefined };
+  const rule = f.bucket === 'BESPOKE' ? 'Bespoke: cut from the mill\'s stock, no PO' : auto ? 'Enigma raises it automatically' : f.international ? 'Reordered by hand (international)' : 'Reordered by hand';
   return <>
-    <Section {...sec} title="How this fabric is reordered" right={<Pill tone={auto ? 'info' : 'warn'}>{auto ? 'Enigma raises it' : 'a person raises it'}</Pill>}>
-      <KV k="Rule" v={auto ? 'Automatic' : 'By hand'} note={auto ? `Enigma's batch run raises a PO the moment saleable stock falls under the ${f.thresholdMetres} m threshold — nobody has to remember` : f.international ? 'international mill — Enigma does not auto-PO it; sourcing raises the PO when the reorder point is crossed' : f.bucket === 'BESPOKE' ? 'bespoke — cut from the mill\'s own stock, no PO' : 'non-core is bought once; a new PO is a decision, not a rule'} />
-      <KV k="Reorder point" v={`${c.rop} m`} note={c.leadDemand >= c.moq ? `${mill.leadDays} days of sales at the current rate` : `the mill's MOQ`} />
-      <KV k="Right now" v={c.belowRop ? <Pill tone="risk">under the point</Pill> : <Pill tone="good">above the point</Pill>} note={`${c.saleable} m saleable · ${c.incoming ? `${c.incoming} m on order` : 'nothing on order'}`} />
-      {!auto && c.belowRop && open.length === 0 && f.bucket !== 'BESPOKE' && (canSource
-        ? <div className="pt-2"><Button size="sm" variant="primary" onClick={() => raiseFabricPo(f.id, c.suggestedPo)}>Raise PO now · {c.suggestedPo} m</Button></div>
-        : <div className="pt-2"><ActsBy role="sourcing" does={`raises a PO for ${c.suggestedPo} m`} /></div>)}
-    </Section>
-    <Section {...sec} title={`Purchase orders · ${pos.length}`} right={open.length ? <Pill tone="info">{open.length} open</Pill> : undefined}>
+    {/* how the next PO gets raised, on one line */}
+    <Card className="px-4 py-3 mb-3"><div className="flex items-center gap-x-5 gap-y-2 flex-wrap text-[13px]">
+      <span><span className="label" style={{ display:'inline', marginRight: 6 }}>Rule</span>{rule}</span>
+      {f.bucket !== 'BESPOKE' && <>
+        <span title={c.leadDemand >= c.moq ? `${mill.leadDays} days of sales at the current rate` : 'the mill\'s MOQ'}><span className="label" style={{ display:'inline', marginRight: 6 }}>Reorder point</span><span className="mono">{c.rop} m</span></span>
+        <span><span className="label" style={{ display:'inline', marginRight: 6 }}>Now</span><Pill tone={c.belowRop ? 'risk' : 'good'}>{c.belowRop ? 'under the point' : 'above the point'}</Pill> <span style={{ color:'var(--ink-faint)' }}>{c.saleable} m saleable{c.incoming ? ` · ${c.incoming} m on order` : ''}</span></span>
+        {!auto && c.belowRop && open.length === 0 && (canSource
+          ? <Button size="sm" variant="primary" onClick={() => raiseFabricPo(f.id, c.suggestedPo)}>Raise PO now · {c.suggestedPo} m</Button>
+          : <ActsBy role="sourcing" does={`raises a PO for ${c.suggestedPo} m`} inline />)}
+      </>}
+    </div></Card>
+    <Section collapsible={false} title={`Purchase orders · ${pos.length}`} right={open.length ? <span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{open.length} open</span> : undefined}>
       {pos.length === 0 ? <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>No PO yet on this fabric.</div>
         : pos.map(p => { const st = fabricPoStatus(p); return <div key={p.id} className="py-2" style={{ borderBottom:'1px solid var(--line-soft)' }}>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
             <span className="mono font-medium">{p.poNo}</span>
-            <Pill tone={p.source === 'auto' ? 'info' : 'neutral'}>{p.source === 'auto' ? 'Enigma · auto' : 'by hand'}</Pill>
             <span className="mono">{p.metres} m</span>
-            <span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>raised {fmtDate(p.raisedOn)} · expected {fmtDate(p.expectedOn)}</span>
-            <span className="ml-auto"><Pill tone={st === 'overdue' ? 'risk' : 'neutral'}>{p.closedOn ? (p.closedShort ? 'closed short' : 'received') : st}</Pill></span>
+            <span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>raised {p.source === 'auto' ? 'by Enigma · auto' : 'by hand'} {fmtDate(p.raisedOn)} · expected {fmtDate(p.expectedOn)}{p.remark ? ` · “${p.remark}”` : ''}</span>
+            <span className="ml-auto"><Pill tone={!p.closedOn && st === 'overdue' ? 'risk' : 'neutral'}>{p.closedOn ? (p.closedShort ? 'closed short' : 'received') : st}</Pill></span>
           </div>
-          {p.remark && <div className="text-[12px] pt-0.5" style={{ color:'var(--ink-soft)' }}>“{p.remark}”</div>}
           <PoReceiving po={p} editable={canSource} />
         </div>; })}
     </Section>
   </>;
 }
 
-/* the three selling states, the same on every screen: inactive by hand (Enigma's On Hold), out of stock by the threshold, else can sell */
-const sellStateOf = (f: Fabric) => f.onHold || f.paused ? { label:'inactive', tone:'warn' as const } : f.stockMetres - f.reservedMetres <= f.thresholdMetres ? { label:'out of stock', tone:'risk' as const } : { label:'can sell', tone:'good' as const };
+/* the three selling states, the same on every screen: inactive by hand (Enigma's On Hold), out of stock by the threshold
+   (bespoke: when the mill is sold out, since BSC holds no bespoke stock), else can sell */
+const sellStateOf = (f: Fabric) => f.onHold || f.paused ? { label:'inactive', tone:'warn' as const } : (f.bucket === 'BESPOKE' ? f.millAvailable === false : f.stockMetres - f.reservedMetres <= f.thresholdMetres) ? { label:'out of stock', tone:'risk' as const } : { label:'can sell', tone:'good' as const };
 function HoldButton({ f }: { f: Fabric }) {
   const { setFabricHold, resumeFabric } = useApp();
   return f.onHold || f.paused
@@ -300,27 +302,49 @@ function HoldButton({ f }: { f: Fabric }) {
     : <Button size="sm" onClick={() => setFabricHold(f.id, true)}>Make inactive</Button>;
 }
 
-/** The fabric record: a facts strip, then tabs. The page keeps the tab in the URL; the drawer keeps it in state. */
+/** The status line at the top of the record: the one place the status and its action sit, with Rename beside them. */
+function FabricStatusLine({ f }: { f: Fabric }) {
+  const { role, renameFabric } = useApp();
+  const canDesign = role === 'design' || role === 'owner';
+  const [renaming, setRenaming] = useState(false); const [newName, setNewName] = useState(f.name); const [why, setWhy] = useState('');
+  const st = sellStateOf(f);
+  return <div className="mb-3">
+    <div className="flex items-center gap-2 flex-wrap">
+      <Pill tone={st.tone}>{st.label}</Pill><HoldButton f={f} />
+      {canDesign && !renaming && <button type="button" className="vlink text-[12px] ml-1" title={`the code ${f.code} does not change`} onClick={() => { setNewName(f.name); setRenaming(true); }}>Rename</button>}
+      {(f.nameHistory ?? []).length > 0 && <span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>formerly {formerNames(f)}</span>}
+    </div>
+    {renaming && <div className="flex gap-2 items-end flex-wrap pt-2">
+      <div style={{ width: 260 }}><Field label="New name"><Input value={newName} onChange={e => setNewName(e.target.value)} /></Field></div>
+      <div className="flex-1" style={{ minWidth: 200 }}><Field label="Why"><Input value={why} onChange={e => setWhy(e.target.value)} placeholder="book reprint; the shade name read wrong" /></Field></div>
+      <Button size="sm" variant="primary" disabled={!newName.trim() || newName.trim() === f.name} onClick={() => { renameFabric(f.id, newName, why.trim()); setRenaming(false); setWhy(''); }}>Rename</Button>
+      <Button size="sm" variant="ghost" onClick={() => setRenaming(false)}>Cancel</Button>
+    </div>}
+  </div>;
+}
+
+/** The fabric record: status line, an even strip of facts, then tabs. The page keeps the tab in the URL; the drawer keeps it in state. */
 export function FabricRecord({ f, view, setView }: { f: Fabric; view: FabricView; setView: (v: FabricView) => void }) {
   const { db, role } = useApp();
   const mill = db.vendors.find(v => v.id === f.vendorId)!;
   const c = coverageOf(f, mill.leadDays, mill);
-  const live = liveStatusOf(f, mill.leadDays);
   const pos = (db.fabricPos ?? []).filter(p => p.fabricId === f.id);
-  const fact = (k: string, v: React.ReactNode) => <div><div className="label">{k}</div><div className="text-[15px] font-medium">{v}</div></div>;
+  /* eight equal tiles: one row when there is room, two rows of four when there is not */
+  const fact = (k: string, v: React.ReactNode, title?: string) => <div className="fact-tile" title={title}><div className="label" style={{ margin: 0 }}>{k}</div><div className="text-[14.5px] font-medium mono">{v}</div></div>;
   return <>
-    <Card className="px-4 py-3 mb-3"><div className="grid gap-4" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))' }}>
-      {fact('Physical stock', <span style={{ color: f.stockMetres <= f.thresholdMetres ? 'var(--risk)' : undefined }}>{f.stockMetres} m</span>)}
-      {fact('Reserved', `${f.reservedMetres} m`)}
-      {fact('On order', `${f.incomingMetres ?? 0} m`)}
-      {fact('Saleable', `${c.saleable} m`)}
+    <FabricStatusLine f={f} />
+    <div className="facts-wrap mb-3"><div className="facts">
+      {fact('Physical', <span style={{ color: f.stockMetres <= f.thresholdMetres ? 'var(--risk)' : undefined }}>{f.stockMetres} m</span>, 'physical stock in the warehouse')}
+      {fact('Reserved', `${f.reservedMetres} m`, 'held for punched orders')}
+      {fact('On order', `${f.incomingMetres ?? 0} m`, 'still to arrive on open POs')}
+      {fact('Saleable', <span style={{ color: c.saleable <= 0 ? 'var(--risk)' : undefined }}>{c.saleable} m</span>, 'physical minus reserved minus threshold')}
       {fact('Threshold', `${f.thresholdMetres} m`)}
+      {fact('Cover', f.bucket === 'BESPOKE' ? '—' : c.coverDays > 365 ? '1y+' : `${c.coverDays} d`, 'days of sales the saleable stock covers')}
       {fact('Cost / m', f.mill?.costPerUnit != null ? `${f.mill.currency} ${f.mill.costPerUnit}` : f.cpm != null ? `INR ${f.cpm}` : '—')}
-      {fact('Sells', `${c.ros.toFixed(1)} / wk`)}
-      {fact('Status', <span className="flex items-center gap-2 flex-wrap"><Pill tone={sellStateOf(f).tone}>{sellStateOf(f).label}</Pill><HoldButton f={f} /></span>)}
-    </div></Card>
+      {fact('Sells', `${c.ros.toFixed(1)}/wk`, 'shirts a week from this fabric')}
+    </div></div>
     <Tabs wrap active={view} onChange={v => setView(v as FabricView)} tabs={[{ id:'overview', label:'Overview' }, { id:'pos', label:'Purchase orders', count: pos.filter(p => !p.closedOn && !p.receivedOn).length || undefined }, { id:'enigma', label:'Fabric info · Enigma' }, { id:'inventory', label:'Inventory & movements' }, { id:'files', label:'Files & conversation' }]} />
-    <Fabric360 f={f} view={view} flat canSource={role === 'sourcing' || role === 'owner'} canPlan={role === 'design' || role === 'owner'} />
+    <Fabric360 f={f} view={view} setView={setView} flat canSource={role === 'sourcing' || role === 'owner'} canPlan={role === 'design' || role === 'owner'} />
   </>;
 }
 export function FabricPage() {
@@ -333,100 +357,64 @@ export function FabricPage() {
   const mill = f ? db.vendors.find(v => v.id === f.vendorId) : null;
   if (!f || !mill) return <Page title="Fabric"><Card><Empty title="No such fabric." body="It may have been removed from the master." /></Card></Page>;
   return <Page title={f.name} actions={<Button size="sm" variant="ghost" onClick={() => history.back()}>← Back</Button>}>
-    <div className="flex items-center gap-2 flex-wrap mb-3 text-[13px]" style={{ color:'var(--ink-soft)' }}><Pill tone="accent">{f.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{f.code}</span><span>· <VendorLink id={mill.id}>{mill.name}</VendorLink></span>{(f.onHold || f.paused) && <Pill tone="warn">inactive</Pill>}</div>
+    <div className="flex items-center gap-2 flex-wrap mb-3 text-[13px]" style={{ color:'var(--ink-soft)' }}><Pill tone="accent">{f.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{f.code}</span><span>· <VendorLink id={mill.id}>{mill.name}</VendorLink> · {f.international ? 'international' : 'domestic'}{f.swatchBook ? ` · ${f.swatchBook}` : ''}</span></div>
     <div style={{ maxWidth: 1040 }}><FabricRecord f={f} view={view} setView={setView} /></div>
   </Page>;
 }
 
 type FabricView = 'all' | 'overview' | 'pos' | 'enigma' | 'inventory' | 'files';
-function Fabric360({ f, canSource, canPlan, view = 'all', flat = false }: { f: Fabric; canSource: boolean; canPlan: boolean; view?: FabricView; flat?: boolean }) {
+function Fabric360({ f, canSource, canPlan, view = 'all', flat = false, setView }: { f: Fabric; canSource: boolean; canPlan: boolean; view?: FabricView; flat?: boolean; setView: (v: FabricView) => void }) {
   const show = (v: FabricView) => view === 'all' || view === v;
-  const [pnote, setPnote] = useState('');
-  const { db, role, setFabricHold, pauseFabric, resumeFabric, raiseFabricPo, convertBlock, releaseBlock, setFabricBucket, agreeCoreBlock, endCoreBlock, renameFabric } = useApp();
+  const { db, role, setFabricBucket, agreeCoreBlock, endCoreBlock } = useApp();
   const canDesign = role === 'design' || role === 'owner';
-  const [renaming, setRenaming] = useState(false); const [newName, setNewName] = useState(f.name); const [renameWhy, setRenameWhy] = useState('');
   const [blk, setBlk] = useState(false); const [blkYears, setBlkYears] = useState<1 | 2 | 0>(1); const [blkUntil, setBlkUntil] = useState(''); const [blkMpm, setBlkMpm] = useState(''); const [blkVia, setBlkVia] = useState<'email' | 'whatsapp' | 'call'>('email'); const [blkNote, setBlkNote] = useState('');
   const mill = db.vendors.find(v => v.id === f.vendorId)!;
   const c = coverageOf(f, mill.leadDays, mill);
-  const live = liveStatusOf(f, mill.leadDays);
   const range = db.ranges.find(r => r.family === f.family);
   const family = db.fabrics.filter(x => x.family === f.family && x.bucket === f.bucket);
   const familyHealthy = family.filter(x => liveStatusOf(x, mill.leadDays) === 'Active').length;
-  const familyWord = f.family.split(' ')[0].toLowerCase();
-  const blocks = db.blocks.filter(b => b.vendorId === f.vendorId && (b.fabricName.toLowerCase().includes(familyWord) || b.fabricName.toLowerCase().includes(f.name.split(' ').pop()!.toLowerCase())));
   const swatches = db.swatchDispatches.filter(s => s.fabricId === f.id);
   const inStockWeeks = f.weeklySalesShirts.map(() => true);
   const storeNames = (ids: string[]) => ids.map(id => STORES.find(s => s.id === id)?.name ?? id);
 
+  /* one line a fact; a short hint lives in the tooltip, not under the value */
+  const row = (k: string, v: React.ReactNode, act?: React.ReactNode, title?: string) => <div className="ov-row" title={title}><span className="ov-k">{k}</span><span className="ov-v">{v}{act && <span className="ov-act">{act}</span>}</span></div>;
+  const left = f.coreBlock ? -daysAgo(f.coreBlock.until) : null;
+  const confirmed = swatches.filter(s => s.confirmedOn).length;
   return <>
-    {/* the name is a label with a history; the code is the fabric */}
-    <div className="px-1 pb-2">
-      {(f.nameHistory ?? []).length > 0 && <div className="text-[12px]" style={{ color:'var(--ink-soft)' }}><span className="pill">renamed</span> formerly {formerNames(f)} — same code <span className="mono">{f.code}</span>, same numbers.</div>}
-      {canDesign && !renaming && <button type="button" className="vlink text-[12px]" onClick={() => { setNewName(f.name); setRenaming(true); }}>Rename this fabric</button>}
-      {renaming && <div className="flex gap-2 items-end flex-wrap pt-1">
-        <div style={{ width: 260 }}><Field label="New name" hint={`the code ${f.code} does not change`}><Input value={newName} onChange={e => setNewName(e.target.value)} /></Field></div>
-        <div className="flex-1" style={{ minWidth: 200 }}><Field label="Why"><Input value={renameWhy} onChange={e => setRenameWhy(e.target.value)} placeholder="book reprint; the shade name read wrong" /></Field></div>
-        <Button size="sm" variant="primary" disabled={!newName.trim() || newName.trim() === f.name} onClick={() => { renameFabric(f.id, newName, renameWhy.trim()); setRenaming(false); setRenameWhy(''); }}>Rename</Button>
-        <Button size="sm" variant="ghost" onClick={() => setRenaming(false)}>Cancel</Button>
-      </div>}
+    {show('overview') && <Card className="px-4 py-2 mb-3 facts-wrap"><div className="ov-grid">
+      {row('Bucket', f.bucket === 'CORE' ? 'Core · never runs out' : f.bucket === 'NON_CORE' ? 'Non-core · one buy' : 'Bespoke · held at the mill',
+        canPlan && f.bucket !== 'BESPOKE' ? <button type="button" className="vlink" onClick={() => setFabricBucket(f.id, f.bucket === 'NON_CORE' ? 'CORE' : 'NON_CORE', '')}>{f.bucket === 'NON_CORE' ? 'Promote to core' : 'Demote to non-core'}</button> : undefined,
+        f.bucket === 'NON_CORE' ? 'core is replenished on a reorder point; non-core is bought once' : f.bucket === 'CORE' ? 'demoted, it stops being replenished and is allowed to sell out' : undefined)}
+      {row('Reorder', f.bucket === 'BESPOKE' ? 'No PO: cut from the mill\'s stock' : (f.inventory?.autoReplenish ?? (f.bucket === 'CORE' && !f.international)) ? 'Enigma auto' : <span className="pill warn">reordered by hand</span>,
+        f.bucket !== 'BESPOKE' ? <button type="button" className="vlink" onClick={() => setView('pos')}>reorder point {c.rop} m</button> : undefined)}
+      {f.bucket === 'CORE' && row('Supply block', f.coreBlock ? <>until {fmtDate(f.coreBlock.until)} · {f.coreBlock.metresPerMonth} m/month{left != null && left <= 60 ? <span style={{ color:'var(--risk)' }}> · {left < 0 ? 'lapsed' : `${left}d left`}</span> : null}</> : <span style={{ color:'var(--risk)' }}>none agreed</span>,
+        canSource && !blk ? (f.coreBlock ? <><button type="button" className="vlink" onClick={() => { setBlk(true); setBlkYears(1); setBlkUntil(''); setBlkMpm(String(f.coreBlock!.metresPerMonth)); setBlkVia(f.coreBlock!.via); setBlkNote(f.coreBlock!.note); }}>Renew</button> · <button type="button" className="vlink" onClick={() => endCoreBlock(f.id)}>End</button></>
+          : <button type="button" className="vlink" onClick={() => { setBlk(true); setBlkYears(1); setBlkUntil(''); setBlkMpm(String(Math.max(100, Math.round(c.baseMpw * 4.33 / 50) * 50))); setBlkNote(''); }}>Agree a block</button>) : undefined,
+        f.coreBlock ? `agreed ${fmtRel(f.coreBlock.agreedOn)} by ${f.coreBlock.by} over ${f.coreBlock.via}${f.coreBlock.note ? ` · ${f.coreBlock.note}` : ''}` : `asks ${mill.name} to keep weaving it for a year or two`)}
+      {row('Family', range ? <>{f.family} · {familyHealthy} healthy of {range.targetOptions}</> : f.family)}
+      {row('Vendor', <><VendorLink id={mill.id}>{mill.name}</VendorLink> · {mill.leadDays}d lead · {Math.round(mill.onTimeRate * 100)}% on time</>, undefined, `${mill.kind} · ${mill.location}`)}
+      {row('Swatch book', f.swatchBook ?? '—')}
+      {f.bucket === 'BESPOKE' && row('At the mill', f.millAvailable === false ? <span style={{ color:'var(--risk)' }}>sold out{!f.onHold ? ' · still on sale, make it inactive' : ''}</span> : f.millStockMetres != null ? `${f.millStockMetres} m` : 'available', undefined, `reported ${fmtRel(f.millReportedAt)}`)}
+      {row('In stores', swatches.length ? `${confirmed} of ${swatches.length} swatches received` : 'no swatch sent yet', undefined, swatches.length - confirmed ? `waiting: ${storeNames(swatches.filter(s => !s.confirmedOn).map(s => s.storeId)).join(', ')}` : undefined)}
+      <div className="ov-row ov-wide"><span className="ov-k">Sales · 12 weeks</span><span className="ov-v" style={{ alignItems:'center' }}><Bars values={f.weeklySalesShirts} ok={inStockWeeks} unit=" shirts" compact /><span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{c.ros.toFixed(1)} shirts a week</span></span></div>
     </div>
-    {show('overview') && <Section collapsible={!flat} defaultOpen={flat || undefined} title="Where it stands" right={<span className="flex items-center gap-2"><Pill tone={sellStateOf(f).tone}>{sellStateOf(f).label}</Pill><HoldButton f={f} /></span>}>
-      <KV k="Bucket" v={f.bucket === 'CORE' ? 'Core — must never run out' : f.bucket === 'NON_CORE' ? 'Non-core — one buy, refill the slot' : 'Bespoke — held at the mill, not by BSC'} note={f.bucket === 'NON_CORE' ? 'a non-core that keeps selling is promoted to core — then it is replenished, not left to sell out' : f.bucket === 'CORE' ? 'a core that stops earning its place is moved back to non-core and allowed to sell out' : undefined} />
-      {/* an action, not a value — on its own labelled row, so it cannot be read
-          as "this core fabric is in non-core" */}
-      {canPlan && f.bucket !== 'BESPOKE' && <KV k="Change the bucket" v={f.bucket === 'NON_CORE'
-        ? <Button size="sm" variant="primary" onClick={() => setFabricBucket(f.id, 'CORE', '')}>Promote to core →</Button>
-        : <Button size="sm" variant="ghost" onClick={() => setFabricBucket(f.id, 'NON_CORE', '')}>Demote to non-core →</Button>}
-        note={f.bucket === 'NON_CORE' ? 'core is replenished on a reorder point; non-core is bought once' : 'it stops being replenished and is allowed to sell out'} />}
-      {f.bucket === 'CORE' && f.onHold && f.supply?.status === 'ok' && <div className="pt-2">{canSource ? <Button variant="primary" size="sm" onClick={() => setFabricHold(f.id, false)}>Switch back on — in stock</Button> : <ActsBy role="planning" does="switches it on again once sourcing confirms stock" />}</div>}
-      {f.bucket === 'CORE' && <>
-        <KV k="Supply block with the mill" v={f.coreBlock ? <b>until {fmtDate(f.coreBlock.until)}</b> : <span style={{ color:'var(--risk)' }}>none agreed</span>}
-          note={f.coreBlock ? `${f.coreBlock.metresPerMonth} m a month · agreed ${fmtRel(f.coreBlock.agreedOn)} by ${f.coreBlock.by} over ${f.coreBlock.via}${f.coreBlock.note ? ` · ${f.coreBlock.note}` : ''}${-daysAgo(f.coreBlock.until) <= 60 ? ` · ${-daysAgo(f.coreBlock.until) < 0 ? 'lapsed' : `${-daysAgo(f.coreBlock.until)}d left — renew`}` : ''}` : `${f.promotedOn ? `promoted ${fmtRel(f.promotedOn)} — ` : ''}non-core was a one-time buy; core needs the mill to keep weaving it. Sourcing asks ${mill.name} to hold it for a year or two`} />
-        {!blk && (canSource
-          ? <div className="pt-1 flex gap-1">{!f.coreBlock ? <Button size="sm" variant="primary" onClick={() => { setBlk(true); setBlkYears(1); setBlkUntil(''); setBlkMpm(String(Math.max(100, Math.round(c.baseMpw * 4.33 / 50) * 50))); setBlkNote(''); }}>Agree a block with {mill.name}…</Button>
-            : <><Button size="sm" variant={-daysAgo(f.coreBlock.until) <= 60 ? 'primary' : undefined} onClick={() => { setBlk(true); setBlkYears(1); setBlkUntil(''); setBlkMpm(String(f.coreBlock!.metresPerMonth)); setBlkVia(f.coreBlock!.via); setBlkNote(f.coreBlock!.note); }}>Renew / change…</Button><Button size="sm" variant="ghost" onClick={() => endCoreBlock(f.id)}>End block</Button></>}</div>
-          : !f.coreBlock ? <ActsBy role="sourcing" does={`asks ${mill.name} to block this fabric for a year or two`} /> : null)}
-        {blk && <div className="mt-2 p-3" style={{ background:'var(--accent-soft)', borderRadius: 8 }}>
-          <div className="label">What did {mill.name} agree to hold?</div>
-          <div className="flex gap-1 mb-2">{([[1, 'One year'], [2, 'Two years'], [0, 'Until a date…']] as const).map(([y, l]) => <button key={y} type="button" className={`btn sm ${blkYears === y ? 'primary' : ''}`} onClick={() => setBlkYears(y)}>{l}</button>)}</div>
-          <div className="grid gap-2.5 items-end" style={{ gridTemplateColumns: blkYears === 0 ? '150px 120px 110px 1fr' : '120px 110px 1fr' }}>
-            {blkYears === 0 && <Field label="Hold until"><Input type="date" value={blkUntil} onChange={e => setBlkUntil(e.target.value)} /></Field>}
-            <Field label="Metres a month" hint={`planned demand ≈ ${Math.round(c.baseMpw * 4.33)} m`}><Input type="number" min={0} value={blkMpm} onChange={e => setBlkMpm(e.target.value)} /></Field>
-            <Field label="Agreed over"><select className="input" value={blkVia} onChange={e => setBlkVia(e.target.value as 'email' | 'whatsapp' | 'call')}><option value="email">email</option><option value="whatsapp">WhatsApp</option><option value="call">call</option></select></Field>
-            <Field label="Terms" hint="price fixed? reviewed when?"><Input value={blkNote} onChange={e => setBlkNote(e.target.value)} placeholder="e.g. price fixed for the first year" /></Field>
-          </div>
-          <div className="flex gap-2 mt-2"><Button size="sm" variant="primary" disabled={blkYears === 0 ? !blkUntil : !Number(blkMpm)} onClick={() => { const until = blkYears === 0 ? (fromDateInput(blkUntil) ?? iso(TODAY)) : iso(addDays(TODAY, 365 * blkYears)); agreeCoreBlock(f.id, until, Number(blkMpm) || 0, blkVia, blkNote.trim()); setBlk(false); }}>Mill agreed — record the block</Button><Button size="sm" variant="ghost" onClick={() => setBlk(false)}>Cancel</Button></div>
-        </div>}
-      </>}
-      <KV k="Family / range" v={f.family} note={range ? `${familyHealthy} healthy of ${range.targetOptions} planned in this family` : undefined} />
-      <KV k="Fabric vendor" v={<VendorLink id={mill.id}>{mill.name}</VendorLink>} note={`${mill.kind} · ${mill.location} · ${mill.leadDays}d measured lead · ${Math.round(mill.onTimeRate * 100)}% on time`} />
-      {f.swatchBook && <KV k="Swatch book" v={f.swatchBook} note="where the store finds it" />}
-      {f.international && <div className="pt-2"><Note tone="warn">International — Enigma's auto-PO does not reach this fabric. Reordering is a person's job, and the reorder point below is what that person should act on.</Note></div>}
-    </Section>}
+    {blk && <div className="mt-2 mb-2 p-3" style={{ background:'var(--accent-soft)', borderRadius: 8 }}>
+      <div className="label">What did {mill.name} agree to hold?</div>
+      <div className="flex gap-1 mb-2">{([[1, 'One year'], [2, 'Two years'], [0, 'Until a date']] as const).map(([y, l]) => <button key={y} type="button" className={`btn sm ${blkYears === y ? 'primary' : ''}`} onClick={() => setBlkYears(y)}>{l}</button>)}</div>
+      <div className="grid gap-2.5 items-end" style={{ gridTemplateColumns: blkYears === 0 ? '150px 120px 110px 1fr' : '120px 110px 1fr' }}>
+        {blkYears === 0 && <Field label="Hold until"><Input type="date" value={blkUntil} onChange={e => setBlkUntil(e.target.value)} /></Field>}
+        <Field label="Metres a month"><Input type="number" min={0} value={blkMpm} onChange={e => setBlkMpm(e.target.value)} /></Field>
+        <Field label="Agreed over"><select className="input" value={blkVia} onChange={e => setBlkVia(e.target.value as 'email' | 'whatsapp' | 'call')}><option value="email">email</option><option value="whatsapp">WhatsApp</option><option value="call">call</option></select></Field>
+        <Field label="Terms"><Input value={blkNote} onChange={e => setBlkNote(e.target.value)} placeholder="price fixed for the first year" /></Field>
+      </div>
+      <div className="flex gap-2 mt-2"><Button size="sm" variant="primary" disabled={blkYears === 0 ? !blkUntil : !Number(blkMpm)} onClick={() => { const until = blkYears === 0 ? (fromDateInput(blkUntil) ?? iso(TODAY)) : iso(addDays(TODAY, 365 * blkYears)); agreeCoreBlock(f.id, until, Number(blkMpm) || 0, blkVia, blkNote.trim()); setBlk(false); }}>Record the block</Button><Button size="sm" variant="ghost" onClick={() => setBlk(false)}>Cancel</Button></div>
+    </div>}
+    </Card>}
 
     {show('pos') && <FabricPoList f={f} flat={flat} canSource={canSource || canPlan} />}
     {show('enigma') && <FabricInfo f={f} editable={canDesign || canSource} part="info" flat={flat} />}
     {show('inventory') && <FabricInfo f={f} editable={canDesign || canSource} part="inventory" flat={flat} />}
-
-    {show('overview') && f.bucket === 'BESPOKE' && <Section collapsible={!flat} defaultOpen={flat || undefined} title="Mill availability" right={f.millAvailable === false ? <Pill tone="risk">sold out at mill</Pill> : <Pill tone="good">available</Pill>}>
-      <KV k="Mill last reported" v={f.millAvailable === false ? 'Sold out' : f.millStockMetres != null ? `${f.millStockMetres} m at the mill` : 'Available'} note={`${fmtRel(f.millReportedAt)} · the mill's stock is the inventory; the warehouse enters it from the evening sheet`} />
-      <KV k="On Shopify & in stores" v={f.onHold ? 'Switched off' : 'Live'} />
-      {f.millAvailable === false && !f.onHold && <div className="pt-2"><Note tone="risk">The mill says gone; the channel still sells it. Every hour this stays live is an order that cannot be made.</Note>{canSource ? <div className="mt-2"><Button variant="primary" size="sm" onClick={() => setFabricHold(f.id, true)}>Switch off on Shopify & stores</Button></div> : <ActsBy role="sourcing" does="switches it off on Shopify and in stores" />}</div>}
-      {f.onHold && f.millAvailable && canSource && <div className="pt-2"><Button size="sm" onClick={() => setFabricHold(f.id, false)}>Restore to sale</Button></div>}
-    </Section>}
-
-    {show('overview') && <Section collapsible={!flat} defaultOpen={flat || undefined} title="Sales · last 12 weeks">
-      <div className="py-2"><Bars values={f.weeklySalesShirts} ok={inStockWeeks} unit=" shirts" /></div>
-      <div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>Shirts made from this fabric per week. Core is replenished off this; non-core is not — when it is gone, the slot is refilled with a new fabric.</div>
-    </Section>}
-
-    {show('overview') && <Section collapsible={!flat} defaultOpen={flat || undefined} title={`In stores · ${swatches.length} swatch dispatch${swatches.length === 1 ? '' : 'es'}`}>
-      {swatches.length === 0 ? <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>No swatch of this fabric has been dispatched to a store yet — customers cannot pick it from a book.</div> : <>
-        <KV k="Confirmed landed" v={storeNames(swatches.filter(s => s.confirmedOn).map(s => s.storeId)).join(', ') || '—'} />
-        <KV k="Dispatched, unconfirmed" v={storeNames(swatches.filter(s => !s.confirmedOn).map(s => s.storeId)).join(', ') || '—'} note={swatches.some(s => !s.confirmedOn) ? 'nobody knows if these reached the book' : undefined} />
-      </>}
-      {live !== 'Active' && swatches.length > 0 && <div className="pt-2"><Note tone="warn">This fabric is {live.toLowerCase()} but its swatch is in {swatches.length} store book{swatches.length === 1 ? '' : 's'} — customers will keep asking for something that cannot be ordered.</Note></div>}
-    </Section>}
 
     {show('files') && <><Files kind="fabric" subjectId={f.id} labels={FILE_LABELS.fabric} editable hint="the swatch image the block sheet has a column for, the mill's stock sheet from WhatsApp, the block confirmation email" />
     <ThreadPanel kind="fabric" subjectId={f.id} /></>}

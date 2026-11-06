@@ -1183,7 +1183,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 </tbody></table>
 <h3 id="UF-FAB-02"><span class="fid">UF-FAB-02</span>Make a fabric inactive or active</h3>
 <p><strong>Who.</strong> Design, sourcing (any role on the screen in the prototype).</p>
-<p><strong>Where.</strong> Fabric inventory · Actions; Core · weekly review · Status; the fabric&#x27;s facts strip and Where it stands.</p>
+<p><strong>Where.</strong> Fabric inventory · Actions; Core · weekly review · Status; the status line at the top of the fabric record.</p>
 <p><strong>Preconditions.</strong> </p>
 <ul><li>Any non-bespoke fabric.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
@@ -1206,14 +1206,14 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <p><strong>Preconditions.</strong> </p>
 <ul><li>A fabric.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Opens the fabric.</td><td>Header: bucket pill, code, mill, domestic or international. Facts: Physical stock (red at or under threshold), Reserved, On order, Saleable, Threshold, Cost / m, Sells (shirts a week), Status with Make inactive / Make active.</td><td>None.</td></tr>
-<tr><td>2</td><td>Reads Overview.</td><td>Where it stands: Bucket, Change the bucket, supply block (core), Family / range (N healthy of M planned), Fabric vendor (kind, place, measured lead, on time), Swatch book; Sales · last 12 weeks; In stores (swatch dispatches).</td><td>None.</td></tr>
+<tr><td>1</td><td>Opens the fabric.</td><td>Header: bucket pill, code, mill, domestic or international, swatch book. One status pill (can sell, out of stock, inactive) with Make inactive / Make active and Rename. Eight equal tiles: Physical (red at or under threshold), Reserved, On order, Saleable, Threshold, Cover, Cost / m, Sells.</td><td>None.</td></tr>
+<tr><td>2</td><td>Reads Overview.</td><td>A two-column grid, one line a fact: Bucket (with Promote to core / Demote to non-core), Reorder (Enigma auto, or a reordered by hand tag, with the reorder point as a link to Purchase orders), Supply block (core), Family (N healthy of M), Vendor (lead, on time), Swatch book, At the mill (bespoke), In stores (N of M swatches received), Sales · 12 weeks as a small bar row.</td><td>None.</td></tr>
 <tr><td>3</td><td>Switches tab.</td><td>Purchase orders, Fabric info · Enigma, Inventory &amp; movements, Files &amp; conversation.</td><td>None.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
 <ul><li>None.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
-<ul><li>International: a note that Enigma&#x27;s auto-PO does not reach it.</li><li>Unknown id: “No such fabric.”</li></ul>
+<ul><li>International: Reorder shows a reordered by hand tag.</li><li>Bespoke: status follows the mill (out of stock when the mill is sold out).</li><li>Unknown id: “No such fabric.”</li></ul>
 <p><strong>Postconditions.</strong> </p>
 <ul><li>None.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
@@ -1222,12 +1222,12 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 </tbody></table>
 <h3 id="UF-FAB-04"><span class="fid">UF-FAB-04</span>Rename a fabric</h3>
 <p><strong>Who.</strong> Design.</p>
-<p><strong>Where.</strong> Fabric record · Rename this fabric.</p>
+<p><strong>Where.</strong> Fabric record · Rename, beside the status at the top.</p>
 <p><strong>Preconditions.</strong> </p>
 <ul><li>Any fabric.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Clicks Rename this fabric.</td><td>New name (hint: the code does not change) and Why.</td><td>None.</td></tr>
-<tr><td>2</td><td>Types, clicks Rename.</td><td>Toast “Renamed. The code is the same fabric; the old name stays on the record, so the numbers stay one line.” A renamed pill and “formerly &lt;old&gt;”.</td><td>Fabric: name; nameHistory + {name, until, by, note}.</td></tr>
+<tr><td>1</td><td>Clicks Rename.</td><td>New name and Why (the code does not change).</td><td>None.</td></tr>
+<tr><td>2</td><td>Types, clicks Rename.</td><td>Toast “Renamed. The code is the same fabric; the old name stays on the record, so the numbers stay one line.” A renamed pill and “formerly &lt;old&gt;” beside the status.</td><td>Fabric: name; nameHistory + {name, until, by, note}.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
 <ul><li>Rename is disabled while the new name is empty or the same.</li></ul>
@@ -1241,12 +1241,12 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 </tbody></table>
 <h3 id="UF-FAB-05"><span class="fid">UF-FAB-05</span>Promote to core or demote to non-core</h3>
 <p><strong>Who.</strong> Design.</p>
-<p><strong>Where.</strong> Overview · Where it stands · Change the bucket.</p>
+<p><strong>Where.</strong> Overview · Bucket row.</p>
 <p><strong>Preconditions.</strong> </p>
 <ul><li>A core or non-core fabric (never bespoke).</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Clicks Promote to core →.</td><td>Toast “Promoted to core, Enigma&#x27;s auto-PO now applies. Sourcing still has to agree a supply block with the mill.”</td><td>Fabric: bucket CORE; threshold lifted to 40 m if under 20.</td></tr>
-<tr><td>2</td><td>Or clicks Demote to non-core →.</td><td>Toast “Moved back to non-core, sells out once, the slot is refilled with a new fabric.”</td><td>Fabric: bucket NON_CORE.</td></tr>
+<tr><td>1</td><td>Clicks Promote to core.</td><td>Toast “Promoted to core, Enigma&#x27;s auto-PO now applies. Sourcing still has to agree a supply block with the mill.”</td><td>Fabric: bucket CORE; threshold lifted to 40 m if under 20.</td></tr>
+<tr><td>2</td><td>Or clicks Demote to non-core.</td><td>Toast “Moved back to non-core, sells out once, the slot is refilled with a new fabric.”</td><td>Fabric: bucket NON_CORE.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
 <ul><li>Not offered on bespoke.</li></ul>
@@ -1256,27 +1256,27 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <ul><li>Core appears on Core · weekly review and in reorder maths.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
 <tr><td>UF-FAB-05.1</td><td>a non-core fabric with threshold 7</td><td>design promotes it</td><td>it is core and threshold reads 40</td></tr>
-<tr><td>UF-FAB-05.2</td><td>a bespoke fabric</td><td>design opens it</td><td>no Change the bucket row shows (negative)</td></tr>
+<tr><td>UF-FAB-05.2</td><td>a bespoke fabric</td><td>design opens it</td><td>no Promote or Demote link shows (negative)</td></tr>
 </tbody></table>
 <h3 id="UF-FAB-06"><span class="fid">UF-FAB-06</span>Agree, renew or end a core supply block</h3>
 <p><strong>Who.</strong> Sourcing.</p>
-<p><strong>Where.</strong> Overview · Supply block with the mill (core only).</p>
+<p><strong>Where.</strong> Overview · Supply block row (core only).</p>
 <p><strong>Preconditions.</strong> </p>
 <ul><li>A core fabric.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Clicks Agree a block with &lt;mill&gt;… (or Renew / change…).</td><td>“What did &lt;mill&gt; agree to hold?” One year, Two years, Until a date…; Metres a month (planned demand shown), Agreed over (email, WhatsApp, call), Terms.</td><td>None.</td></tr>
+<tr><td>1</td><td>Clicks Agree a block (or Renew).</td><td>“What did &lt;mill&gt; agree to hold?” One year, Two years, Until a date; Metres a month (planned demand shown), Agreed over (email, WhatsApp, call), Terms.</td><td>None.</td></tr>
 <tr><td>2</td><td>Fills and saves.</td><td>The row reads until &lt;date&gt; with metres a month, when, who, how; “Nd left, renew” within 60 days.</td><td>Fabric: coreBlock {until, metresPerMonth, agreedOn, by, via, note}.</td></tr>
-<tr><td>3</td><td>Or clicks End block.</td><td>Amber toast “Supply block ended, the mill is free to drop the article.”</td><td>coreBlock cleared.</td></tr>
+<tr><td>3</td><td>Or clicks End.</td><td>Amber toast “Supply block ended, the mill is free to drop the article.”</td><td>coreBlock cleared.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>Save is disabled without metres (or without a date when Until a date…).</li></ul>
+<ul><li>Record the block is disabled without metres (or without a date when Until a date).</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
 <ul><li>No block: “none agreed” in red.</li></ul>
 <p><strong>Postconditions.</strong> </p>
 <ul><li>None.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
 <tr><td>UF-FAB-06.1</td><td>a core fabric with no block</td><td>sourcing agrees one year at 200 m a month</td><td>the row shows until a year from today</td></tr>
-<tr><td>UF-FAB-06.2</td><td>Until a date… with no date</td><td>sourcing looks at save</td><td>it is disabled (negative)</td></tr>
+<tr><td>UF-FAB-06.2</td><td>Until a date with no date</td><td>sourcing looks at Record the block</td><td>it is disabled (negative)</td></tr>
 </tbody></table>
 <h3 id="UF-FAB-07"><span class="fid">UF-FAB-07</span>Edit the fabric&#x27;s Enigma fields</h3>
 <p><strong>Who.</strong> Design, sourcing.</p>
@@ -1431,25 +1431,25 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>UF-FAB-14.1</td><td>the Core filter</td><td>design exports</td><td>only core rows are in the file</td></tr>
 <tr><td>UF-FAB-14.2</td><td>an empty filter</td><td>design exports</td><td>the file has headers only (negative)</td></tr>
 </tbody></table>
-<h3 id="UF-FAB-15"><span class="fid">UF-FAB-15</span>Switch a bespoke fabric off when the mill sells out</h3>
-<p><strong>Who.</strong> Sourcing.</p>
-<p><strong>Where.</strong> Bespoke fabric · Overview · Mill availability.</p>
+<h3 id="UF-FAB-15"><span class="fid">UF-FAB-15</span>Make a bespoke fabric inactive when the mill sells out</h3>
+<p><strong>Who.</strong> Sourcing, design.</p>
+<p><strong>Where.</strong> Bespoke fabric · status at the top; Overview · At the mill.</p>
 <p><strong>Preconditions.</strong> </p>
-<ul><li>A bespoke fabric the mill reports sold out, still live.</li></ul>
+<ul><li>A bespoke fabric the mill reports sold out, still on sale.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Reads the risk note.</td><td>“The mill says gone; the channel still sells it.”</td><td>None.</td></tr>
-<tr><td>2</td><td>Clicks Switch off on Shopify &amp; stores.</td><td>Toast “Inactive: off Shopify and the stores.”</td><td>Fabric: onHold true.</td></tr>
-<tr><td>3</td><td>When the mill has it again, clicks Restore to sale.</td><td>Toast “Active: back on sale.”</td><td>onHold false.</td></tr>
+<tr><td>1</td><td>Reads the record.</td><td>Status out of stock; At the mill reads sold out · still on sale, make it inactive.</td><td>None.</td></tr>
+<tr><td>2</td><td>Clicks Make inactive.</td><td>Toast “Inactive: off Shopify and the stores.” The status reads inactive.</td><td>Fabric: onHold true.</td></tr>
+<tr><td>3</td><td>When the mill has it again, clicks Make active.</td><td>Toast “Active: back on sale.”</td><td>onHold false.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>Only sourcing.</li></ul>
+<ul><li>The status and its action sit only at the top of the record.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
 <ul><li>Bespoke is not in Fabric inventory; open it from a mill or search.</li></ul>
 <p><strong>Postconditions.</strong> </p>
 <ul><li>The store bill form stops offering it.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-FAB-15.1</td><td>a sold-out bespoke fabric</td><td>sourcing switches it off</td><td>it reads Switched off on Shopify &amp; in stores</td></tr>
-<tr><td>UF-FAB-15.2</td><td>a design login</td><td>it opens the fabric</td><td>no switch-off button shows (negative)</td></tr>
+<tr><td>UF-FAB-15.1</td><td>a sold-out bespoke fabric</td><td>sourcing makes it inactive</td><td>the status reads inactive</td></tr>
+<tr><td>UF-FAB-15.2</td><td>a bespoke fabric the mill has</td><td>anyone opens it</td><td>the status reads can sell, not out of stock (negative)</td></tr>
 </tbody></table>
 </section>
 <section id="s9"><p class="eyebrow"><b>Section 10</b></p><h2>Purchase orders and supply</h2><div class="rule-accent"></div>
@@ -1493,11 +1493,11 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 </tbody></table>
 <h3 id="UF-PO-03"><span class="fid">UF-PO-03</span>Raise a PO from the fabric</h3>
 <p><strong>Who.</strong> Sourcing, design.</p>
-<p><strong>Where.</strong> Fabric · Purchase orders tab · How this fabric is reordered.</p>
+<p><strong>Where.</strong> Fabric · Purchase orders tab · the reorder line.</p>
 <p><strong>Preconditions.</strong> </p>
 <ul><li>A fabric under its reorder point with no open PO.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Reads Rule, Reorder point, Right now.</td><td>None.</td><td>None.</td></tr>
+<tr><td>1</td><td>Reads the one line: Rule, Reorder point, Now (under or above).</td><td>None.</td><td>None.</td></tr>
 <tr><td>2</td><td>Clicks Raise PO now · N m.</td><td>Toast as UF-PO-02.</td><td>As UF-PO-02.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
@@ -2347,7 +2347,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>UF-FAB-12</td><td>Read the ranges</td><td>3.1</td><td>src/screens/Fabrics.tsx</td></tr>
 <tr><td>UF-FAB-13</td><td>Find a design</td><td>6.6</td><td>src/screens/Designs.tsx · DesignsList</td></tr>
 <tr><td>UF-FAB-14</td><td>Export fabric inventory</td><td>3.1</td><td>src/screens/Fabrics.tsx</td></tr>
-<tr><td>UF-FAB-15</td><td>Switch a bespoke fabric off when the mill sells out</td><td>3.2</td><td>src/screens/Fabrics.tsx</td></tr>
+<tr><td>UF-FAB-15</td><td>Make a bespoke fabric inactive when the mill sells out</td><td>3.2</td><td>src/screens/Fabrics.tsx · FabricStatusLine</td></tr>
 <tr><td>UF-PO-01</td><td>Read open fabric POs</td><td>4.1</td><td>src/screens/Fabrics.tsx · POs tab</td></tr>
 <tr><td>UF-PO-02</td><td>Raise a PO by hand for international core</td><td>4.1, 4 (rule)</td><td>src/screens/Fabrics.tsx; store.ts · raiseFabricPo</td></tr>
 <tr><td>UF-PO-03</td><td>Raise a PO from the fabric</td><td>3.2, 4.1</td><td>src/screens/Fabrics.tsx · FabricPoList</td></tr>
@@ -2400,15 +2400,14 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>3</td><td>Sending the vendor to design</td><td>Sourcing must click Send to design → after Save vendor; until then the ask stays on Your move.</td><td>Save vendor moves it to state 2 and Waiting on design.</td><td>UF-SRC-02, UF-SRC-04</td></tr>
 <tr><td>4</td><td>Live online and the inactive flag</td><td>Ticking Live online does not make the fabric active for the website.</td><td>Off hold for the website.</td><td>UF-DES-12</td></tr>
 <tr><td>5</td><td>Make inactive rights</td><td>Make inactive / Make active has no role check on the list, the core review or the fabric page.</td><td>A button shows only for the role that owns the step.</td><td>UF-FAB-02</td></tr>
-<tr><td>6</td><td>Old hold controls</td><td>Bespoke still shows Switch off on Shopify &amp; stores and Restore to sale; a core fabric back in stock shows Switch back on, in stock. Both set the same inactive flag under other names.</td><td>One pair of words: Make inactive / Make active.</td><td>UF-FAB-15</td></tr>
-<tr><td>7</td><td>Edit Vendor toast</td><td>Saving a mill shows the factory toast “Factory master saved, the allocation rules use it from the next draft.”</td><td>None stated.</td><td>UF-SRC-10</td></tr>
-<tr><td>8</td><td>Shravani&#x27;s actions</td><td>Production can press Shravani: approve · issue from stock / approve; there is no Shravani login in this edition.</td><td>Shravani approves.</td><td>UF-PROD-26, UF-PROD-27</td></tr>
-<tr><td>9</td><td>Bespoke parcel inward</td><td>The screen that books a bespoke parcel in (scan the mill&#x27;s code) is on the warehouse portal, hidden in this edition, so a bespoke order cannot leave “waiting for cloth” here.</td><td>Bespoke not planned before its parcel is in.</td><td>UF-PROD-01</td></tr>
-<tr><td>10</td><td>Files</td><td>No 25 MB check and no step picker on the Files panel.</td><td>25 MB per file; pick the label and optionally the step.</td><td>UF-COM-05</td></tr>
-<tr><td>11</td><td>Empty comment</td><td>A comment can be a file with no text.</td><td>A comment needs text.</td><td>UF-COM-01</td></tr>
-<tr><td>12</td><td>Changed sheets, factory side</td><td>Code paths for “pending with the factory” and “Told &lt;factory&gt;” remain but can no longer be reached.</td><td>After planning only the logistics remark reaches the factory.</td><td>UF-PROD-19</td></tr>
-<tr><td>13</td><td>Job card</td><td>The order drawer still has a Job card section beside the Order sheet; the factory screen calls the sheet “Order sheet · the job card”.</td><td>Roles table: the merchandiser reads the order sheet and job card.</td><td>UF-PROD-17, UF-FAC-04</td></tr>
-<tr><td>14</td><td>Long dashes in labels</td><td>Some labels and toasts use a long dash (for example Acknowledged, plan on this).</td><td>Doctrine: no long dashes.</td><td>All</td></tr>
+<tr><td>6</td><td>Edit Vendor toast</td><td>Saving a mill shows the factory toast “Factory master saved, the allocation rules use it from the next draft.”</td><td>None stated.</td><td>UF-SRC-10</td></tr>
+<tr><td>7</td><td>Shravani&#x27;s actions</td><td>Production can press Shravani: approve · issue from stock / approve; there is no Shravani login in this edition.</td><td>Shravani approves.</td><td>UF-PROD-26, UF-PROD-27</td></tr>
+<tr><td>8</td><td>Bespoke parcel inward</td><td>The screen that books a bespoke parcel in (scan the mill&#x27;s code) is on the warehouse portal, hidden in this edition, so a bespoke order cannot leave “waiting for cloth” here.</td><td>Bespoke not planned before its parcel is in.</td><td>UF-PROD-01</td></tr>
+<tr><td>9</td><td>Files</td><td>No 25 MB check and no step picker on the Files panel.</td><td>25 MB per file; pick the label and optionally the step.</td><td>UF-COM-05</td></tr>
+<tr><td>10</td><td>Empty comment</td><td>A comment can be a file with no text.</td><td>A comment needs text.</td><td>UF-COM-01</td></tr>
+<tr><td>11</td><td>Changed sheets, factory side</td><td>Code paths for “pending with the factory” and “Told &lt;factory&gt;” remain but can no longer be reached.</td><td>After planning only the logistics remark reaches the factory.</td><td>UF-PROD-19</td></tr>
+<tr><td>12</td><td>Job card</td><td>The order drawer still has a Job card section beside the Order sheet; the factory screen calls the sheet “Order sheet · the job card”.</td><td>Roles table: the merchandiser reads the order sheet and job card.</td><td>UF-PROD-17, UF-FAC-04</td></tr>
+<tr><td>13</td><td>Long dashes in labels</td><td>Some labels and toasts use a long dash (for example Acknowledged, plan on this).</td><td>Doctrine: no long dashes.</td><td>All</td></tr>
 </tbody></table>
 </section>
 <div class="foot"><span>BSC PLM · MTM user flows</span><span>devx Labs · Confidential</span></div></div></body></html>
