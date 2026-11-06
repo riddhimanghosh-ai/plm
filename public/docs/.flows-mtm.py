@@ -61,7 +61,7 @@ table(["Screen (sidebar · hash)", "Design", "Sourcing", "Production", "Unit tea
  ["My factory · merchandiser · #/factory", "none", "none", "not in the sidebar", "none", "act (own factory only)", "act"],
  ["Waiting on you (the bell, every screen)", "own items", "own items", "own items", "own items", "own items", "all"],
 ])
-b("Prototype note.", "The prototype has no separate CAD, cutting, fusing or compiling logins: the four desks open to production and to the warehouse role. The build adds one role per team, each landing on its own desk. Shravani's approval on extra fabric is a button production can also press in the prototype; in the build it is hers alone.")
+b("Prototype note.", "Each CAD, cutting, fusing and compiling person signs in with their own login and lands on their team's desk; only that team acts on it, and production reads it. In walkthrough mode every button is open for demos. Shravani's approval on extra material is a button production can also press in the prototype; in the build it is hers alone.")
 
 h2("3. The order lifecycle")
 p("An MTM order is always at exactly one stage. Each move is a scan or a desk action with who and when. The four desks sit between PP · planned and In production.")
