@@ -564,7 +564,7 @@ export function ppQueue(db: Db, freezeHours = PP_FREEZE_HOURS) {
 
 /* ---------- pre-production: CAD → cutting → fusing → compiling, between the plan and the scan-out ---------- */
 export const PREP_STEPS: { key: PrepStep; label: string; team: string; does: string }[] = [
-  { key: 'cad', label: 'CAD', team: 'CAD team', does: 'reads the order sheet XML from the connected order software, makes the CAD file and prints it for the next teams' },
+  { key: 'cad', label: 'CAD', team: 'CAD team', does: 'loads the order sheet XML into the CAD software, which makes the pattern in one click; prints the layout for cutting; can attach the CAD file' },
   { key: 'cutting', label: 'Cutting', team: 'Cutting team', does: 'cuts the fabric to the CAD and attaches the print to the bundle' },
   { key: 'fusing', label: 'Fusing', team: 'Fusing team', does: 'fuses the collar, cuff and placket interlining' },
   { key: 'compiling', label: 'Compiling', team: 'Compiling team', does: 'checks the bundle is complete and approves it, contrast fabric included' },

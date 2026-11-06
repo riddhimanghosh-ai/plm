@@ -50,7 +50,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <h1>BSC PLM, the <em>made-to-measure</em> user flows</h1>
 <p class="lede">Every user flow in the MTM edition, one job at a time, from the person&#x27;s side: who, where, what must be true first, each click and what the system shows and writes, the rules, the edge paths, what changes elsewhere, and the QA cases to accept it.</p>
 <p class="meta">4 Nov 2026 · devx Labs · <a href="bsc-plm-prd-mtm.html">Read the PRD</a> · <a href="bsc-plm-flows-mtm-v1.0.docx">Download the Word file</a> · <a href="../">Open the prototype</a></p>
-<div class="stats"><div><div class="n">110</div><div class="l">User flows</div></div><div><div class="n">10</div><div class="l">Modules</div></div><div><div class="n">230</div><div class="l">QA cases</div></div><div><div class="n">10</div><div class="l">Roles</div></div></div>
+<div class="stats"><div><div class="n">110</div><div class="l">User flows</div></div><div><div class="n">10</div><div class="l">Modules</div></div><div><div class="n">231</div><div class="l">QA cases</div></div><div><div class="n">10</div><div class="l">Roles</div></div></div>
 <nav class="toc"><a href="#s0"><span>01</span>Purpose and how to read</a><a href="#s1"><span>02</span>Roles and permissions</a><a href="#s2"><span>03</span>The order lifecycle</a><a href="#s3"><span>04</span>Global conventions</a><a href="#s4"><span>05</span>Glossary</a><a href="#s5"><span>06</span>Production</a><a href="#s6"><span>07</span>Unit teams: CAD, Cutting, Fusing, Compiling</a><a href="#s7"><span>08</span>Factory merchandiser</a><a href="#s8"><span>09</span>Fabric master</a><a href="#s9"><span>10</span>Purchase orders and supply</a><a href="#s10"><span>11</span>Sourcing</a><a href="#s11"><span>12</span>Design</a><a href="#s12"><span>13</span>Swatch desk, phase one</a><a href="#s13"><span>14</span>Conversation, mentions, files and the bell</a><a href="#s14"><span>15</span>RetailOS interfaces</a><a href="#s15"><span>16</span>Traceability</a><a href="#s16"><span>17</span>Open points</a></nav>
 <section id="s0"><p class="eyebrow"><b>Section 01</b></p><h2>Purpose and how to read</h2><div class="rule-accent"></div>
 <p>This is the build and test companion to the MTM PRD. The PRD says what the product is and why; this document says, for every job a person does in the MTM edition, exactly what they click, what they see, what is saved, and how QA proves it works. It is written from the person&#x27;s side, one flow per job.</p>
@@ -804,14 +804,14 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>2</td><td>Types remark (optional), clicks Mark done (Compiling: Approve &amp; mark compiled).</td><td>Toast “Done: the next team sees it.” (compiling: UF-UNIT-13). The box turns green: done &lt;time&gt; · &lt;name&gt; · took &lt;duration&gt;.</td><td>prep[desk].doneBy, doneOn, remark. Desk log + done (note = remark).</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>CAD: Mark done disabled without a CAD file (UF-UNIT-10).</li></ul>
+<ul><li>CAD: the CAD file is optional (UF-UNIT-10).</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
 <ul><li>Mark done on an order never taken up first writes a taken up line and a done line, both now.</li></ul>
 <p><strong>Postconditions.</strong> </p>
 <ul><li>The order appears on the next desk under Waiting for us.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
 <tr><td>UF-UNIT-04.1</td><td>an order taken up at 09:00</td><td>the fusing team marks it done at 09:25</td><td>the box reads took 25 min and the compiling desk lists it</td></tr>
-<tr><td>UF-UNIT-04.2</td><td>an order at CAD with no file</td><td>the CAD team looks at Mark done</td><td>it is disabled with “upload the CAD file to mark done” (negative)</td></tr>
+<tr><td>UF-UNIT-04.2</td><td>a cutting login</td><td>it opens an order waiting at CAD</td><td>Mark done is not shown (negative)</td></tr>
 </tbody></table>
 <h3 id="UF-UNIT-05"><span class="fid">UF-UNIT-05</span>Mark several orders done at once</h3>
 <p><strong>Who.</strong> Any unit team.</p>
@@ -823,14 +823,14 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>2</td><td>Clicks Mark done.</td><td>Toast “Done: the next team sees it.”</td><td>Each order as UF-UNIT-04.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>CAD: disabled while any ticked order has no CAD file, with “N without a CAD file: upload it first”.</li></ul>
+<ul><li>None.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
 <ul><li>None.</li></ul>
 <p><strong>Postconditions.</strong> </p>
 <ul><li>As UF-UNIT-04.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
 <tr><td>UF-UNIT-05.1</td><td>5 taken up</td><td>the cutting team marks all done with remark “print attached”</td><td>5 done lines with the remark are logged</td></tr>
-<tr><td>UF-UNIT-05.2</td><td>2 of 3 CAD orders with files</td><td>the CAD team ticks all 3</td><td>Mark done is disabled and the warning reads 1 without a CAD file (negative)</td></tr>
+<tr><td>UF-UNIT-05.2</td><td>no order ticked</td><td>the team looks for the bar</td><td>Mark done is not shown (negative)</td></tr>
 </tbody></table>
 <h3 id="UF-UNIT-06"><span class="fid">UF-UNIT-06</span>Mark an order blocked</h3>
 <p><strong>Who.</strong> Any unit team.</p>
@@ -907,24 +907,25 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>UF-UNIT-09.1</td><td>an order without a file</td><td>Ganesh uploads BSC-74829.dxf</td><td>the file shows and the log has CAD file uploaded with the name</td></tr>
 <tr><td>UF-UNIT-09.2</td><td>a done order on the Done tab</td><td>the CAD team looks for upload</td><td>no upload control is shown (negative)</td></tr>
 </tbody></table>
-<h3 id="UF-UNIT-10"><span class="fid">UF-UNIT-10</span>Mark CAD done only with its file</h3>
+<h3 id="UF-UNIT-10"><span class="fid">UF-UNIT-10</span>Mark CAD done, with or without the CAD file</h3>
 <p><strong>Who.</strong> CAD team.</p>
 <p><strong>Where.</strong> CAD desk drawer or bulk bar.</p>
 <p><strong>Preconditions.</strong> </p>
-<ul><li>An order taken up at CAD.</li></ul>
+<ul><li>An order taken up at CAD; the pattern made from the XML in the CAD software and printed.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Without a file, looks at Mark done.</td><td>Disabled, with “upload the CAD file to mark done”.</td><td>None.</td></tr>
-<tr><td>2</td><td>Uploads the file, clicks Mark done.</td><td>As UF-UNIT-04.</td><td>As there.</td></tr>
+<tr><td>1</td><td>Optionally clicks Upload CAD file and picks the soft copy.</td><td>Toast “CAD file &lt;name&gt; uploaded on the order.”</td><td>cadFile {name, by, on}; Desk log CAD file uploaded.</td></tr>
+<tr><td>2</td><td>Clicks Mark done.</td><td>As UF-UNIT-04; without a file the line reads attaching the CAD file is optional.</td><td>As there.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>The rule holds in bulk too (UF-UNIT-05).</li></ul>
+<ul><li>None: the CAD file is optional; the printout is what goes to cutting.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
-<ul><li>None.</li></ul>
+<ul><li>A file attached later still shows on the order for cutting.</li></ul>
 <p><strong>Postconditions.</strong> </p>
 <ul><li>The cutting desk receives the order.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-UNIT-10.1</td><td>a file uploaded</td><td>the CAD team marks done</td><td>the order leaves CAD</td></tr>
-<tr><td>UF-UNIT-10.2</td><td>no file</td><td>the CAD team tries Mark done</td><td>it cannot (negative)</td></tr>
+<tr><td>UF-UNIT-10.1</td><td>a file uploaded</td><td>the CAD team marks done</td><td>the order leaves CAD and the file shows on the order</td></tr>
+<tr><td>UF-UNIT-10.2</td><td>no file</td><td>the CAD team marks done</td><td>the order leaves CAD and no file shows on the order</td></tr>
+<tr><td>UF-UNIT-10.3</td><td>a cutting login</td><td>it looks for Upload CAD file</td><td>it is not shown (negative)</td></tr>
 </tbody></table>
 <h3 id="UF-UNIT-11"><span class="fid">UF-UNIT-11</span>Find the roll and cut</h3>
 <p><strong>Who.</strong> Cutting team (Sanjay, Imran in the sample data).</p>
@@ -2320,7 +2321,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>UF-UNIT-07</td><td>Unblock an order</td><td>2.4</td><td>src/screens/Preprod.tsx</td></tr>
 <tr><td>UF-UNIT-08</td><td>Read the order sheet XML</td><td>2.4</td><td>src/screens/Preprod.tsx · orderSheetXml</td></tr>
 <tr><td>UF-UNIT-09</td><td>Upload or replace the CAD file</td><td>2.4</td><td>src/screens/Preprod.tsx; store.ts · uploadCad</td></tr>
-<tr><td>UF-UNIT-10</td><td>Mark CAD done only with its file</td><td>2.4</td><td>src/screens/Preprod.tsx</td></tr>
+<tr><td>UF-UNIT-10</td><td>Mark CAD done, with or without the CAD file</td><td>2.4</td><td>src/screens/Preprod.tsx</td></tr>
 <tr><td>UF-UNIT-11</td><td>Find the roll and cut</td><td>2.4</td><td>src/screens/Preprod.tsx; FabricImage.tsx · BinMap</td></tr>
 <tr><td>UF-UNIT-12</td><td>Add contrast fabric</td><td>2.4a</td><td>src/screens/Preprod.tsx; store.ts · addContrast</td></tr>
 <tr><td>UF-UNIT-13</td><td>Approve and mark compiled</td><td>2.4a</td><td>src/store.ts · prepDone</td></tr>

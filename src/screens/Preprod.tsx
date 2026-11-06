@@ -95,9 +95,10 @@ export function PrepDesk({ step }: { step: PrepStep }) {
         <Input value={blockWhy} onChange={e => setBlockWhy(e.target.value)} placeholder="why it is blocked" style={{ width: 200 }} />
         <Button size="sm" variant="ghost" disabled={!blockWhy.trim()} onClick={() => { prepBlock(ids, step, blockWhy.trim()); setBlockWhy(''); setSel(new Set()); }}>Mark blocked</Button></span>}
       {view === 'mine' && <><Input value={remark} onChange={e => setRemark(e.target.value)} placeholder="remark (optional)" style={{ width: 240 }} />
-        {(() => { const noFile = step === 'cad' ? ids.filter(id => !rows.find(o => o.id === id)?.cadFile).length : 0; return <>
-        <Button size="sm" variant="primary" disabled={noFile > 0} onClick={() => { prepDone(ids, step, remark.trim()); setRemark(''); setSel(new Set()); }}>{step === 'compiling' ? 'Approve & mark compiled' : 'Mark done'}</Button>
-        {noFile > 0 && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>{noFile} without a CAD file: upload it first</span>}</>; })()}</>}
+        {/* the CAD file is optional (27 Oct call): the real output is the printout; a soft copy can be attached */}
+        {(() => { return <>
+        <Button size="sm" variant="primary" onClick={() => { prepDone(ids, step, remark.trim()); setRemark(''); setSel(new Set()); }}>{step === 'compiling' ? 'Approve & mark compiled' : 'Mark done'}</Button>
+        </>; })()}</>}
     </div>}
     {rows.length === 0 ? <Card><Empty title={view === 'waiting' ? 'Nothing waiting for this desk.' : view === 'mine' ? 'Nothing taken up.' : view === 'blocked' ? 'Nothing blocked.' : 'Nothing done yet.'} body={view === 'waiting' ? `Orders arrive here once ${step === 'cad' ? 'production submits a plan' : `the ${PREP_STEPS[PREP_STEPS.findIndex(x => x.key === step) - 1].label} desk marks them done`}.` : ''} /></Card>
       : <Card><table className="t">
@@ -173,10 +174,10 @@ function PrepOrderPanel({ o, step, onXml }: { o: CustomerOrder; step: PrepStep; 
         {bl ? <><span className="text-[12.5px]" style={{ color: 'var(--risk)' }}>Blocked: {bl.reason}</span><Button size="sm" variant="primary" onClick={() => prepBlock([o.id], step, null)}>Unblock</Button></>
           : !e ? <Button size="sm" variant="primary" onClick={() => prepTake([o.id], step)}>Take up</Button>
           : <><Input value={remark} onChange={ev => setRemark(ev.target.value)} placeholder="remark (optional)" style={{ width: 200 }} />
-            <Button size="sm" variant="primary" disabled={step === 'cad' && !o.cadFile} onClick={() => { prepDone([o.id], step, remark.trim()); setRemark(''); }}>{step === 'compiling' ? 'Approve & mark compiled' : 'Mark done'}</Button>
-            {step === 'cad' && <label className={`btn sm ${o.cadFile ? '' : 'primary'}`} style={{ cursor: 'pointer' }}>{o.cadFile ? 'Replace CAD file' : 'Upload CAD file'}
+            <Button size="sm" variant="primary" onClick={() => { prepDone([o.id], step, remark.trim()); setRemark(''); }}>{step === 'compiling' ? 'Approve & mark compiled' : 'Mark done'}</Button>
+            {step === 'cad' && <label className="btn sm" style={{ cursor: 'pointer' }}>{o.cadFile ? 'Replace CAD file' : 'Upload CAD file'}
               <input type="file" accept=".dxf,.plt,.cut,.pdf,.xml,.zip" style={{ display: 'none' }} onChange={ev => { const file = ev.target.files?.[0]; if (file) uploadCad(o.id, file.name); ev.target.value = ''; }} /></label>}
-            {step === 'cad' && !o.cadFile && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>upload the CAD file to mark done</span>}</>}
+            {step === 'cad' && !o.cadFile && <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>attaching the CAD file is optional</span>}</>}
         {!bl && <span className="flex gap-1 items-center"><Input value={why} onChange={ev => setWhy(ev.target.value)} placeholder="why it is blocked" style={{ width: 180 }} /><Button size="sm" variant="ghost" disabled={!why.trim()} onClick={() => { prepBlock([o.id], step, why.trim()); setWhy(''); }}>Mark blocked</Button></span>}
       </div>}
     </Section>
