@@ -105,6 +105,8 @@ export function FabricRequirement({ c, design, prod, initial }: { c: Concept; de
     {at('yusuf') && <Section title="Swatch desk" collapsible={false} right={c.swatch?.handoverOn ? <Pill tone="good">with Yusuf</Pill> : <Pill tone="neutral">{c.fabricPo ? 'warehouse' : 'after the PO'}</Pill>}>
       {c.fabricPo || c.swatch ? <SwatchChecks c={c} /> : <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>Opens once the PO is pushed.</div>}
     </Section>}
+    {/* the sticker goes on the swatches Yusuf cuts: shown here to print, as many as needed */}
+    {at('yusuf') && (d0 ? <StickerSheet c={c} canMark={false} title="Sticker · for the swatches" /> : <Section title="Sticker" collapsible={false}><div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>The sticker is made when design saves the fabric details (Details in Enigma).</div></Section>)}
 
     {at('stores') && <StoresSection c={c} rows={storeRows} wh={wh} />}
 

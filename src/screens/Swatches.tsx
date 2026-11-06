@@ -6,7 +6,8 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../store';
 import type { Concept } from '../domain/types';
 import { fmtDate, daysAgo, conceptOf } from '../domain/engines';
-import { Page, Card, Pill, Seg, Th, Button, Section, useExamples } from '../ui';
+import { Page, Card, Pill, Seg, Th, Button, Section, Input, useExamples } from '../ui';
+import { STORES } from '../domain/reference';
 import { MTM_ONLY } from '../domain/edition';
 
 type Step = 'inward' | 'handover' | 'cut' | 'sticker' | 'dispatched' | 'photos' | 'storesTold';
@@ -103,6 +104,9 @@ export function StickerSheet({ c, canMark, title }: { c: Concept; canMark: boole
   const s = conceptOf(db, c); const f = s.fabric;
   const d0 = (c.designs ?? [])[0];
   const [layout, setLayout] = useState<'label' | 'page'>('label');
+  /* as many copies as the swatches going out: one per store by default */
+  const [copies, setCopies] = useState(String(STORES.length));
+  const n = Math.max(1, Math.min(500, Math.round(Number(copies)) || 1));
   /* The label, five lines, as the sheet they print today:
        BER.DOSOYE-1816            the fabric code
        Purcell - 13728            the name, then the mill's article (or the first design's product code)
@@ -115,12 +119,12 @@ export function StickerSheet({ c, canMark, title }: { c: Concept; canMark: boole
   const printSticker = () => {
     const w = window.open('', '_blank', 'width=760,height=980'); if (!w) return;
     const css = layout === 'page'
-      ? `@page { size: A4; margin: 14mm; } .pg { height: calc(100vh - 28mm); display:flex; align-items:center; justify-content:center; }
+      ? `@page { size: A4; margin: 14mm; } .pg { height: calc(100vh - 28mm); page-break-after: always; display:flex; align-items:center; justify-content:center; }
          .b { border: 1px dashed #999; padding: 18mm 16mm; text-align:center; min-width: 120mm; }
          .c { font-family: ui-monospace, Menlo, monospace; font-size: 16px; color:#555; } .n { font-size: 30px; font-weight: 700; margin: 10px 0 6px; line-height: 1.2; } .k { font-size: 14px; letter-spacing:.04em; } .p { font-size: 24px; margin-top: 10px; } .s { font-size: 12px; margin-top: 6px; color:#666; }`
-      : `@page { size: A4; margin: 10mm; } .b { width: 63mm; height: 36mm; border:1px solid #333; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-size: 12.5px; line-height: 1.45; padding: 2mm; box-sizing:border-box; } .s { font-size: 9.5px; }`;
+      : `@page { size: A4; margin: 10mm; } .grid { display:grid; grid-template-columns: repeat(3, 63mm); gap: 0; } .b { width: 63mm; height: 36mm; border:1px solid #333; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-size: 12.5px; line-height: 1.45; padding: 2mm; box-sizing:border-box; } .s { font-size: 9.5px; }`;
     const body = `<div class="b"><div class="c">${l.l1}</div><div class="n">${l.l2}</div><div class="k">${l.l3}</div><div class="p">${l.l4}</div><div class="s">${l.l5}</div></div>`;
-    w.document.write(`<!doctype html><title>Sticker · ${f?.name ?? designName(c)}</title><style>body { margin:0; font-family: Calibri, -apple-system, Helvetica, Arial, sans-serif; color:#222; } ${css}</style>${layout === 'page' ? `<div class="pg">${body}</div>` : body}<script>window.onload=()=>{window.print();}</script>`);
+    w.document.write(`<!doctype html><title>Sticker · ${f?.name ?? designName(c)}</title><style>body { margin:0; font-family: Calibri, -apple-system, Helvetica, Arial, sans-serif; color:#222; } ${css}</style>${layout === 'page' ? Array.from({ length: n }, () => `<div class="pg">${body}</div>`).join('') : `<div class="grid">${Array.from({ length: n }, () => body).join('')}</div>`}<script>window.onload=()=>{window.print();}</script>`);
     w.document.close();
     if (canMark && !MTM_ONLY && !c.swatch?.stickerOn) conceptSwatch(c.id, 'sticker');
   };
@@ -133,8 +137,9 @@ export function StickerSheet({ c, canMark, title }: { c: Concept; canMark: boole
       </div>
       <div className="flex items-end gap-2 flex-wrap">
         <div><span className="label">Layout</span><div className="seg"><button type="button" className={layout === 'label' ? 'on' : ''} onClick={() => setLayout('label')}>Label</button><button type="button" className={layout === 'page' ? 'on' : ''} onClick={() => setLayout('page')}>Full page</button></div></div>
-        <Button variant="primary" onClick={printSticker}>Print sticker{c.swatch?.stickerOn || !canMark || MTM_ONLY ? '' : ' & mark'}</Button>
-        <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>One sticker for the fabric</span>
+        <Button variant="primary" onClick={printSticker}>Print {n} sticker{n === 1 ? '' : 's'}{c.swatch?.stickerOn || !canMark || MTM_ONLY ? '' : ' & mark'}</Button>
+        <div><span className="label">Copies</span><Input type="number" min={1} value={copies} onChange={e => setCopies(e.target.value)} style={{ width: 80 }} /></div>
+        <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>one per store by default ({STORES.length}); a label sheet fits 21 to an A4</span>
       </div>
     </Section>
   </>;
