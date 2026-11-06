@@ -172,6 +172,8 @@ export interface AppState {
   conceptSendApproval(id: string, text: string): void;
   conceptConfigureEnigma(id: string, e: { template: string; consumptionBase: number; consumptionBuffer: number; options: string[] }): void;
   conceptSetName(id: string, newName: string, mrp: number): void;
+  /* one form, filled once: name, MRP, the one design (product code), Enigma's consumption rule, and the sticker, all from the requirement */
+  conceptSaveDetails(id: string, d: { name: string; mrp: number; category: 'Formal' | 'Casual'; style: string | null; description: string | null; buzzwords: string | null; composition: string | null; template: string; base: number; buffer: number }): void;
   conceptSetMarketing(id: string, blurb: string, channels: string[]): void;
   conceptGoLive(id: string): void;                                            // live in stores
   conceptAddDesign(id: string, d: Pick<ConceptDesign, 'name' | 'category' | 'mrp'> & Partial<Pick<ConceptDesign, 'style' | 'cost' | 'description' | 'buzzwords' | 'productType' | 'weightGrams' | 'region' | 'stockMode' | 'status' | 'salesChannel' | 'discountedPrice' | 'media' | 'sizes' | 'variants'>>): void;   // one more design on this fabric, with its product code
@@ -1097,6 +1099,25 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     conceptSetName(id, newName, mrp) { touch(db => { const c = db.concepts.find(x => x.id === id); if (!c) return; c.naming = { ...c.naming, newName, mrp, setOn: now() };
         /* the first design takes marketing's name; the others keep theirs */
         const d0 = (c.designs ?? [])[0]; if (d0) { if (d0.finalName && d0.finalName !== newName) d0.nameHistory = [...(d0.nameHistory ?? []), { name: d0.finalName, until: now(), by: who(), note: 'renamed with the fabric' }]; d0.finalName = newName; } }, 'Name and price set — website, sticker and system read the same thing.'); },
+    conceptSaveDetails(id, d) {
+      const had = !!(get().db.concepts.find(x => x.id === id)?.designs ?? [])[0];
+      touch(db => { const c = db.concepts.find(x => x.id === id); if (!c) return; const t = now();
+        /* name and price: the website, the sticker and Enigma read this one line */
+        c.naming = { ...c.naming, oldName: c.naming.oldName ?? c.name, newName: d.name, mrp: d.mrp, setOn: t };
+        /* the one design on the fabric: its product code is minted once and never changes */
+        let g = (c.designs ?? [])[0];
+        if (!g) { const seq = 4200 + db.concepts.reduce((a, x) => a + (x.designs?.length ?? 0), 0); const code = `BOM-SHI-${d.category === 'Formal' ? 'FM' : 'CS'}-${seq}`; const sizes = ['36', '38', '40', '42', '44', '46'];
+          g = { id:`dsn-${Date.now().toString(36)}-${seq}`, code, name: d.name, finalName: d.name, style: d.style, category: d.category, mrp: d.mrp, cost: null, productType: 'CUSTOM_DESIGN', weightGrams: null, region: 'IND', stockMode: 'track-quantity', status: 'ACTIVE', salesChannel: null, discountedPrice: null, media: [], sizes,
+            variants: sizes.map(sz => ({ size: sz, price: d.mrp, discountedPrice: null, sku: `${code}-${sz}` })), description: d.description, buzzwords: d.buzzwords, enigmaOn: null, liveOn: null, setOn: t, by: who() };
+          c.designs = [g]; }
+        else { if (g.finalName && g.finalName !== d.name) g.nameHistory = [...(g.nameHistory ?? []), { name: g.finalName, until: t, by: who(), note: 'renamed with the fabric' }];
+          Object.assign(g, { finalName: d.name, style: d.style, mrp: d.mrp, description: d.description, buzzwords: d.buzzwords, variants: (g.variants ?? []).map(v => ({ ...v, price: d.mrp })) }); }
+        /* sent to Enigma from here: the design row and the consumption rule, in the same save */
+        g.enigmaOn = g.enigmaOn ?? t; g.enigmaBy = g.enigmaBy ?? who(); g.enigmaSyncedOn = t;
+        c.enigma = { ...c.enigma, template: d.template, consumptionBase: d.base, consumptionBuffer: d.buffer, configuredOn: t, by: who() };
+        const f = c.fabricId ? db.fabrics.find(x => x.id === c.fabricId) : null; if (f && d.composition) f.composition = d.composition; },
+        had ? 'Saved and synced to Enigma. The sticker shows the new details.' : 'Saved and sent to Enigma: the product code is minted, the consumption rule is set, and the sticker is ready.');
+    },
     conceptSetMarketing(id, blurb, channels) { touch(db => { const c = db.concepts.find(x => x.id === id); if (c) c.marketing = { blurb, channels, setOn: now() }; }, 'Marketing story saved — the store and the website will say the same thing.'); },
     conceptGoLive(id) { touch(db => { const c = db.concepts.find(x => x.id === id); if (!c) return; c.liveOn = now(); const f = c.fabricId ? db.fabrics.find(x => x.id === c.fabricId) : null; if (f) f.onHold = false; }, 'Live — orderable in every store and on the website from this moment.'); },
     async attachFiles(kind, subjectId, label, step, files) {

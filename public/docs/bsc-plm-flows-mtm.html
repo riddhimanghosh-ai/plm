@@ -1738,7 +1738,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 </tbody></table>
 </section>
 <section id="s11"><p class="eyebrow"><b>Section 12</b></p><h2>Design</h2><div class="rule-accent"></div>
-<p>Design (Kunal, Janak) runs a new MTM fabric from ask to live online on Requirements (#/design). A requirement is always in one of five states: Requirement requested, Vendor added, PO punched, Fabric in, Live online. It opens in a drawer (?open=&lt;id&gt;) with the sections 1 · Requirement requested, Samples · optional, 2 · Vendor added, 3 · Fabric in, 4 · Live online, plus Design &amp; sticker, files and conversation.</p>
+<p>Design (Kunal, Janak) runs a new MTM fabric from ask to live online on Requirements (#/design). A requirement is always in one of five states: Requirement requested, Vendor added, PO punched, Fabric in, Live online. It opens on one screen (?open=&lt;id&gt;): a journey checklist across the top, then The ask, Vendor, Fabric in, Fabric details · goes to Enigma with the sticker, Swatch desk, Live online, Samples · optional, files and conversation.</p>
 <h3 id="UF-DES-01"><span class="fid">UF-DES-01</span>Read the requirements list</h3>
 <p><strong>Who.</strong> Design.</p>
 <p><strong>Where.</strong> Requirements (#/design).</p>
@@ -1800,7 +1800,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 </tbody></table>
 <h3 id="UF-DES-04"><span class="fid">UF-DES-04</span>Push the PO on the vendor card</h3>
 <p><strong>Who.</strong> Design.</p>
-<p><strong>Where.</strong> Requirement · 2 · Vendor added · the vendor card.</p>
+<p><strong>Where.</strong> Requirement · Vendor · the vendor card.</p>
 <p><strong>Preconditions.</strong> </p>
 <ul><li>Sourcing sent a vendor (with design since &lt;date&gt;).</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
@@ -1854,178 +1854,177 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>UF-DES-06.1</td><td>a sent vendor</td><td>design rejects with “shade too dark”</td><td>the struck line shows the reason</td></tr>
 <tr><td>UF-DES-06.2</td><td>a chosen vendor</td><td>design looks for Reject</td><td>it is not offered (negative)</td></tr>
 </tbody></table>
-<h3 id="UF-DES-07"><span class="fid">UF-DES-07</span>Configure the fabric in Enigma</h3>
-<p><strong>Who.</strong> Design.</p>
-<p><strong>Where.</strong> Requirement · 3 · Fabric in · Configured in Enigma.</p>
+<h3 id="UF-DES-07"><span class="fid">UF-DES-07</span>Read a fabric requirement on one screen</h3>
+<p><strong>Who.</strong> Design, sourcing, warehouse, production.</p>
+<p><strong>Where.</strong> Requirements · a row (#/design?open=&lt;id&gt;).</p>
 <p><strong>Preconditions.</strong> </p>
-<ul><li>The PO is punched.</li></ul>
+<ul><li>An MTM new-fabric requirement.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Fills Template, Base m, Buffer m, Options the customer can pick.</td><td>None.</td><td>None.</td></tr>
-<tr><td>2</td><td>Clicks Configured in Enigma.</td><td>Toast “Configured, the option exists in Enigma. Still hidden until it is made live.”</td><td>Concept enigma {template, consumptionBase, consumptionBuffer, options, configuredOn, by}.</td></tr>
+<tr><td>1</td><td>Opens the requirement.</td><td>Across the top, the journey checklist: Requirement raised, Vendor added, PO pushed, Fabric in, Details in Enigma, Swatches to Yusuf, Live online. Done boxes are ticked with the date and who; the current one is highlighted and reads now.</td><td>None.</td></tr>
+<tr><td>2</td><td>Scrolls.</td><td>Sections, always open, in order: The ask, Vendor, Fabric in, Fabric details · goes to Enigma (and the sticker once saved), Swatch desk, Live online, Samples · optional, Files, Conversation.</td><td>None.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>Disabled until a template and base metres are given.</li></ul>
+<ul><li>The journey boxes are read-only; each ticks itself from the step below it.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
+<ul><li>A construction variant keeps its own record and is not covered here.</li></ul>
+<p><strong>Postconditions.</strong> </p>
 <ul><li>None.</li></ul>
-<p><strong>Postconditions.</strong> </p>
-<ul><li>Order sheets on this fabric read base + buffer consumption.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-DES-07.1</td><td>template and base 1.6</td><td>design configures</td><td>the section reads configured with the date</td></tr>
-<tr><td>UF-DES-07.2</td><td>base empty</td><td>design looks at the button</td><td>it is disabled (negative)</td></tr>
+<tr><td>UF-DES-07.1</td><td>a requirement with a vendor sent to design</td><td>design opens it</td><td>Requirement raised and Vendor added are ticked and PO pushed reads now</td></tr>
+<tr><td>UF-DES-07.2</td><td>a requirement with no PO</td><td>the warehouse looks at Swatch desk</td><td>it reads Opens once the PO is pushed and has no boxes (negative)</td></tr>
 </tbody></table>
-<h3 id="UF-DES-08"><span class="fid">UF-DES-08</span>Add the fabric&#x27;s design (one product code)</h3>
-<p><strong>Who.</strong> Design (sourcing can too).</p>
-<p><strong>Where.</strong> Requirement · Design &amp; sticker · + Add the design.</p>
-<p><strong>Preconditions.</strong> </p>
-<ul><li>The fabric has no design yet (the button shows only then).</li></ul>
-<table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Clicks + Add the design.</td><td>Form “The design on this fabric”: Design name, Style / preset, Category, SKU code, Product type, Weight (g), Region, Stock, Primary fabric (fixed), Status, Sales channel, Product media, Variant · option name, Option values; per value a price, discounted price and SKU; Description · PDP; Buzzwords.</td><td>None.</td></tr>
-<tr><td>2</td><td>Clicks Add design.</td><td>Toast “Design added, the fabric&#x27;s product code is minted.” The row shows BOM-SHI-FM-nnnn (or CS).</td><td>Concept designs + one design {code, name, style, category, mrp (lowest variant price), variants, …}.</td></tr>
-</tbody></table>
-<p><strong>Validations and errors.</strong> </p>
-<ul><li>Add design is disabled until a name is given.</li><li>A second design on the same fabric is refused.</li></ul>
-<p><strong>Alternate and edge paths.</strong> </p>
-<ul><li>Sleeve, collar and the rest are order-sheet choices, not designs.</li></ul>
-<p><strong>Postconditions.</strong> </p>
-<ul><li>Listed on Fabric master data · Designs (UF-FAB-13) as Not in Enigma.</li></ul>
-<table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-DES-08.1</td><td>a fabric without a design</td><td>design adds one</td><td>a product code is minted and + Add the design disappears</td></tr>
-<tr><td>UF-DES-08.2</td><td>a fabric with a design</td><td>design looks for + Add the design</td><td>it is not shown (negative)</td></tr>
-</tbody></table>
-<h3 id="UF-DES-09"><span class="fid">UF-DES-09</span>Push the design to Enigma</h3>
+<h3 id="UF-DES-08"><span class="fid">UF-DES-08</span>Fill the fabric&#x27;s details and send them to Enigma</h3>
 <p><strong>Who.</strong> Design.</p>
-<p><strong>Where.</strong> Design &amp; sticker · Push to Enigma →.</p>
+<p><strong>Where.</strong> Requirement · Fabric details · goes to Enigma.</p>
 <p><strong>Preconditions.</strong> </p>
-<ul><li>A design not yet in Enigma.</li></ul>
+<ul><li>The details have not been saved yet (the pill reads design fills once).</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Clicks Push to Enigma →.</td><td>Toast “Pushed to Enigma, &lt;code&gt; is now a design row there, with its name, MRP and attributes.” The status reads in Enigma · synced &lt;date&gt;.</td><td>Design: enigmaOn, enigmaBy, enigmaSyncedOn.</td></tr>
+<tr><td>1</td><td>Fills Final name, MRP ₹, Category (Formal or Casual), Style, Description · product page, Buzzwords, Composition (filled from the vendor), Enigma template, Base m, Buffer m.</td><td>The line under the form reads mints the product code BOM-SHI-FM-nnnn (or CS) · the sticker is made from these details.</td><td>None.</td></tr>
+<tr><td>2</td><td>Clicks Save · send to Enigma.</td><td>Toast “Saved and sent to Enigma: the product code is minted, the consumption rule is set, and the sticker is ready.” The form folds to a summary (Product code, Name · MRP, Description, Consumption, Edit) with the pill In Enigma · synced &lt;date&gt;. The sticker appears under it. Details in Enigma ticks on the journey.</td><td>Concept naming {newName, mrp, setOn}; one design {code minted once, finalName, category, style, mrp, variants at the MRP, description, buzzwords, enigmaOn, enigmaBy, enigmaSyncedOn}; concept enigma {template, consumptionBase, consumptionBuffer, configuredOn, by}; fabric composition.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>Only once; later price changes re-push and stamp the sync date.</li></ul>
+<ul><li>Save · send to Enigma is disabled until a name, an MRP above 0, a template and base metres above 0 are given.</li><li>Only design sees the form; others read the summary or a one-line hint.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
-<ul><li>None.</li></ul>
+<ul><li>Saved before the cloth is in: allowed; the composition is written to the fabric once it is on the master.</li></ul>
 <p><strong>Postconditions.</strong> </p>
-<ul><li>Designs list moves it to In Enigma.</li></ul>
+<ul><li>The product code is listed in Fabric master data · Designs (UF-FAB-13) as In Enigma and offered on the store&#x27;s bill form; order sheets read base + buffer consumption.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-DES-09.1</td><td>a new design</td><td>design pushes it</td><td>the pill reads in Enigma with today&#x27;s date</td></tr>
-<tr><td>UF-DES-09.2</td><td>a pushed design</td><td>design looks for Push to Enigma</td><td>it is not shown (negative)</td></tr>
+<tr><td>UF-DES-08.1</td><td>a fabric in, no details</td><td>design fills the form and saves</td><td>a BOM-SHI code is minted, the pill reads In Enigma and the sticker shows the name and MRP</td></tr>
+<tr><td>UF-DES-08.2</td><td>MRP empty</td><td>design looks at Save · send to Enigma</td><td>it is disabled (negative)</td></tr>
 </tbody></table>
-<h3 id="UF-DES-10"><span class="fid">UF-DES-10</span>Edit, remove or mark a design live in POS</h3>
+<h3 id="UF-DES-09"><span class="fid">UF-DES-09</span>Change the details and re-sync</h3>
 <p><strong>Who.</strong> Design.</p>
-<p><strong>Where.</strong> Design &amp; sticker · edit, remove, the live pill.</p>
+<p><strong>Where.</strong> Fabric details summary · Edit.</p>
 <p><strong>Preconditions.</strong> </p>
-<ul><li>A design.</li></ul>
+<ul><li>The details are saved.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Clicks edit, changes fields, Save changes.</td><td>Toast as add.</td><td>Design fields; a rename keeps the earlier name.</td></tr>
-<tr><td>2</td><td>Clicks the not live pill.</td><td>Toast “Design live in POS.” (click again: “Design taken down.”)</td><td>Design: liveOn.</td></tr>
-<tr><td>3</td><td>Clicks remove (only while not live).</td><td>Amber toast “Design removed.”</td><td>The design is removed.</td></tr>
+<tr><td>1</td><td>Clicks Edit.</td><td>The form opens with the saved values; Cancel appears.</td><td>None.</td></tr>
+<tr><td>2</td><td>Changes a field (for example the MRP) and clicks Save · send to Enigma.</td><td>Toast “Saved and synced to Enigma. The sticker shows the new details.” The summary and the sticker show the new values; the sync date is today.</td><td>As UF-DES-08; the product code does not change; a changed final name keeps the earlier one in the design&#x27;s name history.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>remove is not offered on a live design.</li></ul>
+<ul><li>The product code is never re-minted.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
-<ul><li>None.</li></ul>
+<ul><li>Cancel restores the saved values.</li></ul>
 <p><strong>Postconditions.</strong> </p>
-<ul><li>The store bill form offers a live design.</li></ul>
+<ul><li>A name or price change after a sticker was printed flags it for a reprint (phase two).</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-DES-10.1</td><td>a design not live</td><td>design marks it live</td><td>the pill reads live</td></tr>
-<tr><td>UF-DES-10.2</td><td>a live design</td><td>design looks for remove</td><td>it is not shown (negative)</td></tr>
+<tr><td>UF-DES-09.1</td><td>saved at ₹2,990</td><td>design edits to ₹3,190 and saves</td><td>the summary and the sticker read ₹3,190 and the code is unchanged</td></tr>
+<tr><td>UF-DES-09.2</td><td>the summary open</td><td>a sourcing login looks for Edit</td><td>it is not shown (negative)</td></tr>
 </tbody></table>
-<h3 id="UF-DES-11"><span class="fid">UF-DES-11</span>Print the fabric&#x27;s sticker</h3>
+<h3 id="UF-DES-10"><span class="fid">UF-DES-10</span>Print the fabric&#x27;s sticker</h3>
 <p><strong>Who.</strong> Design (the swatch desk prints in phase two).</p>
-<p><strong>Where.</strong> Requirement · Design &amp; sticker · Sticker · one per fabric.</p>
+<p><strong>Where.</strong> Requirement · Sticker · made from these details.</p>
 <p><strong>Preconditions.</strong> </p>
-<ul><li>The fabric is in the master.</li></ul>
+<ul><li>The details are saved.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Reads the sticker: fabric code, name with the mill&#x27;s article, swatch book, MRP, Incl. of all taxes.</td><td>Missing book or MRP shows in amber.</td><td>None.</td></tr>
-<tr><td>2</td><td>Picks Layout Label or Full page, clicks Print sticker.</td><td>A print window with one sticker.</td><td>None (in the MTM edition printing does not mark the swatch desk step).</td></tr>
+<tr><td>1</td><td>Reads the sticker: fabric code, name with the mill&#x27;s article (or the product code), swatch book, MRP, Incl. of all taxes.</td><td>Missing book or MRP shows in amber.</td><td>None.</td></tr>
+<tr><td>2</td><td>Picks Layout Label or Full page, clicks Print sticker.</td><td>A print window with one sticker.</td><td>None (in the MTM edition printing does not tick a swatch desk step).</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>One sticker per fabric.</li></ul>
+<ul><li>One sticker per fabric; no per-store copy count.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
-<ul><li>No design yet: the name and price come from the fabric.</li></ul>
+<ul><li>No details yet: the sticker is not shown.</li></ul>
 <p><strong>Postconditions.</strong> </p>
-<ul><li>A name or price change after a print flags a reprint (phase two).</li></ul>
-<table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-DES-11.1</td><td>a fabric with code and MRP</td><td>design prints the label</td><td>one sticker with the five lines prints</td></tr>
-<tr><td>UF-DES-11.2</td><td>the sticker</td><td>design looks for a per-store copy count</td><td>there is none (negative)</td></tr>
-</tbody></table>
-<h3 id="UF-DES-12"><span class="fid">UF-DES-12</span>Set the final name and MRP</h3>
-<p><strong>Who.</strong> Design.</p>
-<p><strong>Where.</strong> Requirement · Name &amp; price.</p>
-<p><strong>Preconditions.</strong> </p>
-<ul><li>A requirement.</li></ul>
-<table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Types Final product name and MRP ₹, clicks Set.</td><td>Toast “Name and price set, website, sticker and system read the same thing.”</td><td>Concept naming {newName, mrp, setOn}; the design&#x27;s final name follows, with the earlier one kept.</td></tr>
-</tbody></table>
-<p><strong>Validations and errors.</strong> </p>
-<ul><li>Set is disabled until a name and an MRP are given.</li></ul>
-<p><strong>Alternate and edge paths.</strong> </p>
 <ul><li>None.</li></ul>
-<p><strong>Postconditions.</strong> </p>
-<ul><li>Every list shows the final name; the sticker reads it.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-DES-12.1</td><td>a requirement</td><td>design sets “Houndstooth Shirt - Light Grey” at 2990</td><td>the drawer title and the sticker read the new name</td></tr>
-<tr><td>UF-DES-12.2</td><td>no MRP</td><td>design looks at Set</td><td>it is disabled (negative)</td></tr>
+<tr><td>UF-DES-10.1</td><td>saved details</td><td>design prints the label</td><td>one sticker with the five lines prints</td></tr>
+<tr><td>UF-DES-10.2</td><td>no details saved</td><td>design looks for the sticker</td><td>it is not shown (negative)</td></tr>
 </tbody></table>
-<h3 id="UF-DES-13"><span class="fid">UF-DES-13</span>Take the fabric live online</h3>
+<h3 id="UF-DES-11"><span class="fid">UF-DES-11</span>Tick the online gates</h3>
 <p><strong>Who.</strong> Design.</p>
-<p><strong>Where.</strong> Requirement · 4 · Live online · Live online.</p>
+<p><strong>Where.</strong> Requirement · Live online.</p>
 <p><strong>Preconditions.</strong> </p>
 <ul><li>A new fabric.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Clicks Mark done on Swatch photography, Video, Post-production · PDP ready (any order).</td><td>Toasts “Swatch photography done.”, “Video done.”, “Post-production done, the PDP is ready.” The pill reads N of 3.</td><td>Concept online {photosOn, videoOn, postOn}.</td></tr>
-<tr><td>2</td><td>With all three done, clicks Go live online.</td><td>Toast “Live online.” The pill reads live &lt;date&gt;.</td><td>online.liveOn.</td></tr>
+<tr><td>1</td><td>Ticks Swatch photography, Video and Post-production · product page ready, in any order.</td><td>Each box ticks with the date; toasts “Swatch photography done.”, “Video done.”, “Post-production done, the PDP is ready.” The pill reads N of 3.</td><td>Concept online {photosOn, videoOn, postOn}.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>Go live online shows only when all three are done.</li></ul>
+<ul><li>A ticked box cannot be unticked.</li><li>Only design can tick.</li></ul>
+<p><strong>Alternate and edge paths.</strong> </p>
+<ul><li>None.</li></ul>
+<p><strong>Postconditions.</strong> </p>
+<ul><li>None.</li></ul>
+<table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
+<tr><td>UF-DES-11.1</td><td>no gates done</td><td>design ticks Video</td><td>Video shows today&#x27;s date and the pill reads 1 of 3</td></tr>
+<tr><td>UF-DES-11.2</td><td>a ticked gate</td><td>design clicks it again</td><td>nothing changes (negative)</td></tr>
+</tbody></table>
+<h3 id="UF-DES-12"><span class="fid">UF-DES-12</span>Take the fabric live online</h3>
+<p><strong>Who.</strong> Design.</p>
+<p><strong>Where.</strong> Requirement · Live online · the last box.</p>
+<p><strong>Preconditions.</strong> </p>
+<ul><li>All three gates ticked.</li></ul>
+<table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
+<tr><td>1</td><td>Ticks Live online.</td><td>Toast “Live online.” The pill reads live &lt;date&gt;; Live online ticks on the journey.</td><td>online.liveOn.</td></tr>
+</tbody></table>
+<p><strong>Validations and errors.</strong> </p>
+<ul><li>The box can be ticked only after the three gates; before that it reads after the three above.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
 <ul><li>Stores are not a gate here; live in stores follows the swatch desk in phase two.</li></ul>
 <p><strong>Postconditions.</strong> </p>
-<ul><li>State Live online.</li></ul>
+<ul><li>State Live online on the list.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-DES-13.1</td><td>three gates done</td><td>design clicks Go live online</td><td>the requirement reads Live online</td></tr>
-<tr><td>UF-DES-13.2</td><td>two gates done</td><td>design looks for Go live online</td><td>it is not shown (negative)</td></tr>
+<tr><td>UF-DES-12.1</td><td>three gates ticked</td><td>design ticks Live online</td><td>the requirement reads Live online</td></tr>
+<tr><td>UF-DES-12.2</td><td>two gates ticked</td><td>design clicks Live online</td><td>nothing happens (negative)</td></tr>
+</tbody></table>
+<h3 id="UF-DES-13"><span class="fid">UF-DES-13</span>Work the swatch desk from the requirement</h3>
+<p><strong>Who.</strong> Warehouse (Shravani); design reads.</p>
+<p><strong>Where.</strong> Requirement · Swatch desk.</p>
+<p><strong>Preconditions.</strong> </p>
+<ul><li>The PO is pushed.</li></ul>
+<table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
+<tr><td>1</td><td>Ticks Bulk received.</td><td>Toast “Bulk inwarded at the warehouse.” The box shows who and the date; Fabric in ticks on the journey if no GRN did.</td><td>Concept swatch.inwardOn, by.inward.</td></tr>
+<tr><td>2</td><td>Ticks Priority-1 if the fabric is urgent (tick again to clear).</td><td>Toast “Marked priority, cut this one first.” (or “Priority cleared.”)</td><td>swatch.priority.</td></tr>
+<tr><td>3</td><td>Ticks Handed to Yusuf.</td><td>Toast “Handed to the swatch team.” Swatches to Yusuf ticks on the journey.</td><td>swatch.handoverOn, by.handover.</td></tr>
+</tbody></table>
+<p><strong>Validations and errors.</strong> </p>
+<ul><li>Only the next box can be ticked, by the warehouse; a ticked box is not unticked.</li></ul>
+<p><strong>Alternate and edge paths.</strong> </p>
+<ul><li>No PO yet: the section reads Opens once the PO is pushed.</li></ul>
+<p><strong>Postconditions.</strong> </p>
+<ul><li>The swatch desk list shows the same boxes (UF-SW-01).</li></ul>
+<table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
+<tr><td>UF-DES-13.1</td><td>bulk received</td><td>Shravani ticks Handed to Yusuf</td><td>it shows Shravani and today&#x27;s date</td></tr>
+<tr><td>UF-DES-13.2</td><td>bulk not received</td><td>Shravani clicks Handed to Yusuf</td><td>nothing happens (negative)</td></tr>
 </tbody></table>
 </section>
 <section id="s12"><p class="eyebrow"><b>Section 13</b></p><h2>Swatch desk, phase one</h2><div class="rule-accent"></div>
-<p>Swatch desk (#/swatches). In phase one the desk runs from cloth in to the handover to Yusuf; cut, sticker, photos, dispatch and stores told come with the warehouse portal.</p>
-<h3 id="UF-SW-01"><span class="fid">UF-SW-01</span>Mark the bulk received</h3>
+<p>Swatch desk (#/swatches): a list of tick boxes; a row opens the fabric&#x27;s requirement. In phase one the desk runs from cloth in to the handover to Yusuf; cut, sticker, photos, dispatch and stores told come with the warehouse portal.</p>
+<h3 id="UF-SW-01"><span class="fid">UF-SW-01</span>Tick the swatch steps on the desk list</h3>
 <p><strong>Who.</strong> Warehouse (Shravani); production can in the prototype.</p>
-<p><strong>Where.</strong> Swatch desk · All or Cloth in · to hand to Yusuf.</p>
+<p><strong>Where.</strong> Swatch desk (#/swatches) · To do or All.</p>
 <p><strong>Preconditions.</strong> </p>
-<ul><li>A new fabric with a PO.</li></ul>
+<ul><li>New fabrics with a PO.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Reads the row: Fabric (code, book, N designs or no designs yet), Priority, Bulk received, To Yusuf.</td><td>None.</td><td>None.</td></tr>
-<tr><td>2</td><td>Clicks Mark bulk received.</td><td>Toast “Bulk inwarded at the warehouse.” The date shows.</td><td>Concept swatch.inwardOn, by.</td></tr>
+<tr><td>1</td><td>Opens the desk.</td><td>One row per fabric: Fabric (name, code, book), Priority-1, Bulk received, Handed to Yusuf, each a box with its date when ticked. Priority-1 rows first, then the oldest. Filters To do and All.</td><td>None.</td></tr>
+<tr><td>2</td><td>Ticks the next box on a row.</td><td>The toast as UF-DES-13; the date shows beside the box.</td><td>As UF-DES-13.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>Steps run in order: To Yusuf only after Bulk received.</li></ul>
+<ul><li>Only the next box on a row can be ticked; earlier boxes stay ticked.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
-<ul><li>Nothing on the desk: “Nothing on the desk, no new fabric is between the PO and the stores.”</li></ul>
+<ul><li>Nothing to do: “Nothing on the desk.”</li></ul>
 <p><strong>Postconditions.</strong> </p>
-<ul><li>The next button is Mark to yusuf.</li></ul>
+<ul><li>The requirement shows the same ticks.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-SW-01.1</td><td>a fabric with a PO</td><td>Shravani marks bulk received</td><td>the date shows and Mark to yusuf appears</td></tr>
-<tr><td>UF-SW-01.2</td><td>bulk not received</td><td>Shravani looks for Mark to yusuf</td><td>it is not shown (negative)</td></tr>
+<tr><td>UF-SW-01.1</td><td>a fabric with bulk received</td><td>Shravani ticks Handed to Yusuf on the list</td><td>the date shows and the row leaves To do</td></tr>
+<tr><td>UF-SW-01.2</td><td>bulk not received</td><td>Shravani clicks Handed to Yusuf</td><td>nothing happens (negative)</td></tr>
 </tbody></table>
-<h3 id="UF-SW-02"><span class="fid">UF-SW-02</span>Hand the cloth to Yusuf, with priority</h3>
-<p><strong>Who.</strong> Warehouse (Shravani).</p>
-<p><strong>Where.</strong> Swatch desk row.</p>
+<h3 id="UF-SW-02"><span class="fid">UF-SW-02</span>Open the fabric from the desk</h3>
+<p><strong>Who.</strong> Warehouse, design.</p>
+<p><strong>Where.</strong> Swatch desk · a row.</p>
 <p><strong>Preconditions.</strong> </p>
-<ul><li>Bulk received.</li></ul>
+<ul><li>A row on the desk.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Clicks normal to set Priority-1 (click again to clear).</td><td>Toast “Marked priority, cut this one first.” (or “Priority cleared.”) The row sorts to the top.</td><td>swatch.priority.</td></tr>
-<tr><td>2</td><td>Clicks Mark to yusuf.</td><td>Toast “Handed to the swatch team.”</td><td>swatch.handoverOn, by.</td></tr>
+<tr><td>1</td><td>Clicks the row (not a box).</td><td>The fabric&#x27;s requirement opens (#/design?open=&lt;id&gt;), the one screen; there is no separate swatch record.</td><td>None.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
-<ul><li>None.</li></ul>
+<ul><li>Clicking a box ticks it and does not open the record.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
 <ul><li>None.</li></ul>
 <p><strong>Postconditions.</strong> </p>
-<ul><li>Design sees with Yusuf; Priority-1 reminds until done.</li></ul>
+<ul><li>None.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-SW-02.1</td><td>two rows, one Priority-1</td><td>the desk opens</td><td>the Priority-1 row is first</td></tr>
-<tr><td>UF-SW-02.2</td><td>a design login</td><td>it clicks the priority pill</td><td>it is disabled (negative)</td></tr>
+<tr><td>UF-SW-02.1</td><td>a row</td><td>Shravani clicks the fabric name</td><td>the requirement opens with the Swatch desk section</td></tr>
+<tr><td>UF-SW-02.2</td><td>a row</td><td>Shravani clicks the Priority-1 box</td><td>the box ticks and the record does not open (negative)</td></tr>
 </tbody></table>
 </section>
 <section id="s13"><p class="eyebrow"><b>Section 14</b></p><h2>Conversation, mentions, files and the bell</h2><div class="rule-accent"></div>
@@ -2281,15 +2280,15 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>UF-DES-04</td><td>Push the PO on the vendor card</td><td>6.3</td><td>src/screens/Concepts.tsx; store.ts · conceptAcceptAndRaisePo</td></tr>
 <tr><td>UF-DES-05</td><td>Ask sourcing for more time</td><td>6.3, 6.4</td><td>src/store.ts · conceptAskOptionExtension</td></tr>
 <tr><td>UF-DES-06</td><td>Reject the vendor</td><td>6.3</td><td>src/store.ts · conceptRejectFabricOption</td></tr>
-<tr><td>UF-DES-07</td><td>Configure the fabric in Enigma</td><td>6.7</td><td>src/screens/Concepts.tsx</td></tr>
-<tr><td>UF-DES-08</td><td>Add the fabric&#x27;s design (one product code)</td><td>6.6</td><td>src/screens/Designs.tsx · DesignsOnFabric; store.ts · conceptAddDesign</td></tr>
-<tr><td>UF-DES-09</td><td>Push the design to Enigma</td><td>6.6</td><td>src/store.ts · pushDesignToEnigma</td></tr>
-<tr><td>UF-DES-10</td><td>Edit, remove or mark a design live in POS</td><td>6.6</td><td>src/screens/Designs.tsx</td></tr>
-<tr><td>UF-DES-11</td><td>Print the fabric&#x27;s sticker</td><td>6.6, 7 (phase two)</td><td>src/screens/Swatches.tsx · StickerSheet</td></tr>
-<tr><td>UF-DES-12</td><td>Set the final name and MRP</td><td>6.8</td><td>src/screens/Concepts.tsx; store.ts · conceptSetName</td></tr>
-<tr><td>UF-DES-13</td><td>Take the fabric live online</td><td>6.9</td><td>src/screens/Concepts.tsx; store.ts · conceptOnline</td></tr>
-<tr><td>UF-SW-01</td><td>Mark the bulk received</td><td>7.1</td><td>src/screens/Swatches.tsx; store.ts · conceptSwatch</td></tr>
-<tr><td>UF-SW-02</td><td>Hand the cloth to Yusuf, with priority</td><td>7.1</td><td>src/screens/Swatches.tsx</td></tr>
+<tr><td>UF-DES-07</td><td>Read a fabric requirement on one screen</td><td>6 (the record)</td><td>src/screens/FabricRequirement.tsx</td></tr>
+<tr><td>UF-DES-08</td><td>Fill the fabric&#x27;s details and send them to Enigma</td><td>6.6</td><td>src/screens/FabricRequirement.tsx · DetailsSection; store.ts · conceptSaveDetails</td></tr>
+<tr><td>UF-DES-09</td><td>Change the details and re-sync</td><td>6.6, 6.8</td><td>src/screens/FabricRequirement.tsx; store.ts · conceptSaveDetails</td></tr>
+<tr><td>UF-DES-10</td><td>Print the fabric&#x27;s sticker</td><td>6.6</td><td>src/screens/Swatches.tsx · StickerSheet</td></tr>
+<tr><td>UF-DES-11</td><td>Tick the online gates</td><td>6.9</td><td>src/screens/FabricRequirement.tsx; store.ts · conceptOnline</td></tr>
+<tr><td>UF-DES-12</td><td>Take the fabric live online</td><td>6.9</td><td>src/screens/FabricRequirement.tsx; store.ts · conceptOnline</td></tr>
+<tr><td>UF-DES-13</td><td>Work the swatch desk from the requirement</td><td>6.7, 7.1</td><td>src/screens/Swatches.tsx · SwatchChecks</td></tr>
+<tr><td>UF-SW-01</td><td>Tick the swatch steps on the desk list</td><td>7.1</td><td>src/screens/Swatches.tsx</td></tr>
+<tr><td>UF-SW-02</td><td>Open the fabric from the desk</td><td>7.1</td><td>src/screens/Swatches.tsx; FabricRequirement.tsx</td></tr>
 <tr><td>UF-COM-01</td><td>Post on a record</td><td>8.1</td><td>src/screens/Thread.tsx; store.ts · postComment</td></tr>
 <tr><td>UF-COM-02</td><td>Mention a person or a team</td><td>8.2</td><td>src/screens/Thread.tsx; Mentions.tsx</td></tr>
 <tr><td>UF-COM-03</td><td>Deal with a mention</td><td>8.3</td><td>src/screens/Mentions.tsx; store.ts · resolveMention</td></tr>
@@ -2306,22 +2305,19 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>1</td><td>Push PO on a lapsed hold</td><td>Push PO is still clickable; it only stops being the primary button and shows “hold lapsed, the price is not promised”.</td><td>Push PO refused on a lapsed hold until extended.</td><td>UF-DES-04</td></tr>
 <tr><td>2</td><td>Reject reason</td><td>Reject works with an empty Why and records “no reason given”.</td><td>Reject needs a reason.</td><td>UF-DES-06</td></tr>
 <tr><td>3</td><td>Sending the vendor to design</td><td>Sourcing must click Send to design → after Save vendor; until then the ask stays on Your move.</td><td>Save vendor moves it to state 2 and Waiting on design.</td><td>UF-SRC-02, UF-SRC-04</td></tr>
-<tr><td>4</td><td>Price per variant</td><td>Name &amp; price sets one MRP per fabric (Set); the design also carries variant prices and its MRP is the lowest variant price.</td><td>Price is per variant only.</td><td>UF-DES-08, UF-DES-12</td></tr>
-<tr><td>5</td><td>Design validation</td><td>Add design needs only a name.</td><td>A design needs a name and one variant with a price.</td><td>UF-DES-08</td></tr>
-<tr><td>6</td><td>Go live online gates</td><td>Go live online appears only when photos, video and post are all done; there is no composition or description check; going live online does not clear the fabric&#x27;s inactive flag.</td><td>Gates advisory, skips kept; blocked until composition and a description are on the record; off hold for the website.</td><td>UF-DES-13</td></tr>
-<tr><td>7</td><td>Make inactive rights</td><td>Make inactive / Make active has no role check on the list, the core review or the fabric page.</td><td>A button shows only for the role that owns the step.</td><td>UF-FAB-02</td></tr>
-<tr><td>8</td><td>Old hold controls</td><td>Bespoke still shows Switch off on Shopify &amp; stores and Restore to sale; a core fabric back in stock shows Switch back on, in stock. Both set the same inactive flag under other names.</td><td>One pair of words: Make inactive / Make active.</td><td>UF-FAB-15</td></tr>
-<tr><td>9</td><td>Edit Vendor toast</td><td>Saving a mill shows the factory toast “Factory master saved, the allocation rules use it from the next draft.”</td><td>None stated.</td><td>UF-SRC-10</td></tr>
-<tr><td>10</td><td>Extra fabric empty state</td><td>Says merchandisers raise asks “from the Factory floor tab”; they raise them on My factory.</td><td>Ask for extra cloth on My factory.</td><td>UF-PROD-22</td></tr>
-<tr><td>11</td><td>Shravani&#x27;s actions</td><td>Production can press Shravani: approve · issue from stock / approve &amp; raise PO; there is no Shravani login in this edition.</td><td>Shravani approves.</td><td>UF-PROD-26, UF-PROD-27</td></tr>
-<tr><td>12</td><td>Unit team logins</td><td>The four desks open to production and the warehouse role; there are no CAD, cutting, fusing or compiling roles.</td><td>Four teams, each with its own desk.</td><td>UF-UNIT-01</td></tr>
-<tr><td>13</td><td>Bespoke parcel inward</td><td>The screen that books a bespoke parcel in (scan the mill&#x27;s code) is on the warehouse portal, hidden in this edition, so a bespoke order cannot leave “waiting for cloth” here.</td><td>Bespoke not planned before its parcel is in.</td><td>UF-PROD-01</td></tr>
-<tr><td>14</td><td>Files</td><td>No 25 MB check and no step picker on the Files panel.</td><td>25 MB per file; pick the label and optionally the step.</td><td>UF-COM-05</td></tr>
-<tr><td>15</td><td>Empty comment</td><td>A comment can be a file with no text.</td><td>A comment needs text.</td><td>UF-COM-01</td></tr>
-<tr><td>16</td><td>Swatch desk label</td><td>The handover button reads Mark to yusuf.</td><td>Handed to Yusuf.</td><td>UF-SW-01, UF-SW-02</td></tr>
-<tr><td>17</td><td>Changed sheets, factory side</td><td>Code paths for “pending with the factory” and “Told &lt;factory&gt;” remain but can no longer be reached.</td><td>Nothing reaches the factory after planning.</td><td>UF-PROD-19</td></tr>
-<tr><td>18</td><td>Job card</td><td>The order drawer still has a Job card section beside the Order sheet; the factory screen calls the sheet “Order sheet · the job card”.</td><td>Roles table: the merchandiser reads the order sheet and job card.</td><td>UF-PROD-17, UF-FAC-04</td></tr>
-<tr><td>19</td><td>Long dashes in labels</td><td>Some labels and toasts use a long dash (for example Acknowledged, plan on this).</td><td>Doctrine: no long dashes.</td><td>All</td></tr>
+<tr><td>4</td><td>Live online and the inactive flag</td><td>Ticking Live online does not make the fabric active for the website.</td><td>Off hold for the website.</td><td>UF-DES-12</td></tr>
+<tr><td>5</td><td>Make inactive rights</td><td>Make inactive / Make active has no role check on the list, the core review or the fabric page.</td><td>A button shows only for the role that owns the step.</td><td>UF-FAB-02</td></tr>
+<tr><td>6</td><td>Old hold controls</td><td>Bespoke still shows Switch off on Shopify &amp; stores and Restore to sale; a core fabric back in stock shows Switch back on, in stock. Both set the same inactive flag under other names.</td><td>One pair of words: Make inactive / Make active.</td><td>UF-FAB-15</td></tr>
+<tr><td>7</td><td>Edit Vendor toast</td><td>Saving a mill shows the factory toast “Factory master saved, the allocation rules use it from the next draft.”</td><td>None stated.</td><td>UF-SRC-10</td></tr>
+<tr><td>8</td><td>Extra fabric empty state</td><td>Says merchandisers raise asks “from the Factory floor tab”; they raise them on My factory.</td><td>Ask for extra cloth on My factory.</td><td>UF-PROD-22</td></tr>
+<tr><td>9</td><td>Shravani&#x27;s actions</td><td>Production can press Shravani: approve · issue from stock / approve &amp; raise PO; there is no Shravani login in this edition.</td><td>Shravani approves.</td><td>UF-PROD-26, UF-PROD-27</td></tr>
+<tr><td>10</td><td>Unit team logins</td><td>The four desks open to production and the warehouse role; there are no CAD, cutting, fusing or compiling roles.</td><td>Four teams, each with its own desk.</td><td>UF-UNIT-01</td></tr>
+<tr><td>11</td><td>Bespoke parcel inward</td><td>The screen that books a bespoke parcel in (scan the mill&#x27;s code) is on the warehouse portal, hidden in this edition, so a bespoke order cannot leave “waiting for cloth” here.</td><td>Bespoke not planned before its parcel is in.</td><td>UF-PROD-01</td></tr>
+<tr><td>12</td><td>Files</td><td>No 25 MB check and no step picker on the Files panel.</td><td>25 MB per file; pick the label and optionally the step.</td><td>UF-COM-05</td></tr>
+<tr><td>13</td><td>Empty comment</td><td>A comment can be a file with no text.</td><td>A comment needs text.</td><td>UF-COM-01</td></tr>
+<tr><td>14</td><td>Changed sheets, factory side</td><td>Code paths for “pending with the factory” and “Told &lt;factory&gt;” remain but can no longer be reached.</td><td>Nothing reaches the factory after planning.</td><td>UF-PROD-19</td></tr>
+<tr><td>15</td><td>Job card</td><td>The order drawer still has a Job card section beside the Order sheet; the factory screen calls the sheet “Order sheet · the job card”.</td><td>Roles table: the merchandiser reads the order sheet and job card.</td><td>UF-PROD-17, UF-FAC-04</td></tr>
+<tr><td>16</td><td>Long dashes in labels</td><td>Some labels and toasts use a long dash (for example Acknowledged, plan on this).</td><td>Doctrine: no long dashes.</td><td>All</td></tr>
 </tbody></table>
 </section>
 <div class="foot"><span>BSC PLM · MTM user flows</span><span>devx Labs · Confidential</span></div></div></body></html>

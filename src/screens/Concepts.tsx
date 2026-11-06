@@ -25,6 +25,7 @@ import { DesignsOnFabric } from './Designs';
 import { StickerSheet } from './Swatches';
 import { VendorEditor } from './OptionRequests';
 import { MTM_ONLY } from '../domain/edition';
+import { FabricRequirement } from './FabricRequirement';
 
 const STAGE_TONE: Record<ConceptStage, Tone> = { Idea:'neutral', Sampling:'warn', 'Shipment sample':'warn', Approved:'info', Fabric:'info', Blocked:'info', 'PO raised':'info', Configured:'info', Named:'info', Ready:'good', Live:'good' };
 
@@ -124,7 +125,12 @@ export function NewConcept({ onDone }: { onDone: (id: string) => void }) {
   </Section>;
 }
 
-export function ConceptDetail({ c, design, prod }: { c: Concept; design: boolean; prod: boolean }) {
+/** The requirement record: an MTM fabric opens on one screen (FabricRequirement); a construction variant keeps its own record. */
+export function ConceptDetail(p: { c: Concept; design: boolean; prod: boolean }) {
+  return p.c.kind === 'new-fabric' ? <FabricRequirement {...p} /> : <ConstructionDetail {...p} />;
+}
+
+function ConstructionDetail({ c, design, prod }: { c: Concept; design: boolean; prod: boolean }) {
   const { db, role, personId, setPerson, conceptSendPat, conceptAcceptAndRaisePo, conceptSendApproval, conceptConfigureEnigma, conceptSetName, conceptSetMarketing, conceptGoLive, conceptBlockFabric, conceptRaiseFabricPo, priceFabric , conceptOnline, conceptSwatch } = useApp();
   const s = conceptOf(db, c);
   const sourcing = role === 'sourcing' || role === 'owner';
@@ -466,7 +472,7 @@ export function ConceptOptions({ c, sourcing, design }: { c: Concept; sourcing: 
 
 /** The sampling steps as one checklist: each row is ticked with one click, with a remark when needed.
     A send-back needs the remark; every remark lands in the record's conversation under its step. */
-function SamplesChecklist({ c, design, prod, factory, setFactory, factories, hasPat }: { c: Concept; design: boolean; prod: boolean; factory: string; setFactory: (v: string) => void; factories: { id: string; name: string }[]; hasPat: boolean }) {
+export function SamplesChecklist({ c, design, prod, factory, setFactory, factories, hasPat }: { c: Concept; design: boolean; prod: boolean; factory: string; setFactory: (v: string) => void; factories: { id: string; name: string }[]; hasPat: boolean }) {
   const { conceptSendPat, conceptSubmitSample, conceptReviewSample, conceptSendApproval, postComment } = useApp();
   const pp = conceptRounds(c, 'pp'); const ship = conceptRounds(c, 'shipment');
   const [note, setNote] = useState<Record<string, string>>({});
@@ -488,7 +494,7 @@ function SamplesChecklist({ c, design, prod, factory, setFactory, factories, has
   const rows: Row[] = [
     { key: 'pat', label: 'Sample & PAT file handed to a factory', done: !!c.patSentOn, when: c.patSentOn, step: 'PP sample',
       status: c.patSentOn ? `with ${factories.find(f => f.id === c.factoryId)?.name ?? 'the factory'}` : hasPat ? 'PAT file attached' : 'PAT file not attached yet',
-      actions: !c.patSentOn && prod ? <><Select value={factory} onChange={setFactory} options={factories.map(f => ({ value: f.id, label: f.name }))} style={{ width: 150 }} /><Button size="sm" onClick={() => { conceptSendPat(c.id, factory); say('pat', 'PP sample'); }}>Mark handed over</Button></> : null },
+      actions: !c.patSentOn && prod ? <><Select value={factory} onChange={setFactory} options={factories.map(f => ({ value: f.id, label: f.name }))} style={{ width: 150 }} /><Button size="sm" onClick={() => { conceptSendPat(c.id, factory); say('pat', 'PP sample'); }}>Handed over</Button></> : null },
     sampleRow('pp', 'PP sample approved', pp, !!c.patSentOn, 'PP sample'),
     sampleRow('shipment', 'Shipment sample approved', ship, pp.state === 'approved', 'Shipment sample'),
     { key: 'post', label: 'Approval posted to every department', done: !!c.approvalSentOn, when: c.approvalSentOn, step: 'Approval',

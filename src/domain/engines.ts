@@ -1291,7 +1291,7 @@ export function alertsFor(db: Db, role: RoleId, opts?: { storeId?: string; all?:
 
   /* the swatch desk — cloth landed, stores not yet showing it */
   (db.concepts ?? []).filter(c => c.kind === 'new-fabric' && !c.liveOn && (c.swatch || c.fabricPo)).forEach(c => {
-    const sw = c.swatch; const href = `#/swatches?open=${c.id}`;
+    const sw = c.swatch; const href = `#/design?open=${c.id}`;
     if (sw?.stickerOn && c.naming.setOn && c.naming.setOn > sw.stickerOn && want('warehouse')) add({ id:`sw-reprint-${c.id}`, role:'warehouse', level:'warn', title:`${c.naming.newName ?? c.name} · sticker out of date`, detail:`name or MRP changed ${fmtDate(c.naming.setOn)}, after the sticker was printed ${fmtDate(sw.stickerOn)} — reprint and tell the stores`, href, weight: 540 });
     if (sw?.priority && !sw.cutOn && want('warehouse')) add({ id:`sw-cut-${c.id}`, role:'warehouse', level:'warn', title:`${c.name} · priority swatch not cut`, detail: sw.handoverOn ? `with the swatch team since ${fmtDate(sw.handoverOn)}` : sw.inwardOn ? `inwarded ${fmtDate(sw.inwardOn)} · not yet handed over` : 'marked priority', href, weight: 560 });
     else if (sw?.inwardOn && !sw.handoverOn && daysAgo(sw.inwardOn) >= 2 && want('warehouse')) add({ id:`sw-ho-${c.id}`, role:'warehouse', level:'warn', title:`${c.name} · cloth in ${daysAgo(sw.inwardOn)}d, not with the swatch team`, detail:'hand it over so the 25 × 25s can be cut', href, weight: 520 });
