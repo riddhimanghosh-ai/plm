@@ -335,13 +335,11 @@ export function VendorEditor({ title, brief, targetCost, fabricQtyPerPc, current
   const ok = !!v.vendorId && !!Number(v.cpm) && !!v.name.trim();
   const spend = Number(v.cpm || 0) * Number(v.moq || 0);
   return <>
-    <div className="label" style={{ margin:'0 0 2px' }}>{title}{brief ? ` — ${brief}` : ''}</div>
     {/* Three bands in the order the mill gives them: who it is, what it costs,
         what the cloth is. Every field is label-over-input and nothing else, so
         the rows line up — the explanations sit on the labels, not under the
         boxes, because a hint under one input made its whole row ragged. */}
     <div className="vgrid pt-1">
-      <div className="vgrid-cap">Who, and their article</div>
       <div style={{ gridColumn:'span 4' }}><Field label="Mill"><Select value={v.vendorId} onChange={pickMill} options={[{ value:'', label:'Pick a mill…' }, ...mills.map(m => ({ value:m.id, label:`${m.name} · holds ${m.blockWindowDays}d` }))]} /></Field></div>
       <div style={{ gridColumn:'span 3' }}><Field label="Article no." hint="the mill's own article number — this goes on the PO" hintOn="label"><Input value={v.vendorCode} onChange={e => setV({ ...v, vendorCode: e.target.value })} placeholder="0944/1" /></Field></div>
       <div style={{ gridColumn:'span 5' }}><Field label="Cloth name" hint="as the mill names it" hintOn="label"><Input value={v.name} onChange={e => setV({ ...v, name: e.target.value })} /></Field></div>

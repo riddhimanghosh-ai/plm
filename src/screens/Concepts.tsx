@@ -424,10 +424,7 @@ export function ConceptOptions({ c, sourcing, design }: { c: Concept; sourcing: 
   </div>;
 
   return <div className="pt-3" style={{ borderTop:'1px solid var(--line-soft)' }}>
-    <div className="flex items-baseline justify-between gap-2 flex-wrap pb-1">
-      <div className="label" style={{ margin:0 }}>The vendor</div>
-      {sent && !chosen && <Pill tone="info">with design since {fmtDate(c.optionsSentOn!)}</Pill>}
-    </div>
+    {sent && !chosen && <div className="flex justify-end pb-1"><Pill tone="info">with design since {fmtDate(c.optionsSentOn!)}</Pill></div>}
     {sent && design && !chosen && q && <div className="pb-2"><Field label="Why — kept on the concept, and sent back with a rejection" hint="Push PO, Reject and More time all carry it"><Input value={why} onChange={e => setWhy(e.target.value)} placeholder="the hand is right and the shade matches the approved sample" /></Field></div>}
 
     {q && editing ? <div className="px-3 py-2" style={{ background:'var(--accent-soft)', borderRadius: 6 }}><VendorEditor title="The vendor against this concept" brief={c.name} targetCost={null} fabricQtyPerPc={null} current={q} onSave={patch => { conceptUpdateFabricOption(c.id, q.id, patch); setEditing(false); }} onCancel={() => setEditing(false)} /></div>

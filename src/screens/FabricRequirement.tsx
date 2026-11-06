@@ -22,7 +22,7 @@ type Details = { name: string; mrp: number; category: 'Formal' | 'Casual'; style
   cost: number | null; productType: string | null; weightGrams: number | null; region: string; stockMode: 'track-quantity' | 'variants'; status: 'ACTIVE' | 'INACTIVE'; salesChannel: string | null; media: string[];
   sizeOptionName: string; sizes: string[]; variants: { size: string; price: number | null; discountedPrice: number | null }[] };
 
-export function FabricRequirement({ c, design, prod }: { c: Concept; design: boolean; prod: boolean }) {
+export function FabricRequirement({ c, design, prod, initial }: { c: Concept; design: boolean; prod: boolean; initial?: string }) {
   const { db, role, conceptSaveDetails, conceptOnline, conceptSetSampling } = useApp();
   const s = conceptOf(db, c);
   const sourcing = role === 'sourcing' || role === 'owner';
@@ -54,7 +54,7 @@ export function FabricRequirement({ c, design, prod }: { c: Concept; design: boo
   ];
   const current = journey.findIndex(x => !x.on);
   /* the boxes are the tabs: one step's section shows at a time, the current step first, so the record does not scroll */
-  const [open, setOpen] = useState<string>(journey[current]?.key ?? 'live');
+  const [open, setOpen] = useState<string>(initial ?? journey[current]?.key ?? 'live');
   const at = (k: string) => open === k;
 
   return <>

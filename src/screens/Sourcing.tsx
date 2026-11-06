@@ -24,10 +24,11 @@ import { MaterialsCoverSection, FabricFinalisationSection, SizeGrid } from './Rt
 import { fabricStateOf, designFlowOf, conceptOf, openFabricPos, samplingGateOf, rtwDocsOf, type DesignStep } from '../domain/engines';
 import { StepFlow } from './Flow';
 import type { Concept, OptionRequest } from '../domain/types';
+import { FabricRequirement } from './FabricRequirement';
 import { MTM_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
 
 export function Sourcing() {
-  const { db } = useApp();
+  const { db, role } = useApp();
   const [params, setParams] = useSearchParams();
   const openId = params.get('open');
   const open = (id: string | null) => { const n = new URLSearchParams(params); id ? n.set('open', id) : n.delete('open'); setParams(n, { replace:true }); };
@@ -114,7 +115,10 @@ export function Sourcing() {
       </>)}
 
       <Drawer open={!!activeConcept} onClose={() => open(null)} title={activeConcept ? (activeConcept.naming.newName ?? activeConcept.name) : ''} subtitle={activeConcept && <span>MTM fabric · {activeConcept.book ?? 'no book named'}{activeConcept.targetMonth ? ` · wanted by ${activeConcept.targetMonth}` : ''}</span>}>
-        {activeConcept && <MtmBrief c={activeConcept} />}
+        {/* a new fabric opens the same one-screen record design works in, boxes across the top, on the Vendor box */}
+        {activeConcept && (activeConcept.kind === 'new-fabric'
+          ? <FabricRequirement key={activeConcept.id} c={activeConcept} design={role === 'design' || role === 'planning' || role === 'owner'} prod={role === 'production' || role === 'owner'} initial="vendor" />
+          : <MtmBrief c={activeConcept} />)}
       </Drawer>
       <Drawer open={!!activeRequest} onClose={() => open(null)} title={activeRequest ? `${activeRequest.reqNo} · ${catLabel(activeRequest.category)}` : ''}>
         {activeRequest && <RequestDetail r={activeRequest} focusOptionId={params.get('slot')} />}
