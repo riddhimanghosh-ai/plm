@@ -50,7 +50,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <h1>BSC PLM, the <em>made-to-measure</em> user flows</h1>
 <p class="lede">Every user flow in the MTM edition, one job at a time, from the person&#x27;s side: who, where, what must be true first, each click and what the system shows and writes, the rules, the edge paths, what changes elsewhere, and the QA cases to accept it.</p>
 <p class="meta">4 Nov 2026 · devx Labs · <a href="bsc-plm-prd-mtm.html">Read the PRD</a> · <a href="bsc-plm-flows-mtm-v1.0.docx">Download the Word file</a> · <a href="../">Open the prototype</a></p>
-<div class="stats"><div><div class="n">106</div><div class="l">User flows</div></div><div><div class="n">10</div><div class="l">Modules</div></div><div><div class="n">218</div><div class="l">QA cases</div></div><div><div class="n">10</div><div class="l">Roles</div></div></div>
+<div class="stats"><div><div class="n">108</div><div class="l">User flows</div></div><div><div class="n">10</div><div class="l">Modules</div></div><div><div class="n">223</div><div class="l">QA cases</div></div><div><div class="n">10</div><div class="l">Roles</div></div></div>
 <nav class="toc"><a href="#s0"><span>01</span>Purpose and how to read</a><a href="#s1"><span>02</span>Roles and permissions</a><a href="#s2"><span>03</span>The order lifecycle</a><a href="#s3"><span>04</span>Global conventions</a><a href="#s4"><span>05</span>Glossary</a><a href="#s5"><span>06</span>Production</a><a href="#s6"><span>07</span>Unit teams: CAD, Cutting, Fusing, Compiling</a><a href="#s7"><span>08</span>Factory merchandiser</a><a href="#s8"><span>09</span>Fabric master</a><a href="#s9"><span>10</span>Purchase orders and supply</a><a href="#s10"><span>11</span>Sourcing</a><a href="#s11"><span>12</span>Design</a><a href="#s12"><span>13</span>Swatch desk, phase one</a><a href="#s13"><span>14</span>Conversation, mentions, files and the bell</a><a href="#s14"><span>15</span>RetailOS interfaces</a><a href="#s15"><span>16</span>Traceability</a><a href="#s16"><span>17</span>Open points</a></nav>
 <section id="s0"><p class="eyebrow"><b>Section 01</b></p><h2>Purpose and how to read</h2><div class="rule-accent"></div>
 <p>This is the build and test companion to the MTM PRD. The PRD says what the product is and why; this document says, for every job a person does in the MTM edition, exactly what they click, what they see, what is saved, and how QA proves it works. It is written from the person&#x27;s side, one flow per job.</p>
@@ -1864,7 +1864,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <p><strong>Preconditions.</strong> </p>
 <ul><li>An MTM new-fabric requirement.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Opens the requirement.</td><td>Across the top, the journey checklist: Requirement raised, Vendor added, PO pushed, Fabric in, Details in Enigma, Swatches to Yusuf, Live online. Done boxes are ticked with the date and who; the current one is highlighted and reads now.</td><td>None.</td></tr>
+<tr><td>1</td><td>Opens the requirement.</td><td>Across the top, the journey boxes: Requirement raised, Sampling, Vendor added, PO pushed, Fabric in, Details in Enigma, Swatches to Yusuf, Sent to stores, Live online; clicking a box opens only that step&#x27;s section. Done boxes are ticked with the date and who; the current one is highlighted and reads now.</td><td>None.</td></tr>
 <tr><td>2</td><td>Scrolls.</td><td>Sections, always open, in order: The ask, Vendor, Fabric in, Fabric details · goes to Enigma (and the sticker once saved), Swatch desk, Live online, Samples · optional, Files, Conversation.</td><td>None.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
@@ -2031,6 +2031,28 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>UF-SW-02.1</td><td>a row</td><td>Shravani clicks the fabric name</td><td>the requirement opens with the Swatch desk section</td></tr>
 <tr><td>UF-SW-02.2</td><td>a row</td><td>Shravani clicks the Priority-1 box</td><td>the box ticks and the record does not open (negative)</td></tr>
 </tbody></table>
+<h3 id="UF-SW-03"><span class="fid">UF-SW-03</span>Send swatches to every store and follow receipt</h3>
+<p><strong>Who.</strong> Warehouse dispatches (Yusuf); the store manager marks received in RetailOS; design reads.</p>
+<p><strong>Where.</strong> Requirement · the Sent to stores box in the top row.</p>
+<p><strong>Preconditions.</strong> </p>
+<ul><li>Swatches to Yusuf is ticked; the fabric has its code.</li></ul>
+<table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
+<tr><td>1</td><td>Clicks the Sent to stores box.</td><td>One line per store: Store · region, Tracking no., Dispatch date, Receiving date; filters All stores, Not dispatched, Dispatched · not received, Received; the pill reads N of M received.</td><td>None.</td></tr>
+<tr><td>2</td><td>Types a courier number on a store&#x27;s line and clicks Dispatch.</td><td>Toast “Dispatched to 1 store: each store marks it received in RetailOS.” The line shows the tracking no. and today&#x27;s dispatch date; Receiving date reads awaiting the store.</td><td>SwatchDispatch {fabricId, storeId, dispatchedOn, trackingNo, dispatchedBy}.</td></tr>
+<tr><td>3</td><td>Or types one tracking no. and clicks Dispatch to the N left.</td><td>Every store not yet dispatched gets a line with today&#x27;s date.</td><td>One SwatchDispatch per store.</td></tr>
+<tr><td>4</td><td>The store manager marks it received in RetailOS (UF-RET-04).</td><td>The line shows the receiving date and who, in green; the pill counts it.</td><td>SwatchDispatch confirmedOn, confirmedBy.</td></tr>
+</tbody></table>
+<p><strong>Validations and errors.</strong> </p>
+<ul><li>Dispatch shows only for the warehouse; design and others read.</li><li>A store has one line per fabric; dispatching again only adds a missing tracking no.</li><li>The section opens only once the swatches are with Yusuf.</li></ul>
+<p><strong>Alternate and edge paths.</strong> </p>
+<ul><li>A line awaiting the store for more than 5 days shows the days in red.</li><li>Before the handover: “Opens once the swatches are with Yusuf.”</li></ul>
+<p><strong>Postconditions.</strong> </p>
+<ul><li>The Sent to stores box ticks with the last receiving date when every store has it, and reads N of M received until then.</li></ul>
+<table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
+<tr><td>UF-SW-03.1</td><td>the swatches with Yusuf</td><td>Yusuf dispatches to Khan Market with a tracking no.</td><td>the Khan Market line shows the number, today&#x27;s date and awaiting the store</td></tr>
+<tr><td>UF-SW-03.2</td><td>a design login</td><td>design opens Sent to stores</td><td>no Dispatch button or tracking box shows (negative)</td></tr>
+<tr><td>UF-SW-03.3</td><td>33 of 34 stores received</td><td>the last store marks it received</td><td>the box ticks and reads 34 of 34 received</td></tr>
+</tbody></table>
 </section>
 <section id="s13"><p class="eyebrow"><b>Section 14</b></p><h2>Conversation, mentions, files and the bell</h2><div class="rule-accent"></div>
 <p>Every record (order, customer, fabric, requirement, mill, return case) has Files · N and Conversation · N at its foot, open to anyone who can open the record. The bell, Waiting on you, sits top right on every screen.</p>
@@ -2137,6 +2159,25 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 </section>
 <section id="s14"><p class="eyebrow"><b>Section 15</b></p><h2>RetailOS interfaces</h2><div class="rule-accent"></div>
 <p>Store managers and owners have no screen in BSC PLM. Their side is built in RetailOS only. The flows below fix what passes between RetailOS and BSC PLM; the prototype&#x27;s My store screen (#/stores) shows them for demonstration.</p>
+<h3 id="UF-RET-04"><span class="fid">UF-RET-04</span>Mark a fabric&#x27;s swatch received at the store</h3>
+<p><strong>Who.</strong> Store manager. Built in RetailOS, shown in the prototype for demonstration.</p>
+<p><strong>Where.</strong> RetailOS · Swatches (prototype: My store · swatches to confirm).</p>
+<p><strong>Preconditions.</strong> </p>
+<ul><li>The warehouse dispatched the swatch to this store (UF-SW-03).</li></ul>
+<table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
+<tr><td>1</td><td>Opens the swatches waiting for the store.</td><td>Each fabric dispatched to this store and not yet received, with its dispatch date.</td><td>None.</td></tr>
+<tr><td>2</td><td>Clicks Received on the one that arrived.</td><td>Toast “Received. Design sees it on the fabric&#x27;s Sent to stores step.”</td><td>SwatchDispatch confirmedOn, confirmedBy (written to BSC PLM).</td></tr>
+</tbody></table>
+<p><strong>Validations and errors.</strong> </p>
+<ul><li>Only the store&#x27;s own swatches.</li></ul>
+<p><strong>Alternate and edge paths.</strong> </p>
+<ul><li>None waiting: the list is empty.</li></ul>
+<p><strong>Postconditions.</strong> </p>
+<ul><li>Design&#x27;s Sent to stores line shows the receiving date and the store.</li></ul>
+<table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
+<tr><td>UF-RET-04.1</td><td>a swatch dispatched to Pali Hill</td><td>the Pali Hill manager marks it received</td><td>design sees the receiving date on Pali Hill&#x27;s line</td></tr>
+<tr><td>UF-RET-04.2</td><td>a swatch dispatched to another store</td><td>the Pali Hill manager looks for it</td><td>it is not listed (negative)</td></tr>
+</tbody></table>
 <h3 id="UF-RET-01"><span class="fid">UF-RET-01</span>See and confirm the store&#x27;s pre-confirmed orders</h3>
 <p><strong>Who.</strong> Store manager. Built in RetailOS, shown in the prototype for demonstration.</p>
 <p><strong>Where.</strong> RetailOS · Orders · Pre-confirmed (prototype: My store · Pre-confirmed).</p>
@@ -2294,11 +2335,13 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>UF-DES-13</td><td>Work the swatch desk from the requirement</td><td>6.7, 7.1</td><td>src/screens/Swatches.tsx · SwatchChecks</td></tr>
 <tr><td>UF-SW-01</td><td>Tick the swatch steps on the desk list</td><td>7.1</td><td>src/screens/Swatches.tsx</td></tr>
 <tr><td>UF-SW-02</td><td>Open the fabric from the desk</td><td>7.1</td><td>src/screens/Swatches.tsx; FabricRequirement.tsx</td></tr>
+<tr><td>UF-SW-03</td><td>Send swatches to every store and follow receipt</td><td>6.7a</td><td>src/screens/FabricRequirement.tsx · StoresSection; store.ts · dispatchSwatch</td></tr>
 <tr><td>UF-COM-01</td><td>Post on a record</td><td>8.1</td><td>src/screens/Thread.tsx; store.ts · postComment</td></tr>
 <tr><td>UF-COM-02</td><td>Mention a person or a team</td><td>8.2</td><td>src/screens/Thread.tsx; Mentions.tsx</td></tr>
 <tr><td>UF-COM-03</td><td>Deal with a mention</td><td>8.3</td><td>src/screens/Mentions.tsx; store.ts · resolveMention</td></tr>
 <tr><td>UF-COM-04</td><td>Work the things to do on the bell</td><td>4, 5, 9, 11 (alerts)</td><td>src/screens/Mentions.tsx</td></tr>
 <tr><td>UF-COM-05</td><td>Attach files to a record</td><td>8.4</td><td>src/screens/Files.tsx</td></tr>
+<tr><td>UF-RET-04</td><td>Mark a fabric&#x27;s swatch received at the store</td><td>6.7a</td><td>src/screens/Stores.tsx; store.ts · confirmSwatch</td></tr>
 <tr><td>UF-RET-01</td><td>See and confirm the store&#x27;s pre-confirmed orders</td><td>2.1a</td><td>src/screens/Stores.tsx · PreConfirmedTab</td></tr>
 <tr><td>UF-RET-02</td><td>Correct an order sheet from the store</td><td>1.4</td><td>src/screens/OrderSheet.tsx (who = store)</td></tr>
 <tr><td>UF-RET-03</td><td>See a moved ship-by</td><td>1.3, 2.7</td><td>RetailOS</td></tr>

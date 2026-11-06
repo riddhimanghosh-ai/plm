@@ -1252,7 +1252,7 @@ F("UF-DES-06", "Reject the vendor",
 F("UF-DES-07", "Read a fabric requirement on one screen",
  "Design, sourcing, warehouse, production.", "Requirements · a row (#/design?open=<id>).",
  ["An MTM new-fabric requirement."],
- [["Opens the requirement.", "Across the top, the journey checklist: Requirement raised, Vendor added, PO pushed, Fabric in, Details in Enigma, Swatches to Yusuf, Live online. Done boxes are ticked with the date and who; the current one is highlighted and reads now.", "None."],
+ [["Opens the requirement.", "Across the top, the journey boxes: Requirement raised, Sampling, Vendor added, PO pushed, Fabric in, Details in Enigma, Swatches to Yusuf, Sent to stores, Live online; clicking a box opens only that step's section. Done boxes are ticked with the date and who; the current one is highlighted and reads now.", "None."],
   ["Scrolls.", "Sections, always open, in order: The ask, Vendor, Fabric in, Fabric details · goes to Enigma (and the sticker once saved), Swatch desk, Live online, Samples · optional, Files, Conversation.", "None."]],
  ["The journey boxes are read-only; each ticks itself from the step below it."],
  ["A construction variant keeps its own record and is not covered here."],
@@ -1361,6 +1361,21 @@ F("UF-SW-02", "Open the fabric from the desk",
   ["a row", "Shravani clicks the Priority-1 box", "the box ticks and the record does not open (negative)"]],
  "7.1", "src/screens/Swatches.tsx; FabricRequirement.tsx")
 
+F("UF-SW-03", "Send swatches to every store and follow receipt",
+ "Warehouse dispatches (Yusuf); the store manager marks received in RetailOS; design reads.", "Requirement · the Sent to stores box in the top row.",
+ ["Swatches to Yusuf is ticked; the fabric has its code."],
+ [["Clicks the Sent to stores box.", "One line per store: Store · region, Tracking no., Dispatch date, Receiving date; filters All stores, Not dispatched, Dispatched · not received, Received; the pill reads N of M received.", "None."],
+  ["Types a courier number on a store's line and clicks Dispatch.", "Toast “Dispatched to 1 store: each store marks it received in RetailOS.” The line shows the tracking no. and today's dispatch date; Receiving date reads awaiting the store.", "SwatchDispatch {fabricId, storeId, dispatchedOn, trackingNo, dispatchedBy}."],
+  ["Or types one tracking no. and clicks Dispatch to the N left.", "Every store not yet dispatched gets a line with today's date.", "One SwatchDispatch per store."],
+  ["The store manager marks it received in RetailOS (UF-RET-04).", "The line shows the receiving date and who, in green; the pill counts it.", "SwatchDispatch confirmedOn, confirmedBy."]],
+ ["Dispatch shows only for the warehouse; design and others read.", "A store has one line per fabric; dispatching again only adds a missing tracking no.", "The section opens only once the swatches are with Yusuf."],
+ ["A line awaiting the store for more than 5 days shows the days in red.", "Before the handover: “Opens once the swatches are with Yusuf.”"],
+ ["The Sent to stores box ticks with the last receiving date when every store has it, and reads N of M received until then."],
+ [["the swatches with Yusuf", "Yusuf dispatches to Khan Market with a tracking no.", "the Khan Market line shows the number, today's date and awaiting the store"],
+  ["a design login", "design opens Sent to stores", "no Dispatch button or tracking box shows (negative)"],
+  ["33 of 34 stores received", "the last store marks it received", "the box ticks and reads 34 of 34 received"]],
+ "6.7a", "src/screens/FabricRequirement.tsx · StoresSection; store.ts · dispatchSwatch")
+
 # ------------------------------------------------------------------ 14 conversation
 h2("14. Conversation, mentions, files and the bell")
 module("Conversation and files")
@@ -1435,6 +1450,18 @@ F("UF-COM-05", "Attach files to a record",
 h2("15. RetailOS interfaces")
 module("RetailOS")
 p("Store managers and owners have no screen in BSC PLM. Their side is built in RetailOS only. The flows below fix what passes between RetailOS and BSC PLM; the prototype's My store screen (#/stores) shows them for demonstration.")
+
+F("UF-RET-04", "Mark a fabric's swatch received at the store",
+ "Store manager. Built in RetailOS, shown in the prototype for demonstration.", "RetailOS · Swatches (prototype: My store · swatches to confirm).",
+ ["The warehouse dispatched the swatch to this store (UF-SW-03)."],
+ [["Opens the swatches waiting for the store.", "Each fabric dispatched to this store and not yet received, with its dispatch date.", "None."],
+  ["Clicks Received on the one that arrived.", "Toast “Received. Design sees it on the fabric's Sent to stores step.”", "SwatchDispatch confirmedOn, confirmedBy (written to BSC PLM)."]],
+ ["Only the store's own swatches."],
+ ["None waiting: the list is empty."],
+ ["Design's Sent to stores line shows the receiving date and the store."],
+ [["a swatch dispatched to Pali Hill", "the Pali Hill manager marks it received", "design sees the receiving date on Pali Hill's line"],
+  ["a swatch dispatched to another store", "the Pali Hill manager looks for it", "it is not listed (negative)"]],
+ "6.7a", "src/screens/Stores.tsx; store.ts · confirmSwatch")
 
 F("UF-RET-01", "See and confirm the store's pre-confirmed orders",
  "Store manager. Built in RetailOS, shown in the prototype for demonstration.", "RetailOS · Orders · Pre-confirmed (prototype: My store · Pre-confirmed).",
