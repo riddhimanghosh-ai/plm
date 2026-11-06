@@ -21,7 +21,7 @@ import { fabricNeededBy, factoryOptions, sourcingStateOf, suggestMills, fmtDate,
 import { Page, Card, Pill, Field, Input, Select, Button, Drawer, KV, Section, Note, dateInput, fromDateInput, Empty, Seg, usePager, Pager, ExportButton, Th, useExamples, type Tone } from '../ui';
 import { ActsBy } from './Who';
 import { MaterialsCoverSection, FabricFinalisationSection, SizeGrid } from './RtwGates';
-import { fabricStateOf, designFlowOf, conceptOf, openFabricPos, rtwDocsOf, type DesignStep } from '../domain/engines';
+import { fabricStateOf, designFlowOf, conceptOf, openFabricPos, samplingGateOf, rtwDocsOf, type DesignStep } from '../domain/engines';
 import { StepFlow } from './Flow';
 import type { Concept, OptionRequest } from '../domain/types';
 import { MTM_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
@@ -421,6 +421,7 @@ function mtmSourcingRows(db: ReturnType<typeof useApp>['db']): MtmRow[] {
     const stage = f.mtmStage ?? 1;
     const extAsked = !!c.optionsExtension && !c.optionsExtension.resolvedOn;
     if (stage >= 3) return;   // from the PO on, nothing for sourcing here
+    if (samplingGateOf(c) !== 'open') return;   // design has not decided on sampling yet, or the sampling round is still running
     const status = extAsked ? `${STAGE[stage]} · more time asked` : STAGE[stage];
     const mine = stage === 1 || extAsked;   // put a vendor against it, or answer the ask for more time
     out.push({ id: c.id, kind:'fabric', name: c.naming.newName ?? c.name, brief: c.brief, book: c.book ?? null, wanted: c.targetMonth ?? null, vendor: s.fabric ? `${db.vendors.find(x => x.id === s.fabric!.vendorId)?.name ?? ''}${s.fabric.cpm ? ` · ₹${s.fabric.cpm}/m` : ''}` : offers.length ? `${offers.length} offer${offers.length === 1 ? '' : 's'}` : '—',

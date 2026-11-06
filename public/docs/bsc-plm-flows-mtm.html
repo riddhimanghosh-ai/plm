@@ -50,7 +50,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <h1>BSC PLM, the <em>made-to-measure</em> user flows</h1>
 <p class="lede">Every user flow in the MTM edition, one job at a time, from the person&#x27;s side: who, where, what must be true first, each click and what the system shows and writes, the rules, the edge paths, what changes elsewhere, and the QA cases to accept it.</p>
 <p class="meta">4 Nov 2026 · devx Labs · <a href="bsc-plm-prd-mtm.html">Read the PRD</a> · <a href="bsc-plm-flows-mtm-v1.0.docx">Download the Word file</a> · <a href="../">Open the prototype</a></p>
-<div class="stats"><div><div class="n">106</div><div class="l">User flows</div></div><div><div class="n">10</div><div class="l">Modules</div></div><div><div class="n">216</div><div class="l">QA cases</div></div><div><div class="n">10</div><div class="l">Roles</div></div></div>
+<div class="stats"><div><div class="n">106</div><div class="l">User flows</div></div><div><div class="n">10</div><div class="l">Modules</div></div><div><div class="n">218</div><div class="l">QA cases</div></div><div><div class="n">10</div><div class="l">Roles</div></div></div>
 <nav class="toc"><a href="#s0"><span>01</span>Purpose and how to read</a><a href="#s1"><span>02</span>Roles and permissions</a><a href="#s2"><span>03</span>The order lifecycle</a><a href="#s3"><span>04</span>Global conventions</a><a href="#s4"><span>05</span>Glossary</a><a href="#s5"><span>06</span>Production</a><a href="#s6"><span>07</span>Unit teams: CAD, Cutting, Fusing, Compiling</a><a href="#s7"><span>08</span>Factory merchandiser</a><a href="#s8"><span>09</span>Fabric master</a><a href="#s9"><span>10</span>Purchase orders and supply</a><a href="#s10"><span>11</span>Sourcing</a><a href="#s11"><span>12</span>Design</a><a href="#s12"><span>13</span>Swatch desk, phase one</a><a href="#s13"><span>14</span>Conversation, mentions, files and the bell</a><a href="#s14"><span>15</span>RetailOS interfaces</a><a href="#s15"><span>16</span>Traceability</a><a href="#s16"><span>17</span>Open points</a></nav>
 <section id="s0"><p class="eyebrow"><b>Section 01</b></p><h2>Purpose and how to read</h2><div class="rule-accent"></div>
 <p>This is the build and test companion to the MTM PRD. The PRD says what the product is and why; this document says, for every job a person does in the MTM edition, exactly what they click, what they see, what is saved, and how QA proves it works. It is written from the person&#x27;s side, one flow per job.</p>
@@ -1772,31 +1772,35 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <p><strong>Alternate and edge paths.</strong> </p>
 <ul><li>New fabric: a note that bulk is bought only after the shipment sample is approved.</li></ul>
 <p><strong>Postconditions.</strong> </p>
-<ul><li>The ask lands on sourcing&#x27;s Your move (UF-SRC-01).</li></ul>
+<ul><li>The record opens on Sampling: design decides Need sampling or Sampling not needed (UF-DES-03). Sourcing does not see the ask until then.</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
 <tr><td>UF-DES-02.1</td><td>a name and a why</td><td>design clicks Log it</td><td>the requirement is created at Requirement requested</td></tr>
 <tr><td>UF-DES-02.2</td><td>no why</td><td>design looks at Log it</td><td>it is disabled (negative)</td></tr>
 </tbody></table>
-<h3 id="UF-DES-03"><span class="fid">UF-DES-03</span>Work the optional samples checklist</h3>
-<p><strong>Who.</strong> Production hands over and posts; design approves.</p>
-<p><strong>Where.</strong> Requirement · Samples · optional.</p>
+<h3 id="UF-DES-03"><span class="fid">UF-DES-03</span>Decide on sampling, then run the round</h3>
+<p><strong>Who.</strong> Design decides; production hands over and posts; design approves.</p>
+<p><strong>Where.</strong> Requirement · the Sampling box in the top row.</p>
 <p><strong>Preconditions.</strong> </p>
-<ul><li>A requirement.</li></ul>
+<ul><li>A new requirement at Requirement requested.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Picks Factory, clicks Mark handed over (Sample &amp; PAT file handed to a factory).</td><td>Toast “Sample and PAT file handed to the factory, logged.”</td><td>Concept: factoryId, patSentOn.</td></tr>
-<tr><td>2</td><td>When a PP sample is in, clicks Approve (remark optional) or Send back (remark required).</td><td>Toasts “Approved, comments stay on the record with the round.” or “Sent back, a new round against the same concept, not a restart.”</td><td>A sample round with decision and comments; the remark is posted to the conversation under PP sample.</td></tr>
-<tr><td>3</td><td>Same for the shipment sample.</td><td>As above.</td><td>As above, under Shipment sample.</td></tr>
-<tr><td>4</td><td>Production clicks Post approval (what to tell everyone, optional).</td><td>Toast “Approval posted once on this record, every role reads the same line; no email, no second copy.”</td><td>Concept: approvalSentOn; one conversation line under Approval.</td></tr>
+<tr><td>1</td><td>Clicks Sampling not needed · send to sourcing.</td><td>Toast “No sampling: the request is with sourcing now.” The Sampling box ticks with not needed.</td><td>Concept: sampling = not-needed, samplingDecided {on, by}.</td></tr>
+<tr><td>2</td><td>Or clicks Need sampling.</td><td>Toast “Sampling first: sourcing sees this once the sample is approved and posted.” The checklist shows left to right.</td><td>Concept: sampling = needed, samplingDecided {on, by}.</td></tr>
+<tr><td>3</td><td>Picks Factory, clicks Mark handed over (Sample &amp; PAT file handed to a factory).</td><td>Toast “Sample and PAT file handed to the factory, logged.”</td><td>Concept: factoryId, patSentOn.</td></tr>
+<tr><td>4</td><td>When a PP sample is in, clicks Approve (remark optional) or Send back (remark required).</td><td>Toasts “Approved, comments stay on the record with the round.” or “Sent back, a new round against the same concept, not a restart.”</td><td>A sample round with decision and comments; the remark is posted to the conversation under PP sample.</td></tr>
+<tr><td>5</td><td>Same for the shipment sample.</td><td>As above.</td><td>As above, under Shipment sample.</td></tr>
+<tr><td>6</td><td>Production clicks Post approval (what to tell everyone, optional).</td><td>Toast “Approval posted once on this record, every role reads the same line; no email, no second copy.”</td><td>Concept: approvalSentOn; one conversation line under Approval.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
 <ul><li>Mark handed over is disabled until a PAT file is attached.</li><li>Send back is disabled until a remark is typed (“write what has to change first”).</li><li>Post approval only after the shipment sample is approved.</li></ul>
 <p><strong>Alternate and edge paths.</strong> </p>
-<ul><li>The checklist is optional: no sample gate on Push PO.</li></ul>
+<ul><li>While sampling runs, design can click skip sampling, send to sourcing.</li><li>Older records with no decision go to sourcing as before.</li></ul>
 <p><strong>Postconditions.</strong> </p>
-<ul><li>Every remark is in the conversation under its step.</li></ul>
+<ul><li>Every remark is in the conversation under its step. Once the approval is posted the Sampling box ticks and the ask appears on sourcing&#x27;s Your move (UF-SRC-01).</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
-<tr><td>UF-DES-03.1</td><td>a PAT file attached</td><td>production marks handed over</td><td>the row shows done with the date</td></tr>
-<tr><td>UF-DES-03.2</td><td>a PP sample in and no remark</td><td>design looks at Send back</td><td>it is disabled (negative)</td></tr>
+<tr><td>UF-DES-03.1</td><td>a new requirement</td><td>design clicks Sampling not needed</td><td>the ask shows on sourcing&#x27;s Your move</td></tr>
+<tr><td>UF-DES-03.2</td><td>design clicked Need sampling and no approval is posted</td><td>sourcing opens Your move</td><td>the ask is not listed (negative)</td></tr>
+<tr><td>UF-DES-03.3</td><td>a PAT file attached</td><td>production marks handed over</td><td>the row shows done with the date</td></tr>
+<tr><td>UF-DES-03.4</td><td>a PP sample in and no remark</td><td>design looks at Send back</td><td>it is disabled (negative)</td></tr>
 </tbody></table>
 <h3 id="UF-DES-04"><span class="fid">UF-DES-04</span>Push the PO on the vendor card</h3>
 <p><strong>Who.</strong> Design.</p>
@@ -1879,8 +1883,9 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <p><strong>Preconditions.</strong> </p>
 <ul><li>The details have not been saved yet (the pill reads design fills once).</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
-<tr><td>1</td><td>Fills Final name, MRP ₹, Category (Formal or Casual), Style, Description · product page, Buzzwords, Composition (filled from the vendor), Enigma template, Base m, Buffer m.</td><td>The line under the form reads mints the product code BOM-SHI-FM-nnnn (or CS) · the sticker is made from these details.</td><td>None.</td></tr>
-<tr><td>2</td><td>Clicks Save · send to Enigma.</td><td>Toast “Saved and sent to Enigma: the product code is minted, the consumption rule is set, and the sticker is ready.” The form folds to a summary (Product code, Name · MRP, Description, Consumption, Edit) with the pill In Enigma · synced &lt;date&gt;. The sticker appears under it. Details in Enigma ticks on the journey.</td><td>Concept naming {newName, mrp, setOn}; one design {code minted once, finalName, category, style, mrp, variants at the MRP, description, buzzwords, enigmaOn, enigmaBy, enigmaSyncedOn}; concept enigma {template, consumptionBase, consumptionBuffer, configuredOn, by}; fabric composition.</td></tr>
+<tr><td>1</td><td>Clicks the Details in Enigma box in the top row.</td><td>Only this step&#x27;s section shows: the form, then the sticker under it once saved.</td><td>None.</td></tr>
+<tr><td>2</td><td>Fills The shirt (Final name, Style / preset, Category), Enigma product info (Product type, Weight (g), Region, Stock, Status, Sales channel, Product media; SKU code and Primary fabric are fixed), Price · per size (Base price ₹, Cost ₹, Option name, Option values, then Price ₹ and Discounted ₹ per size, sizes across), What the customer reads (Description · product page, Buzzwords), Cloth and consumption (Composition, Enigma template, Base m, Buffer m).</td><td>The line under the form reads mints the product code BOM-SHI-FM-nnnn (or CS) · one save sends everything to Enigma and makes the sticker. A blank size price shows the base price.</td><td>None.</td></tr>
+<tr><td>3</td><td>Clicks Save · send to Enigma.</td><td>Toast “Saved and sent to Enigma: the product code is minted, the consumption rule is set, and the sticker is ready.” The form folds to a summary (Product code with type, status and channel; Name · MRP with the price per size; Description; Consumption; Edit) with the pill In Enigma · synced &lt;date&gt;. The sticker appears under it. Details in Enigma ticks on the journey.</td><td>Concept naming {newName, mrp, setOn}; one design {code minted once, finalName, category, style, mrp, variants at the MRP, description, buzzwords, enigmaOn, enigmaBy, enigmaSyncedOn}; concept enigma {template, consumptionBase, consumptionBuffer, configuredOn, by}; fabric composition.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
 <ul><li>Save · send to Enigma is disabled until a name, an MRP above 0, a template and base metres above 0 are given.</li><li>Only design sees the form; others read the summary or a one-line hint.</li></ul>
@@ -2276,7 +2281,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <tr><td>UF-SRC-10</td><td>Edit a vendor</td><td>5.4</td><td>src/screens/Vendors.tsx</td></tr>
 <tr><td>UF-DES-01</td><td>Read the requirements list</td><td>6</td><td>src/screens/DesignHome.tsx</td></tr>
 <tr><td>UF-DES-02</td><td>Raise a new MTM requirement</td><td>6.1</td><td>src/screens/Concepts.tsx · NewConcept; DesignHome.tsx</td></tr>
-<tr><td>UF-DES-03</td><td>Work the optional samples checklist</td><td>6.1</td><td>src/screens/Concepts.tsx · SamplesChecklist</td></tr>
+<tr><td>UF-DES-03</td><td>Decide on sampling, then run the round</td><td>6.1</td><td>src/screens/Concepts.tsx · SamplesChecklist</td></tr>
 <tr><td>UF-DES-04</td><td>Push the PO on the vendor card</td><td>6.3</td><td>src/screens/Concepts.tsx; store.ts · conceptAcceptAndRaisePo</td></tr>
 <tr><td>UF-DES-05</td><td>Ask sourcing for more time</td><td>6.3, 6.4</td><td>src/store.ts · conceptAskOptionExtension</td></tr>
 <tr><td>UF-DES-06</td><td>Reject the vendor</td><td>6.3</td><td>src/store.ts · conceptRejectFabricOption</td></tr>

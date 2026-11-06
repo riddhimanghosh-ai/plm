@@ -127,7 +127,7 @@ export function NewConcept({ onDone }: { onDone: (id: string) => void }) {
 
 /** The requirement record: an MTM fabric opens on one screen (FabricRequirement); a construction variant keeps its own record. */
 export function ConceptDetail(p: { c: Concept; design: boolean; prod: boolean }) {
-  return p.c.kind === 'new-fabric' ? <FabricRequirement {...p} /> : <ConstructionDetail {...p} />;
+  return p.c.kind === 'new-fabric' ? <FabricRequirement key={p.c.id} {...p} /> : <ConstructionDetail {...p} />;
 }
 
 function ConstructionDetail({ c, design, prod }: { c: Concept; design: boolean; prod: boolean }) {
@@ -501,7 +501,7 @@ export function SamplesChecklist({ c, design, prod, factory, setFactory, factori
       status: c.approvalSentOn ? `posted by ${c.approvalBy ?? ''}` : ship.state === 'approved' ? 'ready to post' : 'after the shipment sample',
       actions: !c.approvalSentOn && ship.state === 'approved' && prod ? <Button size="sm" variant="primary" onClick={() => { conceptSendApproval(c.id, remark('post') || `${c.name} cleared the shipment sample.`); setNote(n => ({ ...n, post: '' })); }}>Post approval</Button> : null },
   ];
-  return <div className="checklist">
+  return <div className="checklist hz">
     {rows.map(r => <div key={r.key} className={`cl-row${r.done ? ' done' : ''}`}>
       <span className="cl-box" aria-hidden>{r.done ? '✓' : ''}</span>
       <div className="cl-main">

@@ -791,6 +791,11 @@ export interface Concept {
   patSentOn: string | null;      // sample + PAT file handed to the factory — a real-world handoff, logged
   rounds: ConceptRound[];        // PP rounds, then shipment rounds; a fail is a new round, never a restart
   approvalSentOn: string | null; approvalBy: string | null;   // the one email to every department, now a thread post
+  /* 6 Nov 2026: design decides first whether a new ask needs a round of sampling. 'pending' = not decided yet;
+     'needed' = sampling runs first and sourcing sees the ask only once the approval is posted; 'not-needed' = straight to sourcing.
+     Older records carry no value and go to sourcing as before. */
+  sampling?: 'pending' | 'needed' | 'not-needed';
+  samplingDecided?: { on: string; by: string } | null;
   enigma: { template: string | null; consumptionBase: number | null; consumptionBuffer: number | null; options: string[]; configuredOn: string | null; by: string | null;
     largeCheck?: boolean;                      // pattern over ~2 in — must be matched in cutting, so consumption goes up
     compositionFamily?: string | null };       // the website filter ("bamboo blend"), beside the exact composition

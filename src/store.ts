@@ -170,10 +170,11 @@ export interface AppState {
   conceptSubmitSample(id: string, gate: Concept['rounds'][number]['gate']): void;
   conceptReviewSample(id: string, round: number, comments: SampleRound['comments'], decision: 'resubmit' | 'approved'): void;
   conceptSendApproval(id: string, text: string): void;
+  conceptSetSampling(id: string, choice: 'needed' | 'not-needed'): void;   // design: a round of sampling first, or straight to sourcing
   conceptConfigureEnigma(id: string, e: { template: string; consumptionBase: number; consumptionBuffer: number; options: string[] }): void;
   conceptSetName(id: string, newName: string, mrp: number): void;
   /* one form, filled once: name, MRP, the one design (product code), Enigma's consumption rule, and the sticker, all from the requirement */
-  conceptSaveDetails(id: string, d: { name: string; mrp: number; category: 'Formal' | 'Casual'; style: string | null; description: string | null; buzzwords: string | null; composition: string | null; template: string; base: number; buffer: number }): void;
+  conceptSaveDetails(id: string, d: { name: string; mrp: number; category: 'Formal' | 'Casual'; style: string | null; description: string | null; buzzwords: string | null; composition: string | null; template: string; base: number; buffer: number; cost?: number | null; productType?: string | null; weightGrams?: number | null; region?: string; stockMode?: 'track-quantity' | 'variants'; status?: 'ACTIVE' | 'INACTIVE'; salesChannel?: string | null; media?: string[]; sizeOptionName?: string; sizes?: string[]; variants?: { size: string; price: number | null; discountedPrice: number | null }[] }): void;
   conceptSetMarketing(id: string, blurb: string, channels: string[]): void;
   conceptGoLive(id: string): void;                                            // live in stores
   conceptAddDesign(id: string, d: Pick<ConceptDesign, 'name' | 'category' | 'mrp'> & Partial<Pick<ConceptDesign, 'style' | 'cost' | 'description' | 'buzzwords' | 'productType' | 'weightGrams' | 'region' | 'stockMode' | 'status' | 'salesChannel' | 'discountedPrice' | 'media' | 'sizes' | 'variants'>>): void;   // one more design on this fabric, with its product code
@@ -854,7 +855,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* ---------- everyone ---------- */
     addConcept(i) {
       const id = i.id ?? `cn-${Date.now().toString(36)}`;
-      touch(db => { db.concepts = db.concepts ?? []; db.concepts.unshift({ id, name: i.name, kind: i.kind, brief: i.brief, raisedBy: who(), raisedOn: now(), spec: i.spec, baseFabricId: i.baseFabricId, book: i.book ?? null, targetMonth: i.targetMonth ?? null, washed: !!i.washed, fabricId: null, blockId: null, fabricPo: null, factoryId: null, patSentOn: null, rounds: [], approvalSentOn: null, approvalBy: null,
+      touch(db => { db.concepts = db.concepts ?? []; db.concepts.unshift({ id, name: i.name, kind: i.kind, brief: i.brief, raisedBy: who(), raisedOn: now(), spec: i.spec, baseFabricId: i.baseFabricId, book: i.book ?? null, targetMonth: i.targetMonth ?? null, washed: !!i.washed, fabricId: null, blockId: null, fabricPo: null, factoryId: null, patSentOn: null, rounds: [], sampling: 'pending', samplingDecided: null, approvalSentOn: null, approvalBy: null,
         enigma: { template: null, consumptionBase: null, consumptionBuffer: null, options: [], configuredOn: null, by: null }, naming: { oldName: i.name, newName: null, mrp: null, setOn: null }, liveOn: null }); }, 'Concept logged — with the why, for once.');
       return id;
     },
@@ -1087,6 +1088,10 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         r.comments = comments; r.decision = decision; r.reviewedOn = now(); r.reviewedBy = who(); },
         decision === 'approved' ? 'Approved — comments stay on the record with the round.' : 'Sent back — a new round against the same concept, not a restart.', decision === 'approved' ? 'ok' : 'warn');
     },
+    conceptSetSampling(id, choice) {
+      touch(db => { const c = db.concepts.find(x => x.id === id); if (!c) return; c.sampling = choice; c.samplingDecided = { on: now(), by: who() }; },
+        choice === 'needed' ? 'Sampling first: sourcing sees this once the sample is approved and posted.' : 'No sampling: the request is with sourcing now.');
+    },
     conceptSendApproval(id, text) {
       const me = PEOPLE.find(p => p.id === get().personId)!;
       touch(db => { const c = db.concepts.find(x => x.id === id); if (!c) return; c.approvalSentOn = now(); c.approvalBy = me.name;
@@ -1106,12 +1111,16 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         c.naming = { ...c.naming, oldName: c.naming.oldName ?? c.name, newName: d.name, mrp: d.mrp, setOn: t };
         /* the one design on the fabric: its product code is minted once and never changes */
         let g = (c.designs ?? [])[0];
-        if (!g) { const seq = 4200 + db.concepts.reduce((a, x) => a + (x.designs?.length ?? 0), 0); const code = `BOM-SHI-${d.category === 'Formal' ? 'FM' : 'CS'}-${seq}`; const sizes = ['36', '38', '40', '42', '44', '46'];
+        if (!g) { const seq = 4200 + db.concepts.reduce((a, x) => a + (x.designs?.length ?? 0), 0); const code = `BOM-SHI-${d.category === 'Formal' ? 'FM' : 'CS'}-${seq}`; const sizes = d.sizes ?? ['36', '38', '40', '42', '44', '46'];
           g = { id:`dsn-${Date.now().toString(36)}-${seq}`, code, name: d.name, finalName: d.name, style: d.style, category: d.category, mrp: d.mrp, cost: null, productType: 'CUSTOM_DESIGN', weightGrams: null, region: 'IND', stockMode: 'track-quantity', status: 'ACTIVE', salesChannel: null, discountedPrice: null, media: [], sizes,
             variants: sizes.map(sz => ({ size: sz, price: d.mrp, discountedPrice: null, sku: `${code}-${sz}` })), description: d.description, buzzwords: d.buzzwords, enigmaOn: null, liveOn: null, setOn: t, by: who() };
           c.designs = [g]; }
         else { if (g.finalName && g.finalName !== d.name) g.nameHistory = [...(g.nameHistory ?? []), { name: g.finalName, until: t, by: who(), note: 'renamed with the fabric' }];
-          Object.assign(g, { finalName: d.name, style: d.style, mrp: d.mrp, description: d.description, buzzwords: d.buzzwords, variants: (g.variants ?? []).map(v => ({ ...v, price: d.mrp })) }); }
+          Object.assign(g, { finalName: d.name, style: d.style, mrp: d.mrp, description: d.description, buzzwords: d.buzzwords }); }
+        /* the product info and the price per size, from the same form */
+        Object.assign(g, { cost: d.cost ?? g.cost ?? null, productType: d.productType ?? g.productType, weightGrams: d.weightGrams ?? g.weightGrams ?? null, region: d.region ?? g.region,
+          stockMode: d.stockMode ?? g.stockMode, status: d.status ?? g.status, salesChannel: d.salesChannel ?? g.salesChannel ?? null, media: d.media ?? g.media ?? [], sizeOptionName: d.sizeOptionName ?? g.sizeOptionName,
+          sizes: d.sizes ?? g.sizes, variants: (d.variants ?? (g.sizes ?? []).map(sz => ({ size: sz, price: d.mrp, discountedPrice: null }))).map(x => ({ size: x.size, price: x.price ?? d.mrp, discountedPrice: x.discountedPrice, sku: `${g!.code}-${x.size}` })) });
         /* sent to Enigma from here: the design row and the consumption rule, in the same save */
         g.enigmaOn = g.enigmaOn ?? t; g.enigmaBy = g.enigmaBy ?? who(); g.enigmaSyncedOn = t;
         c.enigma = { ...c.enigma, template: d.template, consumptionBase: d.base, consumptionBuffer: d.buffer, configuredOn: t, by: who() };
@@ -1670,7 +1679,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 129,
+  version: 130,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1682,7 +1691,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 129 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 130 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

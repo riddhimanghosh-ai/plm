@@ -1439,6 +1439,12 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
   if (bsp) extraFabric.push({ id: 'xf-alt-bsp', orderId: bsp.id, fabricId: bsp.fabricId!, factoryId: hem?.id ?? bsp.factoryId!, planId: null, metres: 0.9, reason: 'Fabric short — PP error', panel: 'Both sleeves',
     raisedBy: 'Alteration unit', raisedOn: iso(addDays(TODAY, -2)), status: 'requested', decidedOn: null, note: 'sleeves re-cut after a shortening went wrong', source: 'alteration' }); }
 
+/* 6 Nov 2026: the sampling decision on new MTM asks. One fresh ask waits for design to decide; asks already
+   sampling (sample and PAT with a factory, approval not yet posted) are "sampling first", so sourcing does not see them yet. */
+{ const fresh = concepts.filter(c => c.kind === 'new-fabric' && !/^cn-req-/.test(c.id) && !(c.fabricOptions ?? []).length && !c.fabricPo && !c.liveOn);
+  fresh.filter(c => c.patSentOn && !c.approvalSentOn).forEach(c => { c.sampling = 'needed'; c.samplingDecided = { on: c.raisedOn, by: c.raisedBy }; });
+  const undecided = fresh.find(c => !c.patSentOn); if (undecided) { undecided.sampling = 'pending'; undecided.samplingDecided = null; } }
+
 export const SEED: Db = {
   lostSales,
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,

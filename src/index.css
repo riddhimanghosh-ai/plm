@@ -432,3 +432,11 @@ h1::after { background: var(--accent); }
 .cl-row.done .cl-label { color: var(--ink-soft); }
 .cl-status { font-size: 12px; color: var(--ink-faint); }
 .cl-act { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+/* the same checklist laid side by side: one box per step, left to right in the order they happen */
+.checklist.hz { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.checklist.hz .cl-row { border: 1px solid var(--line); border-radius: 8px; padding: 10px; align-items: flex-start; }
+.checklist.hz .cl-row:last-child { border-bottom: 1px solid var(--line); }
+.checklist.hz .cl-row.done { border-color: var(--good); background: var(--accent-soft); }
+.checklist.hz .cl-main { min-width: 0; }
+.checklist.hz .cl-act { width: 100%; }
+.checklist.hz .cl-act .input { flex: 1; min-width: 0; }

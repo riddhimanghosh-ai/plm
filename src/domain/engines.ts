@@ -1207,6 +1207,9 @@ export function trimShortfall(db: Db, o: ProductionOrder) {
 
 /* ---------- fabric POs — raised, confirmed by the mill, received -------------- */
 export function openFabricPos(db: Db) { return (db.fabricPos ?? []).filter(p => !p.receivedOn); }
+/** where a new MTM ask stands before sourcing: undecided, sampling first, or open to sourcing */
+export const samplingGateOf = (c: Concept): 'undecided' | 'sampling' | 'open' =>
+  c.sampling === 'pending' ? 'undecided' : c.sampling === 'needed' && !c.approvalSentOn ? 'sampling' : 'open';
 export function fabricPoStatus(p: { vendorConfirmedOn: string | null; expectedOn: string; raisedOn: string; receivedOn: string | null }) {
   if (p.receivedOn) return 'received' as const;
   /* no mill confirmation step (4 Nov 2026): a PO is on order until received, overdue once its expected date passes */
