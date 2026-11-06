@@ -499,7 +499,7 @@ function FabricPosTab({ canSource }: { canSource: boolean }) {
       <thead><tr><th>PO</th><th>Fabric</th><th>Mill</th><th className="num">Metres</th><th>Expected</th><th>Status</th></tr></thead>
       <tbody>{ex.rows.map(p => { const f = fabric(p.fabricId); const st = fabricPoStatus(p); return (
         <tr key={p.id}>
-          <td className="mono text-[12.5px]">{p.poNo}<div className="pt-0.5"><Pill tone={p.source === 'auto' ? 'info' : 'accent'}>{p.source === 'auto' ? 'Enigma · auto' : /concept|RTW bulk|REQ-\d/i.test(p.remark) ? 'by hand · design' : 'by hand · sourcing'}</Pill></div><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{fmtRel(p.raisedOn)}</div></td>
+          <td className="mono text-[12.5px]">{p.poNo}<div className="text-[11px]" style={{ color:'var(--ink-faint)', fontFamily:'var(--body)' }}>{/* who raised it is a fact about the PO, not a status: plain text, so the row has one status pill */}raised {p.source === 'auto' ? 'by Enigma · auto' : /concept|RTW bulk|REQ-\d/i.test(p.remark) ? 'by hand · design' : 'by hand · sourcing'} · {fmtRel(p.raisedOn)}</div></td>
           <td style={{ whiteSpace:'normal', minWidth: 180 }}>{f?.name}<div className="text-[11px] mono" style={{ color:'var(--ink-faint)' }}>{f?.code} · {f?.bucket.toLowerCase().replace('_', '-')}</div></td>
           <td style={{ whiteSpace:'normal' }}><VendorLink id={p.vendorId} /></td>
           <td className="num">{p.metres} m</td>
