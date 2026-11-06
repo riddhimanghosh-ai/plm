@@ -187,7 +187,7 @@ const WH_TABS: { id: string; label: string; title: string; line: string; cta: st
   { id:'fabric', label:'Fabric rolls', title:'Fabric rolls against open POs', line:'Rolls arrive in parts — update the receiving line on each PO; every update raises a GRN.', cta:'Receive' },
   { id:'inward', label:'RTW inward', title:'RTW bulk from the factories', line:'Dispatched POs to count and close.', cta:'Count & close', rtw: true },
   { id:'prepare', label:'Cut & send', title:'Cut fabric and send bundles to the factories', line:'Planned MTM orders waiting for their cloth to be cut and bundled.', cta:'Cut list' },
-  { id:'xfabric', label:'Extra fabric', title:'Extra fabric approved for a factory', line:'Pick and send the approved metres.', cta:'Pick & send' },
+  { id:'xfabric', label:'Extra material', title:'Extra material approved for a factory', line:'Pick and send the approved fabric and trims.', cta:'Pick & send' },
   { id:'outbound', label:'Parcels', title:'Parcels to the stores', line:'Finished shirts, launch pieces and books going out today.', cta:'Pack' },
   { id:'transfers', label:'STOs', title:'Stock transfers still open', line:'STOs that arrived at the store but are open in the system — ghost inventory until closed.', cta:'Close' },
   { id:'books', label:'Books & samples', title:'Swatch books and fit samples at every store', line:'Missing or unconfirmed books and worn fit samples.', cta:'Open' },

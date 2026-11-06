@@ -291,6 +291,7 @@ export const MTM_STAGES: { id: string; label: string; scan: string | null; who: 
 ];
 export const ORDER_TAGS = ['normal', 'urgent', 'corporate'] as const;
 export const EXTRA_FABRIC_REASONS = ['Damaged / yarn pull — factory error', 'Stain — factory error', 'Weaving defect — PP error', 'Fabric short — PP error', 'Shade mismatch — PP error'] as const;
+export const TRIM_ASK_REASONS = ['Damaged or lost — factory error', 'Short in the kit — PP error', 'Wrong item in the kit — PP error'] as const;
 export const EXTRA_FABRIC_PANELS = ['Single front', 'Both fronts (patta)', 'Single sleeve', 'Both sleeves', 'Collar', 'Cuff'] as const;
 export const PANEL_METRES: Record<string, number> = { 'Single front':0.8, 'Both fronts (patta)':0.9, 'Single sleeve':0.8, 'Both sleeves':0.9, 'Collar':0.3, 'Cuff':0.3 };   // the email's 80 cm / 90 cm full width
 export const MTM_SWATCH_BOOKS = ['FORMAL SHIRTS - VOL.1', 'FORMAL SHIRTS - VOL.2', 'CASUAL SHIRTS VOL.1', 'LINEN SHIRTS'];   // Fabric Ordering → Swatch book

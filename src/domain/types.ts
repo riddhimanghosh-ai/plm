@@ -657,8 +657,9 @@ export interface ProductionPlan {
 
 /* The daily "EXTRA FABRIC" email, as a record: who needs what, why, and whether
    the production unit agreed. Approval is what moves the inventory. */
-export type ExtraFabricReason = 'Damaged / yarn pull — factory error' | 'Stain — factory error' | 'Weaving defect — PP error' | 'Fabric short — PP error' | 'Shade mismatch — PP error';
-export type ExtraFabricPanel = 'Single front' | 'Both fronts (patta)' | 'Single sleeve' | 'Both sleeves' | 'Collar' | 'Cuff';
+export type ExtraFabricReason = 'Damaged / yarn pull — factory error' | 'Stain — factory error' | 'Weaving defect — PP error' | 'Fabric short — PP error' | 'Shade mismatch — PP error'
+  | 'Damaged or lost — factory error' | 'Short in the kit — PP error' | 'Wrong item in the kit — PP error';   // the last three are for trims
+export type ExtraFabricPanel = 'Single front' | 'Both fronts (patta)' | 'Single sleeve' | 'Both sleeves' | 'Collar' | 'Cuff' | 'Trim';   // 'Trim' on a trim ask
 /* One bundle to a factory carries many pieces in many fabrics. A request is
    always against one of those pieces — the merchandiser picks which. */
 export interface ExtraFabricRequest {
@@ -669,6 +670,11 @@ export interface ExtraFabricRequest {
   source?: 'factory' | 'alteration';   // 27 Oct 2026: the alteration / hemming unit asks for cloth too
   decidedOn: string | null; note: string;
   declineReason?: string | null;   // 3 Nov 2026: a decline says why, for the factory to read
+  /* 6 Nov 2026: extra material, not only extra fabric. A factory can ask for trims too (buttons, labels, interlining);
+     a trim ask names the trim and a quantity in pieces, and approval deducts the trim's stock the same way. */
+  material?: 'fabric' | 'trim';    // absent = fabric
+  trimId?: string | null;
+  qty?: number | null;             // pieces, for a trim ask
   /* bespoke cloth is not on BSC's shelf: production hands the shortfall to Shravani, who raises a PO with the mill;
      when the cloth is in, the request comes back to production to approve (proposed 21 Oct 2026, not final) */
   po?: { handedOn: string; by: string; poNo: string | null; raisedOn: string | null; clothInOn: string | null } | null;

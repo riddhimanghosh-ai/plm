@@ -16,7 +16,7 @@ import { Section, Pill, Button, Input, Select, Field, KV, Note } from '../ui';
 
 const MODE_NOTE: Record<string, string> = {
   free: 'Production has not started, so the sheet can be corrected.',
-  logistics: 'Production has started. Measurements and styling are locked and no change remarks go to the factory. Only a logistics remark can change.',
+  logistics: 'Production has started. Measurements and styling are locked. Only a logistics remark can change, and the factory sees it.',
   remarks: 'Production has started. Only a logistics remark can change.',
   amend: 'Production has started. Only a logistics remark can change.',
   closed: 'The piece is made. A change now is an alteration or a remake, not a sheet edit.',

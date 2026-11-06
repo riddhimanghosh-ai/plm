@@ -1439,6 +1439,21 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
   if (bsp) extraFabric.push({ id: 'xf-alt-bsp', orderId: bsp.id, fabricId: bsp.fabricId!, factoryId: hem?.id ?? bsp.factoryId!, planId: null, metres: 0.9, reason: 'Fabric short — PP error', panel: 'Both sleeves',
     raisedBy: 'Alteration unit', raisedOn: iso(addDays(TODAY, -2)), status: 'requested', decidedOn: null, note: 'sleeves re-cut after a shortening went wrong', source: 'alteration' }); }
 
+/* 6 Nov 2026: extra material, not only fabric. Three trim asks from the floor: two the shelf covers, and one for a trim
+   that is running down, so the shelf cannot cover it (low inventory). */
+{ const floor = customerOrders.filter(o => o.kind === 'MTM' && o.stage === 'in-factory' && o.factoryId && o.fabricId && !extraFabric.some(x => x.orderId === o.id));
+  const avail = (t: TrimItem) => t.stock - committedFor(t.name);
+  const ample = [...trims].sort((a, b) => avail(b) - avail(a));
+  const short = [...trims].sort((a, b) => avail(a) - avail(b))[0];
+  const asks: [TrimItem | undefined, number, ExtraFabricRequest['reason'], string][] = [
+    [ample[0], 12, 'Damaged or lost — factory error', 'six lost in the wash, six cracked at pressing'],
+    [ample[1], 4, 'Short in the kit — PP error', ''],
+    [short, short ? Math.max(1, avail(short)) + 200 : 0, 'Short in the kit — PP error', 'the whole bundle came without them'],
+  ];
+  asks.forEach(([t, qty, reason, note], k) => { const o = floor[k]; if (!t || !o) return;
+    extraFabric.unshift({ id: `xf-trim-${k}`, orderId: o.id, fabricId: o.fabricId!, factoryId: o.factoryId!, planId: o.planId ?? null, metres: 0, reason, panel: 'Trim',
+      raisedBy: `${V(o.factoryId!).name} merchandiser`, raisedOn: iso(addDays(TODAY, -k)), status: 'requested', decidedOn: null, note, material: 'trim', trimId: t.id, qty }); }); }
+
 /* 6 Nov 2026: the sampling decision on new MTM asks. One fresh ask waits for design to decide; asks already
    sampling (sample and PAT with a factory, approval not yet posted) are "sampling first", so sourcing does not see them yet. */
 { const fresh = concepts.filter(c => c.kind === 'new-fabric' && !/^cn-req-/.test(c.id) && !(c.fabricOptions ?? []).length && !c.fabricPo && !c.liveOn);

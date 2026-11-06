@@ -2,14 +2,14 @@
    Allocate: PP queue past the freeze, a rule-drafted plan per factory, one
    submit. Plans: order sheets moving by QR scan. Floor: one factory's day,
    for its merchandiser — WIP aging, mark ready, ask for fabric.
-   Fabric: the extra-fabric email as a queue whose approval moves inventory.
+   Extra material: the extra-fabric email, now fabric and trims, as a queue whose approval moves inventory.
    Output: the WhatsApp shipping table and the aging pivot, derived. */
 import { useState } from 'react';
 import type React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { CustomerOrder, ExtraFabricRequest, OrderTag } from '../domain/types';
-import { prepOf, sheetVersion, changePendingOf, ppQueue, proposeAllocation, factoryLoadOf, agingOf, shippingTable, prepQueue, inwardOf, bespokeQueue, agingReport, needsReprint, sheetRev, fmtDate, fmtRel, fmtTime, daysAgo, iso, TODAY, MTM_OPEN, addDays } from '../domain/engines';
+import { prepOf, trimCoverageOf, sheetVersion, changePendingOf, ppQueue, proposeAllocation, factoryLoadOf, agingOf, shippingTable, prepQueue, inwardOf, bespokeQueue, agingReport, needsReprint, sheetRev, fmtDate, fmtRel, fmtTime, daysAgo, iso, TODAY, MTM_OPEN, addDays } from '../domain/engines';
 import { MTM_STAGES, PP_FREEZE_HOURS, PLAN_HORIZON_DAYS, AGING_DAYS, ORDER_TAGS, EXTRA_FABRIC_REASONS, EXTRA_FABRIC_PANELS, PANEL_METRES, STORES } from '../domain/reference';
 import { Page, Card, Pill, Button, Note, Tabs, Seg, Empty, Drawer, KV, Section, Field, Input, Select, useExamples, dateInput, fromDateInput, type Tone } from '../ui';
 import { ThreadPanel } from './Thread';
@@ -44,14 +44,14 @@ export function Mtm() {
 
   return (
     <Page title="MTM daily production" lede={`Single-piece orders from punch to dispatch, in Enigma's own stages.`}
-      replaces="the factory-by-factory planning page, the WhatsApp output image, Vishnu's aging pivot, and the extra-fabric email">
+      replaces="the factory-by-factory planning page, the WhatsApp output image, Vishnu's aging pivot, and the extra-material email">
       {!isProd && !isWh && <div className="mb-2"><ActsBy role={['production', 'warehouse']} does="plans, scans and dispatches here — production plans and watches the floor, the warehouse cuts, sends and receives" inline /></div>}
       {!isProd && isWh && <div className="mb-2"><ActsBy role="production" does="allocates orders to factories, submits plans and watches the factory floor — the warehouse tabs are yours" inline /></div>}
       <Tabs tabs={[
         ...(isProd ? [{ id:'allocate', label:'Allocate', hint:'allocate orders to factories', count: q.ready.length }, { id:'plans', label:'Plans', hint:'submitted plans', count: (db.plans ?? []).filter(p => !p.closedOn).length }, { id:'floor', label:'Factory floor', hint:'pieces sitting in each factory' }] : []),
         ...(isProd ? [{ id:'prep', label:'Pre-production', hint:'CAD, cutting, fusing and compiling for every planned order', count: (db.customerOrders ?? []).filter(o => o.kind === 'MTM' && o.stage === 'planned' && !prepOf(o).ready).length }] : []),
         ...(isProd ? [{ id:'changes', label:'Changed sheets', hint:'changed order sheets — who must act', count: changesPending.me.length + changesPending.others.length }] : []),
-        { id:'fabric', label:'Extra fabric', hint:'extra fabric requests from the floor', count: pendingFabric },
+        { id:'fabric', label:'Extra material', hint:'extra fabric and trims asked for by the floor', count: pendingFabric },
       ]} active={tab} onChange={t => set('tab', t)} wrap />
 
       {tab === 'allocate' && isProd && <AllocateTab mine={mine} onOpen={id => set('open', id)} />}
@@ -389,12 +389,12 @@ function FloorTab({ mine, factoryId, onFactory, onOpen }: { mine: boolean; facto
           <td className="num" style={{ color: d != null && d > AGING_DAYS ? 'var(--risk)' : undefined }}>{d != null ? `${d}d` : '—'}</td>
         </tr>); })}</tbody>
     </table></Card>
-    <div className="mt-3"><Note>Every order at the factories and where it is. The merchandiser scans received and out on My factory and asks for extra cloth there; pieces past {AGING_DAYS} days are the aging report. A row opens the order.</Note></div>
+    <div className="mt-3"><Note>Every order at the factories and where it is. The merchandiser scans received and out on My factory and asks for extra material there; pieces past {AGING_DAYS} days are the aging report. A row opens the order.</Note></div>
   </>;
 }
 
 
-/* ---------- Extra fabric queue --------------------------------------------- */
+/* ---------- Extra material queue: fabric and trims ------------------------- */
 /** Decline asks why: the reason is kept on the ask and the factory reads it */
 function DeclineWithReason({ onDecline }: { onDecline: (why: string) => void }) {
   const [open, setOpen] = useState(false); const [why, setWhy] = useState('');
@@ -408,9 +408,10 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
   const { db, decideExtraFabric, routeExtraFabricPo } = useApp();
   const order = (id: string) => (db.customerOrders ?? []).find(o => o.id === id);
   const fabric = (id: string) => db.fabrics.find(f => f.id === id);
-  /* three kinds of ask: a normal order, a bespoke order (no inventory), the alteration and hemming unit */
-  const kindOf = (r: ExtraFabricRequest) => r.source === 'alteration' ? 'alteration' : fabric(r.fabricId)?.bucket === 'BESPOKE' || order(r.orderId)?.bespoke ? 'bespoke' : 'normal';
-  const [kind, setKind] = useState<'all' | 'normal' | 'bespoke' | 'alteration'>('all');
+  /* four kinds of ask: a trim, a normal order, a bespoke order (no inventory), the alteration and hemming unit */
+  const trimOf = (r: ExtraFabricRequest) => r.material === 'trim' ? (db.trims ?? []).find(t => t.id === r.trimId) ?? null : null;
+  const kindOf = (r: ExtraFabricRequest) => r.material === 'trim' ? 'trims' : r.source === 'alteration' ? 'alteration' : fabric(r.fabricId)?.bucket === 'BESPOKE' || order(r.orderId)?.bespoke ? 'bespoke' : 'normal';
+  const [kind, setKind] = useState<'all' | 'normal' | 'bespoke' | 'alteration' | 'trims'>('all');
   const allRows = db.extraFabric ?? [];
   /* alteration asks split again: a normal fabric is approved here from the shelf; a bespoke one goes to Shravani */
   const [altKind, setAltKind] = useState<'all' | 'normal' | 'bespoke'>('all');
@@ -431,6 +432,7 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
         { id:'normal', label:'Normal orders', count: kindN('normal'), hint:'cloth from the shelf; approval deducts it' },
         { id:'bespoke', label:'Bespoke orders', count: kindN('bespoke'), hint:'mill PO via Shravani; no inventory kept' },
         { id:'alteration', label:'Alteration / hemming', count: kindN('alteration'), hint:'asks from the alteration and hemming unit; deducted from physical stock' },
+        { id:'trims', label:'Trims', count: kindN('trims'), hint:'buttons, labels, interlining and the rest: approval deducts the trim\u2019s stock' },
       ]} />
       {kind === 'alteration' && <Seg value={altKind} onChange={v => setAltKind(v as typeof altKind)} options={[
         { id:'all', label:'All alteration', count: alts.length },
@@ -439,23 +441,30 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
       ]} />}
       {ex.strip && <span className="ml-auto">{ex.strip}</span>}
     </div>
-    {rows.length === 0 ? <Card><Empty title={allRows.length ? 'No asks of this kind.' : 'No extra-fabric asks.'} body={allRows.length ? 'Pick another filter.' : 'Factory merchandisers raise them from the Factory floor tab.'} /></Card> : <Card><table className="t">
-      <thead><tr><th>Raised</th><th>Order</th><th>Fabric</th><th>Factory</th><th>Panel</th><th className="num">Metres</th><th>Reason</th><th>Status</th><th></th></tr></thead>
-      <tbody>{ex.rows.map(r => { const o = order(r.orderId); const f = fabric(r.fabricId); return (
+    {rows.length === 0 ? <Card><Empty title={allRows.length ? 'No asks of this kind.' : 'No extra-material asks.'} body={allRows.length ? 'Pick another filter.' : 'Factory merchandisers ask on My factory, under Ask for extra material.'} /></Card> : <Card><table className="t">
+      <thead><tr><th>Raised</th><th>Order</th><th>Material</th><th>Factory</th><th>Panel / trim</th><th className="num">Qty</th><th>Reason</th><th>Status</th><th></th></tr></thead>
+      <tbody>{ex.rows.map(r => { const o = order(r.orderId); const tr = trimOf(r); const f = tr ? undefined : fabric(r.fabricId); const tAvail = tr ? trimCoverageOf(db, tr).available : 0; return (
         <tr key={r.id} className="row" onClick={() => o && onOpen(o.id)}>
           <td className="text-[12.5px]">{fmtRel(r.raisedOn)}<div style={{ color:'var(--ink-faint)' }}>{r.raisedBy}</div></td>
           <td className="mono text-[12.5px]">{o?.orderNo ?? r.orderId}<div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{(db.plans ?? []).find(p => p.id === (r.planId ?? o?.planId))?.planNo ?? 'no bundle'}</div></td>
-          <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{f?.name}<div className="mono text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{f?.code}</div>
+          <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{tr ? <>{tr.name}<div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{tr.kind}</div>
+              <div className="text-[11px]" style={{ color: tAvail < (r.qty ?? 0) ? 'var(--risk)' : 'var(--ink-faint)' }}>shelf {tAvail.toLocaleString('en-IN')} pcs{r.status === 'requested' ? ` → ${(tAvail - (r.qty ?? 0)).toLocaleString('en-IN')} pcs if approved` : ''}</div></> : <>{f?.name}<div className="mono text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{f?.code}</div></>}
             {/* approving moves inventory, so the shelf is on the row you approve from */}
             {f && (f.bucket === 'BESPOKE' ? <div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>bespoke · no inventory kept, nothing deducted</div>
               : <div className="text-[11px]" style={{ color: (f.stockMetres - f.reservedMetres) < r.metres ? 'var(--risk)' : 'var(--ink-faint)' }}>
               shelf {Math.round((f.stockMetres - f.reservedMetres) * 10) / 10} m{r.status === 'requested' || (r.status === 'po-needed' && !r.po?.raisedOn) ? ` → ${Math.round((f.stockMetres - f.reservedMetres - r.metres) * 10) / 10} m if approved` : ''}</div>)}</td>
           <td className="text-[12.5px]"><VendorLink id={r.factoryId} /></td>
-          <td className="text-[12.5px]">{r.panel}</td><td className="num">{r.metres} m</td>
+          <td className="text-[12.5px]">{tr ? tr.name : r.panel}</td><td className="num">{tr ? `${r.qty ?? 0} pcs` : `${r.metres} m`}</td>
           <td className="text-[12px]"><span style={{ color: r.reason.includes('factory') ? 'var(--risk)' : 'var(--warn)' }}>{r.reason}</span>{r.note && <div style={{ color:'var(--ink-faint)' }}>{r.note}</div>}</td>
           <td><Pill tone={TONE[r.status]}>{r.status === 'po-needed' && r.po?.raisedOn ? 'PO raised · cloth awaited' : STATUS[r.status] ?? r.status}</Pill>{r.status === 'declined' && r.declineReason && <div className="text-[11px]" style={{ color:'var(--ink-soft)', whiteSpace:'normal', maxWidth: 200 }}>why: {r.declineReason}</div>}{f?.bucket === 'BESPOKE' && <div className="pt-0.5"><Pill tone="accent">bespoke</Pill></div>}{r.source === 'alteration' && <div className="pt-0.5"><Pill tone="info">alteration</Pill></div>}{r.po && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.po.poNo ? `${r.po.poNo}${r.po.clothInOn ? ' · cloth in' : ' · raised'}` : 'PO not raised yet'}</div>}</td>
           <td onClick={e => e.stopPropagation()} className="flex gap-1">
-            {mine && r.status === 'requested' && (() => { const bsp = !!f && f.bucket === 'BESPOKE'; const low = !!f && !bsp && f.stockMetres - f.reservedMetres < r.metres;
+            {mine && r.status === 'requested' && tr && (() => { const low = tAvail < (r.qty ?? 0);
+              /* trims: head office buys them, so no PO routing here; low inventory blocks approval until stock is in */
+              return <div className="flex flex-col gap-1 items-start">
+                <Button size="sm" variant="primary" disabled={low} title={low ? 'Low inventory: not enough of this trim on the shelf to approve' : undefined} onClick={() => decideExtraFabric(r.id, 'approved')}>Approve</Button>
+                {low && <Pill tone="risk">low inventory</Pill>}
+                <DeclineWithReason onDecline={why => decideExtraFabric(r.id, 'declined', why)} /></div>; })()}
+            {mine && r.status === 'requested' && !tr && (() => { const bsp = !!f && f.bucket === 'BESPOKE'; const low = !!f && !bsp && f.stockMetres - f.reservedMetres < r.metres;
               /* bespoke goes to Shravani; a normal fabric with too little on the shelf shows low inventory and Approve is greyed out */
               return <div className="flex flex-col gap-1 items-start">
               {bsp && !r.po ? <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani for a PO</Button>
@@ -543,7 +552,7 @@ export function OrderSheet({ o, mine }: { o: CustomerOrder; mine: boolean }) {
     </Section>
     <SheetChangePanel o={o} who="unit" />
       {mine && n && <div className="pb-2"><Button size="sm" variant="primary" onClick={() => scanOrders([o.id], n.stage)}>{n.label} →</Button></div>}
-    {xfs.length > 0 && <Section title="Extra fabric on this order">{xfs.map(r => <KV key={r.id} k={`${r.panel} · ${r.metres} m`} v={<Pill tone={r.status === 'approved' ? 'good' : r.status === 'requested' ? 'warn' : 'neutral'}>{r.status}</Pill>} note={`${r.reason} · ${fmtRel(r.raisedOn)}`} />)}</Section>}
+    {xfs.length > 0 && <Section title="Extra material on this order">{xfs.map(r => <KV key={r.id} k={r.material === 'trim' ? `${(db.trims ?? []).find(t => t.id === r.trimId)?.name ?? 'Trim'} · ${r.qty ?? 0} pcs` : `${r.panel} · ${r.metres} m`} v={<Pill tone={r.status === 'approved' ? 'good' : r.status === 'requested' ? 'warn' : 'neutral'}>{r.status}</Pill>} note={`${r.reason} · ${fmtRel(r.raisedOn)}`} />)}</Section>}
     <Files kind="customerOrder" subjectId={o.id} labels={FILE_LABELS.customerOrder} editable />
     <ThreadPanel kind="order" subjectId={o.id} steps={['General', 'Change from store', 'Fabric', 'Alteration']} />
   </>;

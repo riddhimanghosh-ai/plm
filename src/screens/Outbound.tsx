@@ -36,7 +36,7 @@ export function OutboundTab({ side, onTab, rtw }: { side: 'factories' | 'stores'
   const exFactories = useExamples(ob.toFactories, f => f.bundles.some(b => b.urgent > 0) ? 'urgent' : f.bundles.some(b => b.forcedOver) ? 'past capacity' : 'normal', { noun: 'factories', done: f => !f.bundles.some(b => b.urgent > 0 || b.forcedOver) });
   const exRtw = useExamples(ob.rtwIssue, x => x.sample.state, { noun: 'POs', done: x => x.sample.state === 'approved' });
   const exStores = useExamples(ob.toStores, x => x.mtmReady.length ? 'MTM shirts' : x.rtw.length ? 'RTW orders' : x.books.length ? 'swatch books' : x.launchPieces.length ? 'launch pieces' : 'stock transfers', { noun: 'stores', done: x => x.mtmReady.length > 0 });
-  const LINK: Record<string, string> = { 'Warehouse · Cut & dispatch':'#/warehouse?tab=prepare', 'Extra fabric':'#/mtm?tab=fabric', 'Planning · Plans':'#/mtm?tab=plans' };
+  const LINK: Record<string, string> = { 'Warehouse · Cut & dispatch':'#/warehouse?tab=prepare', 'Extra material':'#/mtm?tab=fabric', 'Planning · Plans':'#/mtm?tab=plans' };
   const go = (t: string) => <button type="button" className="cta" onClick={() => { const h = LINK[t]; if (h) window.location.hash = h; else onTab(t); }}>→ {t}</button>;
   return <>
     <div className="grid gap-3" style={{ gridTemplateColumns:'1fr' }}>
@@ -55,7 +55,7 @@ export function OutboundTab({ side, onTab, rtw }: { side: 'factories' | 'stores'
               <td className="num font-medium">{Math.round(f.bundles.reduce((a, b) => a + b.metres, 0) * 10) / 10} m</td>
               <td colSpan={2} className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>
                 {f.bundles.length} bundle{f.bundles.length === 1 ? '' : 's'}
-                {f.fabric.length > 0 && <> · <span style={{ color:'var(--warn)' }}>{f.fabric.length} extra-fabric line{f.fabric.length === 1 ? '' : 's'} · {Math.round(f.fabric.reduce((a, r) => a + r.metres, 0) * 10) / 10} m</span> <button type="button" className="cta" onClick={() => onTab('fabric')}>Cut list →</button></>}
+                {f.fabric.length > 0 && <> · <span style={{ color:'var(--warn)' }}>{f.fabric.length} extra-material line{f.fabric.length === 1 ? '' : 's'} · {Math.round(f.fabric.reduce((a, r) => a + r.metres, 0) * 10) / 10} m</span> <button type="button" className="cta" onClick={() => onTab('fabric')}>Cut list →</button></>}
               </td>
             </tr>
             {f.bundles.map(b => <tr key={b.planId} className="row" title="Open the plan: every order in this bundle" onClick={() => (window.location.hash = `#/mtm?tab=plans&plan=${b.planId}`)}>

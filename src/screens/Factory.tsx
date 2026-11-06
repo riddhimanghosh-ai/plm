@@ -11,7 +11,7 @@ import { FabricFinalisationSection, DocsChecklist, SizeGrid } from './RtwGates';
 import { MilestoneGrid } from './Tracker';
 import { fabricStateOf, otifOf, riskOf, rtwDocsOf, factoryStateOf, fmtMoney } from '../domain/engines';
 import { factoryLoadOf, needsReprint, sheetRev, sheetVersion, fmtDate, fmtRel, daysAgo, iso, TODAY } from '../domain/engines';
-import { EXTRA_FABRIC_PANELS, EXTRA_FABRIC_REASONS, PANEL_METRES, AGING_DAYS, MTM_STAGES, STORES } from '../domain/reference';
+import { EXTRA_FABRIC_PANELS, EXTRA_FABRIC_REASONS, TRIM_ASK_REASONS, PANEL_METRES, AGING_DAYS, MTM_STAGES, STORES } from '../domain/reference';
 import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, Field, Input, Select, useExamples, Seg, Section, KV, type Tone } from '../ui';
 import { RecordTail } from './RecordTail';
 import { FILE_LABELS, ORDER_STEPS } from '../domain/reference';
@@ -49,7 +49,7 @@ export function Factory() {
 
   return (
     <Page title={`My factory · ${v.name}`} lede="Everything this floor owes the production unit and everything it is owed."
-      replaces="the WhatsApp output photo, the call about a power cut, the extra-fabric email"
+      replaces="the WhatsApp output photo, the call about a power cut, the extra-material email"
       actions={<div style={{ width: 220 }}><Field label="Factory"><Select value={v.id} onChange={setFactory} options={factories.map(f => ({ value:f.id, label:f.name }))} /></Field></div>}>
       {!mine && <div className="mb-2"><ActsBy role="merchandiser" does="runs this floor — keys in the day's output and asks for cloth" inline /></div>}
 
@@ -62,7 +62,7 @@ export function Factory() {
         <Tabs active={tab} onChange={t => set('tab', t)} tabs={[
           { id:'today', label:"Today · output and the day's status" },
           { id:'orders', label:'Pieces allocated to us', count: orders.length },
-          { id:'fabric', label:'Ask for extra cloth', count: xf.filter(r => r.status === 'requested').length },
+          { id:'fabric', label:'Ask for extra material', count: xf.filter(r => r.status === 'requested').length },
         ]} />
         {tab === 'today' && <TodayTab v={v} mine={mine} keyed={keyed} scanned={l.outToday} avg={l.avgOut} />}
         {tab === 'orders' && <OrdersTab orders={orders} mine={mine} onOpen={id => set('open', id)} />}
@@ -162,7 +162,7 @@ function OrdersTab({ orders, mine, onOpen }: { orders: CustomerOrder[]; mine: bo
       <tbody>{ex.rows.map(o => { const d = inAt(o) ? daysAgo(inAt(o)!) : null; const late = daysAgo(o.promisedOn) > 0; const f = fabric(o); return (
         <tr key={o.id} className="row" onClick={() => onOpen(o.id)} style={{ background: sel.has(o.id) ? 'var(--accent-soft)' : undefined }}>
           <td onClick={e => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>
-          <td className="mono text-[12.5px]">{o.orderNo}</td>
+          <td className="mono text-[12.5px]">{o.orderNo}{o.logisticComment && <div><span className="pill info" title={o.logisticComment} style={{ fontSize: 10.5 }}>logistics remark</span></div>}</td>
           <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{o.customer}<div style={{ color:'var(--ink-faint)' }}>{store(o.storeId)}</div></td>
           <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{o.styleName}<div className="mono text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{f?.code} · {o.consumptionM} m</div></td>
           <td style={{ color: late ? 'var(--risk)' : undefined }}>{fmtDate(o.promisedOn)}{(o.promiseRevisions?.length ?? 0) > 0 && <span className="pill warn ml-1">moved</span>}{late && <div className="text-[11px]">{daysAgo(o.promisedOn)}d late</div>}</td>
@@ -177,7 +177,7 @@ function OrdersTab({ orders, mine, onOpen }: { orders: CustomerOrder[]; mine: bo
 }
 
 
-/* ---------- Ask for extra cloth -------------------------------------------- */
+/* ---------- Ask for extra material: fabric or trims ------------------------- */
 function AskTab({ v, mine, orders, rows, onOpen }: { v: { id: string; name: string }; mine: boolean; orders: CustomerOrder[]; rows: ExtraFabricRequest[]; onOpen: (id: string) => void }) {
   const { db, raiseExtraFabric } = useApp();
   /* An order number is what the floor works from, and one order can carry several
@@ -203,12 +203,19 @@ function AskTab({ v, mine, orders, rows, onOpen }: { v: { id: string; name: stri
   const [metres, setMetres] = useState(String(PANEL_METRES['Single front']));
   const [reason, setReason] = useState<ExtraFabricRequest['reason']>('Damaged / yarn pull — factory error');
   const [note, setNote] = useState('');
+  /* fabric or a trim: a trim ask names the trim and the pieces */
+  const [mat, setMat] = useState<'fabric' | 'trim'>('fabric');
+  const trims = db.trims ?? [];
+  const [trimId, setTrimId] = useState(trims[0]?.id ?? '');
+  const [qty, setQty] = useState('10');
+  const [treason, setTreason] = useState<ExtraFabricRequest['reason']>(TRIM_ASK_REASONS[0]);
+  const trim = trims.find(t => t.id === trimId);
   const TONE: Record<string, Tone> = { requested:'warn', approved:'good', sent:'neutral', declined:'risk' };
   const sorted = [...rows].sort((a, b) => b.raisedOn.localeCompare(a.raisedOn));
   const ex = useExamples(sorted, r => r.status, { noun: 'requests', done: r => r.status === 'sent' });
   return <>
-    {mine && <Card className="mb-3"><div className="px-4 py-2.5" style={{ borderBottom:'1px solid var(--line-soft)' }}><h3 className="m-0">Ask the production unit for cloth</h3>
-      <div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>the order number first — if that order has more than one cloth in it, say which one is short</div></div>
+    {mine && <Card className="mb-3"><div className="px-4 py-2.5" style={{ borderBottom:'1px solid var(--line-soft)' }}><h3 className="m-0">Ask the production unit for extra material</h3>
+      <div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>the order number first, then fabric or a trim</div></div>
       <div className="pad">
         <div className="grid gap-2.5 items-end" style={{ gridTemplateColumns:'1fr 1fr' }}>
           <Field label="Order number" hint={`${groups.length} orders on this floor`}>
@@ -221,30 +228,39 @@ function AskTab({ v, mine, orders, rows, onOpen }: { v: { id: string; name: stri
                 <Select value={orderId} onChange={setOrderId} options={g!.pieces.map(x => ({ value:x.id, label:`${db.fabrics.find(y => y.id === x.fabricId)?.name ?? x.styleName} · ${x.consumptionM} m` }))} /></Field>
             : <Field label="Cloth on this order" hint={f ? `${f.code} · ${o?.consumptionM} m on the sheet` : undefined}>
                 <div className="text-[13px] py-1.5">{f?.name ?? o?.styleName ?? '—'}</div></Field>}
+          <div style={{ gridColumn:'1 / -1' }}><Seg value={mat} onChange={v => setMat(v as 'fabric' | 'trim')} options={[{ id:'fabric', label:'Fabric' }, { id:'trim', label:'Trim' }]} /></div>
+          {mat === 'trim' ? <>
+            <Field label="Trim"><Select value={trimId} onChange={setTrimId} options={trims.map(t => ({ value:t.id, label:`${t.name} · ${t.kind}` }))} /></Field>
+            <Field label="Pieces"><Input type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} className="input mono" /></Field>
+            <div style={{ gridColumn:'1 / -1' }}><Field label="Reason"><Select value={treason} onChange={x => setTreason(x as ExtraFabricRequest['reason'])} options={TRIM_ASK_REASONS.map(x => ({ value:x, label:x }))} /></Field></div>
+          </> : <>
           <Field label="Panel"><Select value={panel} onChange={x => { setPanel(x as ExtraFabricRequest['panel']); setMetres(String(PANEL_METRES[x])); }} options={EXTRA_FABRIC_PANELS.map(x => ({ value:x, label:x }))} /></Field>
           <Field label="Metres" hint="80 cm single · 90 cm full width"><Input type="number" step="0.1" value={metres} onChange={e => setMetres(e.target.value)} className="input mono" /></Field>
           <div style={{ gridColumn:'1 / -1' }}><Field label="Reason — whose error" hint="factory errors go on your record; PP errors go back to the consumption formula">
             <Select value={reason} onChange={x => setReason(x as ExtraFabricRequest['reason'])} options={EXTRA_FABRIC_REASONS.map(x => ({ value:x, label:x }))} /></Field></div>
+          </>}
           <div style={{ gridColumn:'1 / -1' }}><Field label="Note"><Input value={note} onChange={e => setNote(e.target.value)} placeholder="optional" /></Field></div>
         </div>
-        <div className="pt-2"><Button variant="primary" size="sm" disabled={!o} onClick={() => { raiseExtraFabric({ orderId: o!.id, metres: Number(metres), reason, panel, note: note.trim() }); setNote(''); }}>Ask for {metres} m{f ? ` of ${f.name}` : ''}</Button></div>
+        <div className="pt-2">{mat === 'trim'
+          ? <Button variant="primary" size="sm" disabled={!o || !trim || !(Number(qty) > 0)} onClick={() => { raiseExtraFabric({ orderId: o!.id, metres: 0, reason: treason, panel: 'Trim', note: note.trim(), material: 'trim', trimId, qty: Number(qty) }); setNote(''); }}>Ask for {qty} {trim?.name ?? 'pieces'}</Button>
+          : <Button variant="primary" size="sm" disabled={!o} onClick={() => { raiseExtraFabric({ orderId: o!.id, metres: Number(metres), reason, panel, note: note.trim() }); setNote(''); }}>Ask for {metres} m{f ? ` of ${f.name}` : ''}</Button>}</div>
       </div>
     </Card>}
 
     <Card><div className="px-4 py-2.5 flex items-center justify-between gap-2 flex-wrap" style={{ borderBottom:'1px solid var(--line-soft)' }}><h3 className="m-0">What we have asked for</h3>{ex.strip}</div>
       {rows.length === 0 ? <Empty title="Nothing asked for." body="" /> : <div style={{ overflowX:'auto' }}><table className="t compact">
-        <thead><tr><th>Asked</th><th>Piece · fabric</th><th>Panel</th><th className="num">Metres</th><th>Reason</th><th>Status</th></tr></thead>
-        <tbody>{ex.rows.map(r => { const ord = (db.customerOrders ?? []).find(x => x.id === r.orderId); const fb = db.fabrics.find(x => x.id === r.fabricId); return (
+        <thead><tr><th>Asked</th><th>Piece · material</th><th>Panel / trim</th><th className="num">Qty</th><th>Reason</th><th>Status</th></tr></thead>
+        <tbody>{ex.rows.map(r => { const ord = (db.customerOrders ?? []).find(x => x.id === r.orderId); const fb = db.fabrics.find(x => x.id === r.fabricId); const tr = r.material === 'trim' ? (db.trims ?? []).find(t => t.id === r.trimId) : null; return (
           <tr key={r.id} className="row" onClick={() => ord && onOpen(ord.id)}>
             <td className="text-[12.5px]">{fmtRel(r.raisedOn)}<div style={{ color:'var(--ink-faint)' }}>{r.raisedBy}</div></td>
-            <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{ord?.orderNo}<div style={{ color:'var(--ink-faint)' }}>{fb?.name}</div></td>
-            <td className="text-[12.5px]">{r.panel}</td><td className="num">{r.metres} m</td>
+            <td className="text-[12.5px]" style={{ whiteSpace:'normal' }}>{ord?.orderNo}<div style={{ color:'var(--ink-faint)' }}>{tr ? tr.kind : fb?.name}</div></td>
+            <td className="text-[12.5px]">{tr ? tr.name : r.panel}</td><td className="num">{tr ? `${r.qty ?? 0} pcs` : `${r.metres} m`}</td>
             <td className="text-[12px]" style={{ whiteSpace:'normal', maxWidth: 220 }}><span style={{ color: r.reason.includes('factory') ? 'var(--risk)' : 'var(--warn)' }}>{r.reason}</span>{r.note && <div style={{ color:'var(--ink-faint)' }}>{r.note}</div>}</td>
             <td><Pill tone={TONE[r.status]}>{r.status}</Pill>{r.decidedOn && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{fmtRel(r.decidedOn)}</div>}{r.status === 'declined' && r.declineReason && <div className="text-[11px]" style={{ color:'var(--ink-soft)', whiteSpace:'normal', maxWidth: 220 }}>why: {r.declineReason}</div>}</td>
           </tr>); })}</tbody>
       </table></div>}
     </Card>
-    <div className="mt-3"><Note>Planning's approval is the inventory event — the metres leave the unit's shelf the moment they say yes.</Note></div>
+    <div className="mt-3"><Note>Production's approval is the inventory event: the fabric or trims leave the unit's shelf the moment it says yes.</Note></div>
   </>;
 }
 
@@ -266,6 +282,8 @@ function OrderPanel({ o, mine }: { o: CustomerOrder; mine: boolean }) {
         <div><div className="label">Ship by</div><div className="text-[13px]" style={{ color: daysAgo(o.promisedOn) > 0 ? 'var(--risk)' : undefined }}>{fmtDate(o.promisedOn)}</div></div>
         <div><div className="label">Stage</div><div><Pill tone={STAGE_TONE[o.stage] ?? 'neutral'}>{stageLabel(o.stage)}</Pill></div></div>
         <div style={{ gridColumn:'1 / -1' }}><div className="label">Remarks from the store</div><div className="text-[13px]">{o.remarks || '—'}</div></div>
+        {/* after planning only the logistics remark can change, and it reaches the factory; measurements and styling stay locked */}
+        {o.logisticComment && <div style={{ gridColumn:'1 / -1' }}><div className="label">Logistics remark</div><div className="text-[13px]">{o.logisticComment}</div></div>}
       </div>
       {mine && <div className="flex gap-2 pt-3">
         {o.stage === 'in-transit' && <Button size="sm" onClick={() => scanOrders([o.id], 'in-factory')}>Received on the floor</Button>}

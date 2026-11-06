@@ -9,7 +9,7 @@ import { persist } from 'zustand/middleware';
 import type { PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
-import { prepOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
+import { prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
 import { PEOPLE, MERCHANDISERS, ORDER_STAGE_NEXT, METRES_PER_SHIRT, STORES, SHEET_LABEL, SHIRT_PRESETS, defaultSpec, defaultMeasurements, defaultPattern } from './domain/reference';
 
 /* `undoAt` is the depth of the stack this toast was raised at: its Undo button
@@ -264,7 +264,7 @@ export interface AppState {
   closePlan(planId: string): void;
   addVendor(v: { name: string; kind: VendorKind; location: string; region: string; leadDays: number; moq: number; enigma: NonNullable<Vendor['enigma']> }): string;   // sourcing: a vendor as Enigma's Add Vendor form takes it
   updateVendor(id: string, patch: Partial<Pick<Vendor, 'tailors' | 'distanceKm' | 'leadDays' | 'moq' | 'dailyTarget' | 'corporate' | 'urgentReserve' | 'mtm' | 'location' | 'region' | 'blockWindowDays' | 'enigma' | 'name' | 'kind'>>): void;
-  raiseExtraFabric(input: Pick<ExtraFabricRequest, 'orderId' | 'metres' | 'reason' | 'panel' | 'note'>): void;   // one piece of a bundle, never the whole bundle
+  raiseExtraFabric(input: Pick<ExtraFabricRequest, 'orderId' | 'metres' | 'reason' | 'panel' | 'note'> & Partial<Pick<ExtraFabricRequest, 'material' | 'trimId' | 'qty'>>): void;   // one piece of a bundle, never the whole bundle
   decideExtraFabric(id: string, status: 'approved' | 'declined' | 'sent', reason?: string): void;
   /* warehouse — bespoke */
   reportMillStock(fabricId: string, available: boolean, metres?: number): void;
@@ -1504,7 +1504,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { const o = (db.customerOrders ?? []).find(x => x.id === input.orderId); if (!o || !o.fabricId || !o.factoryId) return;
         db.extraFabric = db.extraFabric ?? [];
         db.extraFabric.unshift({ ...input, id:`xf-${Date.now().toString(36)}`, fabricId: o.fabricId, factoryId: o.factoryId, planId: o.planId ?? null, raisedBy: who(), raisedOn: now(), status:'requested', decidedOn: null });
-      }, 'Asked. It is on the production unit\'s queue here — no email, no phone call.');
+      }, 'Asked. It is on the production unit\'s Extra material queue: no email, no phone call.');
     },
     confirmOrder(id, note) {
       touch(db => { const o = (db.customerOrders ?? []).find(x => x.id === id); if (!o || !o.preConfirmed) return;
@@ -1566,13 +1566,17 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { const r = (db.extraFabric ?? []).find(x => x.id === id); if (!r) return;
         const wasLive = r.status === 'requested';
         /* nothing on the shelf to give: a normal ask cannot be approved until stock is in (or Shravani raises a PO) */
-        if (status === 'approved' && wasLive) { const f0 = db.fabrics.find(x => x.id === r.fabricId); if (f0 && f0.bucket !== 'BESPOKE' && f0.stockMetres - f0.reservedMetres < r.metres) return; }
+        /* a trim ask: the trim's own shelf, in pieces; nothing to give means no approval (trims are bought by head office) */
+        const trim = r.material === 'trim' ? (db.trims ?? []).find(t => t.id === r.trimId) : null;
+        if (status === 'approved' && wasLive && r.material === 'trim') { if (!trim || trimCoverageOf(db, trim).available < (r.qty ?? 0)) return; }
+        else if (status === 'approved' && wasLive) { const f0 = db.fabrics.find(x => x.id === r.fabricId); if (f0 && f0.bucket !== 'BESPOKE' && f0.stockMetres - f0.reservedMetres < r.metres) return; }
         if (status === 'declined') r.declineReason = (reason ?? '').trim() || null;
         r.status = status; r.decidedOn = r.decidedOn ?? now();
         /* approval is the inventory event — the metres leave the shelf the moment the production unit says yes */
         /* bespoke cloth is not kept in inventory, so there is nothing to deduct */
-        if (status === 'approved' && wasLive) { const f = db.fabrics.find(x => x.id === r.fabricId); if (f && f.bucket !== 'BESPOKE') f.stockMetres = Math.max(0, Math.round((f.stockMetres - r.metres) * 100) / 100); }
-      }, status === 'approved' ? 'Approved — inventory deducted, fabric team gets the cut list.' : status === 'declined' ? 'Declined — the reason goes to the factory.' : 'Marked sent to the factory.', status === 'declined' ? 'warn' : 'ok');
+        if (status === 'approved' && wasLive && trim) trim.stock = Math.max(0, trim.stock - (r.qty ?? 0));
+        else if (status === 'approved' && wasLive) { const f = db.fabrics.find(x => x.id === r.fabricId); if (f && f.bucket !== 'BESPOKE') f.stockMetres = Math.max(0, Math.round((f.stockMetres - r.metres) * 100) / 100); }
+      }, status === 'approved' ? 'Approved: stock deducted, the material goes to the factory.' : status === 'declined' ? 'Declined — the reason goes to the factory.' : 'Marked sent to the factory.', status === 'declined' ? 'warn' : 'ok');
     },
 
     reportMillStock(fabricId, available, metres) { touch(db => { const f = db.fabrics.find(x => x.id === fabricId); if (f) { f.millAvailable = available; if (metres != null) f.millStockMetres = metres; else if (!available) f.millStockMetres = 0; f.millReportedAt = now(); if (!available) f.onHold = true; if (available && f.onHold) f.onHold = false; } }, available ? `Mill stock updated${metres != null ? ` — ${metres} m` : ''} — orderable.` : 'Reported sold out at the mill — switched off on Shopify and in stores.', available ? 'ok' : 'warn'); },
@@ -1686,7 +1690,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 132,
+  version: 133,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1698,7 +1702,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 132 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 133 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),
