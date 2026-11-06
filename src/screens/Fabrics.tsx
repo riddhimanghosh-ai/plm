@@ -397,7 +397,7 @@ function Fabric360({ f, canSource, canPlan, view = 'all', flat = false, setView 
       {row('Swatch book', f.swatchBook ?? '—')}
       {f.bucket === 'BESPOKE' && row('At the mill', f.millAvailable === false ? <span style={{ color:'var(--risk)' }}>sold out{!f.onHold ? ' · still on sale, make it inactive' : ''}</span> : f.millStockMetres != null ? `${f.millStockMetres} m` : 'available', undefined, `reported ${fmtRel(f.millReportedAt)}`)}
       {row('In stores', swatches.length ? `${confirmed} of ${swatches.length} swatches received` : 'no swatch sent yet', undefined, swatches.length - confirmed ? `waiting: ${storeNames(swatches.filter(s => !s.confirmedOn).map(s => s.storeId)).join(', ')}` : undefined)}
-      <div className="ov-row ov-wide"><span className="ov-k">Sales · 12 weeks</span><span className="ov-v" style={{ alignItems:'center' }}><Bars values={f.weeklySalesShirts} ok={inStockWeeks} unit=" shirts" compact /><span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{c.ros.toFixed(1)} shirts a week</span></span></div>
+      <div className="ov-row ov-wide"><span className="ov-k">Sales · 12 weeks</span><span className="ov-v" style={{ alignItems:'center' }}><Bars values={f.weeklySalesShirts} ok={inStockWeeks} unit=" shirts" compact /><span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{c.ros.toFixed(1)} shirts a week · best week {Math.max(0, ...f.weeklySalesShirts)}</span></span></div>
     </div>
     {blk && <div className="mt-2 mb-2 p-3" style={{ background:'var(--accent-soft)', borderRadius: 8 }}>
       <div className="label">What did {mill.name} agree to hold?</div>

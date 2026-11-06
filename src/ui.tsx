@@ -392,7 +392,8 @@ export function Bars({ values, ok, unit = '', compact = false }: { values: numbe
         <rect x={i * (w + gap)} y={h - bh} width={w} height={bh} rx="1" fill={out ? 'none' : 'var(--accent)'} stroke={out ? 'var(--risk)' : 'none'} strokeDasharray={out ? '2 2' : undefined} opacity={out ? .9 : .85} />
         <text x={i * (w + gap) + w / 2} y={h + 11} fontSize="8" textAnchor="middle" fill="var(--ink-faint)" fontFamily="var(--mono)">{i === values.length - 1 ? 'now' : i === 0 ? `-${values.length - 1}w` : ''}</text>
       </g>; })}
-      <text x={values.length * (w + gap) - 2} y="9" fontSize="9" textAnchor="end" fill="var(--ink-faint)" fontFamily="var(--mono)">max {max}{unit}</text>
+      {/* the compact bars are too short to carry the label over them; the caller says the max beside them */}
+      {!compact && <text x={values.length * (w + gap) - 2} y="9" fontSize="9" textAnchor="end" fill="var(--ink-faint)" fontFamily="var(--mono)">max {max}{unit}</text>}
     </svg>
   );
 }
