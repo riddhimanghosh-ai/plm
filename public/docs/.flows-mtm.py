@@ -1409,7 +1409,7 @@ F("UF-SW-03", "Send swatches to every store and follow receipt",
 # ------------------------------------------------------------------ 14 conversation
 h2("14. Conversation, mentions, files and the bell")
 module("Conversation and files")
-p("Every record (order, customer, fabric, requirement, mill, return case) has Files · N and Conversation · N at its foot, open to anyone who can open the record; the block is always open and stays stuck to the bottom of the record as you scroll. The bell, Waiting on you, sits top right on every screen.")
+p("Every record (order, customer, fabric, requirement, mill, return case) has Files · N and Conversation · N at its foot, open to anyone who can open the record; a compact panel stays at the bottom of every record as you scroll, Conversation first (messages as a chat, a one-line box with @ to notify, 📎 to attach, Send), then Files and Activity. The bell, Waiting on you, sits top right on every screen.")
 
 F("UF-COM-01", "Post on a record",
  "Anyone who can open the record.", "Any record · Conversation · N.",
@@ -1417,7 +1417,7 @@ F("UF-COM-01", "Post on a record",
  [["Types in “Write as <name>… @neha or @sourcing so it is addressed to them”.", "None.", "None."],
   ["Picks the step (order: General, Change from store, Fabric, Alteration; requirement: General and the sample steps).", "None.", "None."],
   ["Optionally clicks 📎 Attach and picks files.", "N files attached.", "None."],
-  ["Clicks Post (or ⌘↵).", "Toast “Posted. Everyone mentioned sees it on this record until someone replies.” The comment shows with who, role, when and step.", "Thread comment {who, role, at, step, text}; files as attachments on the comment."],
+  ["Clicks Send (or ⌘↵).", "Toast “Posted. Everyone mentioned sees it on this record until someone replies.” The comment shows with who, role, when and step.", "Thread comment {who, role, at, step, text}; files as attachments on the comment."],
   ["Filters by step (All N, <step> N).", "The list follows.", "None."]],
  ["Post is disabled until there is text or a file."],
  ["Nothing yet: “Nothing said here yet. This is where the WhatsApp about this record goes, so it stays with the record.”"],

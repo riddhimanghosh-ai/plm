@@ -10,7 +10,7 @@ import { threadOf, fmtRel } from '../domain/engines';
 import { ROLE_LABEL, PEOPLE } from '../domain/reference';
 import { Section, Pill, Button, Select } from '../ui';
 
-export function ThreadPanel({ kind, subjectId, steps, defaultStep }: { kind: ThreadKind; subjectId: string; steps?: string[]; defaultStep?: string }) {
+export function ThreadPanel({ kind, subjectId, steps, defaultStep, bare = false }: { kind: ThreadKind; subjectId: string; steps?: string[]; defaultStep?: string; bare?: boolean }) {
   const { db, personId, postComment } = useApp();
   const t = threadOf(db, kind, subjectId);
   const [text, setText] = useState('');
@@ -24,6 +24,24 @@ export function ThreadPanel({ kind, subjectId, steps, defaultStep }: { kind: Thr
   const counts = new Map<string, number>(); all.forEach(c => counts.set(c.step ?? 'General', (counts.get(c.step ?? 'General') ?? 0) + 1));
 
   const post = () => { const v = text.trim(); if (!v && !files.length) return; postComment(kind, subjectId, v || `Attached ${files.map(f => f.name).join(', ')}`, steps ? step : null, files); setText(''); setFiles([]); };
+
+  /* bare: the compact chat used at the foot of every record; the full Section is kept for the few places that show it on its own */
+  if (bare) return <div className="chat">
+    {shown.length === 0 ? <div className="chat-empty">No messages yet. Write here so the discussion stays with this record.</div>
+      : <div className="chat-list">{shown.map(c => <div key={c.id} className={`chat-msg${c.who === me.name ? ' mine' : ''}`}>
+          <div className="chat-meta"><b>{c.who}</b> · {ROLE_LABEL[c.role]} · {fmtRel(c.at)}{c.step && c.step !== 'General' ? ` · ${c.step}` : ''}</div>
+          <div className="chat-text">{c.text.split(/(@[a-z][a-z .&]*)/i).map((part, i) => part.startsWith('@') ? <span key={i} className="font-medium" style={{ color:'var(--accent)' }}>{part}</span> : part)}</div>
+          <FileChips kind="comment" subjectId={c.id} />
+        </div>)}</div>}
+    <div className="chat-compose">
+      <textarea className="input" rows={1} value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) post(); }}
+        placeholder="Write a message… type @ and a name to notify someone" />
+      {steps && <div style={{ width: 140 }}><Select value={step} onChange={setStep} options={steps.map(s => ({ value:s, label:s }))} /></div>}
+      <input ref={fileInput} type="file" multiple hidden onChange={e => { setFiles(Array.from(e.target.files ?? [])); }} />
+      <Button size="sm" onClick={() => fileInput.current?.click()} title="attach files">{files.length ? `📎 ${files.length}` : '📎'}</Button>
+      <Button variant="primary" size="sm" onClick={post} disabled={!text.trim() && !files.length} title="⌘↵ to send">Send</Button>
+    </div>
+  </div>;
 
   return (
     <Section title={`Conversation · ${all.length}`} right={<Pill tone="neutral">everyone who can open this</Pill>}>
