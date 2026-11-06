@@ -420,7 +420,7 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
   const rows = allRows.filter(r => kind === 'all' || kindOf(r) === kind).filter(r => kind !== 'alteration' || altKind === 'all' || (altKind === 'bespoke') === isBespoke(r)).sort((a, b) => (a.status === 'requested' ? 0 : 1) - (b.status === 'requested' ? 0 : 1) || b.raisedOn.localeCompare(a.raisedOn));
   const kindN = (k: string) => allRows.filter(r => kindOf(r) === k).length;
   const TONE: Record<string, Tone> = { requested:'warn', 'po-needed':'info', approved:'good', sent:'neutral', declined:'risk' };
-  const STATUS: Record<string, string> = { requested:'to approve', 'po-needed':'with Shravani · to approve the PO', approved:'approved', sent:'sent', declined:'declined' };
+  const STATUS: Record<string, string> = { requested:'to approve', 'po-needed':'with Shravani · to approve', approved:'approved', sent:'sent', declined:'declined' };
   const byReason: Record<string, number> = {}; rows.forEach(r => (byReason[r.reason] = (byReason[r.reason] ?? 0) + 1));
   const factoryErr = rows.filter(r => r.reason.includes('factory error')).length;
   /* one ask per status — requested, approved, sent, declined */
@@ -430,14 +430,14 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
       <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[
         { id:'all', label:'All', count: allRows.length },
         { id:'normal', label:'Normal orders', count: kindN('normal'), hint:'cloth from the shelf; approval deducts it' },
-        { id:'bespoke', label:'Bespoke orders', count: kindN('bespoke'), hint:'mill PO via Shravani; no inventory kept' },
+        { id:'bespoke', label:'Bespoke orders', count: kindN('bespoke'), hint:'to Shravani to approve; no inventory kept' },
         { id:'alteration', label:'Alteration / hemming', count: kindN('alteration'), hint:'asks from the alteration and hemming unit; deducted from physical stock' },
         { id:'trims', label:'Trims', count: kindN('trims'), hint:'buttons, labels, interlining and the rest: approval deducts the trim\u2019s stock' },
       ]} />
       {kind === 'alteration' && <Seg value={altKind} onChange={v => setAltKind(v as typeof altKind)} options={[
         { id:'all', label:'All alteration', count: alts.length },
         { id:'normal', label:'Normal · approve here', count: alts.filter(r => !isBespoke(r)).length, hint:'cloth from the shelf: Swati approves, physical stock is deducted' },
-        { id:'bespoke', label:'Bespoke · to Shravani', count: alts.filter(isBespoke).length, hint:'bespoke cloth is not on the shelf: one click to Shravani, she approves and the PO is generated' },
+        { id:'bespoke', label:'Bespoke · to Shravani', count: alts.filter(isBespoke).length, hint:'bespoke cloth is not on the shelf: one click to Shravani, she approves and arranges it' },
       ]} />}
       {ex.strip && <span className="ml-auto">{ex.strip}</span>}
     </div>
@@ -456,7 +456,7 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
           <td className="text-[12.5px]"><VendorLink id={r.factoryId} /></td>
           <td className="text-[12.5px]">{tr ? tr.name : r.panel}</td><td className="num">{tr ? `${r.qty ?? 0} pcs` : `${r.metres} m`}</td>
           <td className="text-[12px]"><span style={{ color: r.reason.includes('factory') ? 'var(--risk)' : 'var(--warn)' }}>{r.reason}</span>{r.note && <div style={{ color:'var(--ink-faint)' }}>{r.note}</div>}</td>
-          <td><Pill tone={TONE[r.status]}>{r.status === 'po-needed' && r.po?.raisedOn ? 'PO raised · cloth awaited' : STATUS[r.status] ?? r.status}</Pill>{r.status === 'declined' && r.declineReason && <div className="text-[11px]" style={{ color:'var(--ink-soft)', whiteSpace:'normal', maxWidth: 200 }}>why: {r.declineReason}</div>}{f?.bucket === 'BESPOKE' && <div className="pt-0.5"><Pill tone="accent">bespoke</Pill></div>}{r.source === 'alteration' && <div className="pt-0.5"><Pill tone="info">alteration</Pill></div>}{r.po && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.po.poNo ? `${r.po.poNo}${r.po.clothInOn ? ' · cloth in' : ' · raised'}` : 'PO not raised yet'}</div>}</td>
+          <td><Pill tone={TONE[r.status]}>{r.status === 'po-needed' && r.po?.raisedOn ? 'approved by Shravani · cloth awaited' : STATUS[r.status] ?? r.status}</Pill>{r.status === 'declined' && r.declineReason && <div className="text-[11px]" style={{ color:'var(--ink-soft)', whiteSpace:'normal', maxWidth: 200 }}>why: {r.declineReason}</div>}{f?.bucket === 'BESPOKE' && <div className="pt-0.5"><Pill tone="accent">bespoke</Pill></div>}{r.source === 'alteration' && <div className="pt-0.5"><Pill tone="info">alteration</Pill></div>}{r.po?.clothInOn && <div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>cloth in</div>}</td>
           <td onClick={e => e.stopPropagation()} className="flex gap-1">
             {mine && r.status === 'requested' && tr && (() => { const low = tAvail < (r.qty ?? 0);
               /* trims: head office buys them, so no PO routing here; low inventory blocks approval until stock is in */
@@ -467,18 +467,18 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
             {mine && r.status === 'requested' && !tr && (() => { const bsp = !!f && f.bucket === 'BESPOKE'; const low = !!f && !bsp && f.stockMetres - f.reservedMetres < r.metres;
               /* bespoke goes to Shravani; a normal fabric with too little on the shelf shows low inventory and Approve is greyed out */
               return <div className="flex flex-col gap-1 items-start">
-              {bsp && !r.po ? <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani for a PO</Button>
+              {bsp && !r.po ? <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani</Button>
                 : <Button size="sm" variant="primary" disabled={low} title={low ? 'Low inventory: not enough of this fabric on the shelf to approve' : undefined} onClick={() => decideExtraFabric(r.id, 'approved')}>Approve</Button>}
               {low && <Pill tone="risk">low inventory</Pill>}
-              {low && !r.po && <button type="button" className="vlink text-[11.5px]" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani for a PO</button>}
+              {low && !r.po && <button type="button" className="vlink text-[11.5px]" onClick={() => routeExtraFabricPo(r.id, 'hand')}>Send to Shravani</button>}
               <DeclineWithReason onDecline={why => decideExtraFabric(r.id, 'declined', why)} /></div>; })()}
-            {(mine || wh) && r.status === 'po-needed' && !r.po?.raisedOn && <Button size="sm" onClick={() => routeExtraFabricPo(r.id, 'raised')}>{f && f.bucket !== 'BESPOKE' && f.stockMetres - f.reservedMetres >= r.metres ? 'Shravani: approve · issue from stock' : 'Shravani: approve & raise PO'}</Button>}
+            {(mine || wh) && r.status === 'po-needed' && !r.po?.raisedOn && <Button size="sm" onClick={() => routeExtraFabricPo(r.id, 'raised')}>{f && f.bucket !== 'BESPOKE' && f.stockMetres - f.reservedMetres >= r.metres ? 'Shravani: approve · issue from stock' : 'Shravani: approve'}</Button>}
             {(mine || wh) && r.status === 'po-needed' && r.po?.raisedOn && <Button size="sm" variant="primary" onClick={() => routeExtraFabricPo(r.id, 'cloth-in')}>Cloth in · back to approval</Button>}
             {wh && r.status === 'approved' && <Button size="sm" variant="primary" onClick={() => decideExtraFabric(r.id, 'sent')}>Picked & sent</Button>}
           </td>
         </tr>); })}</tbody>
     </table></Card>}
-    <div className="mt-3"><Note>Approve is the inventory event: the metres leave physical stock the moment it is approved. Alteration and hemming asks are approved here like any other and deducted from physical stock. A fabric with too little on the shelf shows low inventory and cannot be approved. A decline asks why; the reason goes to the factory. Only bespoke cloth, or a fabric with too little on the shelf, goes to Shravani in one click: she approves and the PO is generated; when the cloth is in, it comes back here to approve. Bespoke is never BSC's inventory: nothing is booked in or deducted.</Note></div>
+    <div className="mt-3"><Note>Approve is the inventory event: the metres leave physical stock the moment it is approved. Alteration and hemming asks are approved here like any other and deducted from physical stock. A fabric with too little on the shelf shows low inventory and cannot be approved. A decline asks why; the reason goes to the factory. Only bespoke cloth, or a fabric with too little on the shelf, goes to Shravani in one click: she approves and arranges the cloth (no PO is raised here); when the cloth is in, it comes back here to approve. Bespoke is never BSC's inventory: nothing is booked in or deducted.</Note></div>
   </>;
 }
 

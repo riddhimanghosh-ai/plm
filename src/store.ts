@@ -248,7 +248,7 @@ export interface AppState {
   prepDone(orderIds: string[], step: PrepStep, remark: string): void;
   uploadCad(orderId: string, fileName: string): void;
   prepBlock(orderIds: string[], step: PrepStep, reason: string | null): void;   // a desk marks orders blocked with a reason; null clears it                 // the CAD desk uploads the CAD file it made   // …and marks them done; compiling also approves the contrast fabric
-  addContrast(orderId: string, fabricId: string, part: string, metres: number): void;   // bespoke extra fabric: to Shravani for a PO, PO raised, cloth in
+  addContrast(orderId: string, fabricId: string, part: string, metres: number): void;   // bespoke extra fabric: to Shravani, she approves (no PO in PLM), cloth in
   editOrderSheet(id: string, patch: { logisticComment?: string; fabricId?: string; fit?: string; qty?: number; tag?: OrderTag; remarks?: string; spec?: Partial<OrderSpec>; measurements?: Partial<OrderMeasurements>; pattern?: Partial<PatternFlags> }, note: string, who?: 'store' | 'unit'): void;
   /* production's two answers to a changed sheet */
   markChangeSeen(orderIds: string[]): void;
@@ -1553,7 +1553,8 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
             f.stockMetres = Math.max(0, round2(f.stockMetres - r.metres));
             f.transactions = [{ on: now(), orderNo: (db.customerOrders ?? []).find(o => o.id === r.orderId)?.orderNo ?? '', poId: null, type: 'ISSUE', by: who(), warehouse: f.inventory?.warehouse ?? 'Dadar unit', bin: f.inventory?.bins[0]?.bin ?? null, reason: r.source === 'alteration' ? 'Alteration fabric' : 'Extra fabric', desc: `${r.panel}, ${r.metres} m`, metres: -r.metres }, ...(f.transactions ?? [])];
             msg = `Approved by Shravani: ${r.metres} m deducted from physical stock.`; }
-          else { r.po.poNo = poNo || r.po.poNo || `FPO-${7100 + Math.floor(Math.random() * 899)}`; r.po.raisedOn = now(); msg = 'Approved by Shravani: the PO is generated.'; } }
+          /* no PO is raised in PLM: Shravani approves and arranges the cloth herself (6 Nov 2026) */
+          else { void poNo; r.po.raisedOn = now(); msg = 'Approved by Shravani: she arranges the cloth. No PO is raised here.'; } }
         /* bespoke cloth is never BSC's inventory: it arrives for the order and goes straight to it */
         if (step === 'cloth-in' && r.po) { r.po.clothInOn = now(); r.status = 'requested';
           if (f && !bespoke) f.stockMetres = round2(f.stockMetres + r.metres);
@@ -1565,7 +1566,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     decideExtraFabric(id, status, reason) {
       touch(db => { const r = (db.extraFabric ?? []).find(x => x.id === id); if (!r) return;
         const wasLive = r.status === 'requested';
-        /* nothing on the shelf to give: a normal ask cannot be approved until stock is in (or Shravani raises a PO) */
+        /* nothing on the shelf to give: a normal ask cannot be approved until stock is in (or Shravani approves and arranges the cloth) */
         /* a trim ask: the trim's own shelf, in pieces; nothing to give means no approval (trims are bought by head office) */
         const trim = r.material === 'trim' ? (db.trims ?? []).find(t => t.id === r.trimId) : null;
         if (status === 'approved' && wasLive && r.material === 'trim') { if (!trim || trimCoverageOf(db, trim).available < (r.qty ?? 0)) return; }
