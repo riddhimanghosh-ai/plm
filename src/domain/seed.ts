@@ -6,7 +6,7 @@
    record, a unit cost the sample left blank) is placed here and says so.
    ========================================================================== */
 
-import type { LostSale, SwatchBookRequest, CreditEntry, OptionRequest, RequestOption, ConceptFabricOption, FabricBrief, ReturnCase, StockWriteOff, FitSample, Grn, Attachment, Concept, Block, Db, Escalation, Fabric, ProductionOrder, RtwOption, Vendor, GarmentCategory, Thread, Comment, RoleId, CustomerOrder, StockRequest, Launch, ProductionPlan, ExtraFabricRequest, FactoryOutput, Scan, SwatchBook, TrimItem, StockTransfer, FabricQuote, FabricPo, SampleRound , PlanningReview, PrepStep, PrepEvent } from './types';
+import type { LostSale, SwatchBookRequest, CreditEntry, OptionRequest, RequestOption, ConceptFabricOption, FabricBrief, ReturnCase, StockWriteOff, FitSample, Grn, Attachment, Concept, Block, Db, Escalation, Fabric, ProductionOrder, RtwOption, Vendor, GarmentCategory, Thread, Comment, RoleId, CustomerOrder, StockRequest, Launch, ProductionPlan, ExtraFabricRequest, FactoryOutput, Scan, SwatchBook, TrimItem, StockTransfer, FabricQuote, FabricPo, SampleRound , PlanningReview, PrepStep, PrepEvent, SwatchDispatch } from './types';
 import { mainSizesOf, FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, SHEET_OPTIONS, MEASUREMENTS, defaultSpec, defaultPattern, PEOPLE, SIZE_SETS, MERCHANDISERS, DELAY_REASONS, RTW_SUBCATS, RANGES, STORES, isBottoms, BOTTOM_SIZES, SHIRT_SIZES, MTM_FITS, TRIM_MASTER, COLLAR_STYLES, POCKETS, EXTRA_FABRIC_REASONS, EXTRA_FABRIC_PANELS, PANEL_METRES, BOOK_EDITION, BIG_STORES, MTM_SWATCH_BOOKS } from './reference';
 import { REAL_MTM_FABRICS, REAL_BLOCKS, REAL_RTW_SHIRTS, REAL_RTW_BOTTOMS, REAL_MERCH, REAL_DROPS, REAL_STO } from './realdata';
 import { sourcingModeOf, buildMilestones, TODAY, addDays, iso, riskOf, coverageOf, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, daysBetween, consumptionFor, daysAgo, defaultMaterials, mintBespokeCode } from './engines';
@@ -461,7 +461,7 @@ const blocks: Block[] = REAL_BLOCKS.map((b, k) => {
 });
 
 /* ---------- stores, swatches, STOs, returns ------------------------------- */
-const swatchDispatches = Array.from({ length: 40 }, (_, k) => {
+const swatchDispatches: SwatchDispatch[] = Array.from({ length: 40 }, (_, k) => {
   const d = addDays(TODAY, -int(1, 30));
   return { id:`sw-${k}`, fabricId: pick(fabrics.filter(f => f.bucket !== 'BESPOKE')).id, storeId: pick(STORES).id, dispatchedOn: iso(d), confirmedOn: chance(.35) ? iso(addDays(d, int(2, 6))) : null };
 });
@@ -937,7 +937,7 @@ concepts.push(concept({ id:'cn-1', name:'Band collar on Cotton Poplin', kind:'co
   rounds: [round('pp', 1, 70, 'approved'), round('shipment', 1, 55, 'approved')], approvalSentOn: daysBack(50), approvalBy:'Kunal',
   enigma: { template:'Shirt · standard', consumptionBase: 1.6, consumptionBuffer: 0.15, options:['French Charlie', 'Prince Charlie', 'Cutaway', 'French placket', 'Standard placket'], configuredOn: daysBack(40), by:'Janak' },
   naming: { oldName:'Grey Stone Houndstooth Shirt', newName:'Houndstooth Shirt - Light Grey', mrp: 2990, setOn: daysBack(32) }, liveOn: daysBack(21) }));
-  STORES.forEach((st, i) => swatchDispatches.push({ id:`sw-cn8-${st.id}`, fabricId: f.id, storeId: st.id, dispatchedOn: daysBack(26), confirmedOn: i % 6 === 4 ? null : daysBack(int(19, 24)) })); }
+  STORES.forEach((st, i) => swatchDispatches.push({ id:`sw-cn8-${st.id}`, fabricId: f.id, storeId: st.id, dispatchedOn: daysBack(26), confirmedOn: i % 6 === 4 ? null : daysBack(int(19, 24)), trackingNo: `D${(48211730 + i * 37).toString()}`, dispatchedBy: 'Yusuf', confirmedBy: i % 6 === 4 ? null : `${st.name} store` })); }
 /* the approval that already went out, as the post it now is */
 threads.push({ id:'t-cn6', kind:'concept', subjectId:'cn-6', comments: [
   say(7, 'Kunal', 'design', 'Mitred cuff · Cotton Twill cleared the shipment sample (round 2). @planning @production @warehouse @store — approved for production. Construction: Prince Charlie · Standard placket · Mitred. Trainer: this post is the knowledge-repository entry; nothing to retype.', 'Approval'),

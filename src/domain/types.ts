@@ -481,6 +481,9 @@ export interface Store { id: string; name: string; region: string; holdsRtwStock
 export interface SwatchDispatch {
   id: string; fabricId: string; storeId: string;
   dispatchedOn: string; confirmedOn: string | null;
+  /* the STO Swatches Tracker's three columns per store: tracking no., dispatch date, receiving date (the store manager
+     marks it received in RetailOS) */
+  trackingNo?: string | null; dispatchedBy?: string | null; confirmedBy?: string | null;
 }
 
 /* One STO to one store. The tracker logs a wave as a series ("1931-1965") — one

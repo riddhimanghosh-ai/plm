@@ -185,6 +185,7 @@ export interface AppState {
   conceptSetEnigmaFlags(id: string, f: { largeCheck: boolean; compositionFamily: string | null }): void;
   conceptSwatch(id: string, step: 'inward' | 'handover' | 'cut' | 'sticker' | 'dispatched' | 'photos' | 'storesTold'): void;
   conceptSwatchPriority(id: string, priority: boolean): void;
+  dispatchSwatch(fabricId: string, storeIds: string[], trackingNo: string | null): void;   // the warehouse sends the swatch to one store, or many, with the courier's number
   conceptOnline(id: string, step: 'photos' | 'video' | 'post' | 'live'): void;
   setSourcingMode(orderId: string, mode: SourcingMode, supplierVendorId?: string | null, note?: string): void;
   markFobEmailed(orderId: string): void;
@@ -1056,6 +1057,12 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         if (step === 'dispatched' && c.fabricId && !db.swatchDispatches.some(x => x.fabricId === c.fabricId)) STORES.forEach(st => db.swatchDispatches.push({ id:`sw-${Date.now().toString(36)}-${st.id}`, fabricId: c.fabricId!, storeId: st.id, dispatchedOn: now(), confirmedOn: null })); },
         ({ inward:'Bulk inwarded at the warehouse.', handover:'Handed to the swatch team.', cut:'Swatches cut — 25 × 25, ready for dispatch.', sticker:'Sticker page printed — the tracker\u2019s empty column, filled.', dispatched:'Swatches with shipping — one dispatch row per store.', photos:'Photos shared — design can see they have gone.', storesTold:'Stores told to display it.' } as const)[step]);
     },
+    dispatchSwatch(fabricId, storeIds, trackingNo) {
+      touch(db => storeIds.forEach(sid => { const d = db.swatchDispatches.find(x => x.fabricId === fabricId && x.storeId === sid);
+        if (d) { if (trackingNo) d.trackingNo = trackingNo; return; }
+        db.swatchDispatches.push({ id:`sw-${Date.now().toString(36)}-${sid}`, fabricId, storeId: sid, dispatchedOn: now(), confirmedOn: null, trackingNo: trackingNo || null, dispatchedBy: who() }); }),
+        `Dispatched to ${storeIds.length} store${storeIds.length === 1 ? '' : 's'}: each store marks it received in RetailOS.`);
+    },
     conceptSwatchPriority(id, priority) {
       touch(db => { const c = db.concepts.find(x => x.id === id); if (!c) return;
         c.swatch = c.swatch ?? { inwardOn: null, handoverOn: null, priority: false, cutOn: null, stickerOn: null, dispatchedOn: null, photosOn: null, storesToldOn: null }; c.swatch.priority = priority; },
@@ -1311,7 +1318,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     closeTransfer(id) { touch(db => { const t = db.transfers.find(x => x.id === id); if (t) t.closedOn = now(); }, 'STO closed on receipt.'); },
 
     /* ---------- store ---------- */
-    confirmSwatch(id) { touch(db => { const s = db.swatchDispatches.find(x => x.id === id); if (s) s.confirmedOn = now(); }, 'Confirmed. Head office can see it landed.'); },
+    confirmSwatch(id) { touch(db => { const s = db.swatchDispatches.find(x => x.id === id); if (s) { s.confirmedOn = now(); s.confirmedBy = who(); } }, 'Received. Design sees it on the fabric\u2019s Sent to stores step.'); },
     raiseReturn(input) {
       const id = `ret-${Date.now().toString(36)}`;
       touch(db => { const o = input.orderId ? (db.customerOrders ?? []).find(x => x.id === input.orderId) : null;
@@ -1679,7 +1686,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 130,
+  version: 131,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1691,7 +1698,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 130 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 131 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

@@ -6,10 +6,10 @@
    button is the one that sends the details. */
 import { useState } from 'react';
 import { useApp } from '../store';
-import type { Concept } from '../domain/types';
-import { conceptOf, fmtDate, samplingGateOf } from '../domain/engines';
-import { SHIRT_STYLES, FILE_LABELS } from '../domain/reference';
-import { Section, Pill, Button, KV, Field, Input, Select } from '../ui';
+import type { Concept, SwatchDispatch } from '../domain/types';
+import { conceptOf, fmtDate, samplingGateOf, daysAgo } from '../domain/engines';
+import { SHIRT_STYLES, FILE_LABELS, STORES } from '../domain/reference';
+import { Section, Pill, Button, KV, Field, Input, Select, Seg } from '../ui';
 import { filesOf } from './Files';
 import { RecordTail } from './RecordTail';
 import { PoReceiving } from './PoReceiving';
@@ -35,6 +35,7 @@ export function FabricRequirement({ c, design, prod }: { c: Concept; design: boo
   const [factory, setFactory] = useState(factories[0]?.id ?? '');
   const hasPat = filesOf(db.attachments, 'concept', c.id, undefined, ['PAT file', 'CAD / pattern']).length > 0;
 
+  const storeRows = STORES.map(st => ({ st, d: s.fabric ? db.swatchDispatches.find(x => x.fabricId === s.fabric!.id && x.storeId === st.id) ?? null : null }));
   /* the whole journey, one line: each item ticks itself when its step is done */
   const journey: Step[] = [
     { key:'raised', label:'Requirement raised', on: c.raisedOn, by: c.raisedBy },
@@ -46,6 +47,9 @@ export function FabricRequirement({ c, design, prod }: { c: Concept; design: boo
     { key:'in', label:'Fabric in', on: grn?.receivedOn ?? c.swatch?.inwardOn, by: grn ? `${grn.qty} m` : null },
     { key:'enigma', label:'Details in Enigma', on: c.enigma.configuredOn, by: c.enigma.by },
     { key:'yusuf', label:'Swatches to Yusuf', on: c.swatch?.handoverOn, by: c.swatch?.by?.handover },
+    /* the STO Swatches Tracker's per-store columns: dispatched with a tracking no., received when the store marks it in RetailOS */
+    { key:'stores', label:'Sent to stores', on: storeRows.length && storeRows.every(x => x.d?.confirmedOn) ? storeRows.map(x => x.d!.confirmedOn!).sort().pop() : null,
+      by: storeRows.some(x => x.d) ? `${storeRows.filter(x => x.d?.confirmedOn).length} of ${storeRows.length} received` : null },
     { key:'live', label:'Live online', on: c.online?.liveOn },
   ];
   const current = journey.findIndex(x => !x.on);
@@ -101,6 +105,8 @@ export function FabricRequirement({ c, design, prod }: { c: Concept; design: boo
     {at('yusuf') && <Section title="Swatch desk" collapsible={false} right={c.swatch?.handoverOn ? <Pill tone="good">with Yusuf</Pill> : <Pill tone="neutral">{c.fabricPo ? 'warehouse' : 'after the PO'}</Pill>}>
       {c.fabricPo || c.swatch ? <SwatchChecks c={c} /> : <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>Opens once the PO is pushed.</div>}
     </Section>}
+
+    {at('stores') && <StoresSection c={c} rows={storeRows} wh={wh} />}
 
     {at('live') && <Section title="Live online" collapsible={false} right={<Pill tone={c.online?.liveOn ? 'good' : 'neutral'}>{c.online?.liveOn ? `live ${fmtDate(c.online.liveOn)}` : `${[c.online?.photosOn, c.online?.videoOn, c.online?.postOn].filter(Boolean).length} of 3`}</Pill>}>
       {(() => { const on = c.online; const gates: ['photos' | 'video' | 'post', string, string | null | undefined][] = [['photos', 'Swatch photography', on?.photosOn], ['video', 'Video', on?.videoOn], ['post', 'Post-production · product page ready', on?.postOn]];
@@ -212,3 +218,35 @@ function DetailsSection({ c, design, onSave }: { c: Concept; design: boolean; on
   </Section>;
 }
 
+/** Sent to stores: one line per store, as the STO Swatches Tracker has it: tracking no., dispatch date, receiving date.
+    The warehouse dispatches (one store or all at once, with the courier's number); the store manager marks it received
+    in RetailOS, and design reads here which stores have it. */
+function StoresSection({ c, rows, wh }: { c: Concept; rows: { st: { id: string; name: string; region: string }; d: SwatchDispatch | null }[]; wh: boolean }) {
+  const { db, dispatchSwatch } = useApp();
+  const s = conceptOf(db, c);
+  const [show, setShow] = useState<'all' | 'todo' | 'transit' | 'in'>('all');
+  const [track, setTrack] = useState<Record<string, string>>({});
+  const [bulk, setBulk] = useState('');
+  const n = { todo: rows.filter(x => !x.d).length, transit: rows.filter(x => x.d && !x.d.confirmedOn).length, in: rows.filter(x => x.d?.confirmedOn).length };
+  const shown = rows.filter(x => show === 'all' ? true : show === 'todo' ? !x.d : show === 'transit' ? x.d && !x.d.confirmedOn : !!x.d?.confirmedOn);
+  const ready = !!s.fabric && !!c.swatch?.handoverOn;
+  return <Section title="Sent to stores" collapsible={false} right={<Pill tone={n.in === rows.length ? 'good' : n.transit ? 'info' : 'neutral'}>{n.in} of {rows.length} received</Pill>}>
+    {!ready ? <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>Opens once the swatches are with Yusuf.</div> : <>
+      <div className="flex gap-2 items-center flex-wrap mb-2">
+        <Seg value={show} onChange={v => setShow(v as typeof show)} options={[{ id:'all', label:'All stores', count: rows.length }, { id:'todo', label:'Not dispatched', count: n.todo }, { id:'transit', label:'Dispatched · not received', count: n.transit }, { id:'in', label:'Received', count: n.in }]} />
+        {wh && n.todo > 0 && <span className="ml-auto flex gap-1.5 items-center"><Input value={bulk} onChange={e => setBulk(e.target.value)} placeholder="tracking no. (optional)" style={{ width: 170 }} />
+          <Button size="sm" variant="primary" onClick={() => { dispatchSwatch(s.fabric!.id, rows.filter(x => !x.d).map(x => x.st.id), bulk.trim() || null); setBulk(''); }}>Dispatch to the {n.todo} left</Button></span>}
+      </div>
+      <div className="tbox" style={{ maxHeight: 380 }}><table className="t compact">
+        <thead><tr><th>Store</th><th>Tracking no.</th><th>Dispatch date</th><th>Receiving date</th></tr></thead>
+        <tbody>{shown.map(({ st, d }) => <tr key={st.id}>
+          <td className="text-[12.5px]">{st.name}<span className="text-[11px]" style={{ color:'var(--ink-faint)' }}> · {st.region}</span></td>
+          <td className="mono text-[12px]">{d?.trackingNo ? d.trackingNo : wh ? <Input value={track[st.id] ?? ''} onChange={e => setTrack(t => ({ ...t, [st.id]: e.target.value }))} placeholder="courier no." style={{ width: 140 }} /> : '—'}</td>
+          <td className="text-[12px]">{d ? fmtDate(d.dispatchedOn) : wh ? <Button size="sm" onClick={() => { dispatchSwatch(s.fabric!.id, [st.id], (track[st.id] ?? '').trim() || null); }}>Dispatch</Button> : <span style={{ color:'var(--ink-faint)' }}>not yet</span>}
+            {d && !d.trackingNo && wh && (track[st.id] ?? '').trim() && <button type="button" className="vlink text-[11px] ml-2" onClick={() => dispatchSwatch(s.fabric!.id, [st.id], track[st.id].trim())}>save no.</button>}</td>
+          <td className="text-[12px]">{d?.confirmedOn ? <span style={{ color:'var(--good)' }}>{fmtDate(d.confirmedOn)}{d.confirmedBy ? ` · ${d.confirmedBy}` : ''}</span> : d ? <span style={{ color: daysAgo(d.dispatchedOn) > 5 ? 'var(--risk)' : 'var(--ink-faint)' }}>awaiting the store{daysAgo(d.dispatchedOn) > 5 ? ` · ${daysAgo(d.dispatchedOn)}d` : ''}</span> : '—'}</td>
+        </tr>)}</tbody></table></div>
+      <div className="text-[11.5px] pt-2" style={{ color:'var(--ink-faint)' }}>The store manager marks it received in RetailOS; the receiving date lands here.</div>
+    </>}
+  </Section>;
+}
