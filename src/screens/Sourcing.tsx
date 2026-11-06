@@ -71,7 +71,7 @@ export function Sourcing() {
   const side = MTM_ONLY ? 'mtm' : ((params.get('side') as 'mtm' | 'rtw' | null) ?? 'rtw');
   const setSide = (k: string) => { const n = new URLSearchParams(params); n.set('side', k); n.delete('open'); setParams(n, { replace:true }); };
   /* one short phrase per state — the long sentence lives on the record */
-  const shortLabel = (key: string, label: string) => ({ 'add-vendor':'put a vendor', 'with-design':'with design · push the PO', extension:'extend the hold', 'wait-factory':'PO raised · with production', bought:'PO raised · with production', sent:'with production · at the factory', received:'with production · received', short:'with production · short', 'ratio-asked':'with production · short', 'ratio-given':'with production · short' } as Record<string, string>)[key] ?? label;
+  const shortLabel = (key: string, label: string) => ({ 'add-vendor':'put a vendor', 'with-design':'with design · push the PO', extension:'extend the hold', 'wait-factory':'fabric PO raised · waiting for the factory PO', bought:'send it to the factory', sent:'at the factory · being counted', received:'received at the factory', short:'short at the factory', 'ratio-asked':'short · design deciding the cut', 'ratio-given':'short · new ratio given' } as Record<string, string>)[key] ?? label;
   const mtmRows = mtmSourcingRows(db);
 
   return (
@@ -91,7 +91,9 @@ export function Sourcing() {
             { id:'add-vendor', label:'Put a vendor', count: n('add-vendor') },
             { id:'with-design', label:'With design', count: n('with-design') },
             { id:'extension', label:'Extension asked', count: n('extension') },
-            { id:'handed', label:'Fabric PO raised · with RTW production', count: HANDED.reduce((a, k) => a + n(k), 0) },
+            { id:'wait-factory', label:'Waiting for the factory PO', count: n('wait-factory') },
+            { id:'bought', label:'Send to factory', count: n('bought') },
+            { id:'handed', label:'At the factory', count: HANDED.reduce((a, k) => a + n(k), 0) },
           ]} />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="style or mill" style={{ width:200 }} />
         </div>
@@ -131,7 +133,7 @@ export function Sourcing() {
 }
 
 /* ---------- what design asked for — read-only on sourcing's side ------------ */
-const HANDED = ['wait-factory', 'bought', 'sent', 'received', 'short', 'ratio-asked', 'ratio-given'];
+const HANDED = ['sent', 'received', 'short', 'ratio-asked', 'ratio-given'];
 
 export function FabricBriefSection({ o }: { o: ProductionOrder }) {
   const { db, role, pickFromShortlist } = useApp();
@@ -486,9 +488,10 @@ function MtmBrief({ c }: { c: Concept }) {
 
 /* the sourcing drawer as the same flow of blocks as design's. Sourcing's part of an RTW
    style is the cloth only, exactly as for an MTM fabric: read the brief, put a vendor
-   against it, design pushes the fabric PO. Once the PO is raised the cloth is RTW
-   production's — getting it to the factory, the count there, any cut ratio — and this
-   drawer only reports where it stands. */
+   against it, design pushes the fabric PO; once both POs exist sourcing sends the cloth
+   straight to the factory (Nitin, 3 Oct 2026). The count and any cut ratio are the
+   factory's and design's, and this
+   drawer then sends the cloth to the factory and follows the count. */
 function SourcingSteps({ o }: { o: ProductionOrder }) {
   const fab = fabricStateOf(o); const ss = sourcingStateOf(o); const po = o.sourcing?.fabricPo ?? null;
   const { db } = useApp(); const fs = o.fabricSupply; const vendorName = (id: string) => db.vendors.find(v => v.id === id)?.name ?? 'the chosen mill';
@@ -497,7 +500,7 @@ function SourcingSteps({ o }: { o: ProductionOrder }) {
   const raw: DesignStep[] = [
     { key: 'request', label: 'What design asked for', state: briefDone ? 'done' : 'later', owner: 'design', note: o.fabricBrief ? [o.fabricBrief.look, o.fabricBrief.composition, o.fabricBrief.colour].filter(Boolean).join(' · ') : o.fabricNominated ? 'no cloth brief · shop against the style' : 'the factory buys its own cloth' },
     { key: 'vendors', label: 'Vendor · design pushes the PO', state: po || !o.fabricNominated ? 'done' : 'later', owner: ss.key === 'choose' || ss.key === 'raise-po' ? 'design' : 'sourcing', note: po ? `${po.no} · ${po.metres} m · ${fmtDate(po.on)}` : chosen ? `vendor with design${ss.holdDays != null ? ` · hold ${ss.holdDays}d` : ''}` : ss.label, action: !po && o.fabricNominated ? (ss.key === 'choose' || ss.key === 'raise-po' ? 'Design pushes the fabric PO' : 'Put a vendor against the cloth') : undefined },
-    { key: 'fabric-in', label: 'With RTW production', state: po && (fab.key === 'received') ? 'done' : 'later', owner: 'production', note: !po ? 'after the fabric PO' : fs?.receipt ? `counted at the factory · ${fs.receipt.metresOk} m usable${fab.short > 0 ? ` · short ${fab.short} m` : ''}` : fs?.sentToFactoryOn ? `sent to the factory ${fmtDate(fs.sentToFactoryOn)}` : 'production gets the cloth to the factory' },
+    { key: 'fabric-in', label: 'Cloth to the factory', state: po && (fab.key === 'received') ? 'done' : 'later', owner: fab.key === 'bought' ? 'sourcing' : fab.owner === 'merchandiser' ? 'production' : fab.owner, note: !po ? 'after the fabric PO' : !o.poNo ? 'waiting for the factory PO' : fs?.receipt ? `counted at the factory · ${fs.receipt.metresOk} m usable${fab.short > 0 ? ` · short ${fab.short} m` : ''}` : fs?.sentToFactoryOn ? `sent ${fmtDate(fs.sentToFactoryOn)} · the factory counts it in` : 'send it to the factory', action: po && o.poNo && !fs?.sentToFactoryOn ? 'Send the cloth to the factory' : undefined },
   ];
   const ni = raw.findIndex(x => x.state !== 'done'); if (ni >= 0) raw[ni] = { ...raw[ni], state: 'now' };
   const [picked, setPicked] = useState<DesignStep['key'] | null>(null);
@@ -517,15 +520,9 @@ function SourcingSteps({ o }: { o: ProductionOrder }) {
         <FabricQuoteBoard o={o} />
       </>}
     </Section>}
-    {shown === 'fabric-in' && <Section title="With RTW production" collapsible={false} right={<Pill tone={fab.tone}>{po ? fab.label : 'after the fabric PO'}</Pill>}>
-      {!po ? <div className="py-1 text-[12.5px]" style={faint}>Once design pushes the fabric PO, the cloth is handed to RTW production: they get it to the factory, the factory counts it in, and any cut ratio is settled between them and design. This step shows where it stands.</div> : <>
-        <div className="intro text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Handed over with the fabric PO. Nothing to do here; this is where the cloth stands.</div>
-        <KV k="Fabric PO" v={<b>{po.no}</b>} note={`raised ${fmtDate(po.on)} · ${po.metres} m`} />
-        <KV k="To the factory" v={fs?.sentToFactoryOn ? `${fs.metresSent ?? '—'} m · ${fmtDate(fs.sentToFactoryOn)}` : 'not sent yet'} note="RTW production" />
-        <KV k="Counted at the factory" v={fs?.receipt ? `${fs.receipt.metresOk} m usable${fs.receipt.metresDamaged ? ` · ${fs.receipt.metresDamaged} m damaged` : ''}` : 'not yet'} note={fs?.receipt?.note || 'the factory merchant'} />
-        {fab.short > 0 && <KV k="Short" v={<span style={{ color:'var(--risk)' }}>{fab.short} m</span>} note={fab.cr ? (fab.cr.given ? 'new cut ratio given by design' : 'cut ratio asked of design') : 'production and design decide: top up, or cut short'} />}
-        <div className="pt-2"><a className="cta" href={`#/tracker?open=${o.id}`}>Open on the RTW production tracker →</a></div>
-      </>}
+    {shown === 'fabric-in' && <Section title="Cloth to the factory" collapsible={false} right={<Pill tone={fab.tone}>{po ? fab.label : 'after the fabric PO'}</Pill>}>
+      {!po ? <div className="py-1 text-[12.5px]" style={faint}>Once design pushes the fabric PO and raises the factory PO, sourcing sends the cloth straight to the factory. The factory counts it in; short cloth goes to design for a cut ratio, settled with RTW production.</div>
+        : <><FabricFinalisationSection o={o} bare part="factory" /><div className="pt-2"><a className="cta" href={`#/tracker?open=${o.id}`}>Open on the RTW production tracker →</a></div></>}
     </Section>}
     <RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable steps={ORDER_STEPS} activity={o.activity} />
   </>;

@@ -164,6 +164,7 @@ function ConstructionDetail({ c, design, prod }: { c: Concept; design: boolean; 
     {/* one thing to do: the live step open, every other step one folded line */}
     {(() => { const nowKey: DesignStepKey | null = flow.now.state === 'done' ? null : flow.now.key;
       const bodies: Record<DesignStepKey, ReactNode> = {
+        'fabric-po': null,
         'request': <>
     <Section title="1 · Requirement requested" defaultOpen={nowKey === 'request'} right={<Pill tone="good">sent {fmtDate(c.raisedOn)}</Pill>}>
       <KV k="Why" v={c.brief} note={`${c.raisedBy} · ${fmtDate(c.raisedOn)}`} />

@@ -347,7 +347,8 @@ export function FactoryFinalisationSection({ o, columns, bare }: { o: Production
    Sourcing records the mill and the cloth, buys it and sends it straight to the
    factory; the factory confirms what landed; short or damaged cloth asks design
    for a new cut ratio, which production sends on. */
-export function FabricFinalisationSection({ o, bare, columns }: { o: ProductionOrder; bare?: boolean; columns?: React.ReactNode }) {
+/* part: 'sourcing' = vendor → fabric PO (the fabric details); 'factory' = cloth sent → counted → cut ratio. Omitted = both. */
+export function FabricFinalisationSection({ o, bare, columns, part }: { o: ProductionOrder; bare?: boolean; columns?: React.ReactNode; part?: 'sourcing' | 'factory' }) {
   const { db, role, saveFabricDetails, markFabricSent, confirmFabricReceipt, askCutRatio, giveCutRatio, sendCutRatio } = useApp();
   const st = fabricStateOf(o);
   const isSourcing = role === 'sourcing' || role === 'owner';
@@ -365,7 +366,7 @@ export function FabricFinalisationSection({ o, bare, columns }: { o: ProductionO
   const nameOf = (id: string | null) => db.vendors.find(v => v.id === id)?.name ?? '—';
   const fs = o.fabricSupply;
   const body = <>
-      {columns}
+      {part !== 'factory' && <>{columns}
       {st.key === 'vendor-sources' && <div className="py-1 text-[12.5px]" style={faint}>The factory buys its own cloth for this style — nothing for sourcing to send.</div>}
       {st.key === 'drafting' && <div className="py-1 text-[12.5px]" style={faint}>Sourcing starts the day design sends the request.</div>}
       {/* before the fabric PO: one vendor against the cloth, design pushes the PO — exactly as for an MTM fabric */}
@@ -388,15 +389,18 @@ export function FabricFinalisationSection({ o, bare, columns }: { o: ProductionO
           <KV k="Fabric PO" v={<b>{o.sourcing.fabricPo.no}</b>} note={`raised ${fmtDate(o.sourcing.fabricPo.on)} · ${o.sourcing.fabricPo.metres} m · the details below came from it`} />
           {isSourcing && !fs?.sentToFactoryOn && <div className="pt-1"><Button size="sm" variant="ghost" onClick={() => setEditing(true)}>Edit fabric details</Button></div>}
         </>}
-        <div className="pt-2" style={{ borderTop:'1px solid var(--line-soft)' }}>
+        </>}
+        </>}
+        {part !== 'sourcing' && o.sourcing?.fabricPo && <>
+        <div className="pt-2" style={{ borderTop: part === 'factory' ? undefined : '1px solid var(--line-soft)' }}>
           <div className="flex gap-2 flex-wrap items-center text-[12.5px]">
             <Pill tone="good">{`fabric PO ${fmtDate(o.sourcing.fabricPo.on)}`}</Pill>
             <Pill tone={fs?.sentToFactoryOn ? 'good' : 'neutral'}>{fs?.sentToFactoryOn ? `sent to ${nameOf(o.vendorId)} ${fmtDate(fs.sentToFactoryOn)} · ${fs.metresSent ?? '—'} m` : 'not sent to the factory'}</Pill>
             <Pill tone={fs?.receipt ? (st.short > 0 ? 'risk' : 'good') : 'neutral'}>{fs?.receipt ? `factory counted ${fs.receipt.metresOk} m usable${fs.receipt.metresDamaged ? `, ${fs.receipt.metresDamaged} m damaged` : ''}` : 'not yet counted at the factory'}</Pill>
           </div>
-          {isProd && !fs?.sentToFactoryOn && !o.poNo && <div className="pt-2 text-[12.5px]" style={faint}>The cloth goes straight to the factory, so it waits until design has raised the PO to one.</div>}
-          {isProd && o.poNo && !fs?.sentToFactoryOn && <div className="flex gap-2 items-end pt-2"><div style={{ width: 140 }}><Field label="Metres sent"><Input type="number" value={sent} onChange={e => setSent(e.target.value)} /></Field></div><Button size="sm" variant="primary" onClick={() => markFabricSent(o.id, sent === '' ? null : Number(sent))}>Sent to {nameOf(o.vendorId)}</Button></div>}
-          {!isProd && !fs?.sentToFactoryOn && <ActsBy role="production" does="takes the cloth over once the fabric PO is raised and sends it to the factory" />}
+          {isSourcing && !fs?.sentToFactoryOn && !o.poNo && <div className="pt-2 text-[12.5px]" style={faint}>The cloth goes straight to the factory, so it waits until design has raised the PO to one.</div>}
+          {isSourcing && o.poNo && !fs?.sentToFactoryOn && <div className="flex gap-2 items-end pt-2"><div style={{ width: 140 }}><Field label="Metres sent"><Input type="number" value={sent} onChange={e => setSent(e.target.value)} /></Field></div><Button size="sm" variant="primary" onClick={() => markFabricSent(o.id, sent === '' ? null : Number(sent))}>Sent to {nameOf(o.vendorId)}</Button></div>}
+          {!isSourcing && !fs?.sentToFactoryOn && <ActsBy role="sourcing" does="sends the cloth straight to the factory once both POs are raised" />}
           {fs?.sentToFactoryOn && !fs.receipt && (isFactory ? <div className="pt-2">
             <div className="label">What landed at the factory</div>
             <div className="grid gap-2 items-end" style={{ gridTemplateColumns:'120px 120px 1fr auto' }}>

@@ -145,7 +145,7 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
         <KV k="Target cost" v={fmtMoney(o.targetCost)} />
       </>}
       <KV k="Style handover" v={fmtDate(o.styleHandover)} note={`lead time clock started ${daysAgo(o.styleHandover)}d ago`} />
-      <KV k="Cloth" v={mode === 'bsc-buys' ? 'BSC buys it — sourcing puts a vendor against the cloth, design pushes the fabric PO, RTW production gets it to the factory' : mode === 'fob-nominated' ? 'FOB — BSC names the cloth vendor, the factory buys and makes' : 'Factory sources its own cloth'} note={mode === 'fob-nominated' ? 'BSC buys finished garments; labels and trims BSC sends are charged through the BOM' : undefined} />
+      <KV k="Cloth" v={mode === 'bsc-buys' ? 'BSC buys it — sourcing puts a vendor against the cloth, design pushes the fabric PO, sourcing sends it to the factory' : mode === 'fob-nominated' ? 'FOB — BSC names the cloth vendor, the factory buys and makes' : 'Factory sources its own cloth'} note={mode === 'fob-nominated' ? 'BSC buys finished garments; labels and trims BSC sends are charged through the BOM' : undefined} />
       {o.fit && <KV k="Fit" v={o.fit} />}
       {o.program && <KV k="Program" v={o.program} />}
       {editable && <div className="flex gap-2 pt-3">
@@ -187,9 +187,12 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
         : o.poNo ? <><KV k="PO" v={<b>{o.poNo}</b>} note={`raised ${fmtDate(o.poDate)}${o.factoryPo ? ` by ${o.factoryPo.by}` : ''}`} /><KV k="Factory" v={<VendorLink id={o.vendorId} />} note={o.finalFob != null ? `₹${o.finalFob}/pc agreed` : undefined} />{o.factoryPo && <KV k="Documents with the PO" v={o.factoryPo.docsSent.join(', ') || 'none'} note={o.factoryPo.docsMissing.length ? `owed: ${o.factoryPo.docsMissing.join(', ')}` : undefined} />}</>
         : <div className="py-2 text-[12.5px]" style={faint}>{at('po').note} — <button type="button" className="vlink" onClick={() => jump('vendors')}>step {no('vendors')}</button></div>}
 </>,
+      'fabric-po': <>
+      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Sourcing's part, the same as for an MTM fabric: from the day the request is sent, sourcing puts one vendor against the cloth; design pushes the fabric PO, rejects the vendor or asks for more time. It runs beside the factory step.</div>
+      {o.status === 'Requirement' ? <div className="py-1 text-[12.5px]" style={faint}>Starts when the request is sent.</div> : <FabricFinalisationSection o={o} bare part="sourcing" />}
+</>,
       'fabric-in': <>
-      <FabricFinalisationSection o={o} />
-      {o.fabricNominated && o.poNo && <div className="pt-3"><MaterialsCoverSection o={o} editable={isSourcing} /></div>}
+      {!o.sourcing?.fabricPo && o.fabricNominated ? <div className="py-1 text-[12.5px]" style={faint}>After the fabric PO and the factory PO: sourcing sends the cloth to the factory, the factory counts it in, and short cloth comes back to design for a cut ratio.</div> : <FabricFinalisationSection o={o} bare part="factory" />}
 </>,
       'sampling': <>
       {!o.poNo ? <div className="py-2 text-[12.5px]" style={faint}>The factory samples the bulk cloth once the PO is raised and the fabric has landed with it.</div> : <SampleSection o={o} editable={editable} />}
@@ -275,10 +278,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
         <Field label="Target cost / pc (₹)"><Input type="number" value={cost} onChange={e => setCost(e.target.value)} /></Field>
       </div>
       <div className="pt-3">
-        <Seg value={mode} onChange={setMode} label="The cloth" options={[
-          { id:'bsc-buys', label:'BSC buys it', hint:'after the PO, sourcing buys the cloth against the brief and sends it straight to the factory' },
-          { id:'vendor-sources', label:'Factory sources', hint:'the factory finds and buys its own cloth' },
-        ]} />
+        <div className="text-[12.5px]" style={{ color:'var(--ink-soft)' }}><b>The cloth:</b> BSC buys it for every bulk style. Sourcing puts a vendor against the brief from the day you send it; you push the fabric PO; sourcing sends the cloth straight to the factory.</div>
       </div>
     </Section>
     {mode !== 'vendor-sources' && <Section title={mode === 'bsc-buys' ? 'What fabric — the brief sourcing shops against' : 'What fabric — what the vendor must buy'} collapsible={false}>

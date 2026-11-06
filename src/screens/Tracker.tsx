@@ -156,19 +156,20 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
   /* the four steps of the tracker sheet as connected blocks; only the one clicked is open below */
   const flowSteps: DesignStep[] = [
     { key:'request', label:'Request from design', state: o.status !== 'Requirement' ? 'done' : 'later', owner:'design', note: docs.missing.length ? `${docs.missing.length} document${docs.missing.length === 1 ? '' : 's'} missing` : `${o.orderQty} pcs · in-house by ${fmtDate(o.targetInhouse)}` },
+    { key:'fabric-po', label:'Fabric sourcing', state: !o.fabricNominated || o.sourcing?.fabricPo ? 'done' : 'later', owner: 'sourcing', note: !o.fabricNominated ? 'the factory buys its own cloth' : o.sourcing?.fabricPo ? `${o.sourcing.fabricPo.no} · ${o.sourcing.fabricPo.metres} m` : o.status === 'Requirement' ? 'starts when the request is sent' : 'vendor → design pushes the fabric PO' },
     { key:'vendors', label:'Factory finalisation', state: o.poNo ? 'done' : 'later', owner: (fst.owner === 'merchandiser' ? 'production' : fst.owner) as RoleId, note: fst.label },
-    { key:'fabric-in', label:'Fabric finalisation', state: fab.key === 'received' || fab.key === 'vendor-sources' ? 'done' : 'later', owner: (fab.owner === 'merchandiser' ? 'production' : fab.owner) as RoleId, note: fab.label },
+    { key:'fabric-in', label:'Fabric to the factory', state: fab.key === 'received' || fab.key === 'vendor-sources' ? 'done' : 'later', owner: (fab.owner === 'merchandiser' ? 'production' : fab.owner) as RoleId, note: fab.label },
     { key:'live', label:'TNA & final steps', state: o.status === 'Closed' ? 'done' : 'later', owner:'production', note: o.poNo ? `${s.stage}${r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : ''}` : 'after the PO' },
   ];
   { const ni = flowSteps.findIndex(x => x.state !== 'done'); if (ni >= 0) flowSteps[ni] = { ...flowSteps[ni], state:'now' }; }
-  const KEYS: Record<string, 'request' | 'factory' | 'fabric' | 'tna'> = { request:'request', vendors:'factory', 'fabric-in':'fabric', live:'tna' };
+  const KEYS: Record<string, 'request' | 'sourcing' | 'factory' | 'fabric' | 'tna'> = { request:'request', 'fabric-po':'sourcing', vendors:'factory', 'fabric-in':'fabric', live:'tna' };
   const nowStep = flowSteps.find(x => x.state === 'now') ?? flowSteps[flowSteps.length - 1];
-  const [picked, setPicked] = useState<'request' | 'factory' | 'fabric' | 'tna' | null>(null);
+  const [picked, setPicked] = useState<'request' | 'sourcing' | 'factory' | 'fabric' | 'tna' | null>(null);
   const shown = picked ?? KEYS[nowStep.key];
   return <>
-    <Card className="mb-3"><div className="px-4 py-3"><StepFlow steps={flowSteps} onJump={k => setPicked(KEYS[k])} cols={4} /></div></Card>
+    <Card className="mb-3"><div className="px-4 py-3"><StepFlow steps={flowSteps} onJump={k => setPicked(KEYS[k])} cols={5} /></div></Card>
     {/* ── 1 · Style details + order qty break-up — the sheet's first two sections, design and planning ── */}
-    {shown === 'request' && <Section collapsible={false} title="1 · Request from design" pending={false} ownerRole="design"
+    {shown === 'request' && <Section collapsible={false} title="Request from design" pending={false} ownerRole="design"
       right={<div className="flex gap-2 items-center"><Pill tone={docs.missing.length ? (o.poNo ? 'risk' : 'warn') : 'good'}>{docs.missing.length ? `${docs.missing.length} document${docs.missing.length === 1 ? '' : 's'} missing` : 'complete'}</Pill></div>}>
       <KV k="Category" v={o.category} />
       <KV k="Sub category" v={o.subCategory} />
@@ -188,7 +189,7 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
     </Section>}
 
     {/* ── 2 · Factory finalisation — the sheet's columns, then the proposal loop ── */}
-    {shown === 'factory' && <Section collapsible={false} title="2 · Factory finalisation" ownerRole={fst.owner === 'merchandiser' ? 'production' : fst.owner}
+    {shown === 'factory' && <Section collapsible={false} title="Factory finalisation" ownerRole={fst.owner === 'merchandiser' ? 'production' : fst.owner}
       right={<Pill tone={fst.tone}>{fst.label}</Pill>}>
       <FactoryFinalisationSection o={o} bare columns={<>
         <KV k="Factory" v={o.vendorId ? <VendorLink id={o.vendorId}>{vendorName(o.vendorId)}</VendorLink> : '—'} />
@@ -208,9 +209,14 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
     </Section>}
 
     {/* ── 3 · Fabric details — the sheet's columns, then bought · sent · counted in · cut ratio ── */}
-    {shown === 'fabric' && <Section collapsible={false} title="3 · Fabric finalisation" ownerRole={fab.owner === 'merchandiser' ? 'production' : fab.owner}
+    {shown === 'fabric' && <Section collapsible={false} title="Fabric to the factory" ownerRole={fab.owner === 'merchandiser' ? 'production' : fab.owner}
       right={<Pill tone={fab.tone}>{fab.label}</Pill>}>
-      <FabricFinalisationSection o={o} bare columns={(() => { const fromPo = o.sourcing?.fabricPo ? undefined : 'fills in from the fabric PO'; return <>
+      {o.sourcing?.fabricPo || !o.fabricNominated ? <FabricFinalisationSection o={o} bare part="factory" /> : <div className="py-1 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>After the fabric PO and the factory PO: sourcing sends the cloth, the factory counts it in, short cloth comes back to design for a cut ratio.</div>}
+    </Section>}
+
+    {shown === 'sourcing' && <Section collapsible={false} title="Fabric sourcing · fabric details" ownerRole="sourcing"
+      right={<Pill tone={o.sourcing?.fabricPo ? 'good' : 'warn'}>{o.sourcing?.fabricPo ? 'fabric PO raised' : 'vendor → fabric PO'}</Pill>}>
+      <FabricFinalisationSection o={o} bare part="sourcing" columns={(() => { const fromPo = o.sourcing?.fabricPo ? undefined : 'fills in from the fabric PO'; return <>
         <KV k="Fabric vendor" v={o.fabricVendorId ? <VendorLink id={o.fabricVendorId}>{vendorName(o.fabricVendorId)}</VendorLink> : '—'} note={o.fabricVendorId ? undefined : fromPo} />
         <KV k="Vendor fabric code" v={o.vendorFabricCode ?? '—'} note={o.vendorFabricCode ? undefined : fromPo} />
         <KV k="Enigma code" v={o.enigmaCode ?? '—'} note={o.enigmaCode ? undefined : fromPo} />
@@ -223,7 +229,7 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
     </Section>}
 
     {/* ── 4 · Production milestones / TNA + Final steps ── */}
-    {shown === 'tna' && <Section collapsible={false} title="4 · TNA milestones & final steps" ownerRole="production"
+    {shown === 'tna' && <Section collapsible={false} title="TNA milestones & final steps" ownerRole="production"
       right={<Pill tone={o.poNo ? RISK_TONE[r.risk] : 'neutral'}>{o.poNo ? r.risk.replace('-', ' ') : 'after the PO'}</Pill>}>
       {!o.poNo ? <div className="py-1 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>The milestones are generated from the PO date once design raises the PO.</div> : <>
         <MilestoneGrid o={o} editable={mine('production') || mine('merchandiser')} bare />

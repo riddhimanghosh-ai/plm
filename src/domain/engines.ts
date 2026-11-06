@@ -961,7 +961,7 @@ export const fabricNameOn = (f: Pick<Fabric, 'name' | 'nameHistory'>, isoDate: s
    I asked → it was sampled → sourcing brought vendors → I chose and raised the
    PO → the cloth came in → I put it live. Six steps, the same six for a new
    MTM concept and a new RTW style, each step owned by exactly one team. */
-export type DesignStepKey = 'request' | 'sampling' | 'vendors' | 'po' | 'fabric-in' | 'live';
+export type DesignStepKey = 'request' | 'fabric-po' | 'sampling' | 'vendors' | 'po' | 'fabric-in' | 'live';
 export interface DesignStep { key: DesignStepKey; label: string; state: 'done' | 'now' | 'later'; owner: RoleId; note: string; action?: string }
 export type DesignItem = { kind: 'concept'; c: Concept } | { kind: 'order'; o: ProductionOrder };
 
@@ -1023,6 +1023,11 @@ export function designFlowOf(db: Db, item: DesignItem): { steps: DesignStep[]; n
         sample.state === 'with production unit' ? 'Review the sample on your desk' : undefined);
     steps = [
       mk('request', 'Request', o.status !== 'Requirement', o.status === 'Requirement' && protoStatusOf(o).state === 'not started' && !o.proto ? 'design' : 'design', o.status === 'Requirement' ? (() => { const r = sendReadinessOf(db, o); return r.ready ? 'proto approved, tech pack on, cloth briefed — send it to production' : r.blockers.join(' · '); })() : `sent ${fmtDate(o.styleHandover)} · ${o.orderQty} pcs · in-house by ${fmtDate(o.targetInhouse)}${o.proto?.skipped ? ' · no prototype' : o.proto?.rounds.length ? ` · prototype round ${protoStatusOf(o).approved?.round}` : ''}`, o.status === 'Requirement' ? (sendReadinessOf(db, o).ready ? 'Send it to production' : sendReadinessOf(db, o).proto.state === 'with design' ? 'Review the prototype' : 'Prototype, BOM and tech pack first') : undefined),
+      /* sourcing starts the day design sends the request and runs beside the factory loop (Nitin, 3 Oct 2026):
+         one vendor against the cloth, design pushes the fabric PO */
+      mk('fabric-po', 'Fabric sourcing', !o.fabricNominated || !!o.sourcing?.fabricPo, o.status === 'Requirement' ? 'design' : (ss.key === 'choose' || ss.key === 'raise-po' ? 'design' : 'sourcing'),
+        !o.fabricNominated ? 'the factory buys its own cloth' : o.sourcing?.fabricPo ? `${o.sourcing.fabricPo.no} · ${o.sourcing.fabricPo.metres} m · ${fmtDate(o.sourcing.fabricPo.on)}` : o.status === 'Requirement' ? 'starts when design sends the request' : ss.key === 'choose' || ss.key === 'raise-po' ? `vendor with design${ss.holdDays != null ? ` · hold ${ss.holdDays}d` : ''}` : ss.label,
+        o.status !== 'Requirement' && o.fabricNominated && !o.sourcing?.fabricPo ? (ss.key === 'choose' || ss.key === 'raise-po' ? 'Push the fabric PO' : 'Put a vendor against the cloth') : undefined),
       mk('vendors', 'Factory', fst.key === 'po-raised' || fst.key === 'accepted' || (sourcingModeOf(o) === 'fob-nominated' && !!o.fobNomination?.emailedOn), sourcingModeOf(o) === 'fob-nominated' ? 'design' : fst.owner,
         sourcingModeOf(o) === 'fob-nominated' ? (o.fobNomination?.emailedOn ? `FOB · factory buys from ${db.vendors.find(v => v.id === o.fobNomination?.supplierVendorId)?.name ?? 'the nominated supplier'} · emailed ${fmtDate(o.fobNomination.emailedOn)}` : 'FOB · name the cloth vendor and email the factory')
           : fst.accepted ? `${db.vendors.find(v => v.id === fst.accepted!.vendorId)?.name} · ₹${fst.accepted.quotedCost}/pc · in-house ${fmtDate(fst.accepted.estimatedInhouse)}` : fst.last ? `${db.vendors.find(v => v.id === fst.last!.vendorId)?.name} proposed at ₹${fst.last.quotedCost}/pc · ${fst.label}` : fst.label,
@@ -1117,7 +1122,7 @@ export function fabricStateOf(o: ProductionOrder) {
   }
   if (fs?.sentToFactoryOn) return mk('sent', `sent to the factory · ${fs.metresSent ?? '—'} m · awaiting the factory's count`, 'merchandiser', 'info');
   if (!o.poNo) return mk('wait-factory', `fabric PO ${o.sourcing.fabricPo.no} raised · waiting for the factory PO`, 'production', 'neutral');
-  return mk('bought', `fabric PO ${o.sourcing.fabricPo.no} raised · production sends it to the factory`, 'production', 'warn');
+  return mk('bought', `fabric PO ${o.sourcing.fabricPo.no} raised · send it to the factory`, 'sourcing', 'warn');
 }
 
 /* ---------- the design ↔ sourcing handoff, read off the record ------------------
@@ -1258,7 +1263,7 @@ export function alertsFor(db: Db, role: RoleId, opts?: { storeId?: string; all?:
     if (fst.key === 'accepted' && want('design')) add({ id:`fac-po-${o.id}`, role:'design', level:'warn', title:`${o.styleName} · raise the PO`, detail:`${db.vendors.find(v => v.id === fst.accepted!.vendorId)?.name} accepted at ₹${fst.accepted!.quotedCost}/pc — the factory waits on the PO`, href:`#/requirements?open=${o.id}`, weight: 800 });
     if ((fst.key === 'to-propose' || fst.key === 'rejected') && want('production')) add({ id:`fac-prop-${o.id}`, role:'production', level: fst.key === 'rejected' ? 'critical' : 'warn', title:`${o.styleName} · ${fst.key === 'rejected' ? 'design sent the factory back' : 'propose a factory'}`, detail: fst.key === 'rejected' ? (fst.last!.decision!.comment || 'no comment') + ' — change the factory or renegotiate' : `${o.orderQty} pcs · target ₹${o.targetCost}/pc · in-house by ${fmtDate(o.targetInhouse)}`, href, weight: fst.key === 'rejected' ? 880 : 700 });
     if (o.poNo && want('design')) { const d = rtwDocsOf(db, o); if (d.owedAfterPo.length) add({ id:`docs-${o.id}`, role:'design', level: daysAgo(o.factoryPo?.raisedOn ?? o.poDate!) >= 3 ? 'critical' : 'warn', title:`${o.styleName} · factory still owed ${d.owedAfterPo.join(', ')}`, detail:`PO raised ${fmtAgo(o.factoryPo?.raisedOn ?? o.poDate!)} — the factory cannot cut without them`, href:`#/requirements?open=${o.id}`, weight: 780 + daysAgo(o.poDate!) }); }
-    if (fab.key === 'bought' && want('production')) add({ id:`fab-sup-${o.id}`, role:'production', level: daysAgo(o.poDate!) >= 5 ? 'critical' : 'warn', title:`${o.styleName} · send the cloth to ${db.vendors.find(v => v.id === o.vendorId)?.name ?? 'the factory'}`, detail:`factory PO ${o.poNo} raised ${fmtAgo(o.poDate!)} · ${o.fabricMetres ?? '—'} m on ${o.sourcing?.fabricPo?.no}`, href:`#/tracker?open=${o.id}`, weight: 760 + daysAgo(o.poDate!) });
+    if (fab.key === 'bought' && want('sourcing')) add({ id:`fab-sup-${o.id}`, role:'sourcing', level: daysAgo(o.poDate!) >= 5 ? 'critical' : 'warn', title:`${o.styleName} · send the cloth to ${db.vendors.find(v => v.id === o.vendorId)?.name ?? 'the factory'}`, detail:`factory PO ${o.poNo} raised ${fmtAgo(o.poDate!)} · ${o.fabricMetres ?? '—'} m on ${o.sourcing?.fabricPo?.no}`, href:`#/sourcing?side=rtw&open=${o.id}`, weight: 760 + daysAgo(o.poDate!) });
     if (fab.key === 'sent' && want('merchandiser')) add({ id:`fab-rcv-${o.id}`, role:'merchandiser', level:'warn', title:`${o.styleName} · confirm the fabric that landed`, detail:`${fab.need ?? '—'} m sent ${fmtAgo(o.fabricSupply!.sentToFactoryOn!)} — count it in, usable and damaged`, href:`#/factory?tab=rtw&open=${o.id}`, weight: 740 });
     if (fab.key === 'short' && want('production')) add({ id:`fab-short-${o.id}`, role:'production', level:'critical', title:`${o.styleName} · fabric short by ${fab.short} m`, detail:'ask design for a modified ratio, propose a cut-short, or get sourcing to top it up', href, weight: 860 });
     if (fab.key === 'short' && want('merchandiser')) add({ id:`fab-short-m-${o.id}`, role:'merchandiser', level:'warn', title:`${o.styleName} · cloth short by ${fab.short} m`, detail:'ask for a modified ratio, or propose what you can cut from the cloth that landed', href:`#/factory?side=rtw&open=${o.id}`, weight: 820 });
