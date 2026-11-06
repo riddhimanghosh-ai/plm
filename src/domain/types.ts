@@ -8,7 +8,7 @@
    Tracker itself.
    ========================================================================== */
 
-export type RoleId = 'owner' | 'design' | 'planning' | 'sourcing' | 'production' | 'warehouse' | 'store' | 'finance' | 'merchandiser';
+export type RoleId = 'owner' | 'design' | 'planning' | 'sourcing' | 'production' | 'warehouse' | 'store' | 'finance' | 'merchandiser' | 'cad' | 'cutting' | 'fusing' | 'compiling';   // the four pre-production desks: each person signs in, a team shares one desk
 
 export interface Person { id: string; name: string; role: RoleId; title: string }
 

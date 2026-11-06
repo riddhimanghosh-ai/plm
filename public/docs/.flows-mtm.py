@@ -507,7 +507,7 @@ module("Unit teams")
 p("Each team has its own desk screen (#/cad, #/cutting, #/fusing, #/compiling), titled “<Desk> desk”, with the team's job in the lede. The four desks run in order; an order reaches a desk only once the one before has marked it done. Every desk action is written to the order's desk log with its time.")
 
 F("UF-UNIT-01", "Find the orders waiting for my desk",
- "Any unit team (CAD team, Cutting team, Fusing team, Compiling team).", "<Desk> desk · tabs Waiting for us, Taken up, Blocked, Done (?view=waiting|mine|blocked|done).",
+ "Any unit team member, signed in with their own login (CAD team, Cutting team, Fusing team, Compiling team). Everyone on a team sees the same desk; only that team can act on it, and the desk log records the person by name. Production and others see the desk read-only (“The <team> takes this up on its desk”).", "<Desk> desk · tabs Waiting for us, Taken up, Blocked, Done (?view=waiting|mine|blocked|done).",
  ["Planned orders whose previous desk is done (for CAD: a submitted plan)."],
  [["Opens the desk.", "Waiting for us · N, Taken up · N, Blocked · N, Done. Columns: checkbox, Order (urgent pill; View XML on CAD), Customer · store, Fabric (code · metres), Plan · factory, Ship by, Desks (four marks), CAD file (CAD only), Contrast fabric (Compiling only), and a last column (who finished the previous desk and when; or who took it up; or the block reason).", "None."],
   ["Picks All or Urgent; types in “search order, customer, fabric”; picks Every factory or one; Every plan or one; Clear.", "The rows follow; urgent sort to the top under All.", "None."],
@@ -1515,13 +1515,12 @@ table(["#", "Area", "Code today", "PRD says", "Flows"], [
  ["7", "Edit Vendor toast", "Saving a mill shows the factory toast “Factory master saved, the allocation rules use it from the next draft.”", "None stated.", "UF-SRC-10"],
  ["8", "Extra fabric empty state", "Says merchandisers raise asks “from the Factory floor tab”; they raise them on My factory.", "Ask for extra cloth on My factory.", "UF-PROD-22"],
  ["9", "Shravani's actions", "Production can press Shravani: approve · issue from stock / approve & raise PO; there is no Shravani login in this edition.", "Shravani approves.", "UF-PROD-26, UF-PROD-27"],
- ["10", "Unit team logins", "The four desks open to production and the warehouse role; there are no CAD, cutting, fusing or compiling roles.", "Four teams, each with its own desk.", "UF-UNIT-01"],
- ["11", "Bespoke parcel inward", "The screen that books a bespoke parcel in (scan the mill's code) is on the warehouse portal, hidden in this edition, so a bespoke order cannot leave “waiting for cloth” here.", "Bespoke not planned before its parcel is in.", "UF-PROD-01"],
- ["12", "Files", "No 25 MB check and no step picker on the Files panel.", "25 MB per file; pick the label and optionally the step.", "UF-COM-05"],
- ["13", "Empty comment", "A comment can be a file with no text.", "A comment needs text.", "UF-COM-01"],
- ["14", "Changed sheets, factory side", "Code paths for “pending with the factory” and “Told <factory>” remain but can no longer be reached.", "Nothing reaches the factory after planning.", "UF-PROD-19"],
- ["15", "Job card", "The order drawer still has a Job card section beside the Order sheet; the factory screen calls the sheet “Order sheet · the job card”.", "Roles table: the merchandiser reads the order sheet and job card.", "UF-PROD-17, UF-FAC-04"],
- ["16", "Long dashes in labels", "Some labels and toasts use a long dash (for example Acknowledged, plan on this).", "Doctrine: no long dashes.", "All"],
+ ["10", "Bespoke parcel inward", "The screen that books a bespoke parcel in (scan the mill's code) is on the warehouse portal, hidden in this edition, so a bespoke order cannot leave “waiting for cloth” here.", "Bespoke not planned before its parcel is in.", "UF-PROD-01"],
+ ["11", "Files", "No 25 MB check and no step picker on the Files panel.", "25 MB per file; pick the label and optionally the step.", "UF-COM-05"],
+ ["12", "Empty comment", "A comment can be a file with no text.", "A comment needs text.", "UF-COM-01"],
+ ["13", "Changed sheets, factory side", "Code paths for “pending with the factory” and “Told <factory>” remain but can no longer be reached.", "Nothing reaches the factory after planning.", "UF-PROD-19"],
+ ["14", "Job card", "The order drawer still has a Job card section beside the Order sheet; the factory screen calls the sheet “Order sheet · the job card”.", "Roles table: the merchandiser reads the order sheet and job card.", "UF-PROD-17, UF-FAC-04"],
+ ["15", "Long dashes in labels", "Some labels and toasts use a long dash (for example Acknowledged, plan on this).", "Doctrine: no long dashes.", "All"],
 ])
 
 # the traceability table, now that every flow is known

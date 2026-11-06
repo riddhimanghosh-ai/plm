@@ -20,11 +20,20 @@ export const PEOPLE: Person[] = [
   { id:'aarav',      name:'Aarav Mehta', role:'store',      title:'Store manager' },
   { id:'nitin',      name:'Nitin Singh', role:'merchandiser', title:'Factory merchandiser · Mahendra' },
   { id:'sairam',     name:'Sairam',      role:'owner',      title:'Owner / CEO — sees every screen' },
+  /* the four pre-production desks: every person signs in with their own name, so the desk log says who took up
+     and finished each order; everyone on a team sees the same desk. Names are placeholders until BSC shares the teams. */
+  { id:'ganesh',     name:'Ganesh',      role:'cad',        title:'CAD team' },
+  { id:'rupali',     name:'Rupali',      role:'cad',        title:'CAD team' },
+  { id:'sanjay',     name:'Sanjay',      role:'cutting',    title:'Cutting team' },
+  { id:'imran',      name:'Imran',       role:'cutting',    title:'Cutting team' },
+  { id:'meena',      name:'Meena',       role:'fusing',     title:'Fusing team' },
+  { id:'asha',       name:'Asha',        role:'compiling',  title:'Compiling team' },
 ];
 
 export const ROLE_LABEL: Record<RoleId, string> = {
   owner:'Owner', design:'Design', planning:'Planning', sourcing:'Sourcing',
   production:'Production', warehouse:'Warehouse', store:'Store', finance:'Finance', merchandiser:'Factory merchandiser',
+  cad:'CAD team', cutting:'Cutting team', fusing:'Fusing team', compiling:'Compiling team',
 };
 
 export const MERCHANDISERS = ['Nitin Singh', 'Abhin M', 'Bhupendra'];

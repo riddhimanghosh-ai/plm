@@ -1402,7 +1402,7 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
   /* the demo store gets three, so its RetailOS screen has something; days waiting vary from 1 to 12 */
   [...pcPool.filter(o => o.storeId === 'plh').slice(0, 3), ...pcPool.filter(o => o.storeId !== 'plh').slice(0, 6)].forEach((o, k) => {
     o.preConfirmed = { reason: REASONS[k % 3], note: NOTES[k % 3], since: iso(addDays(TODAY, -[2, 9, 5, 12, 1, 4, 8, 3, 6][k % 9])) }; });
-  const TEAM = { cad: ['Ganesh', 'Rupali'], cutting: ['Sanjay', 'Imran'], fusing: ['Meena'], compiling: ['Vishnu'] } as const;
+  const TEAM = { cad: ['Ganesh', 'Rupali'], cutting: ['Sanjay', 'Imran'], fusing: ['Meena'], compiling: ['Asha'] } as const;
   customerOrders.filter(o => o.kind === 'MTM' && o.stage === 'planned').forEach((o, k) => {
     const upto = k % 6;   // 0 nothing yet · 1 CAD taken · 2 CAD done · 3 cutting done · 4 fusing done · 5 compiled
     /* real clock times: a desk takes an order up during the shift and finishes it 20 to 90 minutes later */
