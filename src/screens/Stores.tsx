@@ -16,6 +16,7 @@ import { FILE_LABELS } from '../domain/reference';
 import { SheetChangePanel, SheetEditor, SheetView, SheetHistory, emptyDraft, type SheetDraft } from './OrderSheet';
 import { ActsBy } from './Who';
 import { HemTripSection } from './HemTrip';
+import { RecordTail } from './RecordTail';
 import { MTM_ONLY } from '../domain/edition';
 
 export function Stores() {
@@ -185,8 +186,7 @@ export function Stores() {
         {newReturn && <ReturnForm storeId={storeId} initialOrderId={params.get('order')} onSave={i => { const id = raiseReturn(i); const n = new URLSearchParams(params); n.delete('order'); n.set('open', id); n.set('tab', 'returns'); setParams(n, { replace:true }); }} />}
         {openReturn && <>
           <ReturnDetail r={openReturn} editable={mine} onSave={p => updateReturn(openReturn.id, p)}  />
-          <Files kind="return" subjectId={openReturn.id} labels={FILE_LABELS.return} editable={mine} hint="a photo of the defect is worth the whole Slack thread" />
-          <ThreadPanel kind="return" subjectId={openReturn.id} />
+          <RecordTail kind="return" subjectId={openReturn.id} labels={FILE_LABELS.return} editable={mine} />
         </>}
       </Drawer>
     </Page>
@@ -875,8 +875,7 @@ function Customer360({ name, storeId, mine, onPunch }: { name: string; storeId: 
       {c.returns.map(r => <KV key={r.id} k={`${r.caseNo} · ${r.styleName}`} v={<Pill tone={r.stage === 'closed' || r.stage === 'refunded' ? 'good' : 'warn'}>{r.reason} → {r.wants}</Pill>} note={r.remarks} />)}
       {c.alterations.map(o => <KV key={o.id} k={`${o.orderNo} · alteration`} v={o.remarks || '—'} note={fmtDate(o.punchedOn)} />)}
     </Section>}
-    <Files kind="customer" subjectId={name} labels={FILE_LABELS.customer} editable={mine} hint="a photo in the fit sample says more than the sheet — the customer cannot visualise the final shirt, and neither can the next store" />
-    <ThreadPanel kind="customer" subjectId={name} steps={['General', 'Fit', 'Preferences', 'Complaint']} />
+    <RecordTail kind="customer" subjectId={name} labels={FILE_LABELS.customer} editable={mine} steps={['General', 'Fit', 'Preferences', 'Complaint']} />
     <div className="text-[11px] pt-2" style={{ color:'var(--ink-faint)' }}>Seen from {store(storeId)}. Notes here travel with the customer to every store.</div>
   </>;
 }

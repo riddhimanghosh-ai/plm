@@ -17,6 +17,7 @@ import { FILE_LABELS } from '../domain/reference';
 
 import { RISK_TONE } from './Tracker';
 import { ActsBy } from './Who';
+import { RecordTail } from './RecordTail';
 import { MTM_ONLY } from '../domain/edition';
 
 /** A vendor name that opens the 360. Keeps whatever click is already on the row from firing. */
@@ -121,8 +122,7 @@ function Vendor360({ v, s }: { v: Vendor; s: ReturnType<typeof vendorStatsOf> })
       {s.escalations.slice(0, 6).map(e => { const o = db.orders.find(x => x.id === e.orderId); return <div key={e.id} className="kv"><span className="k">{o?.poNo} · {o?.styleName}<div className="text-[11px]">raised {fmtDate(e.raisedAt)}{e.recoveryAction ? ` · ${e.recoveryAction}` : ''}</div></span><span className="v"><Pill tone={e.status === 'Open' ? 'risk' : e.status === 'Acknowledged' ? 'warn' : 'neutral'}>{e.status}</Pill></span></div>; })}
     </Section>}
 
-    <Files kind="vendor" subjectId={v.id} labels={FILE_LABELS.vendor} editable />
-    <ThreadPanel kind="vendor" subjectId={v.id} />
+    <RecordTail kind="vendor" subjectId={v.id} labels={FILE_LABELS.vendor} editable />
   </>;
 }
 

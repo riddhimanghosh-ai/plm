@@ -305,7 +305,7 @@ function OrderPanel({ o, mine }: { o: CustomerOrder; mine: boolean }) {
           <div className="text-[11px]" style={{ color:'var(--ink-soft)' }}>“{r.note}”</div></td>
         <td>{r.reprint && <Pill tone="risk">new sheet</Pill>}</td>
       </tr>)}</tbody></table></Card>}
-    <div className="mt-3"><ThreadPanel kind="order" subjectId={o.id} steps={['General']} /></div>
+    <RecordTail kind="order" fileKind="customerOrder" subjectId={o.id} labels={FILE_LABELS.customerOrder} editable={false} steps={['General']} />
   </>;
 }
 
@@ -427,7 +427,7 @@ function RtwPoPanel({ o, mine }: { o: ProductionOrder; mine: boolean }) {
       <div className="text-[11.5px] pt-3" style={faint}>Open any file. Nothing here is edited at the factory; if something is missing, it shows above as still owed to you.</div>
     </div></Card>}
 
-    <div className="mt-3"><RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable={false} steps={ORDER_STEPS} activity={o.activity} /></div>
+    <RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable={false} steps={ORDER_STEPS} activity={o.activity} />
   </>;
 }
 

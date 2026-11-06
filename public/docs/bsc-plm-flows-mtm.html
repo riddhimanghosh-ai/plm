@@ -623,7 +623,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <ul><li>An ask with Shravani, not yet approved.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
 <tr><td>1</td><td>If the shelf now covers a non-bespoke fabric, clicks Shravani: approve · issue from stock.</td><td>Toast “Approved by Shravani: N m deducted from physical stock.”</td><td>Ask: approved, decidedOn, po.raisedOn. Fabric: physical reduced; an ISSUE transaction (reason Extra fabric or Alteration fabric).</td></tr>
-<tr><td>2</td><td>Otherwise clicks Shravani: approve.</td><td>Toast “Approved by Shravani: she arranges the cloth. No PO is raised here.” Status approved by Shravani · cloth awaited.</td><td>Ask: po.poNo, po.raisedOn.</td></tr>
+<tr><td>2</td><td>Otherwise clicks Shravani: approve.</td><td>Toast “Approved by Shravani: she arranges the cloth.” Status approved by Shravani · cloth awaited.</td><td>Ask: po.poNo, po.raisedOn.</td></tr>
 </tbody></table>
 <p><strong>Validations and errors.</strong> </p>
 <ul><li>The label tells which of the two it will do.</li></ul>
@@ -633,13 +633,13 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 <ul><li>Cloth in follows (UF-PROD-27).</li></ul>
 <table class="qa"><thead><tr><th>QA</th><th>Given</th><th>When</th><th>Then</th></tr></thead><tbody>
 <tr><td>UF-PROD-26.1</td><td>a bespoke ask with Shravani</td><td>she approves</td><td>a PO number shows on the row</td></tr>
-<tr><td>UF-PROD-26.2</td><td>a normal ask the shelf now covers</td><td>she approves</td><td>stock falls and no PO is raised</td></tr>
+<tr><td>UF-PROD-26.2</td><td>a normal ask the shelf now covers</td><td>she approves</td><td>stock falls at once</td></tr>
 </tbody></table>
 <h3 id="UF-PROD-27"><span class="fid">UF-PROD-27</span>Bring the cloth in and approve</h3>
 <p><strong>Who.</strong> Shravani, then production.</p>
 <p><strong>Where.</strong> Extra material row at approved by Shravani · cloth awaited.</p>
 <p><strong>Preconditions.</strong> </p>
-<ul><li>Shravani arranges the cloth; no PO is raised in PLM.</li></ul>
+<ul><li>Shravani arranges the cloth.</li></ul>
 <table class="steps"><thead><tr><th>#</th><th>User does</th><th>System shows / does</th><th>Data written</th></tr></thead><tbody>
 <tr><td>1</td><td>Clicks Cloth in · back to approval.</td><td>Toast “Cloth in: the request is back with production to approve.” or, for bespoke, “Cloth in: bespoke, not booked to inventory; back with production to approve.”</td><td>Ask: po.clothInOn, status requested. Non-bespoke: physical stock + metres.</td></tr>
 <tr><td>2</td><td>Production approves (UF-PROD-22).</td><td>As there.</td><td>As there; bespoke deducts nothing.</td></tr>
@@ -2098,7 +2098,7 @@ table.qa td:nth-child(2),table.qa td:nth-child(3),table.qa td:nth-child(4){min-w
 </tbody></table>
 </section>
 <section id="s13"><p class="eyebrow"><b>Section 14</b></p><h2>Conversation, mentions, files and the bell</h2><div class="rule-accent"></div>
-<p>Every record (order, customer, fabric, requirement, mill, return case) has Files · N and Conversation · N at its foot, open to anyone who can open the record. The bell, Waiting on you, sits top right on every screen.</p>
+<p>Every record (order, customer, fabric, requirement, mill, return case) has Files · N and Conversation · N at its foot, open to anyone who can open the record; the block is always open and stays stuck to the bottom of the record as you scroll. The bell, Waiting on you, sits top right on every screen.</p>
 <h3 id="UF-COM-01"><span class="fid">UF-COM-01</span>Post on a record</h3>
 <p><strong>Who.</strong> Anyone who can open the record.</p>
 <p><strong>Where.</strong> Any record · Conversation · N.</p>

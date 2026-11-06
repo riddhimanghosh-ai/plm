@@ -1553,8 +1553,8 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
             f.stockMetres = Math.max(0, round2(f.stockMetres - r.metres));
             f.transactions = [{ on: now(), orderNo: (db.customerOrders ?? []).find(o => o.id === r.orderId)?.orderNo ?? '', poId: null, type: 'ISSUE', by: who(), warehouse: f.inventory?.warehouse ?? 'Dadar unit', bin: f.inventory?.bins[0]?.bin ?? null, reason: r.source === 'alteration' ? 'Alteration fabric' : 'Extra fabric', desc: `${r.panel}, ${r.metres} m`, metres: -r.metres }, ...(f.transactions ?? [])];
             msg = `Approved by Shravani: ${r.metres} m deducted from physical stock.`; }
-          /* no PO is raised in PLM: Shravani approves and arranges the cloth herself (6 Nov 2026) */
-          else { void poNo; r.po.raisedOn = now(); msg = 'Approved by Shravani: she arranges the cloth. No PO is raised here.'; } }
+          /* Shravani approves and arranges the cloth herself (6 Nov 2026) */
+          else { void poNo; r.po.raisedOn = now(); msg = 'Approved by Shravani: she arranges the cloth.'; } }
         /* bespoke cloth is never BSC's inventory: it arrives for the order and goes straight to it */
         if (step === 'cloth-in' && r.po) { r.po.clothInOn = now(); r.status = 'requested';
           if (f && !bespoke) f.stockMetres = round2(f.stockMetres + r.metres);

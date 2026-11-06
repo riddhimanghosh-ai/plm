@@ -447,17 +447,17 @@ F("UF-PROD-26", "Shravani approves an ask sent to her",
  "Shravani (warehouse). In the prototype production can press it too.", "Extra material row at with Shravani.",
  ["An ask with Shravani, not yet approved."],
  [["If the shelf now covers a non-bespoke fabric, clicks Shravani: approve · issue from stock.", "Toast “Approved by Shravani: N m deducted from physical stock.”", "Ask: approved, decidedOn, po.raisedOn. Fabric: physical reduced; an ISSUE transaction (reason Extra fabric or Alteration fabric)."],
-  ["Otherwise clicks Shravani: approve.", "Toast “Approved by Shravani: she arranges the cloth. No PO is raised here.” Status approved by Shravani · cloth awaited.", "Ask: po.poNo, po.raisedOn."]],
+  ["Otherwise clicks Shravani: approve.", "Toast “Approved by Shravani: she arranges the cloth.” Status approved by Shravani · cloth awaited.", "Ask: po.poNo, po.raisedOn."]],
  ["The label tells which of the two it will do."],
  ["None."],
  ["Cloth in follows (UF-PROD-27)."],
  [["a bespoke ask with Shravani", "she approves", "a PO number shows on the row"],
-  ["a normal ask the shelf now covers", "she approves", "stock falls and no PO is raised"]],
+  ["a normal ask the shelf now covers", "she approves", "stock falls at once"]],
  "2.8", "src/store.ts · routeExtraFabricPo")
 
 F("UF-PROD-27", "Bring the cloth in and approve",
  "Shravani, then production.", "Extra material row at approved by Shravani · cloth awaited.",
- ["Shravani arranges the cloth; no PO is raised in PLM."],
+ ["Shravani arranges the cloth."],
  [["Clicks Cloth in · back to approval.", "Toast “Cloth in: the request is back with production to approve.” or, for bespoke, “Cloth in: bespoke, not booked to inventory; back with production to approve.”", "Ask: po.clothInOn, status requested. Non-bespoke: physical stock + metres."],
   ["Production approves (UF-PROD-22).", "As there.", "As there; bespoke deducts nothing."]],
  ["Bespoke cloth is never booked to inventory."],
@@ -1408,7 +1408,7 @@ F("UF-SW-03", "Send swatches to every store and follow receipt",
 # ------------------------------------------------------------------ 14 conversation
 h2("14. Conversation, mentions, files and the bell")
 module("Conversation and files")
-p("Every record (order, customer, fabric, requirement, mill, return case) has Files · N and Conversation · N at its foot, open to anyone who can open the record. The bell, Waiting on you, sits top right on every screen.")
+p("Every record (order, customer, fabric, requirement, mill, return case) has Files · N and Conversation · N at its foot, open to anyone who can open the record; the block is always open and stays stuck to the bottom of the record as you scroll. The bell, Waiting on you, sits top right on every screen.")
 
 F("UF-COM-01", "Post on a record",
  "Anyone who can open the record.", "Any record · Conversation · N.",

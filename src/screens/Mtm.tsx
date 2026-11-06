@@ -20,6 +20,7 @@ import { SheetChangePanel, PullBackButton } from './OrderSheet';
 import { VendorLink } from './Vendors';
 import { PrepOverview, PrepOnOrder } from './Preprod';
 import { StagesInfo } from './OrderStages';
+import { RecordTail } from './RecordTail';
 import { ActsBy } from './Who';
 
 const TAG_TONE: Record<OrderTag, Tone> = { normal:'neutral', urgent:'risk', corporate:'info' };
@@ -478,7 +479,7 @@ export function FabricTab({ mine, wh, onOpen }: { mine: boolean; wh: boolean; on
           </td>
         </tr>); })}</tbody>
     </table></Card>}
-    <div className="mt-3"><Note>Approve is the inventory event: the metres leave physical stock the moment it is approved. Alteration and hemming asks are approved here like any other and deducted from physical stock. A fabric with too little on the shelf shows low inventory and cannot be approved. A decline asks why; the reason goes to the factory. Only bespoke cloth, or a fabric with too little on the shelf, goes to Shravani in one click: she approves and arranges the cloth (no PO is raised here); when the cloth is in, it comes back here to approve. Bespoke is never BSC's inventory: nothing is booked in or deducted.</Note></div>
+    <div className="mt-3"><Note>Approve is the inventory event: the metres leave physical stock the moment it is approved. Alteration and hemming asks are approved here like any other and deducted from physical stock. A fabric with too little on the shelf shows low inventory and cannot be approved. A decline asks why; the reason goes to the factory. Only bespoke cloth, or a fabric with too little on the shelf, goes to Shravani in one click: she approves and arranges the cloth; when the cloth is in, it comes back here to approve. Bespoke is never BSC's inventory: nothing is booked in or deducted.</Note></div>
   </>;
 }
 
@@ -553,8 +554,7 @@ export function OrderSheet({ o, mine }: { o: CustomerOrder; mine: boolean }) {
     <SheetChangePanel o={o} who="unit" />
       {mine && n && <div className="pb-2"><Button size="sm" variant="primary" onClick={() => scanOrders([o.id], n.stage)}>{n.label} →</Button></div>}
     {xfs.length > 0 && <Section title="Extra material on this order">{xfs.map(r => <KV key={r.id} k={r.material === 'trim' ? `${(db.trims ?? []).find(t => t.id === r.trimId)?.name ?? 'Trim'} · ${r.qty ?? 0} pcs` : `${r.panel} · ${r.metres} m`} v={<Pill tone={r.status === 'approved' ? 'good' : r.status === 'requested' ? 'warn' : 'neutral'}>{r.status}</Pill>} note={`${r.reason} · ${fmtRel(r.raisedOn)}`} />)}</Section>}
-    <Files kind="customerOrder" subjectId={o.id} labels={FILE_LABELS.customerOrder} editable />
-    <ThreadPanel kind="order" subjectId={o.id} steps={['General', 'Change from store', 'Fabric', 'Alteration']} />
+    <RecordTail kind="order" fileKind="customerOrder" subjectId={o.id} labels={FILE_LABELS.customerOrder} editable steps={['General', 'Change from store', 'Fabric', 'Alteration']} />
   </>;
 }
 
