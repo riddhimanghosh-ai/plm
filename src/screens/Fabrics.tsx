@@ -311,7 +311,7 @@ function FabricStatusLine({ f }: { f: Fabric }) {
   return <div className="mb-3">
     <div className="flex items-center gap-2 flex-wrap">
       <Pill tone={st.tone}>{st.label}</Pill><HoldButton f={f} />
-      {canDesign && !renaming && <button type="button" className="vlink text-[12px] ml-1" title={`the code ${f.code} does not change`} onClick={() => { setNewName(f.name); setRenaming(true); }}>Rename</button>}
+      {canDesign && !renaming && <button type="button" className="btn sm ml-1" title={`the code ${f.code} does not change`} onClick={() => { setNewName(f.name); setRenaming(true); }}>Rename</button>}
       {(f.nameHistory ?? []).length > 0 && <span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>formerly {formerNames(f)}</span>}
     </div>
     {renaming && <div className="flex gap-2 items-end flex-wrap pt-2">
@@ -384,20 +384,19 @@ function Fabric360({ f, canSource, canPlan, view = 'all', flat = false, setView 
   return <>
     {show('overview') && <Card className="px-4 py-2 mb-3 facts-wrap"><div className="ov-grid">
       {row('Bucket', f.bucket === 'CORE' ? 'Core · never runs out' : f.bucket === 'NON_CORE' ? 'Non-core · one buy' : 'Bespoke · held at the mill',
-        canPlan && f.bucket !== 'BESPOKE' ? <button type="button" className="vlink" onClick={() => setFabricBucket(f.id, f.bucket === 'NON_CORE' ? 'CORE' : 'NON_CORE', '')}>{f.bucket === 'NON_CORE' ? 'Promote to core' : 'Demote to non-core'}</button> : undefined,
+        canPlan && f.bucket !== 'BESPOKE' ? <button type="button" className="btn sm" onClick={() => setFabricBucket(f.id, f.bucket === 'NON_CORE' ? 'CORE' : 'NON_CORE', '')}>{f.bucket === 'NON_CORE' ? 'Promote to core' : 'Demote to non-core'}</button> : undefined,
         f.bucket === 'NON_CORE' ? 'core is replenished on a reorder point; non-core is bought once' : f.bucket === 'CORE' ? 'demoted, it stops being replenished and is allowed to sell out' : undefined)}
       {row('Reorder', f.bucket === 'BESPOKE' ? 'No PO: cut from the mill\'s stock' : (f.inventory?.autoReplenish ?? (f.bucket === 'CORE' && !f.international)) ? 'Enigma auto' : <span className="pill warn">reordered by hand</span>,
-        f.bucket !== 'BESPOKE' ? <button type="button" className="vlink" onClick={() => setView('pos')}>reorder point {c.rop} m</button> : undefined)}
+        f.bucket !== 'BESPOKE' ? <button type="button" className="btn sm" onClick={() => setView('pos')}>reorder point {c.rop} m</button> : undefined)}
       {f.bucket === 'CORE' && row('Supply block', f.coreBlock ? <>until {fmtDate(f.coreBlock.until)} · {f.coreBlock.metresPerMonth} m/month{left != null && left <= 60 ? <span style={{ color:'var(--risk)' }}> · {left < 0 ? 'lapsed' : `${left}d left`}</span> : null}</> : <span style={{ color:'var(--risk)' }}>none agreed</span>,
-        canSource && !blk ? (f.coreBlock ? <><button type="button" className="vlink" onClick={() => { setBlk(true); setBlkYears(1); setBlkUntil(''); setBlkMpm(String(f.coreBlock!.metresPerMonth)); setBlkVia(f.coreBlock!.via); setBlkNote(f.coreBlock!.note); }}>Renew</button> · <button type="button" className="vlink" onClick={() => endCoreBlock(f.id)}>End</button></>
-          : <button type="button" className="vlink" onClick={() => { setBlk(true); setBlkYears(1); setBlkUntil(''); setBlkMpm(String(Math.max(100, Math.round(c.baseMpw * 4.33 / 50) * 50))); setBlkNote(''); }}>Agree a block</button>) : undefined,
+        canSource && !blk ? (f.coreBlock ? <><button type="button" className="btn sm" onClick={() => { setBlk(true); setBlkYears(1); setBlkUntil(''); setBlkMpm(String(f.coreBlock!.metresPerMonth)); setBlkVia(f.coreBlock!.via); setBlkNote(f.coreBlock!.note); }}>Renew</button> <button type="button" className="btn sm" onClick={() => endCoreBlock(f.id)}>End</button></>
+          : <button type="button" className="btn sm" onClick={() => { setBlk(true); setBlkYears(1); setBlkUntil(''); setBlkMpm(String(Math.max(100, Math.round(c.baseMpw * 4.33 / 50) * 50))); setBlkNote(''); }}>Agree a block</button>) : undefined,
         f.coreBlock ? `agreed ${fmtRel(f.coreBlock.agreedOn)} by ${f.coreBlock.by} over ${f.coreBlock.via}${f.coreBlock.note ? ` · ${f.coreBlock.note}` : ''}` : `asks ${mill.name} to keep weaving it for a year or two`)}
       {row('Family', range ? <>{f.family} · {familyHealthy} healthy of {range.targetOptions}</> : f.family)}
       {row('Vendor', <><VendorLink id={mill.id}>{mill.name}</VendorLink> · {mill.leadDays}d lead · {Math.round(mill.onTimeRate * 100)}% on time</>, undefined, `${mill.kind} · ${mill.location}`)}
       {row('Swatch book', f.swatchBook ?? '—')}
       {f.bucket === 'BESPOKE' && row('At the mill', f.millAvailable === false ? <span style={{ color:'var(--risk)' }}>sold out{!f.onHold ? ' · still on sale, make it inactive' : ''}</span> : f.millStockMetres != null ? `${f.millStockMetres} m` : 'available', undefined, `reported ${fmtRel(f.millReportedAt)}`)}
       {row('In stores', swatches.length ? `${confirmed} of ${swatches.length} swatches received` : 'no swatch sent yet', undefined, swatches.length - confirmed ? `waiting: ${storeNames(swatches.filter(s => !s.confirmedOn).map(s => s.storeId)).join(', ')}` : undefined)}
-      <div className="ov-row ov-wide"><span className="ov-k">Sales · 12 weeks</span><span className="ov-v" style={{ alignItems:'center' }}><Bars values={f.weeklySalesShirts} ok={inStockWeeks} unit=" shirts" compact /><span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{c.ros.toFixed(1)} shirts a week · best week {Math.max(0, ...f.weeklySalesShirts)}</span></span></div>
     </div>
     {blk && <div className="mt-2 mb-2 p-3" style={{ background:'var(--accent-soft)', borderRadius: 8 }}>
       <div className="label">What did {mill.name} agree to hold?</div>
