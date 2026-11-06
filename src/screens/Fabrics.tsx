@@ -362,7 +362,7 @@ export function FabricPage() {
   </Page>;
 }
 
-type FabricView = 'all' | 'overview' | 'pos' | 'enigma' | 'inventory' | 'files';
+export type FabricView = 'all' | 'overview' | 'pos' | 'enigma' | 'inventory' | 'files';
 function Fabric360({ f, canSource, canPlan, view = 'all', flat = false, setView }: { f: Fabric; canSource: boolean; canPlan: boolean; view?: FabricView; flat?: boolean; setView: (v: FabricView) => void }) {
   const show = (v: FabricView) => view === 'all' || view === v;
   const { db, role, setFabricBucket, agreeCoreBlock, endCoreBlock } = useApp();
@@ -574,3 +574,15 @@ function BooksTab({ onOpen }: { onOpen: (id: string) => void }) {
   </>;
 }
 
+/** A fabric as a drawer, for screens other than the fabric master (the mills, Find a fabric): opened by ?fabric=<id>,
+    the same record the master opens, so a fabric never jumps to a full page from a list. */
+export function FabricDrawer() {
+  const { db } = useApp();
+  const [params, setParams] = useSearchParams();
+  const f = db.fabrics.find(x => x.id === params.get('fabric')) ?? null;
+  const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); v ? n.set(k, v) : n.delete(k); if (k === 'fabric' && !v) n.delete('fview'); setParams(n, { replace:true }); };
+  const mill = f ? db.vendors.find(v => v.id === f.vendorId)?.name ?? '' : '';
+  return <Drawer open={!!f} onClose={() => set('fabric', null)} title={f?.name ?? ''} subtitle={f && <><Pill tone="accent">{f.bucket.replace('_', '-').toLowerCase()}</Pill><span className="mono">{f.code}</span><span>· {mill} · {f.international ? 'international' : 'domestic'}{f.swatchBook ? ` · ${f.swatchBook}` : ''}</span></>}>
+    {f && <FabricRecord f={f} view={(params.get('fview') as FabricView) ?? 'overview'} setView={v => set('fview', v)} />}
+  </Drawer>;
+}

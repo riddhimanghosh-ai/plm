@@ -18,6 +18,7 @@ import { FILE_LABELS } from '../domain/reference';
 import { RISK_TONE } from './Tracker';
 import { ActsBy } from './Who';
 import { RecordTail } from './RecordTail';
+import { FabricDrawer } from './Fabrics';
 import { MTM_ONLY } from '../domain/edition';
 
 /** A vendor name that opens the 360. Keeps whatever click is already on the row from firing. */
@@ -110,7 +111,7 @@ function Vendor360({ v, s }: { v: Vendor; s: ReturnType<typeof vendorStatsOf> })
     </Section>}
 
     {isMill && <Section title={`Fabrics · ${s.fabrics.length}`}>
-      {s.fabrics.slice(0, 10).map(f => { const c = coverageOf(f, v.leadDays, v); return <div key={f.id} className="kv row" style={{ cursor:'pointer' }} onClick={() => { location.hash = `#/fabric/${f.id}`; }}><span className="k">{f.name}<div className="text-[11px] mono">{f.code} · {f.bucket.toLowerCase().replace('_', '-')}</div></span><span className="v">{f.bucket === 'BESPOKE' ? <Pill tone={f.millAvailable === false ? 'risk' : 'good'}>{f.millAvailable === false ? 'sold out at mill' : 'available'}</Pill> : <Pill tone={c.belowRop ? 'risk' : 'good'}>{c.belowRop ? 'below ROP' : `${c.coverDays > 365 ? '1y+' : c.coverDays + 'd'} cover`}</Pill>}</span></div>; })}
+      {s.fabrics.slice(0, 10).map(f => { const c = coverageOf(f, v.leadDays, v); return <div key={f.id} className="kv row" style={{ cursor:'pointer' }} onClick={() => { const n = new URLSearchParams(window.location.hash.split('?')[1] ?? ''); n.set('fabric', f.id); window.location.hash = `${window.location.hash.split('?')[0]}?${n.toString()}`; }}><span className="k">{f.name}<div className="text-[11px] mono">{f.code} · {f.bucket.toLowerCase().replace('_', '-')}</div></span><span className="v">{f.bucket === 'BESPOKE' ? <Pill tone={f.millAvailable === false ? 'risk' : 'good'}>{f.millAvailable === false ? 'sold out at mill' : 'available'}</Pill> : <Pill tone={c.belowRop ? 'risk' : 'good'}>{c.belowRop ? 'below ROP' : `${c.coverDays > 365 ? '1y+' : c.coverDays + 'd'} cover`}</Pill>}</span></div>; })}
       {s.fabrics.length > 10 && <div className="text-[11.5px] pt-1" style={{ color:'var(--ink-faint)' }}>and {s.fabrics.length - 10} more — all on the MTM fabrics screen</div>}
     </Section>}
 
@@ -332,6 +333,7 @@ export function VendorsPage({ only = 'factories' }: { only?: 'factories' | 'mill
       {tab === 'performance' && <VendorTable kind="factories" />}
       {tab === 'fabrics' && <FabricSourcingTab />}
       {tab === 'mills' && <><VendorTable kind="mills" /><div className="mt-3"><Note>The block window is how long this vendor holds fabric before BSC must commit or release — its own number, edited by sourcing.</Note></div></>}
+      <FabricDrawer />
     </Page>
   );
 }
@@ -345,7 +347,7 @@ export function FabricSourcingTab() {
   const { db } = useApp();
   const [params, setParams] = useSearchParams();
   const openVendor = (id: string) => { const n = new URLSearchParams(params); n.set('vendor', id); setParams(n, { replace:true }); };
-  const openFabric = (id: string) => { location.hash = `#/fabric/${id}`; };
+  const openFabric = (id: string) => { const n = new URLSearchParams(params); n.set('fabric', id); setParams(n, { replace:true }); };
   const [q, setQ] = useState(params.get('fq') ?? '');
   const [millF, setMillF] = useState('all');
   const [typeF, setTypeF] = useState('all');          // domestic · international
