@@ -765,7 +765,7 @@ F("UF-FAC-06", "Read the answer to my ask",
 # ------------------------------------------------------------------ 9 fabric master
 h2("9. Fabric master")
 module("Fabric master")
-p("MTM fabric master (#/fabrics) holds two groups: Fabric master data (Fabric inventory, Core · weekly review, Ranges, Designs) and Purchase orders & supply (Purchase orders, Trims & packaging). A fabric opens in a drawer (?open=<id>) or as its own page (#/fabric/<id>) with a facts strip and five tabs: Overview, Purchase orders, Fabric info · Enigma, Inventory & movements, Files & conversation. Design (Kunal, Janak) and sourcing (Sreekanth, Srikanth) work here.")
+p("MTM fabric master (#/fabrics) holds three groups: Fabric master data (Fabric inventory, Core · weekly review, Ranges, Designs), Trim master data (Trims & packaging) and Purchase orders & supply (Purchase orders). A fabric opens in a drawer (?open=<id>) or as its own page (#/fabric/<id>) with a facts strip and five tabs: Overview, Purchase orders, Fabric info · Enigma, Inventory & movements, Files & conversation. Design (Kunal, Janak) and sourcing (Sreekanth, Srikanth) work here.")
 
 F("UF-FAB-01", "Browse fabric inventory by book and state",
  "Design, sourcing.", "Fabric master data · Fabric inventory (#/fabrics?tab=books).",
@@ -1031,7 +1031,7 @@ F("UF-PO-06", "Receive a washed fabric with shrinkage",
  "6.5", "src/screens/PoReceiving.tsx")
 
 F("UF-PO-07", "Order and receive trims and packaging",
- "Sourcing, production.", "Purchase orders & supply · Trims & packaging (#/fabrics?tab=trims).",
+ "Sourcing, production.", "Trim master data · Trims & packaging (#/fabrics?tab=trims).",
  ["Trims in the master."],
  [["Reads the list.", "Item, Supplier, On shelf, Committed, Available, Incoming, Threshold, ₹ each, Status (below threshold first).", "None."],
   ["Clicks Order N.", "Toast “Bulk order raised. It counts as cover until the delivery lands, head office buys these against the forecast, nothing auto-fires.”", "Trim: incoming + N."],

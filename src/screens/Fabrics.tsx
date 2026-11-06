@@ -120,10 +120,11 @@ export function Fabrics() {
             { id:'core', label:'Core · weekly review', count: reviewDue.length, hint:'sourcing reviews every core fabric with its mill once a week' },
             { id:'noncore', label:'Ranges', hint:'each range against its plan of options' },
             { id:'designs', label:'Designs', hint:'every design (product code) on every fabric: one per fabric' } ] },
+          /* trims and packaging have their own master, beside the fabric one (6 Nov 2026) */
+          { id:'trim', label:'Trim master data', tabs: [
+            { id:'trims', label:'Trims & packaging', count: (db.trims ?? []).filter(t => trimCoverageOf(db, t).belowThreshold).length, hint:'every trim and packaging item: stock, committed, available, incoming, threshold, cost, supplier' } ] },
           { id:'orders', label:'Purchase orders & supply', tabs: [
-            { id:'pos', label:'Purchase orders', hint:'every fabric PO — raised by Enigma on its own or by a person — and the fabrics that still need one' },
-            ...(designSide ? [] : [
-              { id:'trims', label:'Trims & packaging', count: (db.trims ?? []).filter(t => trimCoverageOf(db, t).belowThreshold).length } ]) ] },
+            { id:'pos', label:'Purchase orders', hint:'every fabric PO — raised by Enigma on its own or by a person — and the fabrics that still need one' } ] },
         ];
         const group = groups.find(g => g.tabs.some(t => t.id === tab)) ?? groups[0];
         return <>
