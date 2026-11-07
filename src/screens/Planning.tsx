@@ -16,8 +16,8 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
-import type { PlanningReview, RtwOption, GarmentCategory } from '../domain/types';
-import { rosOf, fmtDate, daysAgo, wipOf, projectionOf, draftOrderOf, displayReserveOf, stockByPurposeOf, planningKindOf, reviewOutcomeOf, sizeRosOf, coverageOf, healthOf, healthRowOf, lifetimeSizeRatioOf, splitInPairs, TODAY } from '../domain/engines';
+import type { PlanningReview, RtwOption, GarmentCategory, PlanningDecision, PlanningKind } from '../domain/types';
+import { rosOf, sizeWeeksInStockOf, fmtDate, daysAgo, wipOf, projectionOf, draftOrderOf, displayReserveOf, stockByPurposeOf, planningKindOf, reviewOutcomeOf, sizeRosOf, coverageOf, healthOf, healthRowOf, lifetimeSizeRatioOf, splitInPairs, TODAY } from '../domain/engines';
 import { RTW_SUBCATS, STORES, isBottoms, HEALTH_MIN_SIZE_PCT, HEALTH_MIN_COVER_WEEKS, LOW_STOCK_WEEKS, GRADE_QTY } from '../domain/reference';
 import { Page, Card, Pill, Tabs, Button, Drawer, KV, Section, Note, Field, Input, Select, Th, Seg, usePager, Pager, ExportButton, dateInput, fromDateInput, type Tone } from '../ui';
 import { VendorLink } from './Vendors';
@@ -28,20 +28,47 @@ const KIND_TONE: Record<string, Tone> = { core: 'accent', 'non-core': 'info', ne
 export const DEFAULT_LEAD_WEEKS = 8;
 export const DEFAULT_COVER_WEEKS = 12;
 
-/* The plain answer for one option, before any of the sheet's columns: what to do, and why, in one line. */
-export type Verdict = { group: 'now' | 'soon' | 'fine' | 'idle'; label: string; why: string; tone: Tone };
-const VERDICT_LABEL: Record<Verdict['group'], string> = { now: 'Order now', soon: 'Order soon', fine: 'Fine for now', idle: 'Not selling' };
-export function verdictOf(h: ReturnType<typeof healthRowOf>, p: ReturnType<typeof projectionOf>, wip: ReturnType<typeof wipOf>, sizeRisk: { size: string; firstShortWeek: number | null }[], leadWeeks: number): Verdict {
+/* The plain answer for one option, before any of the sheet's columns: what to do, and why, in one line.
+   8 Oct 2026 call: core, new and non-core are three different judgments, not one formula.
+   · Core: the rate is known; order when cover at arrival falls under the target.
+   · New: the first weeks mislead; read it from week 3, on its better weeks (no baseline was agreed).
+   · Non-core: decide first — replenish, replace with a new option, let it end, or review later —
+     by whether it lasts the selling window and whether a new run could land inside it. */
+export type Verdict = { group: 'now' | 'soon' | 'decide' | 'fine' | 'idle'; label: string; why: string; tone: Tone };
+const VERDICT_LABEL: Record<Verdict['group'], string> = { now: 'Order now', soon: 'Order soon', decide: 'Decide · non-core', fine: 'Fine for now', idle: 'Not selling' };
+export const DECISION_LABEL: Record<PlanningDecision, string> = { replenish: 'Replenish', replace: 'Replace with a new option', end: 'Let it run out', later: 'Review later' };
+export type VerdictCtx = { kind?: PlanningKind; wof?: number; windowWeeks?: number | null; decision?: PlanningDecision | null; coverTarget?: number };
+export function verdictOf(h: ReturnType<typeof healthRowOf>, p: ReturnType<typeof projectionOf>, wip: ReturnType<typeof wipOf>, sizeRisk: { size: string; firstShortWeek: number | null }[], leadWeeks: number, ctx: VerdictCtx = {}): Verdict {
+  const kind = ctx.kind ?? 'core'; const cover = ctx.coverTarget ?? DEFAULT_COVER_WEEKS;
   const lands = p.weeks[Math.min(leadWeeks, p.weeks.length) - 1]?.from;
   const landsOn = lands ? fmtDate(lands) : `${leadWeeks} wk`;
   const firmWip = wip.filter(w => w.firm);
+  const sizes = sizeRisk.length ? ` · ${sizeRisk.map(x => x.size).join(', ')} out first` : '';
+  /* new: too early to read */
+  if (kind === 'new' && (ctx.wof ?? 99) < 3) return { group: 'fine', label: 'Too early to read', why: `week ${ctx.wof ?? 0} on the floor; the first weeks mislead, especially with sizes missing — read it from week 3`, tone: 'neutral' };
   /* under a piece a week is not worth an order: let it run out, or let it sit */
   if (h.aws < 1) return h.stock > 0 ? { group: 'idle', label: 'Not selling', why: `${h.stock} pcs, ${h.aws <= 0.05 ? 'nothing' : `under one a week`} sold lately`, tone: 'neutral' } : { group: 'idle', label: 'Sold out, slow', why: 'no stock and under one a week when it had some', tone: 'neutral' };
-  if (h.stock === 0 && !firmWip.length) return { group: 'now', label: 'Order now', why: `sold out and still asked for (${h.aws.toFixed(0)} a week)`, tone: 'risk' };
-  if (p.firstShortWeek != null && p.firstShortWeek <= leadWeeks) return { group: 'now', label: 'Order now', why: `runs out in week ${p.firstShortWeek}; a new order lands ${landsOn}${firmWip.length ? ', after what is on order' : ''}`, tone: 'risk' };
-  if (sizeRisk.length) return { group: 'now', label: 'Order now · sizes', why: `${sizeRisk.map(x => x.size).join(', ')} run${sizeRisk.length > 1 ? '' : 's'} out before anything lands`, tone: 'risk' };
-  if (p.coverAtArrival < DEFAULT_COVER_WEEKS) return { group: 'soon', label: 'Order soon', why: `${p.atArrival} pcs left when a new order could land (${landsOn}), under ${DEFAULT_COVER_WEEKS} weeks' worth`, tone: 'warn' };
-  return { group: 'fine', label: 'Fine for now', why: p.firstShortWeek ? `lasts about ${p.firstShortWeek} weeks` : `lasts beyond ${p.weeks.length} weeks at ${h.aws.toFixed(1)} a week`, tone: 'good' };
+  /* non-core: the decision comes before any quantity */
+  if (kind === 'non-core') {
+    if (ctx.decision && ctx.decision !== 'replenish' && ctx.decision !== 'later') return { group: 'fine', label: DECISION_LABEL[ctx.decision], why: 'decided on the last review; no quantity is worked out', tone: 'neutral' };
+    const out = p.firstShortWeek; const win = ctx.windowWeeks ?? null;
+    if (ctx.decision === 'replenish') { /* decided: plan it like a core reorder below */ }
+    else if (out == null || (win != null && out > win)) return { group: 'fine', label: 'Lasts the window', why: out == null ? `lasts beyond ${p.weeks.length} weeks` : `runs out in week ${out}, after the window closes in week ${win}`, tone: 'good' };
+    else if (win != null && leadWeeks >= win) return { group: 'decide', label: 'Let it run out or replace', why: `runs out in week ${out}${sizes}; a new run lands week ${leadWeeks}, after the window closes in week ${win}`, tone: 'warn' };
+    else return { group: 'decide', label: ctx.decision === 'later' ? 'Review later' : 'Replenish or replace?', why: `runs out in week ${out}${sizes}; a new run lands ${landsOn}${win != null ? ` with ${win - leadWeeks} weeks of the window left` : ' · set the selling window on the review'}`, tone: out <= leadWeeks ? 'risk' : 'warn' };
+  }
+  const tag = kind === 'new' ? 'new · read on its better weeks · ' : '';
+  if (h.stock === 0 && !firmWip.length) return { group: 'now', label: 'Order now', why: `${tag}sold out and still asked for (${h.aws.toFixed(0)} a week)`, tone: 'risk' };
+  if (p.firstShortWeek != null && p.firstShortWeek <= leadWeeks) return { group: 'now', label: 'Order now', why: `${tag}runs out in week ${p.firstShortWeek}; a new order lands ${landsOn}${firmWip.length ? ', after what is on order' : ''}`, tone: 'risk' };
+  if (sizeRisk.length) return { group: 'now', label: 'Order now · sizes', why: `${tag}${sizeRisk.map(x => x.size).join(', ')} run${sizeRisk.length > 1 ? '' : 's'} out before anything lands`, tone: 'risk' };
+  if (p.coverAtArrival < cover) return { group: 'soon', label: 'Order soon', why: `${tag}${p.atArrival} pcs usable when a new order could land (${landsOn}), under ${cover} weeks' worth`, tone: 'warn' };
+  return { group: 'fine', label: 'Fine for now', why: `${tag}${p.firstShortWeek ? `lasts about ${p.firstShortWeek} weeks` : `lasts beyond ${p.weeks.length} weeks at ${h.aws.toFixed(1)} a week`}`, tone: 'good' };
+}
+/** the context a verdict needs from the option's latest review */
+export function verdictCtxOf(db: { planningReviews?: PlanningReview[] }, o: RtwOption, kind: PlanningKind, wof: number): VerdictCtx {
+  const last = [...(db.planningReviews ?? [])].filter(x => x.optionId === o.id).sort((a, b) => b.on.localeCompare(a.on))[0] ?? null;
+  const windowWeeks = last?.windowEndsOn ? Math.max(0, Math.round(-daysAgo(last.windowEndsOn) / 7)) : null;
+  return { kind, wof, windowWeeks, decision: last?.decision ?? null, coverTarget: last?.coverWeeksTarget };
 }
 
 function categoryFor(o: RtwOption): { category: GarmentCategory; sub: string } {
@@ -72,7 +99,7 @@ export function Planning() {
     const sizeRisk = p.sizes.filter(s => s.beforeReceipt && s.ros > 0);
     const last = (db.planningReviews ?? []).find(x => x.optionId === o.id) ?? null;
     const h = healthRowOf(o);
-    const v = verdictOf(h, p, wip, sizeRisk, DEFAULT_LEAD_WEEKS);
+    const v = verdictOf(h, p, wip, sizeRisk, DEFAULT_LEAD_WEEKS, verdictCtxOf(db, o, k, h.wof));
     return { o, r, k, p, wip, sp, sizeRisk, last, h, v, coverNow: r.trueRos > 0 ? sp.usable / r.trueRos : 999 };
   }), [db]);
 
@@ -81,7 +108,7 @@ export function Planning() {
     .filter(x => kind === 'all' ? true : kind === 'size-risk' ? x.sizeRisk.length > 0 : kind === 'due' ? x.p.coverAtArrival < 4 : kind === 'unhealthy' ? !x.h.healthy : kind === 'eoss' ? x.h.eoss : x.k === kind)
     .filter(x => !q.trim() || q.toLowerCase().split(/\s+/).every(w => `${x.o.styleName} ${x.o.subCat1} ${x.o.subCat2} ${x.o.sku ?? ''}`.toLowerCase().includes(w)))
     /* what to do first: order now, then order soon, then fine, then idle; inside a group the thinnest cover on top */
-    .sort((a, b) => ['now', 'soon', 'fine', 'idle'].indexOf(a.v.group) - ['now', 'soon', 'fine', 'idle'].indexOf(b.v.group) || a.h.wc - b.h.wc);
+    .sort((a, b) => ['now', 'decide', 'soon', 'fine', 'idle'].indexOf(a.v.group) - ['now', 'decide', 'soon', 'fine', 'idle'].indexOf(b.v.group) || a.h.wc - b.h.wc);
   const pager = usePager(list, 25);
   const active = db.options.find(o => o.id === openId) ?? null;
   const wk = (n: number) => n >= 999 ? '—' : `${n.toFixed(1)} wk`;
@@ -97,10 +124,10 @@ export function Planning() {
 
       {tab === 'review' && <>
         <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
-          {(['now', 'soon', 'fine', 'idle'] as const).map(g => { const n = rows.filter(x => x.v.group === g).length; const tone = g === 'now' ? 'var(--risk)' : g === 'soon' ? 'var(--warn)' : g === 'fine' ? 'var(--good)' : 'var(--ink-faint)';
+          {(['now', 'soon', 'decide', 'fine', 'idle'] as const).map(g => { const n = rows.filter(x => x.v.group === g).length; const tone = g === 'now' ? 'var(--risk)' : g === 'soon' ? 'var(--warn)' : g === 'decide' ? 'var(--info, var(--accent))' : g === 'fine' ? 'var(--good)' : 'var(--ink-faint)';
             return <button key={g} type="button" className="card text-left px-4 py-3" onClick={() => setGroup(group === g ? 'all' : g)} style={{ cursor: 'pointer', outline: group === g ? '2px solid var(--accent)' : undefined }}>
               <div className="label">{VERDICT_LABEL[g]}</div><div className="mono text-[24px]" style={{ color: tone }}>{n}</div>
-              <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>{g === 'now' ? 'runs out before a new order can land, or a main size is out' : g === 'soon' ? `under ${DEFAULT_COVER_WEEKS} weeks left when a new order lands` : g === 'fine' ? 'enough stock and on-order for the next ' + DEFAULT_COVER_WEEKS + ' weeks' : 'under a piece a week: let it run out'}</div></button>; })}
+              <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>{g === 'now' ? 'runs out before a new order can land, or a main size is out' : g === 'decide' ? 'non-core running out inside its window: replenish, replace or let it end' : g === 'soon' ? `under ${DEFAULT_COVER_WEEKS} weeks left when a new order lands` : g === 'fine' ? 'enough stock and on-order for the next ' + DEFAULT_COVER_WEEKS + ' weeks' : 'under a piece a week: let it run out'}</div></button>; })}
         </div>
         <div className="flex gap-3 items-end flex-wrap mb-3">
           <Seg value={cols} onChange={setCols} label="Columns" options={[{ id: 'simple', label: 'Plain' }, { id: 'sheet', label: "The sheet's", hint: 'ROS, LW…LW-3, L4W, Top 6, AWS, WC, Stock Health, as the ROS & health Report has them' }]} />
@@ -308,7 +335,9 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
   const ratioSum = ratioRows.reduce((a, x) => a + x.approved, 0);
   const approvedN = Number(approvedQty) || 0;
   const unresolved = [displayExtra === '' ? 'display / trial pieces' : null, moq === '' ? 'vendor MOQ' : null].filter(Boolean) as string[];
-  const canApprove = mine && !!current && current.status === 'draft' && approvedN > 0 && unresolved.length === 0 && ratioSum === approvedN;
+  const initialReqOf = () => draft.gap + (Number(displayExtra) || 0);
+  const moqAdjOf = () => Math.max(0, (Number(moq) || 0) - initialReqOf());
+  const canApprove = mine && !!current && current.status === 'draft' && approvedN > 0 && unresolved.length === 0 && ratioSum === approvedN && (approvedN === initialReqOf() + moqAdjOf() || !!constraintNote.trim());
   const faint = { color: 'var(--ink-faint)' } as const;
   const wk = (n: number) => n >= 999 ? '—' : `${n.toFixed(1)} wk`;
   const sizeRisk = p.sizes.filter(s => s.beforeReceipt && s.ros > 0);
@@ -329,7 +358,20 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
     usableNow: sp.usable, reserve: reserve.total, projectedAtArrival: p.atArrival, draftQty: draft.gap, draftRatio: draft.ratio, note: '', grade: grade || null, windowEndsOn: fromDateInput(windowEnds) ?? null });
   const save = (patch: Partial<PlanningReview>) => current && updatePlanningReview(current.id, patch);
 
-  const v = verdictOf(hr, p, wip, sizeRisk, leadWeeks);
+  const lastReview = [...reviews].sort((a, b) => b.on.localeCompare(a.on))[0] ?? null;
+  const decision: PlanningDecision | null = current?.decision ?? (kind === 'non-core' ? null : 'replenish');
+  const [decisionNote, setDecisionNote] = useState(current?.decisionNote ?? '');
+  const v = verdictOf(hr, p, wip, sizeRisk, leadWeeks, { kind, wof: hr.wof, windowWeeks, decision: current?.decision ?? lastReview?.decision ?? null, coverTarget: coverWeeks });
+  const decide = (d: PlanningDecision) => { const id = current?.id ?? start(); updatePlanningReview(id, { decision: d, decisionNote: decisionNote.trim() }); };
+  const quantityOpen = kind !== 'non-core' || decision === 'replenish';
+  const floorPcs = sp.display + sp.trial;
+  const weeksIn = sizeWeeksInStockOf(o); const nWeeks = o.weeklySales.length;
+  /* the order, line by line: each adjustment kept apart from demand (8 Oct 2026: 184 → 200 is a 16-piece MOQ adjustment, not demand) */
+  const extra = Number(displayExtra) || 0; const moqN = Number(moq) || 0;
+  const initialReq = draft.gap + extra;
+  const moqAdj = moqN > initialReq ? moqN - initialReq : 0;
+  const suggested = initialReq + moqAdj;
+  const exception = approvedN ? approvedN - suggested : 0;
   const outOn = p.firstShortWeek != null ? fmtDate(p.weeks[p.firstShortWeek - 1].from) : null;
   const landsOn = fmtDate(p.weeks[Math.min(leadWeeks, p.weeks.length) - 1].from);
   const [showWorking, setShowWorking] = useState(false);
@@ -337,7 +379,7 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
     {/* ── in plain words ── */}
     <Section title="In plain words" look="lead" collapsible={false} pending={false} ownerRole={null} right={<Pill tone={v.tone}>{v.label}</Pill>}>
       <div className="text-[13.5px]" style={{ lineHeight: 1.55 }}>
-        Sells about <b>{planRos.toFixed(1)} a week</b>{Math.round(planRos * 10) / 10 !== Math.round(hr.aws * 10) / 10 ? <span style={faint}> (the sheet says {hr.aws.toFixed(1)})</span> : ''}. <b>{sp.usable} pcs</b> in stock{wip.filter(w => w.firm).length ? <>, <b>{wip.filter(w => w.firm).reduce((a, w) => a + w.qty, 0)} pcs</b> on order landing {wip.filter(w => w.firm).map(w => fmtDate(w.arrives)).join(', ')}</> : ', nothing on order'}.
+        Sells about <b>{planRos.toFixed(1)} a week</b>{Math.round(planRos * 10) / 10 !== Math.round(r.trueRos * 10) / 10 ? <span style={faint}> (observed {r.trueRos.toFixed(1)}{planReason ? `, adjusted: ${planReason}` : ''})</span> : ''}. <b>{sp.usable} pcs</b> usable{floorPcs ? <span style={faint}> ({sp.total} physical less {floorPcs} on display and trial)</span> : ''}{wip.filter(w => w.firm).length ? <>, <b>{wip.filter(w => w.firm).reduce((a, w) => a + w.qty, 0)} pcs</b> on order landing {wip.filter(w => w.firm).map(w => fmtDate(w.arrives)).join(', ')}</> : ', nothing on order'}.
         {' '}{hr.aws <= 0.05 ? 'Nothing sold in four weeks.' : p.firstShortWeek == null ? `Lasts beyond ${fmtDate(p.weeks[p.weeks.length - 1].from)}.` : <>Runs out around <b>{outOn}</b> (week {p.firstShortWeek}).</>}
         {' '}A new order placed today lands <b>{landsOn}</b>{p.firstShortWeek != null && p.firstShortWeek <= leadWeeks ? ', too late' : ''}.
         {sizeRisk.length ? <> Size{sizeRisk.length > 1 ? 's' : ''} <b>{sizeRisk.map(x => x.size).join(', ')}</b> run{sizeRisk.length > 1 ? '' : 's'} out first.</> : ''}
@@ -353,8 +395,9 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
       right={<Pill tone={sizeRisk.length ? 'risk' : p.coverAtArrival < 4 ? 'warn' : 'good'}>{sizeRisk.length ? `${sizeRisk.length} size${sizeRisk.length > 1 ? 's' : ''} out before receipt` : `${wk(p.coverAtArrival)} at arrival`}</Pill>}>
       <div className="grid gap-x-6" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <div>
-          <KV k="Usable stock, all sizes" v={<b>{sp.usable} pcs</b>} note="sellable pieces only — display and trial pieces are kept outside this figure" />
-          <KV k="On the floors for display and trial" v={reserve.total ? `${reserve.total} pcs` : '—'} note={reserve.source === 'launch allocation' ? `${reserve.display} display · ${reserve.trial} fit, issued at cost on launch` : 'no display allocation recorded — a new display need goes on the order below'} />
+          <KV k="Physical stock, all sizes" v={`${sp.total} pcs`} note="warehouse and stores, as Enigma counts it" />
+          <KV k="Less display and trial pieces" v={floorPcs ? `−${floorPcs} pcs` : '—'} note={reserve.source === 'launch allocation' ? `${reserve.display} display · ${reserve.trial} trial on the floors · not for ordinary sale` : 'no display or trial pieces recorded — a new need goes on the order below'} />
+          <KV k="Usable stock" v={<b>{sp.usable} pcs</b>} note="what cover is counted on" />
           <KV k="Of which off the rack in stores" v={`${sp.offRack} pcs`} note={`${STORES.filter(s => s.holdsRtwStock).length} stores carry stock to sell · ${sp.warehouse} at the warehouse`} />
         </div>
         <div>
@@ -428,17 +471,35 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
     {/* ── 4 · by size ── */}
     <Section title="4 · Which sizes run out" ownerRole={null} pending={false} defaultOpen={sizeRisk.length > 0}
       right={<Pill tone={sizeRisk.length ? 'risk' : 'good'}>{sizeRisk.length ? `${sizeRisk.map(s => s.size).join(', ')} out before receipt` : 'no size out before receipt'}</Pill>}>
-      <table className="t compact"><thead><tr><th>Size</th><th className="num">Usable now</th><th className="num" title="lost-sale asks logged by stores in the last 4 weeks, main sizes only">Lost · 4 wk</th><th className="num">In WIP</th><th className="num">Rate / wk</th><th className="num">At arrival</th><th>First short</th></tr></thead>
+      <table className="t compact"><thead><tr><th>Size</th><th className="num">Usable now</th><th className="num" title="lost-sale asks logged by stores in the last 4 weeks, main sizes only">Lost · 4 wk</th><th className="num">In WIP</th><th className="num" title="weeks of the last twelve the size could be bought">Weeks in stock</th><th className="num">Rate / wk</th><th className="num">At arrival</th><th>First short</th></tr></thead>
         <tbody>{p.sizes.map(s => <tr key={s.size} style={s.beforeReceipt && s.ros > 0 ? { background: 'var(--risk-soft)' } : undefined}>
-          <td className="mono">{s.size}</td><td className="num">{s.usable}</td><td className="num" style={{ color: lostBySize[s.size] ? 'var(--risk)' : 'var(--ink-faint)' }}>{lostBySize[s.size] || '·'}</td><td className="num">{s.incoming || ''}</td><td className="num">{s.ros.toFixed(1)}</td>
+          <td className="mono">{s.size}</td><td className="num">{s.usable}</td><td className="num" style={{ color: lostBySize[s.size] ? 'var(--risk)' : 'var(--ink-faint)' }}>{lostBySize[s.size] || '·'}</td><td className="num">{s.incoming || ''}</td><td className="num" style={{ color: (weeksIn[s.size] ?? nWeeks) < nWeeks - 2 ? 'var(--warn)' : undefined }}>{weeksIn[s.size] ?? '—'}/{nWeeks}</td><td className="num">{s.ros.toFixed(1)}</td>
           <td className="num" style={{ color: s.atArrival < 0 ? 'var(--risk)' : undefined }}>{s.atArrival}</td>
           <td className="text-[12px]">{s.firstShortWeek == null ? <span style={faint}>—</span> : s.firstShortWeek === 0 ? <span style={{ color: 'var(--risk)' }}>out now</span> : <span style={{ color: s.beforeReceipt ? 'var(--risk)' : 'var(--warn)' }}>week {s.firstShortWeek}{s.beforeReceipt ? ' · before any receipt' : ' · after WIP lands'}</span>}</td>
         </tr>)}</tbody></table>
-      <div className="pt-2 text-[12.5px]" style={faint}>Size rows reconcile to the option total. A size's rate is its share of the planning rate, on its own last four in-stock weeks.</div>
+      <div className="pt-2 text-[12.5px]" style={faint}>Size rows reconcile to the option total; usable is physical less that size's display and trial pieces. A size's rate is its share of the planning rate, on its own last four in-stock weeks. Weeks in stock: a size that was out sells nothing, so low sales there are not weak demand.</div>
     </Section>
 
     {/* ── 5 · the order working ── */}
     </div>
+    {/* ── non-core: decide before any quantity (8 Oct 2026) ── */}
+    {kind === 'non-core' && <Section title="Decide first · non-core" ownerRole="planning" pending={false} collapsible={false}
+      right={<Pill tone={decision ? (decision === 'replenish' ? 'good' : 'neutral') : 'warn'}>{decision ? DECISION_LABEL[decision] : 'not decided'}</Pill>}>
+      <div className="text-[12.5px] pb-2" style={{ color: 'var(--ink-soft)' }}>The question is not only whether it is live today but whether it lasts the next selling window. {v.why.charAt(0).toUpperCase() + v.why.slice(1)}. The count of 81 live non-core options says how many are live, not whether they are stocked.</div>
+      {windowVerdict && <div className="pb-2"><Note tone={windowVerdict.tone}>{windowVerdict.text}</Note></div>}
+      <div className="flex gap-3 items-end flex-wrap pb-2">
+        <Field label="Selling window ends" hint="when this option stops being worth selling"><Input type="date" value={windowEnds} disabled={!mine || current?.status === 'approved'} onChange={e => setWindowEnds(e.target.value)} onBlur={() => current && save({ windowEndsOn: fromDateInput(windowEnds) ?? null })} style={{ width: 160 }} /></Field>
+        <Field label="New run lead · weeks"><Input type="number" min={1} value={leadWeeks} disabled={!mine || current?.status === 'approved'} onChange={e => setLeadWeeks(Math.max(1, Number(e.target.value) || 1))} onBlur={() => current && save({ leadWeeks })} style={{ width: 90 }} /></Field>
+        {!windowEnds && <div className="text-[12px] pb-2" style={{ color: 'var(--warn)' }}>Set the window to see whether a new run can land inside it.</div>}
+      </div>
+      {mine && current?.status !== 'approved' && current?.status !== 'sent' ? <>
+        <div className="flex gap-2 flex-wrap">{(['replenish', 'replace', 'end', 'later'] as PlanningDecision[]).map(d => <Button key={d} size="sm" variant={decision === d ? 'primary' : undefined} onClick={() => decide(d)}>{DECISION_LABEL[d]}</Button>)}</div>
+        <div className="pt-2"><Field label="Why" hint="kept on the review"><Input value={decisionNote} placeholder="window closes before a run lands · a better option is coming from design" onChange={e => setDecisionNote(e.target.value)} onBlur={() => current && save({ decisionNote: decisionNote.trim() })} /></Field></div>
+      </> : decision && <div className="text-[12.5px]">{DECISION_LABEL[decision]}{current?.decisionNote ? ` · ${current.decisionNote}` : ''}</div>}
+      {decision && decision !== 'replenish' && <div className="pt-2 text-[12.5px]" style={faint}>{decision === 'replace' ? 'No quantity for this option. Ask design for a new option in this sub-category so the count holds.' : decision === 'end' ? 'No quantity. It sells out and leaves the count; the option count shows the gap.' : 'No quantity yet. It stays on the list as "Review later".'}</div>}
+    </Section>}
+
+    {quantityOpen && <>
     {/* ── 5 · the order working ── */}
     <Section title="5 · How many to order" ownerRole="planning" pending={false} defaultOpen
       right={<Pill tone={current?.status === 'approved' || current?.status === 'sent' ? 'good' : 'neutral'}>{current?.approvedQty != null ? `${current.approvedQty} pcs approved` : `${draft.gap} pcs draft`}</Pill>}>
@@ -446,38 +507,40 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
         <Field label="Cover wanted after arrival · weeks" hint="12–16 for an established option"><Input type="number" min={1} value={coverWeeks} disabled={!mine || current?.status === 'approved'} onChange={e => setCoverWeeks(Math.max(1, Number(e.target.value) || 1))} onBlur={() => save({ coverWeeksTarget: coverWeeks })} style={{ width: 90 }} /></Field>
       </div>
       <div className="mono text-[12.5px]" style={{ background: 'var(--surface-2)', borderRadius: 6, padding: '10px 14px' }}>
-        {[
-          [`Target demand after receipt · ${coverWeeks} × ${planRos.toFixed(1)}`, String(draft.target)],
-          ['Less projected usable stock at arrival', `−${p.atArrival}`],
-          ['Initial sellable requirement', String(draft.gap)],
-          ['Additional display / trial pieces', displayExtra === '' ? '?' : displayExtra],
-          ['Vendor MOQ / production constraint', moq === '' ? '?' : moq],
-          ['Grade from sourcing · buys about', grade ? `${grade} · ${GRADE_QTY[grade]}` : '—'],
-          ['Planner-approved order quantity', approvedQty === '' ? '?' : approvedQty],
-        ].map(([k, v]) => <div key={k} className="flex justify-between gap-4 py-0.5"><span style={{ color: v === '?' ? 'var(--warn)' : undefined }}>{k}</span><b style={{ color: v === '?' ? 'var(--warn)' : undefined }}>{v}</b></div>)}
+        {([
+          [`Demand for ${coverWeeks} weeks after it lands · ${coverWeeks} × ${planRos.toFixed(1)}`, String(draft.target), ''],
+          ['Less usable stock projected at arrival (WIP already counted)', `−${p.atArrival}`, ''],
+          ['= Sellable requirement', String(draft.gap), 'demand'],
+          ['+ New display / trial pieces', displayExtra === '' ? '?' : `+${extra}`, 'not for sale'],
+          ['= Initial production requirement', displayExtra === '' ? '?' : String(initialReq), ''],
+          ['+ MOQ adjustment', moq === '' ? '?' : moqAdj ? `+${moqAdj}` : '0', moqAdj ? `MOQ ${moqN}, not demand` : 'MOQ met'],
+          ['= Suggested order', displayExtra === '' || moq === '' ? '?' : String(suggested), ''],
+          ['± Planner exception', approvedQty === '' ? '—' : exception ? `${exception > 0 ? '+' : ''}${exception}` : '0', exception ? (constraintNote.trim() || 'needs a reason') : ''],
+          ['= Approved order', approvedQty === '' ? '?' : approvedQty, grade ? `grade ${grade} buys about ${GRADE_QTY[grade]}` : ''],
+        ] as [string, string, string][]).map(([k, v, why]) => <div key={k} className="flex justify-between gap-4 py-0.5" style={k.startsWith('=') ? { borderTop: '1px solid var(--line-soft)', marginTop: 2, paddingTop: 4 } : undefined}><span style={{ color: v === '?' ? 'var(--warn)' : undefined }}>{k}{why ? <span style={{ color: why === 'needs a reason' ? 'var(--risk)' : 'var(--ink-faint)' }}> · {why}</span> : ''}</span><b style={{ color: v === '?' ? 'var(--warn)' : undefined }}>{v}</b></div>)}
       </div>
-      <div className="text-[12px] pt-2" style={faint}>{draft.gap} is a starting point, not an approved quantity. The question marks have to be confirmed, not assumed.</div>
+      <div className="text-[12px] pt-2" style={faint}>{draft.gap} is a calculation, not the PO. Each adjustment stays on its own line: display and trial pieces are not for sale, and an MOQ top-up is not demand. The question marks have to be confirmed, not assumed.</div>
       {mine && !current && <div className="pt-3"><Button variant="primary" onClick={start}>Start the review · save today's figures</Button></div>}
       {current && current.status !== 'sent' && <div className="grid gap-3 pt-3" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
         <Field label="Grade · from sourcing" hint={grade ? `${grade}-grade buys about ${GRADE_QTY[grade]} pcs` : `A about ${GRADE_QTY.A} · B about ${GRADE_QTY.B}`}><Select value={grade} onChange={v => { setGrade(v as 'A' | 'B' | ''); save({ grade: (v || null) as 'A' | 'B' | null }); }} options={[{ value: '', label: '—' }, { value: 'A', label: 'A' }, { value: 'B', label: 'B' }]} /></Field>
         <Field label="Display / trial pieces to add" hint="0 if the floors are covered"><Input type="number" min={0} value={displayExtra} disabled={!mine || current.status === 'approved'} onChange={e => setDisplayExtra(e.target.value)} onBlur={() => save({ displayExtra: displayExtra === '' ? null : Number(displayExtra) })} /></Field>
         <Field label="Vendor MOQ · pcs" hint={vendor ? `${vendor.name} says ${vendor.moq}` : 'confirm with the vendor'}><Input type="number" min={0} value={moq} disabled={!mine || current.status === 'approved'} onChange={e => setMoq(e.target.value)} onBlur={() => save({ moq: moq === '' ? null : Number(moq) })} /></Field>
-        <Field label="Approved quantity" hint={approvedN && approvedN !== draft.gap + (Number(displayExtra) || 0) ? `${approvedN - draft.gap - (Number(displayExtra) || 0) > 0 ? '+' : ''}${approvedN - draft.gap - (Number(displayExtra) || 0)} vs the working — say why below` : 'the number you will buy'}><Input type="number" min={0} value={approvedQty} disabled={!mine || current.status === 'approved'} onChange={e => setApprovedQty(e.target.value)} /></Field>
+        <Field label="Approved quantity" hint={approvedN && exception ? `${exception > 0 ? '+' : ''}${exception} vs the suggested ${suggested} — say why below` : `suggested ${displayExtra === '' || moq === '' ? '?' : suggested}`}><Input type="number" min={0} value={approvedQty} disabled={!mine || current.status === 'approved'} onChange={e => setApprovedQty(e.target.value)} /></Field>
       </div>}
-      {current && current.status !== 'sent' && <Field label="Why the approved number differs from the working" hint="MOQ, a production multiple, display pieces — never described as demand"><Input value={constraintNote} disabled={!mine || current.status === 'approved'} placeholder="factory cuts in multiples of 20" onChange={e => setConstraintNote(e.target.value)} /></Field>}
+      {current && current.status !== 'sent' && <Field label="Why the approved number differs from the suggested order" hint="a production multiple, a grade quantity, a store opening — never described as demand"><Input value={constraintNote} disabled={!mine || current.status === 'approved'} placeholder="factory cuts in multiples of 20" onChange={e => setConstraintNote(e.target.value)} /></Field>}
     </Section>
 
     {/* ── 6 · ratio ── */}
     <Section title="6 · How to split it by size" ownerRole="planning" pending={false} defaultOpen={!!current}
       right={<Pill tone={ratioSum === approvedN && approvedN > 0 ? 'good' : 'neutral'}>{ratioSum} pcs{approvedN ? ` of ${approvedN}` : ''}</Pill>}>
-      <table className="t compact"><thead><tr><th>Size</th><th className="num" title="the sheet's ratio: this size's share of every sale on record">Share since launch</th><th className="num">Rate / wk</th><th className="num">At arrival</th><th className="num">Draft</th><th className="num">Approved</th><th className="num">Cover after · wk</th></tr></thead>
+      <table className="t compact"><thead><tr><th>Size</th><th className="num" title="the sheet's ratio: this size's share of every sale on record">Share since launch</th><th className="num" title="weeks of the last twelve the size could be bought">Weeks in stock</th><th className="num">Rate / wk</th><th className="num">At arrival</th><th className="num">Draft</th><th className="num">Approved</th><th className="num">Cover after · wk</th></tr></thead>
         <tbody>{ratioRows.map(row => { const s = p.sizes.find(x => x.size === row.size)!; const after = s.ros > 0 ? (Math.max(0, s.atArrival) + row.approved) / s.ros : 999;
           return <tr key={row.size} style={hr.main.includes(row.size) ? undefined : { color: 'var(--ink-soft)' }}>
-            <td className="mono">{row.size}{hr.main.includes(row.size) ? '' : <span className="text-[10px]" style={faint}> outlier</span>}</td><td className="num">{(lifeRatio[row.size] * 100).toFixed(1)}%</td><td className="num">{s.ros.toFixed(1)}</td><td className="num" style={{ color: s.atArrival < 0 ? 'var(--risk)' : undefined }}>{s.atArrival}</td><td className="num" style={faint}>{row.draft}</td>
+            <td className="mono">{row.size}{hr.main.includes(row.size) ? '' : <span className="text-[10px]" style={faint}> outlier</span>}</td><td className="num">{(lifeRatio[row.size] * 100).toFixed(1)}%</td><td className="num" style={{ color: (weeksIn[row.size] ?? nWeeks) < nWeeks - 2 ? 'var(--warn)' : undefined }}>{weeksIn[row.size] ?? '—'}/{nWeeks}</td><td className="num">{s.ros.toFixed(1)}</td><td className="num" style={{ color: s.atArrival < 0 ? 'var(--risk)' : undefined }}>{s.atArrival}</td><td className="num" style={faint}>{row.draft}</td>
             <td className="num">{current && current.status === 'draft' && mine ? <input className="input mono" type="number" min={0} value={row.approved} style={{ width: 70, padding: '3px 6px', textAlign: 'right' }} onChange={e => setRatio(x => ({ ...(x ?? Object.fromEntries(ratioRows.map(y => [y.size, y.approved]))), [row.size]: Math.max(0, Number(e.target.value) || 0) }))} /> : <span className="mono">{row.approved}</span>}</td>
             <td className="num" style={{ color: after < 4 ? 'var(--risk)' : after > coverWeeks * 2 ? 'var(--warn)' : undefined }}>{after >= 999 ? '—' : after.toFixed(0)}</td>
           </tr>; })}
-          <tr style={{ fontWeight: 600 }}><td>Total</td><td className="num">100%</td><td /><td className="num">{p.atArrival}</td><td className="num" style={faint}>{draft.gap}</td><td className="num" style={{ color: approvedN && ratioSum !== approvedN ? 'var(--risk)' : undefined }}>{ratioSum}</td><td /></tr>
+          <tr style={{ fontWeight: 600 }}><td>Total</td><td className="num">100%</td><td /><td /><td className="num">{p.atArrival}</td><td className="num" style={faint}>{draft.gap}</td><td className="num" style={{ color: approvedN && ratioSum !== approvedN ? 'var(--risk)' : undefined }}>{ratioSum}</td><td /></tr>
         </tbody></table>
       <div className="pt-2 text-[12.5px]" style={faint}>The draft spreads the gap on each size's recent rate and adds back any size short at arrival. The chinos sheet spreads the total on each size's share since launch, in pairs; that is the second button. Sizes out before receipt may need a bigger share; an outlier size committed months ahead builds excess. Both the draft and your ratio are kept.{approvedN > 0 && ratioSum !== approvedN ? ` The ratio must add up to ${approvedN}.` : ''}</div>
       {current && current.status === 'draft' && mine && <div className="flex gap-2 pt-2 flex-wrap"><Button size="sm" onClick={() => setRatio(null)}>Back to the draft ratio</Button>{approvedN > 0 && <Button size="sm" onClick={() => setRatio(Object.fromEntries(splitInPairs(approvedN, lifeRatio, o.sizes).map(x => [x.size, x.qty])))}>Spread {approvedN} on the share since launch · pairs</Button>}{approvedN > 0 && ratioSum !== approvedN && <Button size="sm" onClick={() => { const base = ratioRows.map(x => x.approved); const sum = base.reduce((a, b) => a + b, 0); const scaled = ratioRows.map((x, i) => ({ size: x.size, qty: sum ? Math.round(base[i] * approvedN / sum) : Math.round(approvedN / ratioRows.length) })); const d = approvedN - scaled.reduce((a, b) => a + b.qty, 0); scaled.sort((a, b) => b.qty - a.qty)[0].qty += d; setRatio(Object.fromEntries(scaled.map(x => [x.size, x.qty]))); }}>Scale to {approvedN}</Button>}</div>}
@@ -492,9 +555,9 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
       <KV k="Cost review" v="on the factory proposal" note="design accepts the cost when Nitin proposes the factory" />
       <KV k="Unresolved" v={unresolved.length ? <span style={{ color: 'var(--warn)' }}>{unresolved.join(' · ')}</span> : 'nothing'} />
       {current && current.status === 'draft' && <div className="flex gap-2 items-center pt-3 flex-wrap">
-        <Button variant="primary" disabled={!canApprove} title={!canApprove ? (unresolved.length ? `confirm ${unresolved.join(' and ')} first` : ratioSum !== approvedN ? `the ratio must add up to ${approvedN || 'the approved quantity'}` : 'enter the approved quantity') : undefined}
+        <Button variant="primary" disabled={!canApprove} title={!canApprove ? (unresolved.length ? `confirm ${unresolved.join(' and ')} first` : ratioSum !== approvedN ? `the ratio must add up to ${approvedN || 'the approved quantity'}` : approvedN && exception && !constraintNote.trim() ? `say why ${approvedN} and not ${suggested}` : 'enter the approved quantity') : undefined}
           onClick={() => approvePlanningReview(current.id, approvedN, ratioRows.map(x => ({ size: x.size, qty: x.approved })), constraintNote.trim())}>Approve plan · {approvedN || '?'} pcs</Button>
-        {approvedN > 0 && approvedN !== draft.gap && !constraintNote.trim() && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>say why {approvedN} and not {draft.gap}</span>}
+        {approvedN > 0 && exception !== 0 && !constraintNote.trim() && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>say why {approvedN} and not {suggested}</span>}
       </div>}
       {current && current.status === 'approved' && <div className="pt-3">
         <div className="text-[12.5px] pb-2">Approved {fmtDate(current.approvedOn)} by {current.approvedBy} · {current.approvedQty} pcs{current.constraintNote ? ` · ${current.constraintNote}` : ''}. Sending creates the RTW requirement on design's list, with the quantity and ratio filled in and the proto skipped as a repeat. Design sends it on, and it runs as any RTW style.</div>
@@ -503,6 +566,8 @@ export function PlanningReviewPanel({ o, mine }: { o: RtwOption; mine: boolean }
       {!current && previous.length > 0 && <div className="pt-2 text-[12.5px]" style={faint}>The last review went to design {fmtDate(previous[0].on)}{previous[0].requirementId ? <> · <a className="cta" href={`#/tracker?open=${previous[0].requirementId}`}>on the tracker →</a></> : null}. Start a new review from section 5 when the next order is due.</div>}
       {!current && !mine && <div className="text-[12.5px]" style={faint}>Planning starts the review.</div>}
     </Section>
+
+    </>}
 
     {/* ── previous reviews: plan vs actual ── */}
     {previous.length > 0 && <Section title={`Previous reviews · ${previous.length}`} ownerRole={null} pending={false}>

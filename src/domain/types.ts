@@ -283,7 +283,7 @@ export interface ProductionOrder {
   rejectedQty: number | null;    // total across lots
   /* goods land in lots: 300 of 500 today, the balance later. The PO stays open
      until the balance is in, or someone closes it short on purpose. */
-  receipts: { at: string; qty: number; rejected: number; by: string; note: string; balanceExpectedOn: string | null }[];
+  receipts: { at: string; qty: number; rejected: number; by: string; note: string; balanceExpectedOn: string | null; bySize?: Record<string, number> }[];   // bySize: counted in by size (8 Oct 2026), not only as a total
   /* agreed mid-TNA by production with the factory: part of the order ships now,
      the balance on a later date. Not a second PO — the same row, split. */
   split: { at: string; by: string; reason: string; lots: { qty: number; dispatchOn: string; dispatched: boolean }[] } | null;
@@ -376,7 +376,11 @@ export interface PlanningReview {
      a non-core reorder is only worth it if the stock runs out before the selling window closes and a new order can land inside it */
   grade?: 'A' | 'B' | null;
   windowEndsOn?: string | null;    // when the selling window for this option closes
+  /* 8 Oct 2026 call: a non-core option is decided before any quantity is worked out */
+  decision?: PlanningDecision | null;
+  decisionNote?: string;
 }
+export type PlanningDecision = 'replenish' | 'replace' | 'end' | 'later';
 
 /* 8 Oct 2026 planning call: a customer asked for a size that was out. Logged in RetailOS by the store,
    main sizes only, so the stockout's cost is measured instead of guessed. */

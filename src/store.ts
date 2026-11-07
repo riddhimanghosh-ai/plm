@@ -215,7 +215,7 @@ export interface AppState {
 
   /* warehouse */
   receive(orderId: string, input: { cutQty: number; deliveredQty: number; rejectedQty: number }): void;
-  receiveLot(orderId: string, input: { qty: number; rejected: number; note: string; balanceExpectedOn: string | null; cutQty?: number; closeShort?: boolean }): void;
+  receiveLot(orderId: string, input: { qty: number; rejected: number; note: string; balanceExpectedOn: string | null; cutQty?: number; closeShort?: boolean; bySize?: Record<string, number> }): void;
   closeTransfer(id: string): void;
   storeInward(kind: StoreInboundKind, id: string, receivedQty?: number, note?: string): void;   // fewer than sent → a shortfall on the STO, for the warehouse
   resolveShortfall(transferId: string, resolution: 'balance-sent' | 'written-off', note: string): void;
@@ -1276,7 +1276,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return;
         o.receipts = o.receipts ?? [];
         if (input.cutQty != null) o.cutQty = input.cutQty; if (o.cutQty == null) o.cutQty = o.orderQty;
-        o.receipts.push({ at: now(), qty: input.qty, rejected: input.rejected, by: who(), note: input.note, balanceExpectedOn: input.balanceExpectedOn });
+        o.receipts.push({ at: now(), qty: input.qty, rejected: input.rejected, by: who(), note: input.note, balanceExpectedOn: input.balanceExpectedOn, ...(input.bySize ? { bySize: input.bySize } : {}) });
         grn(db, { kind:'rtw-po', ref: o.poNo ?? o.id, refLabel: o.styleName, vendorId: o.vendorId, qty: input.qty, unit:'pc', rejected: input.rejected, remarks: input.note });
         o.deliveredQty = o.receipts.reduce((a, l) => a + l.qty, 0); o.rejectedQty = o.receipts.reduce((a, l) => a + l.rejected, 0);
         const disp = o.milestones.find(m => m.key === 'Dispatch'); if (disp && !disp.actual) disp.actual = now();

@@ -1467,14 +1467,29 @@ export function displayReserveOf(db: Db, o: RtwOption) {
   return { display: 0, trial: 0, total: 0, source: 'none recorded' as const };
 }
 
-/** Where the option's pieces sit, by purpose — display, off the rack, trial, warehouse. */
+/** Display and trial pieces on the floors, by size — the launch allocation's pieces for this option. */
+export function floorBySizeOf(db: Db, o: Pick<RtwOption, 'id' | 'sizes'>): Record<string, number> {
+  const out: Record<string, number> = Object.fromEntries(o.sizes.map(sz => [sz, 0]));
+  for (const l of (db.launches ?? []).filter(x => x.optionId === o.id)) for (const pc of l.pieces) if (pc.size in out) out[pc.size] += pc.qty;
+  return out;
+}
+
+/** Weeks in the last twelve a size could be bought: the full size set was in, or the size itself sold.
+    A size that was out sells nothing, so its low sales must not be read as weak demand (8 Oct 2026). */
+export function sizeWeeksInStockOf(o: RtwOption): Record<string, number> {
+  const by = salesBySizeOf(o); const n = o.weeklySales.length;
+  return Object.fromEntries(o.sizes.map(sz => [sz, Array.from({ length: n }, (_, i) => o.inStockWeeks[i] || (by[sz]?.[i] ?? 0) > 0).filter(Boolean).length]));
+}
+
+/** Where the option's pieces sit, by purpose — display, off the rack, trial, warehouse.
+    Usable = physical − display − trial (8 Oct 2026 call). */
 export function stockByPurposeOf(db: Db, o: RtwOption) {
   const total = Object.values(o.stockBySize).reduce((a, b) => a + b, 0);
   const r = displayReserveOf(db, o);
   const byHolder = storeStockOf(o);
   const offRack = Object.entries(byHolder).filter(([h]) => h !== 'warehouse').reduce((a, [, m]) => a + Object.values(m).reduce((x, y) => x + y, 0), 0);
   const warehouse = Object.values(byHolder.warehouse ?? {}).reduce((a, b) => a + b, 0);
-  return { total, display: r.display, trial: r.trial, offRack, warehouse, usable: total };
+  return { total, display: r.display, trial: r.trial, offRack, warehouse, usable: Math.max(0, total - r.display - r.trial) };
 }
 
 /** Open orders for this style on the tracker, with the date each is expected and its size breakup. */
@@ -1553,8 +1568,10 @@ export function projectionOf(db: Db, o: RtwOption, planRos: number, leadWeeks: n
   const sizeRos = sizeRosOf(o);
   const obsTotal = Object.values(sizeRos).reduce((a, b) => a + b, 0);
   const scale = obsTotal > 0 ? planRos / obsTotal : 0;
-  /* display and trial pieces are already outside the stock by size */
-  const usable: Record<string, number> = { ...o.sizes.reduce((m, sz) => ({ ...m, [sz]: o.stockBySize[sz] ?? 0 }), {} as Record<string, number>) };
+  /* 8 Oct 2026 call: physical stock − pieces held for display and trial = usable. Display and trial
+     pieces sit in the stores' physical count, so they come off size by size before any cover is counted. */
+  const floor = floorBySizeOf(db, o);
+  const usable: Record<string, number> = { ...o.sizes.reduce((m, sz) => ({ ...m, [sz]: Math.max(0, (o.stockBySize[sz] ?? 0) - (floor[sz] ?? 0)) }), {} as Record<string, number>) };
   const wip = wipOf(db, o);
   const perWeek: Record<string, number> = Object.fromEntries(o.sizes.map(sz => [sz, obsTotal > 0 ? sizeRos[sz] * scale : planRos / o.sizes.length]));
   const cur: Record<string, number> = { ...usable };

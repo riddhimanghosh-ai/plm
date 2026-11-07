@@ -107,7 +107,18 @@ export function ReceiptLots({ o, editable }: { o: ProductionOrder; editable: boo
   const rc = receiptOf(o);
   const [cut, setCut] = useState(String(o.cutQty ?? o.orderQty));
   const spNext = splitOf(o)?.lots.find(l => l.dispatched) && splitOf(o)!.lots.filter(l => l.dispatched).reduce((a, l) => a + l.qty, 0) - rc.received;
-  const [qty, setQty] = useState(String(spNext && spNext > 0 ? spNext : (rc.balance || o.orderQty)));
+  /* counted in by size, not only as a total (8 Oct 2026): what the cut ratio asked for, less what earlier lots brought */
+  const breakup = ((o.cutRatios ?? []).filter(c => c.given).slice(-1)[0]?.given?.breakup ?? o.sizeBreakup).filter(x => x.qty > 0);
+  const gotBySize: Record<string, number> = {}; rc.lots.forEach(l => Object.entries(l.bySize ?? {}).forEach(([sz, n]) => { gotBySize[sz] = (gotBySize[sz] ?? 0) + n; }));
+  /* still due per size: the ratio less what came in by size; where an earlier lot was counted only as a total, the balance is shared on the ratio */
+  const due: Record<string, number> = (() => { const untracked = rc.lots.some(l => !l.bySize); if (!untracked) return Object.fromEntries(breakup.map(x => [x.size, Math.max(0, x.qty - (gotBySize[x.size] ?? 0))]));
+    const tot = breakup.reduce((a, x) => a + x.qty, 0) || 1; const out = Object.fromEntries(breakup.map(x => [x.size, Math.floor(x.qty * rc.balance / tot)])); let left = rc.balance - Object.values(out).reduce((a, n) => a + n, 0);
+    for (const x of [...breakup].sort((a, b) => b.qty - a.qty)) { if (left <= 0) break; out[x.size] += 1; left -= 1; } return out; })();
+  const [sizeQty, setSizeQty] = useState<Record<string, string>>(() => Object.fromEntries(breakup.map(x => [x.size, String(due[x.size] ?? 0)])));
+  const sizeSum = Object.values(sizeQty).reduce((a, v) => a + (Number(v) || 0), 0);
+  const [qtyRaw, setQty] = useState(String(spNext && spNext > 0 ? spNext : (rc.balance || o.orderQty)));
+  const qty = breakup.length ? String(sizeSum) : qtyRaw;
+  const bySize = breakup.length ? Object.fromEntries(breakup.map(x => [x.size, Number(sizeQty[x.size]) || 0])) : undefined;
   const [rej, setRej] = useState('0');
   const [note, setNote] = useState('');
   const [expected, setExpected] = useState(dateInput(iso(addDays(TODAY, 7))));
@@ -118,7 +129,7 @@ export function ReceiptLots({ o, editable }: { o: ProductionOrder; editable: boo
   return (
     <Section title={rc.lots.length ? `Receipt · ${rc.received} of ${rc.base} in${rc.partial ? ` · balance ${rc.balance}` : ''}` : 'Receipt'} right={<div className="flex gap-2 items-center">{rc.partial && <Pill tone="warn">partially received</Pill>}{o.status === 'Closed' && <Pill tone={otif === 'OTIF' ? 'good' : 'risk'}>{otif}</Pill>}<OwnerPill editable={editable} owner="Warehouse" /></div>}>
       {!editable && <ActsBy role="warehouse" does="counts each lot in; the PO closes when the balance lands or is closed short" />}
-      {rc.lots.length > 0 && <div className="pb-1">{rc.lots.map((l, i) => <KV key={i} k={`Lot ${i + 1} · ${fmtDate(l.at)} · ${l.by}`} v={<span>{l.qty} received{l.rejected ? ` · ${l.rejected} rejected` : ''}</span>} note={[l.note, l.balanceExpectedOn ? `balance promised by ${fmtDate(l.balanceExpectedOn)}` : ''].filter(Boolean).join(' · ') || undefined} />)}
+      {rc.lots.length > 0 && <div className="pb-1">{rc.lots.map((l, i) => <KV key={i} k={`Lot ${i + 1} · ${fmtDate(l.at)} · ${l.by}`} v={<span>{l.qty} received{l.rejected ? ` · ${l.rejected} rejected` : ''}{l.bySize ? <div className="text-[11px] mono" style={{ color:'var(--ink-faint)' }}>{Object.entries(l.bySize).filter(([, n]) => n).map(([sz, n]) => `${sz}:${n}`).join(' ')}</div> : null}</span>} note={[l.note, l.balanceExpectedOn ? `balance promised by ${fmtDate(l.balanceExpectedOn)}` : ''].filter(Boolean).join(' · ') || undefined} />)}
         <KV k="Cut · received · rejected · balance" v={`${rc.base} · ${rc.received} · ${rc.rejected} · ${rc.balance}`} note="computed from the lots, not typed" />
         {rc.partial && rc.lastExpected && <div className="pt-1"><Note tone={daysAgo(rc.lastExpected) > 0 ? 'risk' : 'warn'}>{rc.balance} pcs still to come — factory promised {fmtDate(rc.lastExpected)}{daysAgo(rc.lastExpected) > 0 ? `, ${daysAgo(rc.lastExpected)} days ago` : ''}. OTIF is judged on the whole order, so the balance decides it.</Note></div>}
       </div>}
@@ -126,17 +137,18 @@ export function ReceiptLots({ o, editable }: { o: ProductionOrder; editable: boo
         {!dispatched && <div className="pb-2"><Note tone="warn">Dispatch has not been logged by production yet — recording a lot sets the dispatch date to today.</Note></div>}
         <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'repeat(4,1fr)' }}>
           {rc.lots.length === 0 && <Field label="Cut qty" hint="factory's count"><Input type="number" value={cut} onChange={e => setCut(e.target.value)} /></Field>}
-          <Field label="Received in this lot"><Input type="number" value={qty} onChange={e => setQty(e.target.value)} /></Field>
+          <Field label="Received in this lot" hint={breakup.length ? 'the sum of the sizes below' : undefined}><Input type="number" value={qty} readOnly={!!breakup.length} style={breakup.length ? { opacity: .7 } : undefined} onChange={e => setQty(e.target.value)} /></Field>
           <Field label="Rejected in this lot"><Input type="number" value={rej} onChange={e => setRej(e.target.value)} /></Field>
           <Field label="Balance after this" hint="computed"><Input value={afterThis} readOnly style={{ opacity:.6 }} /></Field>
           {afterThis > 0 && <Field label="Balance promised by"><Input type="date" value={expected} onChange={e => setExpected(e.target.value)} /></Field>}
+          {breakup.length > 0 && <div style={{ gridColumn:'1 / -1' }}><div className="label">Counted in, by size</div><div className="grid gap-1.5" style={{ gridTemplateColumns:`repeat(${breakup.length}, minmax(58px, 1fr))` }}>{breakup.map(x => <Field key={x.size} label={`${x.size} · ${due[x.size] ?? 0} due`}><Input type="number" min={0} value={sizeQty[x.size] ?? '0'} onChange={e => setSizeQty(q => ({ ...q, [x.size]: e.target.value }))} style={{ padding:'4px 6px' }} /></Field>)}</div></div>}
           <div style={{ gridColumn:'1 / -1' }}><Field label="Note"><Input value={note} onChange={e => setNote(e.target.value)} placeholder="first lot — factory split the dispatch · size 42 short · …" /></Field></div>
         </div>
         <div className="flex gap-2 flex-wrap pt-1">
           {afterThis > 0
-            ? <><Button variant="primary" size="sm" onClick={() => receiveLot(o.id, { qty: Number(qty), rejected: Number(rej), note: note.trim(), balanceExpectedOn: fromDateInput(expected), cutQty: rc.lots.length ? undefined : base })}>Record lot · keep PO open for {afterThis}</Button>
-               <Button variant="danger" size="sm" onClick={() => receiveLot(o.id, { qty: Number(qty), rejected: Number(rej), note: note.trim(), balanceExpectedOn: null, cutQty: rc.lots.length ? undefined : base, closeShort: true })}>Record & close short by {afterThis}</Button></>
-            : <Button variant="primary" size="sm" onClick={() => receiveLot(o.id, { qty: Number(qty), rejected: Number(rej), note: note.trim(), balanceExpectedOn: null, cutQty: rc.lots.length ? undefined : base })}>Record lot · PO complete, close</Button>}
+            ? <><Button variant="primary" size="sm" onClick={() => receiveLot(o.id, { qty: Number(qty), bySize, rejected: Number(rej), note: note.trim(), balanceExpectedOn: fromDateInput(expected), cutQty: rc.lots.length ? undefined : base })}>Record lot · keep PO open for {afterThis}</Button>
+               <Button variant="danger" size="sm" onClick={() => receiveLot(o.id, { qty: Number(qty), bySize, rejected: Number(rej), note: note.trim(), balanceExpectedOn: null, cutQty: rc.lots.length ? undefined : base, closeShort: true })}>Record & close short by {afterThis}</Button></>
+            : <Button variant="primary" size="sm" onClick={() => receiveLot(o.id, { qty: Number(qty), bySize, rejected: Number(rej), note: note.trim(), balanceExpectedOn: null, cutQty: rc.lots.length ? undefined : base })}>Record lot · PO complete, close</Button>}
         </div>
         <div className="pt-2"><Note>A partial lot keeps the PO open for the balance; closing short is a logged decision that shows on OTIF as an in-full fail.</Note></div>
       </div>}

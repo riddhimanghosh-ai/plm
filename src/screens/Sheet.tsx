@@ -9,10 +9,10 @@ import { useMemo, useState, useRef, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { Db, RtwOption } from '../domain/types';
-import { healthRowOf, wipOf, storeStockOf, salesBySizeOf, sizeRosOf, lifetimeSizeRatioOf, splitInPairs, rosOf, projectionOf, displayReserveOf, fmtDate, daysAgo, TODAY } from '../domain/engines';
+import { healthRowOf, wipOf, storeStockOf, salesBySizeOf, sizeRosOf, lifetimeSizeRatioOf, splitInPairs, rosOf, projectionOf, displayReserveOf, planningKindOf, fmtDate, daysAgo, TODAY } from '../domain/engines';
 import { STORES, RTW_SUBCATS, HEALTH_MIN_SIZE_PCT, HEALTH_MIN_COVER_WEEKS, GRADE_QTY, isBottoms } from '../domain/reference';
 import { categoryOfOption } from '../domain/analysis';
-import { verdictOf, DEFAULT_LEAD_WEEKS, DEFAULT_COVER_WEEKS } from './Planning';
+import { verdictOf, verdictCtxOf, DEFAULT_LEAD_WEEKS, DEFAULT_COVER_WEEKS } from './Planning';
 import { Page, Input, Button, ExportButton } from '../ui';
 
 /* ── the workbook ─────────────────────────────────────────────────────────────── */
@@ -45,7 +45,7 @@ function workbook(db: Db): Tab[] {
   const reviewsOf = (id: string) => (db.planningReviews ?? []).filter(x => x.optionId === id).sort((a, b) => b.on.localeCompare(a.on));
   /* one computed record per style, shared by every tab */
   const R = new Map(options.map(o => { const h = healthRowOf(o); const r = rosOf(o); const p = projectionOf(db, o, r.trueRos, DEFAULT_LEAD_WEEKS); const wip = wipOf(db, o);
-    const sizeRisk = p.sizes.filter(s => s.beforeReceipt && s.ros > 0); const v = verdictOf(h, p, wip, sizeRisk, DEFAULT_LEAD_WEEKS); const last = reviewsOf(o.id)[0] ?? null; const disp = displayReserveOf(db, o);
+    const sizeRisk = p.sizes.filter(s => s.beforeReceipt && s.ros > 0); const v = verdictOf(h, p, wip, sizeRisk, DEFAULT_LEAD_WEEKS, verdictCtxOf(db, o, planningKindOf(o), h.wof)); const last = reviewsOf(o.id)[0] ?? null; const disp = displayReserveOf(db, o);
     const firm = wip.filter(w => w.firm); const wipQty = firm.reduce((a, w) => a + w.qty, 0); const lands = firm[0]?.arrives ?? null;
     const windowEnds = last?.windowEndsOn ?? null; const weeksToWindow = windowEnds ? Math.round(-daysAgo(windowEnds) / 7) : null;
     return [o.id, { h, r, p, wip, firm, wipQty, lands, sizeRisk, v, last, disp, windowEnds, weeksToWindow }]; }));
