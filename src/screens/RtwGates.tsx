@@ -203,7 +203,7 @@ export function SplitSection({ o, editable }: { o: ProductionOrder; editable: bo
    Design asks the unit for the style on whatever shirt fabric is to hand. The unit
    logs it when it comes back; design approves it or sends it back. Only an
    approved proto (or "none needed", with a reason) lets the ask go to sourcing. */
-export function ProtoSection({ o, canReview, canLog }: { o: ProductionOrder; canReview: boolean; canLog: boolean }) {
+export function ProtoSection({ o, canReview, canLog, open }: { o: ProductionOrder; canReview: boolean; canLog: boolean; open?: boolean }) {
   const { logProto, reviewProto, skipProto } = useApp();
   const p = protoStatusOf(o);
   const [draft, setDraft] = useState<SampleRound['comments']>([]);
@@ -214,7 +214,7 @@ export function ProtoSection({ o, canReview, canLog }: { o: ProductionOrder; can
   const faint = { color:'var(--ink-faint)' } as const;
   const sent = o.status !== 'Requirement';
   return (
-    <Section title="Prototype · on a stand-in fabric" right={<div className="flex gap-2 items-center"><Pill tone={tone}>{p.state === 'skipped' ? 'none needed' : p.state}</Pill><OwnerPill editable={canReview} owner="Design" /></div>}>
+    <Section title="Prototype · on a stand-in fabric" defaultOpen={open} right={<div className="flex gap-2 items-center"><Pill tone={tone}>{p.state === 'skipped' ? 'none needed' : p.state}</Pill><OwnerPill editable={canReview} owner="Design" /></div>}>
       <div className="intro text-[12.5px] pb-1" style={{ color:'var(--ink-soft)' }}>Before any cloth is sourced, the unit makes the style on whatever shirt fabric is to hand. Design checks the style itself — fit, construction, proportions — not the cloth.</div>
       {o.proto?.skipped && <KV k="No prototype" v={o.proto.skipped.reason} note={`${o.proto.skipped.by} · ${fmtDate(o.proto.skipped.on)}`} />}
       {o.proto?.standIn && <KV k="Made on" v={o.proto.standIn} note="a stand-in — the real cloth comes from sourcing later" />}

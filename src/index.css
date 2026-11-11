@@ -500,4 +500,9 @@ h1::after { background: var(--accent); }
 .rtw-step[aria-current] { border-color: var(--ink); background: var(--surface); }
 .rtw-step.now[aria-current] { border-color: var(--accent); background: var(--accent-soft); }
 .rtw-panel { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.rtw-panel-head { padding: 2px 2px 0; }
+.rtw-panel-head h2 { font-size: 18px; font-weight: 700; margin: 2px 0 4px; letter-spacing: -.01em; }
+.rtw-panel-head p { font-size: 12.5px; color: var(--ink-soft); margin: 0; max-width: 70ch; }
+.sec-head button:focus { outline: none; }
+.sec-head button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px; }
 @container (min-width: 760px) { .rtw-journey { grid-template-columns: 250px minmax(0, 1fr); } .rtw-rail { position: sticky; top: 12px; } }

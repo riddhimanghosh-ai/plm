@@ -22,6 +22,18 @@ import { ActsBy } from './Who';
 type Actor = 'design' | 'sourcing' | 'production' | 'merchandiser' | 'warehouse' | 'planning';
 type Step = { key: string; label: string; who: string; on: string | null | undefined; by?: string | null; now?: string; act?: Actor; phase: 'design' | 'buy' | 'make' };
 const PHASES: { key: Step['phase']; label: string }[] = [{ key: 'design', label: 'Design' }, { key: 'buy', label: 'Buy · cloth and factory' }, { key: 'make', label: 'Make · land · launch' }];
+const INTRO: Record<string, string> = {
+  raised: 'What design asked for: the style, how many, by when, at what cost.',
+  proto: 'Three things go on before it can be sent: the prototype (or "none needed"), the cloth brief sourcing shops against, and the BOM with the tech pack.',
+  sent: 'One click sends the cloth brief to sourcing and the style to Nitin. Both start at the same time.',
+  sourcing: 'Sourcing puts one vendor against the brief; design pushes the fabric PO, sends it back, or asks for more time.',
+  factory: 'Nitin proposes a factory with the cost and date agreed on the phone; design accepts and the PO is raised. The PO date generates the TNA.',
+  cloth: 'Once both POs are out, sourcing sends the cloth and trims to the factory, which counts them in. Short cloth comes back to design for a cut ratio.',
+  sample: 'The factory sends the first sample from bulk cloth; production approves it or asks for another round.',
+  tna: 'Every milestone from fabric PO to dispatch. The factory logs its own dates; late steps show in red.',
+  received: 'The warehouse counts the goods in by size, lot by lot.',
+  launch: 'Planning puts the style in a drop; the launch record carries the date, the stores and the marketing name.',
+};
 const ACTOR_LABEL: Record<Actor, string> = { design: 'Design', sourcing: 'Sourcing', production: 'Nitin', merchandiser: 'Factory', warehouse: 'Warehouse', planning: 'Planning' };
 
 export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: string }) {
@@ -113,6 +125,8 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
       </nav>
 
       <div className="rtw-panel" id={`rtw-step-${o.id}`}>
+        {(() => { const i = journey.findIndex(x => x.key === open); const x = journey[i]; if (!x) return null;
+          return <div className="rtw-panel-head"><div className="cap">Step {i + 1} of {journey.length} · {x.who}</div><h2>{x.label}</h2><p>{INTRO[x.key]}</p></div>; })()}
     {at('raised') && <Section title="The ask" collapsible={false} right={<span className="pill role-design">Design</span>}>
       {editable ? <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
         <Field label="Order qty"><Input type="number" value={qty} onChange={e => setQty(e.target.value)} /></Field>
@@ -132,9 +146,9 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
     </Section>}
 
     {at('proto') && <>
-      <ProtoSection o={o} canReview={editable} canLog={canLogProto && o.status === 'Requirement'} />
+      <ProtoSection o={o} canReview={editable} canLog={canLogProto && o.status === 'Requirement'} open />
       {o.fabricNominated && <div className="pt-3">{editable ? <BriefEditor o={o} /> : <FabricBriefSection o={o} />}</div>}
-      <div className="pt-3"><BomSection o={o} editable={editable} /></div>
+      <div className="pt-3"><BomSection o={o} editable={editable} open /></div>
       <Section title="Tech pack · job card" collapsible={false} right={<Pill tone={readiness.techPack ? 'good' : 'warn'}>{readiness.techPack ? 'tech pack on' : 'tech pack missing'}</Pill>}><DocsChecklist o={o} editable={design} /></Section>
     </>}
 

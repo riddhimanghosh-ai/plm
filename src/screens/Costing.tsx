@@ -12,7 +12,7 @@ import { ActsBy, OwnerPill } from './Who';
 
 const KIND_LABEL: Record<BomLine['kind'], string> = { fabric:'Fabric', trim:'Trim card', packaging:'Packaging' };
 
-export function BomSection({ o, editable }: { o: ProductionOrder; editable: boolean }) {
+export function BomSection({ o, editable, open }: { o: ProductionOrder; editable: boolean; open?: boolean }) {
   const { updateBom } = useApp();
   const [lines, setLines] = useState<BomLine[]>(o.bom);
   const [editing, setEditing] = useState(false);
@@ -20,7 +20,7 @@ export function BomSection({ o, editable }: { o: ProductionOrder; editable: bool
   const upd = (i: number, patch: Partial<BomLine>) => setLines(ls => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
   const groups = (['fabric', 'trim', 'packaging'] as const).map(k => ({ k, rows: (editing ? lines : o.bom).map((l, i) => ({ l, i })).filter(x => x.l.kind === k) }));
   return (
-    <Section title={`BOM · ${o.bom.length} lines`} right={<div className="flex gap-2 items-center"><OwnerPill editable={editable} owner="Design" />{!editable && <ActsBy role="design" does="edits the BOM" inline />}{editable && !editing && <Button size="sm" onClick={() => { setLines(o.bom); setEditing(true); }}>Edit</Button>}</div>}>
+    <Section title={`BOM · ${o.bom.length} lines`} defaultOpen={open} right={<div className="flex gap-2 items-center"><OwnerPill editable={editable} owner="Design" />{!editable && <ActsBy role="design" does="edits the BOM" inline />}{editable && !editing && <Button size="sm" onClick={() => { setLines(o.bom); setEditing(true); }}>Edit</Button>}</div>}>
       {editing ? <BomEditor lines={lines} onChange={setLines} orderQty={o.orderQty} /> : groups.map(g => g.rows.length > 0 && <div key={g.k} className="py-1">
         <div className="label">{KIND_LABEL[g.k]}</div>
         {g.rows.map(({ l, i }) => <KV key={i} k={l.item} v={l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit} / pc` : '—'} note={l.spec ?? undefined} />)}
