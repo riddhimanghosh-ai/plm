@@ -43,7 +43,7 @@ export function Factory() {
   const xf = (db.extraFabric ?? []).filter(r => r.factoryId === v.id);
   const openOrder = (db.customerOrders ?? []).find(o => o.id === params.get('open')) ?? null;
   const rtw = db.orders.filter(o => o.vendorId === v.id && o.status === 'Open').sort((a, b) => a.targetInhouse.localeCompare(b.targetInhouse));
-  const rtwMine = rtw.filter(o => rtwRowOf(db, o).next?.act === 'merchandiser');
+  const rtwTab = tab === 'in' || tab === 'fabric' ? 'in' : tab === 'tna' ? 'tna' : 'po';
   const rtwDone = db.orders.filter(o => o.vendorId === v.id && o.status === 'Closed').sort((a, b) => (b.poDate ?? '').localeCompare(a.poDate ?? ''));
   /* two different jobs on one floor: customer shirts by the piece, and bulk POs by the hundred */
   const side: 'mtm' | 'rtw' = MTM_ONLY ? 'mtm' : RTW_ONLY ? 'rtw' : ((sideParam as 'mtm' | 'rtw' | null) ?? (v.mtm ? 'mtm' : 'rtw'));
@@ -74,24 +74,25 @@ export function Factory() {
       </>}
 
       {side === 'rtw' && <>
-        <Tabs active={tab === 'today' || tab === 'rtw-done' || tab === 'rtw-mine' ? 'rtw' : tab} onChange={t => set('tab', t)} tabs={[
-          { id:'rtw', label:'POs on our floor', count: rtw.length, hint:'every PO with where its cloth, materials and documents stand' },
-          { id:'fabric', label:'Fabric in · cut short', count: rtw.filter(o => (o.fabricSupply?.sentToFactoryOn && !o.fabricSupply.receipt) || fabricStateOf(o).key === 'short').length || undefined, hint:'count the cloth and materials in; ask design when short' },
-          { id:'tna', label:'TNA update', count: rtw.reduce((a, o) => a + o.milestones.filter(m => !m.actual && new Date(m.revised ?? m.plan) < new Date()).length, 0) || undefined, hint:'log each step as it happens' },
+        {/* three tabs, in the order the work arrives: the PO, the cloth and trims, the making */}
+        <Tabs active={rtwTab} onChange={t => set('tab', t)} tabs={[
+          { id:'po', label:'POs for us', count: rtw.length, hint:'every PO design has raised to this factory, with what was ordered' },
+          { id:'in', label:'Cloth & material incoming', count: rtw.filter(o => (o.fabricSupply?.sentToFactoryOn && !o.fabricSupply.receipt) || (o.materials ?? []).some(m => !m.receivedOn && o.bom[m.bomIndex]?.kind !== 'fabric') || fabricStateOf(o).key === 'short').length || undefined, hint:'what is on its way, count it in, ask when short' },
+          { id:'tna', label:'In the factory · TNA', count: rtw.reduce((a, o) => a + o.milestones.filter(m => !m.actual && new Date(m.revised ?? m.plan) < new Date()).length, 0) || undefined, hint:'log each step as it happens' },
         ]} />
-        {(tab === 'today' || tab === 'rtw' || tab === 'rtw-done' || tab === 'rtw-mine') && <>
-          <div className="mb-2"><Seg value={tab === 'rtw-done' ? 'done' : tab === 'rtw-mine' ? 'mine' : 'floor'} onChange={k => set('tab', k === 'done' ? 'rtw-done' : k === 'mine' ? 'rtw-mine' : 'rtw')} options={[{ id:'mine', label:'Waiting on us', count: rtwMine.length, hint:'the next move is ours: count cloth in, send a sample, log a date' }, { id:'floor', label:'On the floor', count: rtw.length }, { id:'done', label:'Delivered', count: rtwDone.length }]} /></div>
-          {tab === 'rtw-done' ? <RtwTab rows={rtwDone} onOpen={id => set('open', id)} done /> : <RtwTab rows={tab === 'rtw-mine' ? rtwMine : rtw} onOpen={id => set('open', id)} />}
+        {rtwTab === 'po' && <>
+          {tab === 'rtw-done' ? <RtwTab rows={rtwDone} onOpen={id => set('open', id)} done /> : <RtwTab rows={rtw} onOpen={id => set('open', id)} />}
+          <div className="pt-2 text-[12.5px]"><button className="vlink" onClick={() => set('tab', tab === 'rtw-done' ? 'po' : 'rtw-done')}>{tab === 'rtw-done' ? `← back to the ${rtw.length} open PO${rtw.length === 1 ? '' : 's'}` : `Delivered POs · ${rtwDone.length} →`}</button></div>
         </>}
-        {tab === 'fabric' && (rtw.length === 0 ? <Card><Empty title="No PO on this floor." body="" /></Card> : rtw.map(o => <Card key={o.id} className="mb-3"><PoStrip o={o} onOpen={() => set('open', o.id)} /><MaterialsPanel o={o} mine={mine} /></Card>))}
-        {tab === 'tna' && (rtw.length === 0 ? <Card><Empty title="No PO on this floor." body="" /></Card> : rtw.map(o => <Card key={o.id} className="mb-3"><PoStrip o={o} onOpen={() => set('open', o.id)} /><div className="px-4 pb-3"><MilestoneGrid o={o} editable={mine} bare /></div></Card>))}
+        {rtwTab === 'in' && (rtw.length === 0 ? <Card><Empty title="No PO on this floor." body="" /></Card> : rtw.map(o => <Card key={o.id} className="mb-3"><PoStrip o={o} onOpen={() => set('open', o.id)} /><MaterialsPanel o={o} mine={mine} /></Card>))}
+        {rtwTab === 'tna' && (rtw.length === 0 ? <Card><Empty title="No PO on this floor." body="" /></Card> : rtw.map(o => <Card key={o.id} className="mb-3"><PoStrip o={o} onOpen={() => set('open', o.id)} /><div className="px-4 pb-3"><MilestoneGrid o={o} editable={mine} bare /></div></Card>))}
       </>}
 
       <Drawer open={!!openOrder} onClose={() => set('open', null)} title={openOrder?.orderNo ?? ''} subtitle={openOrder && <><Pill tone={STAGE_TONE[openOrder.stage] ?? 'neutral'}>{stageLabel(openOrder.stage)}</Pill><span>{openOrder.customer} · {store(openOrder.storeId)}</span></>}>
         {openOrder && <OrderPanel o={openOrder} mine={mine} />}
       </Drawer>
       <Drawer open={!!openRtw} onClose={() => set('open', null)} title={openRtw?.poNo ?? ''} subtitle={openRtw && <>{openRtw.styleName} · {openRtw.orderQty} pcs · in-house by {fmtDate(openRtw.targetInhouse)}</>}>
-        {openRtw && <RtwRequirement key={openRtw.id} o={openRtw} />}
+        {openRtw && <RtwRequirement key={openRtw.id} o={openRtw} initial={rtwTab === 'in' ? 'cloth' : rtwTab === 'tna' ? 'tna' : 'factory'} />}
       </Drawer>
     </Page>
   );
@@ -351,7 +352,7 @@ function RtwTab({ rows, onOpen, done }: { rows: ProductionOrder[]; onOpen: (id: 
     <Card><table className="t">
       <thead>{done
         ? <tr><th>PO</th><th>Style</th><th className="num">Ordered</th><th className="num">Delivered</th><th>Due</th><th>Delivered on</th><th>On time · in full</th></tr>
-        : <tr><th>PO</th><th>Style</th><th className="num">Pcs</th><th>Due</th><th>Where it is</th><th>Next</th></tr>}</thead>
+        : <tr><th>PO</th><th>Raised</th><th>Style</th><th className="num">Pcs</th><th>Due</th><th>Where it is</th><th>Next</th></tr>}</thead>
       <tbody>{rows.map(o => { const r = riskOf(o); 
         if (done) { const landed = o.milestones.find(m => m.key === 'Inhouse ETA')?.actual ?? o.milestones.find(m => m.key === 'Dispatch')?.actual ?? null; const ot = otifOf(o); const late = landed && new Date(landed) > new Date(o.targetInhouse) ? Math.round((new Date(landed).getTime() - new Date(o.targetInhouse).getTime()) / 86400000) : 0;
           return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
@@ -366,6 +367,7 @@ function RtwTab({ rows, onOpen, done }: { rows: ProductionOrder[]; onOpen: (id: 
         const j = rtwRowOf(db, o);
         return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
           <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo}</td>
+          <td className="text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{fmtDate(o.poDate)}</td>
           <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={faint}>{o.category}</div></td>
           <td className="num">{o.orderQty}</td>
           <td style={{ whiteSpace:'nowrap' }}>{fmtDate(o.targetInhouse)}{r.bufferDays != null && r.bufferDays < 0 && <div className="text-[11px]" style={{ color:'var(--risk)' }}>{-r.bufferDays}d late</div>}{r.bufferDays != null && r.bufferDays >= 0 && <div className="text-[11px]" style={faint}>{r.bufferDays}d to spare</div>}</td>
