@@ -36,25 +36,21 @@ export const isMyTurn = (db: Parameters<typeof designFlowOf>[0], item: DesignIte
   return f.now.state === 'now' && (f.now.owner === role || role === 'owner');
 };
 
-/** The same six steps as connected blocks: left to right, then down and back right to
-    left, the way the TNA reads on the tracker. Click a block to open that step. */
-export function StepFlow({ steps, onJump, cols = 3 }: { steps: DesignStep[]; onJump?: (key: DesignStep['key']) => void; cols?: number }) {
-  const rows: DesignStep[][] = []; for (let i = 0; i < steps.length; i += cols) rows.push(steps.slice(i, i + cols));
+/** The steps as one compact row of connected chips: number, name, state. The step open below is
+    outlined; hover a chip for who owns it and where it stands; click to open it. */
+export function StepFlow({ steps, onJump, active }: { steps: DesignStep[]; onJump?: (key: DesignStep['key']) => void; active?: DesignStep['key'] | null; cols?: number }) {
   const colour = (s: DesignStep) => s.state === 'done' ? 'var(--good)' : s.state === 'now' ? 'var(--accent)' : 'var(--line)';
-  const faint = { color: 'var(--ink-faint)' } as const;
-  return <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, columnGap: 28, rowGap: 26 }}>
-    {rows.flatMap((row, ri) => { const rev = ri % 2 === 1; const cells = rev ? [...row].reverse() : row; const pad = cols - row.length;
-      return cells.map((s, ci) => { const idx = ri * cols + (rev ? row.length - 1 - ci : ci); const lastInRow = rev ? ci === 0 : ci === row.length - 1; const hasNext = idx < steps.length - 1; const col = colour(s);
-        const hArrow = hasNext && !lastInRow; const vArrow = hasNext && lastInRow;
-        return <div key={s.key} style={{ position: 'relative', gridColumn: rev ? ci + 1 + pad : undefined }}>
-          <button type="button" onClick={() => onJump?.(s.key)} className="text-left w-full" style={{ border: `1.5px solid ${col}`, borderRadius: 8, padding: '8px 10px', minHeight: 84, background: s.state === 'now' ? 'color-mix(in srgb, var(--accent) 7%, #fff)' : s.state === 'done' ? 'color-mix(in srgb, var(--good) 6%, #fff)' : '#fff', cursor: onJump ? 'pointer' : 'default' }}>
-            <div className="flex items-center gap-2"><span className="mono text-[10px]" style={{ color: s.state === 'later' ? 'var(--ink-faint)' : col, fontWeight: 700 }}>{String(idx + 1).padStart(2, '0')}</span><span className="font-medium text-[12.5px] truncate">{s.label}</span>
-              {s.state === 'done' && <span className="pill good ml-auto" style={{ fontSize: 10 }}>done</span>}{s.state === 'now' && <span className="pill accent ml-auto" style={{ fontSize: 10 }}>now</span>}</div>
-            <div className="text-[10.5px] mt-0.5" style={faint}>{ROLE_LABEL[s.owner]}</div>
-            <div className="text-[11px] mt-1" style={{ color: s.state === 'later' ? 'var(--ink-faint)' : 'var(--ink-soft)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.state === 'now' && s.action ? <b style={{ color: 'var(--ink)' }}>{s.action}</b> : s.note}</div>
-          </button>
-          {hArrow && <span style={{ position: 'absolute', top: '50%', [rev ? 'left' : 'right']: -28, width: 28, height: 0, borderTop: `2px solid ${col}`, transform: 'translateY(-1px)' }}><span style={{ position: 'absolute', top: -5, [rev ? 'left' : 'right']: -1, borderTop: '4.5px solid transparent', borderBottom: '4.5px solid transparent', [rev ? 'borderRight' : 'borderLeft']: `7px solid ${col}` }} /></span>}
-          {vArrow && <span style={{ position: 'absolute', left: '50%', bottom: -26, height: 26, width: 0, borderLeft: `2px solid ${col}`, transform: 'translateX(-1px)' }}><span style={{ position: 'absolute', bottom: -1, left: -5, borderLeft: '4.5px solid transparent', borderRight: '4.5px solid transparent', borderTop: `7px solid ${col}` }} /></span>}
-        </div>; }); })}
+  return <div className="flex items-stretch flex-wrap" style={{ rowGap: 8 }}>
+    {steps.map((s, i) => { const col = colour(s); const on = active ? active === s.key : s.state === 'now';
+      return <Fragment key={s.key}>
+        {i > 0 && <span aria-hidden className="self-center" style={{ width: 14, height: 2, background: steps[i - 1].state === 'done' ? 'var(--good)' : 'var(--line)', flexShrink: 0 }} />}
+        <button type="button" onClick={() => onJump?.(s.key)} title={`${s.label} · ${ROLE_LABEL[s.owner]} · ${s.note}`}
+          className="text-left" style={{ flex: '1 1 0', minWidth: 92, maxWidth: 190, display: 'flex', alignItems: 'center', gap: 6, padding: '5px 9px', borderRadius: 7, cursor: onJump ? 'pointer' : 'default',
+            border: `1.5px solid ${on ? 'var(--accent)' : s.state === 'later' ? 'var(--line)' : col}`, boxShadow: on ? '0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent)' : undefined,
+            background: s.state === 'done' ? 'color-mix(in srgb, var(--good) 8%, #fff)' : s.state === 'now' ? 'color-mix(in srgb, var(--accent) 8%, #fff)' : '#fff' }}>
+          <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: s.state === 'later' ? 'var(--ink-faint)' : col, flexShrink: 0 }}>{s.state === 'done' ? '✓' : String(i + 1).padStart(2, '0')}</span>
+          <span style={{ fontSize: 12, lineHeight: 1.2, fontWeight: s.state === 'now' || on ? 600 : 500, color: s.state === 'later' ? 'var(--ink-soft)' : 'var(--ink)' }}>{s.label}</span>
+        </button>
+      </Fragment>; })}
   </div>;
 }

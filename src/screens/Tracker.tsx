@@ -167,7 +167,7 @@ export function OrderDetail({ o, role, vendorName, defaultStep }: { o: Productio
   const [picked, setPicked] = useState<'request' | 'sourcing' | 'factory' | 'fabric' | 'tna' | null>(null);
   const shown = picked ?? KEYS[nowStep.key];
   return <>
-    <Card className="mb-3"><div className="px-4 py-3"><StepFlow steps={flowSteps} onJump={k => setPicked(KEYS[k])} cols={5} /></div></Card>
+    <Card className="mb-3"><div className="px-4 py-3"><StepFlow steps={flowSteps} onJump={k => setPicked(KEYS[k])} active={(Object.keys(KEYS) as DesignStep['key'][]).find(k => KEYS[k] === shown)} /></div></Card>
     {/* ── 1 · Style details + order qty break-up — the sheet's first two sections, design and planning ── */}
     {shown === 'request' && <Section collapsible={false} title="Request from design" pending={false} ownerRole="design"
       right={<div className="flex gap-2 items-center"><Pill tone={docs.missing.length ? (o.poNo ? 'risk' : 'warn') : 'good'}>{docs.missing.length ? `${docs.missing.length} document${docs.missing.length === 1 ? '' : 's'} missing` : 'complete'}</Pill></div>}>

@@ -508,10 +508,7 @@ function SourcingSteps({ o }: { o: ProductionOrder }) {
   const i = raw.findIndex(x => x.key === shown);
   const faint = { color:'var(--ink-faint)' } as const;
   return <>
-    <Card className="mb-3"><div className="px-4 py-3"><StepFlow steps={raw} onJump={setPicked} cols={3} />
-      <div className="flex items-center gap-2 pt-3 text-[12.5px]"><span style={faint}>Showing step {i + 1}</span>
-        <button type="button" className="cta" disabled={i === 0} onClick={() => setPicked(raw[i - 1].key)}>← step {i}</button>
-        <button type="button" className="cta" disabled={i === raw.length - 1} onClick={() => setPicked(raw[i + 1].key)}>step {i + 2} →</button></div></div></Card>
+    <Card className="mb-3"><div className="px-4 py-3"><StepFlow steps={raw} onJump={setPicked} active={shown} /></div></Card>
     {shown === 'request' && <FabricBriefSection o={o} />}
     {shown === 'vendors' && <Section title="Vendor · design pushes the fabric PO" collapsible={false} right={<Pill tone={po ? 'good' : 'warn'}>{po ? 'fabric PO raised' : ss.label}</Pill>}>
       {!o.fabricNominated ? <div className="py-1 text-[12.5px]" style={faint}>The factory buys its own cloth for this style; nothing for sourcing to source.</div> : <>

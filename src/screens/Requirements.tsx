@@ -114,9 +114,8 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
 
   return <>
     {/* ── the call: where it is, whose move, and the way to that step ── */}
-    <Section title="The call" look="lead" collapsible={false} pending={false} ownerRole={f.now.state === 'done' ? null : f.now.owner}
-      right={f.now.state === 'done' ? <Pill tone="good">live</Pill> : <span className={`pill role-${f.now.owner}`}>{ROLE_LABEL[f.now.owner]}</span>}>
-      <div className="py-1"><StepFlow steps={f.steps} onJump={jump} /></div>
+    <div className="card mb-3"><div className="px-4 py-3">
+      <div className="py-1"><StepFlow steps={f.steps} onJump={jump} active={shown} /></div>
       {f.now.state !== 'done' && <div className="flex items-baseline gap-2 flex-wrap pt-3 text-[12.5px]">
         <span style={faint}>Next:</span>
         <b>{f.now.action ?? f.now.label}</b>
@@ -124,7 +123,7 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
         <button type="button" className="cta" onClick={() => jump(f.now.key)}>open step {no(f.now.key)} →</button>
       </div>}
       <div className="pt-2 text-[11.5px]" style={faint}>{o.orderQty} pcs · in-house by {fmtDate(o.targetInhouse)} · target {fmtMoney(o.targetCost)} · handed over {fmtDate(o.styleHandover)}{o.fabricNominated ? ' · fabric nominated by BSC' : ' · factory sources the cloth'}</div>
-    </Section>
+    </div></div>
 
     {/* ── 1 · what design asked for: the numbers, the sizes, the cloth, the BOM ── */}
     {/* the live step is open; every other step is one folded line — the drawer
@@ -211,8 +210,8 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
       void nowKey;
       const x = f.steps.find(s => s.key === shown)!; const i = f.steps.findIndex(s => s.key === shown);
       return <Section key={x.key} title={title(x.key)} collapsible={false} right={<span className="flex items-center gap-2">{state(x.key)}
-          <button type="button" className="cta" disabled={i === 0} onClick={() => jump(f.steps[i - 1].key)}>← step {i}</button>
-          <button type="button" className="cta" disabled={i === f.steps.length - 1} onClick={() => jump(f.steps[i + 1].key)}>step {i + 2} →</button></span>}
+          {i > 0 && <button type="button" className="cta" onClick={() => jump(f.steps[i - 1].key)}>← step {i}</button>}
+          {i < f.steps.length - 1 && <button type="button" className="cta" onClick={() => jump(f.steps[i + 1].key)}>step {i + 2} →</button>}</span>}
         ownerRole={x.state === 'now' ? x.owner : null} pending={false}>{bodies[x.key]}</Section>; })()}
 
     {/* ── the style sheet: today typed by hand per style; here it prints off the record ── */}
