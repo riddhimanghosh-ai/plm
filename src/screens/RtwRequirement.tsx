@@ -155,7 +155,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
     {at('cloth') && <Section title="Cloth at the factory" collapsible={false} right={<Pill tone={fab.tone}>{o.poNo ? fab.label : 'after the PO'}</Pill>}>
       {!o.fabricNominated ? <div className="text-[12.5px] py-1" style={faint}>The factory buys its own cloth.</div>
         : !o.sourcing?.fabricPo || !o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Once both POs are out, sourcing sends the cloth straight to the factory; the factory counts it in. Short cloth comes back to design for a cut ratio.</div>
-        : merchant && !design && !prod ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" />}
+        : (merchant && !design && !prod) || (role === 'owner' && location.hash.startsWith('#/factory')) ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" />}
     </Section>}
 
     {at('sample') && (o.poNo ? <SampleSection o={o} editable={prod || merchant} open /> : <Section title="Sample" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>The factory samples the bulk cloth once the PO is raised and the cloth has landed.</div></Section>)}

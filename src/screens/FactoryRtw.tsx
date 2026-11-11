@@ -90,8 +90,9 @@ export function MaterialsPanel({ o, mine }: { o: ProductionOrder; mine: boolean 
   const closed = o.status === 'Closed';
   const askShort = (why: string, bk: { size: string; qty: number }[]) => { askCutRatio(o.id, why, 'cut-short', bk); setShortOpen(false); setShortWhy(''); };
   return <div className="px-4 py-3">
+      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Everything below is for <span className="mono font-medium" style={{ color:'var(--ink)' }}>{o.poNo}</span> · {o.styleName} · {o.orderQty} pcs. Nothing here belongs to another PO.</div>
       <table className="t compact">
-        <thead><tr><th>What</th><th className="num">Coming</th><th className="num">Landed</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>What is coming for {o.poNo}</th><th className="num">Coming</th><th className="num">Landed</th><th>Status</th><th></th></tr></thead>
         <tbody>
           <tr>
             <td><div className="font-medium">Cloth · {cloth?.item ?? '—'}</div><div className="text-[11px]" style={faint}>{o.fabricNominated ? `from ${db.vendors.find(v => v.id === o.fabricVendorId)?.name ?? 'the mill'}` : 'we buy it'}{fs?.sentToFactoryOn ? ` · sent ${fmtDate(fs.sentToFactoryOn)}` : ''}</div></td>

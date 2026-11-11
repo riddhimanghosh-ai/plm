@@ -84,7 +84,7 @@ export function Factory() {
           {tab === 'rtw-done' ? <RtwTab rows={rtwDone} onOpen={id => set('open', id)} done /> : <RtwTab rows={rtw} onOpen={id => set('open', id)} />}
           <div className="pt-2 text-[12.5px]"><button className="vlink" onClick={() => set('tab', tab === 'rtw-done' ? 'po' : 'rtw-done')}>{tab === 'rtw-done' ? `← back to the ${rtw.length} open PO${rtw.length === 1 ? '' : 's'}` : `Delivered POs · ${rtwDone.length} →`}</button></div>
         </>}
-        {rtwTab === 'in' && (rtw.length === 0 ? <Card><Empty title="No PO on this floor." body="" /></Card> : rtw.map(o => <Card key={o.id} className="mb-3"><PoStrip o={o} onOpen={() => set('open', o.id)} /><MaterialsPanel o={o} mine={mine} /></Card>))}
+        {rtwTab === 'in' && <IncomingTab rows={rtw} onOpen={id => set('open', id)} />}
         {rtwTab === 'tna' && (rtw.length === 0 ? <Card><Empty title="No PO on this floor." body="" /></Card> : rtw.map(o => <Card key={o.id} className="mb-3"><PoStrip o={o} onOpen={() => set('open', o.id)} /><div className="px-4 pb-3"><MilestoneGrid o={o} editable={mine} bare /></div></Card>))}
       </>}
 
@@ -376,6 +376,44 @@ function RtwTab({ rows, onOpen, done }: { rows: ProductionOrder[]; onOpen: (id: 
         </tr>; })}</tbody>
     </table></Card>
   </>;
+}
+
+/* Cloth & material incoming — one row per PO, so what is coming is always read against the order it is for.
+   Counting in happens inside the record (cloth step), which the row opens. */
+function IncomingTab({ rows, onOpen }: { rows: ProductionOrder[]; onOpen: (id: string) => void }) {
+  const { db } = useApp();
+  const faint = { color:'var(--ink-faint)' } as const;
+  if (rows.length === 0) return <Card><Empty title="Nothing coming to this floor." body="Cloth and trims show up here against their PO the moment sourcing sends them." /></Card>;
+  return <Card>
+    <div className="px-4 pt-3 pb-1 text-[12.5px]" style={{ color:'var(--ink-soft)' }}>Each line is one PO. Cloth and trims are listed against the PO they are for; open the row to count them in.</div>
+    <table className="t">
+      <thead><tr><th>PO</th><th>Style</th><th className="num">Pcs</th><th>Cloth for this PO</th><th>Trims for this PO</th><th>Status</th><th>Next</th></tr></thead>
+      <tbody>{rows.map(o => {
+        const fab = fabricStateOf(o); const fs = o.fabricSupply; const cloth = o.bom.find(l => l.kind === 'fabric');
+        const mill = o.fabricNominated ? (db.vendors.find(v => v.id === o.fabricVendorId)?.name ?? 'the mill') : null;
+        const trims = (o.materials ?? []).map(m => ({ m, line: o.bom[m.bomIndex] })).filter(x => x.line && x.line.kind !== 'fabric');
+        const trimsIn = trims.filter(x => x.m.receivedOn).length;
+        const trimsShort = trims.filter(x => x.m.receivedOn && x.m.receivedQty != null && x.m.receivedQty < x.m.requiredQty).length;
+        const clothLine = fs?.receipt ? (fab.short > 0 ? `${fs.receipt.metresOk} m in · short ${fab.short} m` : `${fs.receipt.metresOk} m in`) : fs?.sentToFactoryOn ? `${fs.metresSent ?? '—'} m sent ${fmtDate(fs.sentToFactoryOn)}` : fab.need != null ? `${fab.need} m to come` : 'to come';
+        const clothTone = fs?.receipt ? (fab.short > 0 ? 'risk' : 'good') : fs?.sentToFactoryOn ? 'warn' : 'neutral';
+        const status = fs?.receipt && trimsIn === trims.length && !fab.short && !trimsShort ? { t:'good' as const, l:'all in' } : (fab.short > 0 || trimsShort > 0) ? { t:'risk' as const, l:'short' } : fs?.sentToFactoryOn && !fs.receipt ? { t:'warn' as const, l:'cloth on the way' } : trimsIn > 0 || fs?.receipt ? { t:'info' as const, l:'partly in' } : { t:'neutral' as const, l:'nothing yet' };
+        const next = fab.cr && !fab.cr.given ? { who:'design', what: fab.cr.kind === 'cut-short' ? 'design to approve cutting fewer' : 'design to give new sizes' }
+          : fs?.sentToFactoryOn && !fs.receipt ? { who:'us', what:'count the cloth in' }
+          : trimsIn < trims.length && (fs?.receipt || trimsIn > 0) ? { who:'us', what: `count ${trims.length - trimsIn} trim${trims.length - trimsIn > 1 ? 's' : ''} in` }
+          : (fab.short > 0 || trimsShort > 0) ? { who:'us', what:'tell design it is short' }
+          : !fs?.sentToFactoryOn ? { who:'sourcing', what: fab.key === 'with-design' || fab.key === 'add-vendor' || fab.key === 'drafting' ? 'cloth not bought yet' : 'sourcing to send the cloth' }
+          : null;
+        return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
+          <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo}</td>
+          <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={faint}>{o.category} · due {fmtDate(o.targetInhouse)}</div></td>
+          <td className="num">{o.orderQty}</td>
+          <td><div className="font-medium text-[13px]">{cloth?.item ?? '—'}</div><div className="text-[11.5px]" style={{ color: clothTone === 'risk' ? 'var(--risk)' : 'var(--ink-soft)' }}>{clothLine}{mill ? ` · from ${mill}` : ''}</div></td>
+          <td>{trims.length === 0 ? <span style={faint}>none on the BOM</span> : <><div className="font-medium text-[13px]">{trimsIn} of {trims.length} in</div><div className="text-[11.5px]" style={{ color: trimsShort ? 'var(--risk)' : 'var(--ink-soft)' }}>{trimsShort ? `${trimsShort} short` : trimsIn === trims.length ? 'all counted' : trims.filter(x => !x.m.receivedOn).slice(0, 3).map(x => x.line.item).join(', ') + (trims.length - trimsIn > 3 ? ` +${trims.length - trimsIn - 3}` : '') + ' to come'}</div></>}</td>
+          <td><Pill tone={status.t}>{status.l}</Pill></td>
+          <td className="text-[12.5px]">{next ? <><span style={{ fontWeight: next.who === 'us' ? 600 : 400 }}>{next.what}</span>{next.who === 'us' && <span className="pill role-production ml-1">us</span>}</> : <span style={faint}>nothing to do</span>}</td>
+        </tr>; })}</tbody>
+    </table>
+  </Card>;
 }
 
 /* the PO in one strip, above a panel on the Fabric in and TNA tabs */
