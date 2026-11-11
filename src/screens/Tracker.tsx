@@ -24,6 +24,7 @@ import { Page, Card, Pill, Field, Input, Select, Button, Drawer, KV, Section, No
 import { ActsBy, OwnerPill } from './Who';
 import { StepFlow } from './Flow';
 import { RtwRequirement } from './RtwRequirement';
+import { rtwRowOf } from '../domain/rtwJourney';
 import type { DesignStep } from '../domain/engines';
 
 export const RISK_TONE: Record<Risk, Tone> = { pending:'neutral', 'on-track':'good', watch:'warn', 'at-risk':'warn', critical:'risk', delayed:'risk', closed:'neutral' };
@@ -74,7 +75,7 @@ export function Tracker() {
     if (merchant !== 'all' && x.o.merchant !== merchant) return false;
     if (vendor !== 'all' && x.o.vendorId !== vendor) return false;
     if (stage !== 'all' && x.s.stage !== stage) return false;
-    if (risk === 'late' ? !LATE.includes(x.r.risk) : risk === 'pre' ? !!x.o.poNo : risk === 'ok' ? x.r.risk !== 'on-track' : false) return false;
+    if (risk === 'late' ? !LATE.includes(x.r.risk) : risk === 'pre' ? !!x.o.poNo : risk === 'ok' ? x.r.risk !== 'on-track' : risk === 'mine' ? rtwRowOf(db, x.o).next?.act !== 'production' : false) return false;
     const t = search.trim().toLowerCase();
     if (t && !(x.o.styleName.toLowerCase().includes(t) || (x.o.poNo ?? '').toLowerCase().includes(t))) return false;
     return true;
@@ -99,7 +100,8 @@ export function Tracker() {
             { label:'Factory', get: x => db.vendors.find(v => v.id === x.o.vendorId)?.name ?? '' },
             { label:'Merchant', get: x => x.o.merchant },
             { label:'Qty', get: x => x.o.orderQty },
-            { label:'Status', get: x => statusOf(x.o, x.r, x.s).text },
+            { label:'Where it is', get: x => rtwRowOf(db, x.o).where },
+            { label:'Next', get: x => rtwRowOf(db, x.o).next?.now ?? 'done' },
             { label:'Due in-house', get: x => x.o.targetInhouse },
           ]} /></div>
           <div style={{ width:200 }}><Field label="Merchandiser"><Select value={merchant} onChange={setMerchant} options={[{ value:'all', label:'Everyone' }, ...MERCHANDISERS.map(m => ({ value:m, label:m }))]} /></Field></div>
@@ -110,6 +112,7 @@ export function Tracker() {
       {tab !== 'orders' && tab !== 'settings' && <Card className="mb-3"><div className="flex items-center gap-3 flex-wrap px-3 py-2.5">
         {tab === 'open' && <Seg value={risk} onChange={setRisk} options={[
           { id:'all', label:'All', count: inTab.length },
+          { id:'mine', label:'Waiting on me', count: inTab.filter(x => rtwRowOf(db, x.o).next?.act === 'production').length, hint:'the next move is yours: propose a factory, review a sample, send a cut ratio' },
           { id:'pre', label:'Before the PO', count: inTab.filter(x => !x.o.poNo).length, hint:'sent by design; the factory, cost and PO are still being settled' },
           { id:'late', label:'Running late', count: LATE.reduce((a, k) => a + riskCount(k), 0), hint:'past a planned date, or the in-house date is at risk' },
           { id:'ok', label:'On time', count: riskCount('on-track') },
@@ -124,14 +127,15 @@ export function Tracker() {
 
       {tab === 'settings' ? <TrackerSettings /> : tab === 'orders' ? <HubOrdersTab /> : view === 'sheet' ? <SheetColumns rows={ex.rows.map(x => x.o)} onOpen={id => set('open', id)} /> : rows.length === 0 ? <Card><Empty title="Nothing matches those filters." body="Loosen one of them, or clear the search." /></Card> : <Card>
         <table className="t">
-          <thead><tr><th>PO</th><th>Style</th><th>Factory</th><th>Merchant</th><th>Status</th><th>Due in-house</th></tr></thead>
+          <thead><tr><th>PO</th><th>Style</th><th>Factory</th><th>Merchant</th><th>Where it is</th><th>Next</th><th>Due in-house</th></tr></thead>
           <tbody>{pager.pageRows.map(({ o, r, s }) => (
             <tr key={o.id} className="row" onClick={() => set('open', o.id)}>
               <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo ?? <span className="text-[12px]" style={{ color:'var(--ink-faint)', fontFamily:'var(--body)' }}>no PO yet</span>}</td>
               <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{o.category}</div></td>
               <td className="text-[12.5px]">{o.vendorId ? <VendorLink id={o.vendorId}>{vendorName(o.vendorId)}</VendorLink> : (() => { const f = factoryStateOf(o); return f.last ? <span style={{ color:'var(--ink-faint)' }}>{vendorName(f.last.vendorId)} · proposed</span> : <span style={{ color:'var(--ink-faint)' }}>—</span>; })()}</td>
               <td className="text-[12.5px]">{o.merchant ?? <span style={{ color:'var(--ink-faint)' }}>—</span>}</td>
-              <td>{(() => { const st = statusOf(o, r, s); return <Pill tone={st.tone}>{st.text}</Pill>; })()}</td>
+              <td>{(() => { const j = rtwRowOf(db, o); return <Pill tone={j.tone}>{j.step} of {j.steps.length} · {j.where}</Pill>; })()}</td>
+              <td className="text-[12.5px]">{(() => { const j = rtwRowOf(db, o); return j.next ? <>{j.next.now}{j.next.act === 'production' && <span className="pill role-production ml-1">you</span>}</> : <span style={{ color:'var(--ink-faint)' }}>done</span>; })()}</td>
               <td style={{ whiteSpace:'nowrap' }}>{fmtDate(o.targetInhouse)}</td>
             </tr>))}</tbody>
         </table>

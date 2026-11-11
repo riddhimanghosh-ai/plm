@@ -13,6 +13,7 @@ import { Files } from './Files';
 import { FILE_LABELS } from '../domain/reference';
 
 import { VendorLink } from './Vendors';
+import { RtwRequirement } from './RtwRequirement';
 import { BomSection, CostingSection } from './Costing';
 import { ORDER_STEPS } from '../domain/reference';
 import { useApp } from '../store';
@@ -49,7 +50,7 @@ export function Sourcing() {
 
   const sorted = [...inbox].sort((a, b) => fabricNeededBy(a).localeCompare(fabricNeededBy(b)));
   const categories = [...new Set(sorted.map(o => o.category))].sort();
-  const [stage, setStage] = useState<string>('all');
+  const [stage, setStage] = useState<string>('mine');
   const [category, setCategory] = useState('all');
   const [search, setSearch] = useState('');
   /* after the PO the fabric state is the truth; before it, the old quote states still apply */
@@ -57,7 +58,7 @@ export function Sourcing() {
   const n = (k: string) => sorted.filter(o => rowState(o).key === k).length;
   const filtered = sorted.filter(o => {
     const k = rowState(o).key;
-    if (stage !== 'all' && !(k === stage || (stage === 'handed' && HANDED.includes(k)))) return false;
+    if (stage === 'mine' ? rowState(o).owner !== 'sourcing' : stage === 'with-design' ? !(k === 'with-design' || k === 'extension') : stage !== 'all' && !(k === stage || (stage === 'handed' && HANDED.includes(k)))) return false;
     if (category !== 'all' && o.category !== category) return false;
     const t = search.trim().toLowerCase();
     if (t && !`${o.styleName} ${briefOf(o)} ${db.vendors.find(v => v.id === o.fabricVendorId)?.name ?? ''}`.toLowerCase().includes(t)) return false;
@@ -87,12 +88,10 @@ export function Sourcing() {
       {side === 'rtw' && (inbox.length === 0 ? <Card><Empty title="No cloth to source." body="A style lands here the day design sends the request." /></Card> : <>
         <div className="flex items-end gap-3 flex-wrap mb-3">
           <Seg value={stage} onChange={setStage} options={[
+            { id:'mine', label:'Waiting on me', count: sorted.filter(o => rowState(o).owner === 'sourcing').length, hint:'put a vendor, extend a hold, send the cloth' },
             { id:'all', label:'All', count: sorted.length },
-            { id:'add-vendor', label:'Put a vendor', count: n('add-vendor') },
-            { id:'with-design', label:'With design', count: n('with-design') },
-            { id:'extension', label:'Extension asked', count: n('extension') },
+            { id:'with-design', label:'With design', count: n('with-design') + n('extension') },
             { id:'wait-factory', label:'Waiting for the factory PO', count: n('wait-factory') },
-            { id:'bought', label:'Send to factory', count: n('bought') },
             { id:'handed', label:'At the factory', count: HANDED.reduce((a, k) => a + n(k), 0) },
           ]} />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="style or mill" style={{ width:200 }} />
@@ -126,7 +125,7 @@ export function Sourcing() {
         {activeRequest && <RequestDetail r={activeRequest} focusOptionId={params.get('slot')} />}
       </Drawer>
       <Drawer open={!!active} onClose={() => open(null)} title={active?.styleName ?? ''} subtitle={active && <><Pill tone={TONE[rowState(active).tone]}>{shortLabel(rowState(active).key, rowState(active).label)}</Pill><span>{active.orderQty} pcs · {active.poNo ?? 'no PO yet'} · in-house by {fmtDate(active.targetInhouse)}</span></>}>
-        {active && <SourcingSteps key={active.id} o={active} />}
+        {active && <RtwRequirement key={active.id} o={active} />}
       </Drawer>
     </Page>
   );

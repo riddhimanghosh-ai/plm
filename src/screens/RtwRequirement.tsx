@@ -7,7 +7,8 @@
 import { useState } from 'react';
 import { useApp } from '../store';
 import type { ProductionOrder } from '../domain/types';
-import { fmtDate, fmtMoney, daysAgo, sendReadinessOf, sourcingStateOf, factoryStateOf, fabricStateOf, sampleStatusOf, protoStatusOf, receiptOf, riskOf, stageOf } from '../domain/engines';
+import { fmtDate, fmtMoney, daysAgo, sendReadinessOf, sourcingStateOf, factoryStateOf, fabricStateOf, sampleStatusOf, riskOf, stageOf, receiptOf } from '../domain/engines';
+import { rtwJourneyOf, RTW_PHASES, RTW_INTRO, RTW_ACTOR_LABEL } from '../domain/rtwJourney';
 import { FILE_LABELS, ORDER_STEPS } from '../domain/reference';
 import { Section, Pill, Button, KV, Field, Input, fromDateInput, dateInput } from '../ui';
 import { FabricBriefSection } from './Sourcing';
@@ -16,25 +17,9 @@ import { SampleSection, ProtoSection, FactoryFinalisationSection, FabricFinalisa
 import { BomSection } from './Costing';
 import { BriefEditor, PutInDrop } from './Requirements';
 import { MilestoneGrid } from './Tracker';
+import { OrderSummary, FactoryDocs, MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
 import { ActsBy } from './Who';
-
-type Actor = 'design' | 'sourcing' | 'production' | 'merchandiser' | 'warehouse' | 'planning';
-type Step = { key: string; label: string; who: string; on: string | null | undefined; by?: string | null; now?: string; act?: Actor; phase: 'design' | 'buy' | 'make' };
-const PHASES: { key: Step['phase']; label: string }[] = [{ key: 'design', label: 'Design' }, { key: 'buy', label: 'Buy · cloth and factory' }, { key: 'make', label: 'Make · land · launch' }];
-const INTRO: Record<string, string> = {
-  raised: 'What design asked for: the style, how many, by when, at what cost.',
-  proto: 'Three things go on before it can be sent: the prototype (or "none needed"), the cloth brief sourcing shops against, and the BOM with the tech pack.',
-  sent: 'One click sends the cloth brief to sourcing and the style to Nitin. Both start at the same time.',
-  sourcing: 'Sourcing puts one vendor against the brief; design pushes the fabric PO, sends it back, or asks for more time.',
-  factory: 'Nitin proposes a factory with the cost and date agreed on the phone; design accepts and the PO is raised. The PO date generates the TNA.',
-  cloth: 'Once both POs are out, sourcing sends the cloth and trims to the factory, which counts them in. Short cloth comes back to design for a cut ratio.',
-  sample: 'The factory sends the first sample from bulk cloth; production approves it or asks for another round.',
-  tna: 'Every milestone from fabric PO to dispatch. The factory logs its own dates; late steps show in red.',
-  received: 'The warehouse counts the goods in by size, lot by lot.',
-  launch: 'Planning puts the style in a drop; the launch record carries the date, the stores and the marketing name.',
-};
-const ACTOR_LABEL: Record<Actor, string> = { design: 'Design', sourcing: 'Sourcing', production: 'Nitin', merchandiser: 'Factory', warehouse: 'Warehouse', planning: 'Planning' };
 
 export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: string }) {
   const { db, role, updateRequirement, handToSourcing } = useApp();
@@ -46,47 +31,15 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const editable = design && o.status === 'Requirement';
   const canLogProto = role === 'production' || role === 'warehouse' || role === 'owner';
 
-  const readiness = sendReadinessOf(db, o); const proto = protoStatusOf(o);
+  const readiness = sendReadinessOf(db, o);
   const ss = sourcingStateOf(o); const fst = factoryStateOf(o); const fab = fabricStateOf(o); const sample = sampleStatusOf(o);
   const rc = receiptOf(o); const r = riskOf(o); const st = stageOf(o);
   const launch = (db.launches ?? []).find(l => l.orderId === o.id) ?? null;
-  const nameOf = (id: string | null | undefined) => db.vendors.find(v => v.id === id)?.name ?? '—';
   const raised = o.activity?.find(a => /created|raised/i.test(a.what)) ?? null;
   const sentLog = o.activity?.find(a => /^Sent to production/i.test(a.what)) ?? null;
   const sent = o.status !== 'Requirement';
-  const chosen = o.fabricQuotes.find(q => q.selected) ?? o.fabricQuotes[0] ?? null;
-  const dispatched = o.milestones.find(m => m.key === 'Dispatch')?.actual ?? null;
-  const nextMs = o.milestones.find(m => !m.actual) ?? null;
   const faint = { color: 'var(--ink-faint)' } as const;
-
-  /* the whole journey, one line: each box ticks itself when its step is done; "now" names the move */
-  const journey: Step[] = [
-    { key: 'raised', phase: 'design', label: 'Raised', who: 'Design', on: raised?.at ?? o.styleHandover, by: raised?.who },
-    { key: 'proto', phase: 'design', label: 'Proto · BOM · tech pack', who: 'Design', act: 'design',
-      on: sent ? (proto.approved?.reviewedOn ?? o.proto?.skipped?.on ?? sentLog?.at ?? o.styleHandover) : readiness.ready ? (proto.approved?.reviewedOn ?? o.proto?.skipped?.on ?? raised?.at ?? o.styleHandover) : null,
-      now: readiness.blockers[0] },
-    { key: 'sent', phase: 'design', label: 'Sent to sourcing and production', who: 'Design', act: 'design', on: sent ? (sentLog?.at ?? o.styleHandover) : null, by: sentLog?.who, now: readiness.ready ? 'ready to send' : 'after the proto, BOM and tech pack' },
-    { key: 'sourcing', phase: 'buy', label: 'Cloth vendor · fabric PO', who: 'Sourcing · Design', on: !o.fabricNominated ? (sent ? o.styleHandover : null) : o.sourcing?.fabricPo?.on,
-      by: !o.fabricNominated ? 'factory buys' : o.sourcing?.fabricPo ? `${o.sourcing.fabricPo.no} · ${nameOf(chosen?.vendorId)}` : null,
-      act: ss.key === 'choose' || ss.key === 'raise-po' ? 'design' : 'sourcing',
-      now: !sent ? 'starts when sent' : ss.key === 'choose' || ss.key === 'raise-po' ? 'design to push the fabric PO' : ss.key === 'extend' ? 'sourcing to extend the hold' : 'sourcing to add a vendor' },
-    { key: 'factory', phase: 'buy', label: 'Factory · PO', who: 'Nitin · Design', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}` : null,
-      act: fst.key === 'accepted' || fst.key === 'with-design' ? 'design' : 'production',
-      now: !sent ? 'starts when sent' : fst.key === 'accepted' ? 'design to raise the PO' : fst.key === 'with-design' ? 'design to accept or send back' : 'Nitin to propose a factory' },
-    { key: 'cloth', phase: 'buy', label: 'Cloth at the factory', who: 'Sourcing · Factory', on: !o.fabricNominated ? o.poDate : o.fabricSupply?.receipt?.on, by: o.fabricSupply?.receipt ? `${o.fabricSupply.receipt.metresOk} m` : null,
-      act: o.fabricSupply?.sentToFactoryOn ? 'merchandiser' : 'sourcing',
-      now: !o.poNo ? 'after the PO' : o.fabricSupply?.sentToFactoryOn ? 'factory to count it in' : 'sourcing to send it' },
-    { key: 'sample', phase: 'make', label: 'Sample approved', who: 'Factory · Production', on: sample.ppGoAhead, by: sample.approved ? `round ${sample.approved.round}` : null,
-      act: sample.state === 'with production unit' ? 'production' : 'merchandiser',
-      now: !o.poNo ? 'after the PO' : sample.state === 'with production unit' ? 'production to review' : sample.state === 'resubmit' ? 'factory to resubmit' : 'factory to send the first sample' },
-    { key: 'tna', phase: 'make', label: 'Made · the TNA', who: 'Nitin · Factory', on: dispatched, by: dispatched ? 'dispatched' : null, act: 'merchandiser',
-      now: !o.poNo ? 'after the PO' : nextMs ? `factory to log ${nextMs.key.toLowerCase()}${r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : ''}` : st.stage },
-    { key: 'received', phase: 'make', label: 'Received at BSC', who: 'Warehouse', act: 'warehouse', on: rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : null, by: rc.lots.length ? `${rc.received} pcs` : null,
-      now: rc.partial ? `${rc.received} of ${rc.base} in` : dispatched ? 'warehouse to count it in' : 'after dispatch' },
-    { key: 'launch', phase: 'make', label: 'Launched', who: 'Planning · Design', act: 'planning', on: launch?.launchedOn, by: launch?.dropMonth,
-      now: launch ? `${launch.dropMonth} drop${launch.launchOn ? ` · ${fmtDate(launch.launchOn)}` : ''}` : 'planning puts it in a drop' },
-  ];
-  const current = journey.findIndex(x => !x.on);
+  const { steps: journey, current, next } = rtwJourneyOf(db, o);
   const [open, setOpen] = useState<string>(initial ?? journey[current]?.key ?? 'launch');
   const at = (k: string) => open === k;
 
@@ -94,7 +47,6 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const [qty, setQty] = useState(String(o.orderQty)); const [target, setTarget] = useState(dateInput(o.targetInhouse)); const [cost, setCost] = useState(String(o.targetCost));
   const total = o.sizeBreakup.reduce((s, x) => s + x.qty, 0);
 
-  const next = current >= 0 ? journey[current] : null;
   const mine = !!next?.act && next.act === role;
   const onTracker = typeof location !== 'undefined' && location.hash.startsWith('#/tracker');
   const panel = (k: string) => { setOpen(k); requestAnimationFrame(() => document.getElementById(`rtw-step-${o.id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); };
@@ -105,7 +57,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
       {next ? <>
         <span className="rtw-next-k">{mine ? 'Your move' : 'Next'}</span>
         <span className="rtw-next-v">{next.now ?? next.label}</span>
-        {next.act && <span className={`pill role-${next.act === 'merchandiser' ? 'production' : next.act}`}>{ACTOR_LABEL[next.act]}</span>}
+        {next.act && <span className={`pill role-${next.act === 'merchandiser' ? 'production' : next.act}`}>{RTW_ACTOR_LABEL[next.act]}</span>}
         {!at(next.key) && <button type="button" className="cta" onClick={() => panel(next.key)}>go there →</button>}
       </> : <><span className="rtw-next-k">Done</span><span className="rtw-next-v">launched {fmtDate(launch?.launchedOn)}</span></>}
     </div>
@@ -113,7 +65,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
     <div className="rtw-wrap"><div className="rtw-journey">
       {/* the rail: every step in order, ticked as it lands; the open one is outlined */}
       <nav className="rtw-rail" aria-label="Steps">
-        {PHASES.map(ph => <div key={ph.key} className="rtw-phase">
+        {RTW_PHASES.map(ph => <div key={ph.key} className="rtw-phase">
           <div className="cap">{ph.label}</div>
           {journey.map((x, i) => x.phase === ph.key && (() => { const done = !!x.on; const now = i === current;
             return <button type="button" key={x.key} onClick={() => panel(x.key)} aria-current={at(x.key) ? 'step' : undefined} className={`rtw-step${done ? ' done' : now ? ' now' : ''}`} title={x.who}>
@@ -126,7 +78,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
 
       <div className="rtw-panel" id={`rtw-step-${o.id}`}>
         {(() => { const i = journey.findIndex(x => x.key === open); const x = journey[i]; if (!x) return null;
-          return <div className="rtw-panel-head"><div className="cap">Step {i + 1} of {journey.length} · {x.who}</div><h2>{x.label}</h2><p>{INTRO[x.key]}</p></div>; })()}
+          return <div className="rtw-panel-head"><div className="cap">Step {i + 1} of {journey.length} · {x.who}</div><h2>{x.label}</h2><p>{RTW_INTRO[x.key]}</p></div>; })()}
     {at('raised') && <Section title="The ask" collapsible={false} right={<span className="pill role-design">Design</span>}>
       {editable ? <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
         <Field label="Order qty"><Input type="number" value={qty} onChange={e => setQty(e.target.value)} /></Field>
@@ -175,16 +127,17 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
     {at('factory') && <Section title="Factory · PO" collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone={fst.tone}>{fst.label}</Pill><span className="pill role-production">Nitin</span></span>}>
       {!sent ? <div className="text-[12.5px] py-1" style={faint}>Starts the day the request is sent: Nitin proposes a factory with the cost and date agreed on the phone; design accepts and raises the PO. The PO generates the TNA.</div>
         : <>
-          {o.poNo && <><KV k="PO" v={<b>{o.poNo}</b>} note={`raised ${fmtDate(o.poDate)}${o.factoryPo ? ` by ${o.factoryPo.by}` : ''}${o.factoryPo?.docsMissing?.length ? ` · still owed to the factory: ${o.factoryPo.docsMissing.join(', ')}` : ''}`} />
-            <KV k="Factory" v={<VendorLink id={o.vendorId} />} note={o.finalFob != null ? `₹${o.finalFob}/pc · ${o.merchant ?? 'merchant to assign'}` : undefined} /></>}
-          <FactoryFinalisationSection o={o} bare />
+          {o.poNo && <KV k="Factory" v={<VendorLink id={o.vendorId} />} note={o.factoryPo?.docsMissing?.length ? `still owed to the factory: ${o.factoryPo.docsMissing.join(', ')}` : undefined} />}
+          {!o.poNo && <FactoryFinalisationSection o={o} bare />}
+          {o.poNo && <OrderSummary o={o} onDates={() => panel('tna')} />}
         </>}
     </Section>}
+    {at('factory') && o.poNo && <Section title="Documents the factory works from" collapsible={false}><FactoryDocs o={o} /></Section>}
 
     {at('cloth') && <Section title="Cloth at the factory" collapsible={false} right={<Pill tone={fab.tone}>{o.poNo ? fab.label : 'after the PO'}</Pill>}>
       {!o.fabricNominated ? <div className="text-[12.5px] py-1" style={faint}>The factory buys its own cloth.</div>
         : !o.sourcing?.fabricPo || !o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Once both POs are out, sourcing sends the cloth straight to the factory; the factory counts it in. Short cloth comes back to design for a cut ratio.</div>
-        : <FabricFinalisationSection o={o} bare part="factory" />}
+        : merchant && !design && !prod ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" />}
     </Section>}
 
     {at('sample') && (o.poNo ? <SampleSection o={o} editable={prod || merchant} /> : <Section title="Sample" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>The factory samples the bulk cloth once the PO is raised and the cloth has landed.</div></Section>)}
