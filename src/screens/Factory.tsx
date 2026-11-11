@@ -376,7 +376,7 @@ function RtwTab({ rows, onOpen, done }: { rows: ProductionOrder[]; onOpen: (id: 
 /* the merchant's view of one PO: what to do first, then three plain tabs — dates, materials, documents */
 function RtwPoPanel({ o, mine }: { o: ProductionOrder; mine: boolean }) {
   const { db } = useApp();
-  const [tab, setTab] = useState<'dates' | 'materials' | 'docs'>('dates');
+  const [tab, setTab] = useState<'order' | 'dates' | 'materials' | 'docs'>('order');
   const d = rtwDocsOf(db, o); const fs = o.fabricSupply; const r = riskOf(o); const t = todosOf(db, o);
   const trims = (o.materials ?? []).map(m => ({ m, line: o.bom[m.bomIndex] })).filter(x => x.line && x.line.kind !== 'fabric');
   const faint = { color:'var(--ink-faint)' } as const;
@@ -384,6 +384,10 @@ function RtwPoPanel({ o, mine }: { o: ProductionOrder; mine: boolean }) {
   const breakup = given?.given?.breakup ?? o.sizeBreakup;
   const docFiles = (db.attachments ?? []).filter(a => a.kind === 'order' && a.subjectId === o.id && FACTORY_DOCS.includes(a.label));
   const closed = o.status === 'Closed';
+  const quote = o.fabricQuotes.find(q => q.selected) ?? null; const cloth = o.bom.find(l => l.kind === 'fabric'); const fab = fabricStateOf(o);
+  const mill = db.vendors.find(v => v.id === (quote?.vendorId ?? o.fabricVendorId))?.name ?? null;
+  const clothEta = fs?.sentToFactoryOn ? null : quote?.committedDelivery ?? null;
+  const firstDates = o.milestones.slice(0, 4);
 
   return <>
     {/* the order in one line */}
@@ -402,10 +406,42 @@ function RtwPoPanel({ o, mine }: { o: ProductionOrder; mine: boolean }) {
     </div></Card>}
 
     <Tabs active={tab} onChange={v => setTab(v as typeof tab)} tabs={[
+      { id:'order', label:'The order', hint:'what was ordered, what is coming to you' },
       { id:'dates', label:'Dates', count: o.milestones.filter(m => !m.actual).length, hint:'log each step as it happens' },
       { id:'materials', label:'Cloth & materials', count: trims.filter(x => !x.m.receivedOn).length + (fs?.sentToFactoryOn && !fs.receipt ? 1 : 0), hint:'what is coming, what landed' },
       { id:'docs', label:'Documents', count: d.owedAfterPo.length || undefined, hint:'CAD, tech pack, style sheet, job card' },
     ]} />
+
+    {tab === 'order' && <Card><div className="px-4 py-3">
+      <div className="grid gap-x-6 gap-y-1" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))' }}>
+        <div>
+          <div className="label">Ordered</div>
+          <KV k="PO" v={<b className="mono">{o.poNo}</b>} note={`raised ${fmtDate(o.poDate)}${o.factoryPo ? ` by ${o.factoryPo.by}` : ''}`} />
+          <KV k="Style" v={o.styleName} note={`${o.category} · ${o.subCategory}${o.fit ? ` · ${o.fit}` : ''}`} />
+          <KV k="Pieces" v={`${breakup.reduce((a, x) => a + x.qty, 0)} pcs`} note={given ? `cut ratio revised ${fmtDate(given.sentToFactoryOn!)}` : 'by size below'} />
+          <KV k="Due at BSC" v={fmtDate(o.targetInhouse)} note={r.bufferDays != null && !closed ? (r.bufferDays < 0 ? `${-r.bufferDays} days late` : `${r.bufferDays} days to spare`) : undefined} />
+          {o.finalFob != null && <KV k="CMT agreed" v={fmtMoney(o.finalFob)} note="per piece" />}
+          {o.merchant && <KV k="Your merchant" v={o.merchant} />}
+        </div>
+        <div>
+          <div className="label">Coming to you</div>
+          <KV k="Cloth" v={cloth?.item ?? '—'} note={[mill ? `from ${mill}` : null, fab.need != null ? `${fab.need} m` : null, quote?.widthCm ? `${quote.widthCm} cm wide` : null].filter(Boolean).join(' · ') || undefined} />
+          <KV k="Cloth arrives" v={fs?.receipt ? `landed ${fmtDate(fs.receipt.on)}` : fs?.sentToFactoryOn ? `sent ${fmtDate(fs.sentToFactoryOn)} · ${fs.metresSent ?? '—'} m` : clothEta ? `around ${fmtDate(clothEta)}` : 'sourcing will send it'} note={fs?.receipt ? `${fs.receipt.metresOk} m usable` : o.sourcing?.fabricPo ? `fabric PO ${o.sourcing.fabricPo.no} on ${fmtDate(o.sourcing.fabricPo.on)}` : 'fabric PO not raised yet'} />
+          <KV k="Trims" v={trims.length ? `${trims.length} line${trims.length > 1 ? 's' : ''}` : 'none on the BOM'} note={trims.map(x => `${x.line.item} ${x.m.requiredQty} ${x.line.unit}`).join(' · ') || undefined} />
+          <KV k="Documents" v={d.owedAfterPo.length ? `${FACTORY_DOCS.length - d.owedAfterPo.length} of ${FACTORY_DOCS.length} in` : 'all in'} note={d.owedAfterPo.length ? `still owed: ${d.owedAfterPo.join(', ').toLowerCase()}` : undefined} />
+          <KV k="Sample" v="first sample from bulk cloth" note="once the cloth lands; production approves it before you cut bulk" />
+        </div>
+      </div>
+      <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line-soft)' }}>
+        <div className="label">Sizes to cut</div>
+        <SizeGrid breakup={breakup} />
+      </div>
+      <div className="pt-3 mt-2" style={{ borderTop:'1px solid var(--line-soft)' }}>
+        <div className="label">First dates</div>
+        <div className="flex gap-4 flex-wrap text-[12.5px]">{firstDates.map(m => <span key={m.key}><span className="font-medium">{m.key}</span> <span style={{ color: m.actual ? 'var(--good)' : faint.color }}>{m.actual ? `done ${fmtDate(m.actual)}` : fmtDate(m.revised ?? m.plan)}</span></span>)}
+          <button className="vlink" onClick={() => setTab('dates')}>all {o.milestones.length} steps →</button></div>
+      </div>
+    </div></Card>}
 
     {tab === 'dates' && <Card><div className="px-4 py-3">
       <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>{closed ? 'The dates as they ran.' : 'Click the step you have just finished and put the date in. If a step has moved, give the new date and why. The production unit sees it straight away.'}</div>
