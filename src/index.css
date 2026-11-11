@@ -474,3 +474,30 @@ h1::after { background: var(--accent); }
 .ov-k { flex: none; width: 104px; color: var(--ink-faint); font-size: 12px; }
 .ov-v { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
 .ov-act { font-size: 12px; }
+
+/* ── An RTW style on one screen: the next move up top, the journey down the left, the open step beside it ── */
+.rtw-next { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; margin-bottom: 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); font-size: 13px; }
+.rtw-next[data-mine] { border-color: var(--accent); background: var(--accent-soft); }
+.rtw-next-k { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+.rtw-next[data-mine] .rtw-next-k { color: var(--accent); }
+.rtw-next-v { font-weight: 600; }
+.rtw-next .cta { margin-left: auto; }
+.rtw-wrap { container-type: inline-size; }
+.rtw-journey { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
+.rtw-rail { display: flex; flex-direction: column; gap: 14px; }
+.rtw-phase { display: flex; flex-direction: column; gap: 2px; }
+.rtw-phase .cap { padding: 0 0 4px 2px; }
+.rtw-step { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; background: transparent; cursor: pointer; font: inherit; color: var(--ink); position: relative; }
+.rtw-step .cl-box { width: 18px; height: 18px; font-size: 10.5px; margin-top: 1px; color: var(--ink-faint); border-color: var(--line); }
+.rtw-step.done .cl-box { background: var(--good); border-color: var(--good); color: #fff; }
+.rtw-step.now .cl-box { border-color: var(--accent); color: var(--accent); border-width: 2px; }
+.rtw-step-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.rtw-step-label { font-size: 12.5px; font-weight: 600; line-height: 1.25; }
+.rtw-step.done .rtw-step-label { color: var(--ink-soft); font-weight: 500; }
+.rtw-step-sub { font-size: 11px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 1px; }
+.rtw-step.now .rtw-step-sub { color: var(--accent); font-weight: 600; }
+.rtw-step:hover { background: var(--surface-2); }
+.rtw-step[aria-current] { border-color: var(--ink); background: var(--surface); }
+.rtw-step.now[aria-current] { border-color: var(--accent); background: var(--accent-soft); }
+.rtw-panel { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+@container (min-width: 760px) { .rtw-journey { grid-template-columns: 250px minmax(0, 1fr); } .rtw-rail { position: sticky; top: 12px; } }

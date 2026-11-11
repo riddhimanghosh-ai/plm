@@ -19,7 +19,10 @@ import { MilestoneGrid } from './Tracker';
 import { RecordTail } from './RecordTail';
 import { ActsBy } from './Who';
 
-type Step = { key: string; label: string; who: string; on: string | null | undefined; by?: string | null; now?: string };
+type Actor = 'design' | 'sourcing' | 'production' | 'merchandiser' | 'warehouse' | 'planning';
+type Step = { key: string; label: string; who: string; on: string | null | undefined; by?: string | null; now?: string; act?: Actor; phase: 'design' | 'buy' | 'make' };
+const PHASES: { key: Step['phase']; label: string }[] = [{ key: 'design', label: 'Design' }, { key: 'buy', label: 'Buy · cloth and factory' }, { key: 'make', label: 'Make · land · launch' }];
+const ACTOR_LABEL: Record<Actor, string> = { design: 'Design', sourcing: 'Sourcing', production: 'Nitin', merchandiser: 'Factory', warehouse: 'Warehouse', planning: 'Planning' };
 
 export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: string }) {
   const { db, role, updateRequirement, handToSourcing } = useApp();
@@ -41,28 +44,34 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const sent = o.status !== 'Requirement';
   const chosen = o.fabricQuotes.find(q => q.selected) ?? o.fabricQuotes[0] ?? null;
   const dispatched = o.milestones.find(m => m.key === 'Dispatch')?.actual ?? null;
+  const nextMs = o.milestones.find(m => !m.actual) ?? null;
   const faint = { color: 'var(--ink-faint)' } as const;
 
   /* the whole journey, one line: each box ticks itself when its step is done; "now" names the move */
   const journey: Step[] = [
-    { key: 'raised', label: 'Raised', who: 'Design', on: raised?.at ?? o.styleHandover, by: raised?.who },
-    { key: 'proto', label: 'Proto · BOM · tech pack', who: 'Design', on: readiness.ready ? (proto.approved?.reviewedOn ?? o.proto?.skipped?.on ?? raised?.at ?? o.styleHandover) : null,
+    { key: 'raised', phase: 'design', label: 'Raised', who: 'Design', on: raised?.at ?? o.styleHandover, by: raised?.who },
+    { key: 'proto', phase: 'design', label: 'Proto · BOM · tech pack', who: 'Design', act: 'design',
+      on: sent ? (proto.approved?.reviewedOn ?? o.proto?.skipped?.on ?? sentLog?.at ?? o.styleHandover) : readiness.ready ? (proto.approved?.reviewedOn ?? o.proto?.skipped?.on ?? raised?.at ?? o.styleHandover) : null,
       now: readiness.blockers[0] },
-    { key: 'sent', label: 'Sent on', who: 'Design', on: sent ? (sentLog?.at ?? o.styleHandover) : null, by: sentLog?.who, now: readiness.ready ? 'ready to send' : 'after the proto, BOM and tech pack' },
-    { key: 'sourcing', label: 'Cloth vendor · fabric PO', who: 'Sourcing · Design', on: !o.fabricNominated ? (sent ? o.styleHandover : null) : o.sourcing?.fabricPo?.on,
+    { key: 'sent', phase: 'design', label: 'Sent to sourcing and production', who: 'Design', act: 'design', on: sent ? (sentLog?.at ?? o.styleHandover) : null, by: sentLog?.who, now: readiness.ready ? 'ready to send' : 'after the proto, BOM and tech pack' },
+    { key: 'sourcing', phase: 'buy', label: 'Cloth vendor · fabric PO', who: 'Sourcing · Design', on: !o.fabricNominated ? (sent ? o.styleHandover : null) : o.sourcing?.fabricPo?.on,
       by: !o.fabricNominated ? 'factory buys' : o.sourcing?.fabricPo ? `${o.sourcing.fabricPo.no} · ${nameOf(chosen?.vendorId)}` : null,
+      act: ss.key === 'choose' || ss.key === 'raise-po' ? 'design' : 'sourcing',
       now: !sent ? 'starts when sent' : ss.key === 'choose' || ss.key === 'raise-po' ? 'design to push the fabric PO' : ss.key === 'extend' ? 'sourcing to extend the hold' : 'sourcing to add a vendor' },
-    { key: 'factory', label: 'Factory · PO', who: 'Nitin · Design', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}` : null,
+    { key: 'factory', phase: 'buy', label: 'Factory · PO', who: 'Nitin · Design', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}` : null,
+      act: fst.key === 'accepted' || fst.key === 'with-design' ? 'design' : 'production',
       now: !sent ? 'starts when sent' : fst.key === 'accepted' ? 'design to raise the PO' : fst.key === 'with-design' ? 'design to accept or send back' : 'Nitin to propose a factory' },
-    { key: 'cloth', label: 'Cloth at factory', who: 'Sourcing · Factory', on: !o.fabricNominated ? o.poDate : o.fabricSupply?.receipt?.on, by: o.fabricSupply?.receipt ? `${o.fabricSupply.receipt.metresOk} m` : null,
+    { key: 'cloth', phase: 'buy', label: 'Cloth at the factory', who: 'Sourcing · Factory', on: !o.fabricNominated ? o.poDate : o.fabricSupply?.receipt?.on, by: o.fabricSupply?.receipt ? `${o.fabricSupply.receipt.metresOk} m` : null,
+      act: o.fabricSupply?.sentToFactoryOn ? 'merchandiser' : 'sourcing',
       now: !o.poNo ? 'after the PO' : o.fabricSupply?.sentToFactoryOn ? 'factory to count it in' : 'sourcing to send it' },
-    { key: 'sample', label: 'Sample approved', who: 'Factory · Production', on: sample.ppGoAhead, by: sample.approved ? `round ${sample.approved.round}` : null,
+    { key: 'sample', phase: 'make', label: 'Sample approved', who: 'Factory · Production', on: sample.ppGoAhead, by: sample.approved ? `round ${sample.approved.round}` : null,
+      act: sample.state === 'with production unit' ? 'production' : 'merchandiser',
       now: !o.poNo ? 'after the PO' : sample.state === 'with production unit' ? 'production to review' : sample.state === 'resubmit' ? 'factory to resubmit' : 'factory to send the first sample' },
-    { key: 'tna', label: 'Made · TNA', who: 'Nitin · Factory', on: dispatched, by: dispatched ? 'dispatched' : null,
-      now: !o.poNo ? 'after the PO' : `${st.stage}${r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : ''}` },
-    { key: 'received', label: 'Received at BSC', who: 'Warehouse', on: rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : null, by: rc.lots.length ? `${rc.received} pcs` : null,
+    { key: 'tna', phase: 'make', label: 'Made · the TNA', who: 'Nitin · Factory', on: dispatched, by: dispatched ? 'dispatched' : null, act: 'merchandiser',
+      now: !o.poNo ? 'after the PO' : nextMs ? `factory to log ${nextMs.key.toLowerCase()}${r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : ''}` : st.stage },
+    { key: 'received', phase: 'make', label: 'Received at BSC', who: 'Warehouse', act: 'warehouse', on: rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : null, by: rc.lots.length ? `${rc.received} pcs` : null,
       now: rc.partial ? `${rc.received} of ${rc.base} in` : dispatched ? 'warehouse to count it in' : 'after dispatch' },
-    { key: 'launch', label: 'Launched', who: 'Planning · Design', on: launch?.launchedOn, by: launch?.dropMonth,
+    { key: 'launch', phase: 'make', label: 'Launched', who: 'Planning · Design', act: 'planning', on: launch?.launchedOn, by: launch?.dropMonth,
       now: launch ? `${launch.dropMonth} drop${launch.launchOn ? ` · ${fmtDate(launch.launchOn)}` : ''}` : 'planning puts it in a drop' },
   ];
   const current = journey.findIndex(x => !x.on);
@@ -73,17 +82,37 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const [qty, setQty] = useState(String(o.orderQty)); const [target, setTarget] = useState(dateInput(o.targetInhouse)); const [cost, setCost] = useState(String(o.targetCost));
   const total = o.sizeBreakup.reduce((s, x) => s + x.qty, 0);
 
+  const next = current >= 0 ? journey[current] : null;
+  const mine = !!next?.act && next.act === role;
+  const onTracker = typeof location !== 'undefined' && location.hash.startsWith('#/tracker');
+  const panel = (k: string) => { setOpen(k); requestAnimationFrame(() => document.getElementById(`rtw-step-${o.id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); };
+
   return <>
-    <div className="grid gap-1.5 mb-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))" }}>
-      {journey.map((x, i) => { const done = !!x.on; const now = i === current;
-        return <button type="button" key={x.key} onClick={() => setOpen(x.key)} aria-pressed={at(x.key)} className="px-2 py-2 text-left" title={`${x.label} · ${x.who}`}
-          style={{ border: `${at(x.key) ? 2 : 1}px solid ${at(x.key) ? 'var(--ink)' : done ? 'var(--good)' : now ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 8, background: done ? 'color-mix(in srgb, var(--good) 7%, #fff)' : now ? 'color-mix(in srgb, var(--accent) 7%, #fff)' : '#fff', cursor: 'pointer', font: 'inherit', minWidth: 0 }}>
-          <div className="flex items-start gap-1.5"><span className="cl-box" aria-hidden style={{ width: 16, height: 16, fontSize: 10, ...(done ? { background: 'var(--good)', borderColor: 'var(--good)' } : now ? { borderColor: 'var(--accent)' } : {}) }}>{done ? '✓' : ''}</span>
-            <span className="text-[12px] font-medium" style={{ lineHeight: 1.25 }}>{x.label}</span></div>
-          <div className="text-[10.5px] pt-1 truncate" style={{ color: done ? 'var(--ink-faint)' : now ? 'var(--accent)' : 'var(--ink-faint)' }}>{done ? `${fmtDate(x.on!)}${x.by ? ` · ${x.by}` : ''}` : now ? (x.now ?? 'now') : x.who}</div>
-        </button>; })}
+    {/* one line that says what happens next, and whose move it is */}
+    <div className="rtw-next" data-mine={mine || undefined}>
+      {next ? <>
+        <span className="rtw-next-k">{mine ? 'Your move' : 'Next'}</span>
+        <span className="rtw-next-v">{next.now ?? next.label}</span>
+        {next.act && <span className={`pill role-${next.act === 'merchandiser' ? 'production' : next.act}`}>{ACTOR_LABEL[next.act]}</span>}
+        {!at(next.key) && <button type="button" className="cta" onClick={() => panel(next.key)}>go there →</button>}
+      </> : <><span className="rtw-next-k">Done</span><span className="rtw-next-v">launched {fmtDate(launch?.launchedOn)}</span></>}
     </div>
 
+    <div className="rtw-wrap"><div className="rtw-journey">
+      {/* the rail: every step in order, ticked as it lands; the open one is outlined */}
+      <nav className="rtw-rail" aria-label="Steps">
+        {PHASES.map(ph => <div key={ph.key} className="rtw-phase">
+          <div className="cap">{ph.label}</div>
+          {journey.map((x, i) => x.phase === ph.key && (() => { const done = !!x.on; const now = i === current;
+            return <button type="button" key={x.key} onClick={() => panel(x.key)} aria-current={at(x.key) ? 'step' : undefined} className={`rtw-step${done ? ' done' : now ? ' now' : ''}`} title={x.who}>
+              <span className="cl-box" aria-hidden>{done ? '✓' : i + 1}</span>
+              <span className="rtw-step-main"><span className="rtw-step-label">{x.label}</span>
+                <span className="rtw-step-sub">{done ? `${fmtDate(x.on!)}${x.by ? ` · ${x.by}` : ''}` : now ? (x.now ?? 'now') : x.who}</span></span>
+            </button>; })())}
+        </div>)}
+      </nav>
+
+      <div className="rtw-panel" id={`rtw-step-${o.id}`}>
     {at('raised') && <Section title="The ask" collapsible={false} right={<span className="pill role-design">Design</span>}>
       {editable ? <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
         <Field label="Order qty"><Input type="number" value={qty} onChange={e => setQty(e.target.value)} /></Field>
@@ -151,7 +180,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         : <>
           <div className="text-[12.5px] pb-2" style={{ color: 'var(--ink-soft)' }}>Due in-house {fmtDate(o.targetInhouse)}{r.bufferDays != null && o.status !== 'Closed' ? ` · ${r.bufferDays < 0 ? `${-r.bufferDays} days late` : `${r.bufferDays} days to spare`}` : ''}. Click a step to log its date.</div>
           <MilestoneGrid o={o} editable={(prod || merchant) && o.status !== 'Closed'} bare />
-          <div className="pt-2"><a className="cta" href={`#/tracker?open=${o.id}`}>Open on the RTW production tracker →</a></div>
+          {!onTracker && <div className="pt-2"><a className="cta" href={`#/tracker?open=${o.id}`}>Open on the RTW production tracker →</a></div>}
         </>}
     </Section>}
 
@@ -165,6 +194,9 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         <div className="pt-1"><a className="cta" href={`#/launches?open=${launch.id}`}>the launch · gates, stores, marketing →</a></div>
       </> : <>{planning ? null : <div className="text-[12.5px] py-1" style={faint}>Planning puts it in a drop once it is in production; design mints the design code when the goods land.</div>}<PutInDrop o={o} /></>}
     </Section>}
+
+      </div>
+    </div></div>
 
     <RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable={design || prod || merchant} steps={ORDER_STEPS} />
   </>;
