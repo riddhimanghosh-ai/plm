@@ -81,14 +81,14 @@ export function rtwRowOf(db: Db, o: ProductionOrder) {
 
 /* one status per style, by what has actually happened: the tracker's filter row */
 export const RTW_STATUSES = [
-  { key: 'requested', label: 'Requested', hint: 'with design: proto, BOM, tech pack' },
-  { key: 'sent', label: 'Sent on', hint: 'sourcing finding cloth, Nitin a factory' },
-  { key: 'fabric-po', label: 'Fabric PO done', hint: 'cloth bought; factory PO still to come' },
-  { key: 'factory-po', label: 'Factory PO done', hint: 'PO raised; cloth on its way' },
-  { key: 'cloth', label: 'Cloth at factory', hint: 'counted in; sample next' },
-  { key: 'sample', label: 'Sample approved', hint: 'bulk being made' },
-  { key: 'dispatched', label: 'Dispatched', hint: 'on its way to BSC' },
-  { key: 'received', label: 'Received', hint: 'at the warehouse, by size' },
+  { key: 'requested', label: 'With design', hint: 'design is still putting the proto, BOM and tech pack on' },
+  { key: 'sent', label: 'Finding cloth & factory', hint: 'sourcing is finding the cloth, Nitin the factory' },
+  { key: 'fabric-po', label: 'Cloth ordered', hint: 'cloth bought from the mill; the factory PO is still to come' },
+  { key: 'factory-po', label: 'PO raised', hint: 'PO with the factory; cloth on its way' },
+  { key: 'cloth', label: 'Cloth at factory', hint: 'cloth counted in; the sample is next' },
+  { key: 'sample', label: 'In production', hint: 'sample approved, bulk being made' },
+  { key: 'dispatched', label: 'Shipped to BSC', hint: 'on the road from the factory' },
+  { key: 'received', label: 'At warehouse', hint: 'counted in by size' },
   { key: 'launched', label: 'Launched', hint: 'in a drop' },
 ] as const;
 export type RtwStatusKey = typeof RTW_STATUSES[number]['key'];
