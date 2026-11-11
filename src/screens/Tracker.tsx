@@ -23,6 +23,7 @@ import type { GarmentCategory, RoleId } from '../domain/types';
 import { Page, Card, Pill, Field, Input, Select, Button, Drawer, KV, Section, Note, dateInput, fromDateInput, Tabs, Empty, usePager, Pager, ExportButton, Seg, useExamples, type Tone } from '../ui';
 import { ActsBy, OwnerPill } from './Who';
 import { StepFlow } from './Flow';
+import { RtwRequirement } from './RtwRequirement';
 import type { DesignStep } from '../domain/engines';
 
 export const RISK_TONE: Record<Risk, Tone> = { pending:'neutral', 'on-track':'good', watch:'warn', 'at-risk':'warn', critical:'risk', delayed:'risk', closed:'neutral' };
@@ -138,7 +139,7 @@ export function Tracker() {
       </Card>}
 
       <Drawer open={!!active} onClose={() => set('open', null)} title={active?.poNo ?? active?.styleName ?? ''} subtitle={active && <><Pill tone={RISK_TONE[riskOf(active).risk]}>{riskOf(active).risk.replace('-', ' ')}</Pill><span>{active.styleName} · {vendorName(active.vendorId)} · {active.merchant}</span></>}>
-        {active && <OrderDetail key={active.id} o={active} role={role} vendorName={vendorName} />}
+        {active && <RtwRequirement key={active.id} o={active} initial="tna" />}
       </Drawer>
     </Page>
   );

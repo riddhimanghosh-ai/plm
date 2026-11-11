@@ -15,6 +15,7 @@ import { Files } from './Files';
 import { sourcingStateOf, designFlowOf, sourcingModeOf, sendReadinessOf, type DesignStepKey } from '../domain/engines';
 import type { SourcingMode } from '../domain/types';
 import { Stepper, StepFlow } from './Flow';
+import { RtwRequirement } from './RtwRequirement';
 import { ROLE_LABEL } from '../domain/reference';
 import { RecordTail } from './RecordTail';
 import { FILE_LABELS } from '../domain/reference';
@@ -70,7 +71,7 @@ export function Requirements() {
       </Card>
 
       <Drawer open={!!active} onClose={() => set('open', null)} title={active?.styleName ?? ''} subtitle={active && <><Pill tone={TONE[active.status]}>{active.status}</Pill><span>{active.category} · {active.subCategory}</span></>}>
-        {active && <RequirementDetail o={active} editable={mine && active.status === 'Requirement'} editableAlloc={role === 'planning' || role === 'owner'} />}
+        {active && <RtwRequirement key={active.id} o={active} />}
       </Drawer>
 
       <Drawer open={creating} onClose={() => set('new', null)} title="New requirement" subtitle="Design writes it, planning says how many. Sourcing takes it from here.">
@@ -346,7 +347,7 @@ export function BriefEditor({ o }: { o: ProductionOrder }) {
    linked to THIS requirement, not guessed from a style name. Planning's move:
    the drop month, when the goods reach head office, the launch date, and the
    pointers marketing will need. The same launch then runs on RTW launches. */
-function PutInDrop({ o }: { o: ProductionOrder }) {
+export function PutInDrop({ o }: { o: ProductionOrder }) {
   const { db, role, createLaunch } = useApp();
   const canPlan = role === 'planning' || role === 'owner';
   const months = Array.from({ length: 5 }, (_, i) => { const d = new Date(TODAY); d.setMonth(d.getMonth() + i + 1); return d.toLocaleDateString('en-GB', { month:'short', year:'2-digit' }).replace(' ', ' '); });

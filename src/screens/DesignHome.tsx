@@ -14,7 +14,8 @@ import { ROLE_LABEL } from '../domain/reference';
 import { Page, Card, Pill, Seg, Th, Button, Drawer, Input } from '../ui';
 import { ActsBy } from './Who';
 import { ConceptDetail, NewConcept } from './Concepts';
-import { RequirementDetail, NewRequirement } from './Requirements';
+import { NewRequirement } from './Requirements';
+import { RtwRequirement } from './RtwRequirement';
 import { RequestDetail, NewRequest } from './OptionRequests';
 import type { SourcingMode } from '../domain/types';
 import { MTM_ONLY, RTW_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
@@ -191,7 +192,7 @@ export function DesignHome() {
       </Drawer>
       <Drawer open={!!activeOrder} onClose={() => set('open', null)} title={activeOrder?.styleName ?? ''}
         subtitle={activeOrder && activeRow && <><span className={`pill role-${KIND_TONE[activeRow.kind]}`}>{activeRow.kind}</span><Pill tone={STAGE_TONE[activeRow.stage]}>{STAGE_LABEL[activeRow.stage]}</Pill><span>{activeOrder.category} · {activeOrder.subCategory}</span></>}>
-        {activeOrder && <RequirementDetail o={activeOrder} editable={design && activeOrder.status === 'Requirement'} editableAlloc={role === 'planning' || role === 'owner'} />}
+        {activeOrder && <RtwRequirement key={activeOrder.id} o={activeOrder} />}
       </Drawer>
       <Drawer open={!!activeRequest} onClose={() => set('open', null)} title={activeRequest ? `${activeRequest.reqNo} · ${catLabel(activeRequest.category)}` : ''}
         subtitle={activeRequest && activeRow && <><span className="pill role-sourcing">options</span><Pill tone={activeRow.stage === 3 ? 'good' : 'neutral'}>{STAGE_LABEL[activeRow.stage]}</Pill><span>{activeRequest.raisedBy} · {fmtDate(activeRequest.raisedOn)}{activeRequest.liveBy ? ` · live by ${activeRequest.liveBy}` : ''}</span></>}>
