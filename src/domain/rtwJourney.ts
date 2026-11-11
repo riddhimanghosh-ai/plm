@@ -78,3 +78,24 @@ export function rtwRowOf(db: Db, o: ProductionOrder) {
   const tone: 'good' | 'warn' | 'risk' | 'neutral' = !j.next ? 'neutral' : late ? 'risk' : j.next.phase === 'make' ? 'good' : 'warn';
   return { ...j, step: j.current >= 0 ? j.current + 1 : j.steps.length, tone, late };
 }
+
+/* one status per style, by what has actually happened: the tracker's filter row */
+export const RTW_STATUSES = [
+  { key: 'requested', label: 'Requested', hint: 'with design: proto, BOM, tech pack' },
+  { key: 'sent', label: 'Sent on', hint: 'sourcing finding cloth, Nitin a factory' },
+  { key: 'fabric-po', label: 'Fabric PO done', hint: 'cloth bought; factory PO still to come' },
+  { key: 'factory-po', label: 'Factory PO done', hint: 'PO raised; cloth on its way' },
+  { key: 'cloth', label: 'Cloth at factory', hint: 'counted in; sample next' },
+  { key: 'sample', label: 'Sample approved', hint: 'bulk being made' },
+  { key: 'dispatched', label: 'Dispatched', hint: 'on its way to BSC' },
+  { key: 'received', label: 'Received', hint: 'at the warehouse, by size' },
+  { key: 'launched', label: 'Launched', hint: 'in a drop' },
+] as const;
+export type RtwStatusKey = typeof RTW_STATUSES[number]['key'];
+export function rtwStatusOf(db: Db, o: ProductionOrder): { key: RtwStatusKey; label: string; i: number } {
+  const j = rtwJourneyOf(db, o); const on = (k: string) => !!j.steps.find(s => s.key === k)?.on;
+  const key: RtwStatusKey = on('launch') ? 'launched' : on('received') ? 'received' : on('tna') ? 'dispatched' : on('sample') ? 'sample' : on('cloth') ? 'cloth'
+    : on('factory') ? 'factory-po' : on('sourcing') && o.fabricNominated ? 'fabric-po' : on('sent') ? 'sent' : 'requested';
+  const i = RTW_STATUSES.findIndex(s => s.key === key);
+  return { key, label: RTW_STATUSES[i].label, i };
+}

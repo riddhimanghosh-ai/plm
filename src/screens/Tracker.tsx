@@ -24,7 +24,7 @@ import { Page, Card, Pill, Field, Input, Select, Button, Drawer, KV, Section, No
 import { ActsBy, OwnerPill } from './Who';
 import { StepFlow } from './Flow';
 import { RtwRequirement } from './RtwRequirement';
-import { rtwRowOf } from '../domain/rtwJourney';
+import { rtwRowOf, rtwStatusOf, RTW_STATUSES } from '../domain/rtwJourney';
 import type { DesignStep } from '../domain/engines';
 
 export const RISK_TONE: Record<Risk, Tone> = { pending:'neutral', 'on-track':'good', watch:'warn', 'at-risk':'warn', critical:'risk', delayed:'risk', closed:'neutral' };
@@ -54,96 +54,89 @@ export function Tracker() {
   const vendorName = (id: string | null) => db.vendors.find(v => v.id === id)?.name ?? '—';
 
   /* the sheet has a row from the day design sends the style, long before a PO number exists — so does this */
-  const garment = db.orders.filter(o => o.status === 'Open' || o.status === 'Closed' || o.status === 'Quoting' || o.status === 'Allocated');
+  const garment = db.orders.filter(o => ['Requirement', 'Quoting', 'Allocated', 'Open', 'Closed'].includes(o.status));
   /* the questions this table is actually opened with: whose is it, who is
      making it, where has it got to, and what is on fire */
   const [vendor, setVendor] = useState('all');
-  const [stage, setStage] = useState('all');
-  const [risk, setRisk] = useState('all');
+  const [status, setStatus] = useState<string>('all');
+  const [only, setOnly] = useState('all');
   const [search, setSearch] = useState('');
-  const stageFor = (o: ProductionOrder) => { if (o.poNo) return stageOf(o); const f = factoryStateOf(o); return { stage: `No PO yet · ${f.label}`, next: f.key === 'accepted' ? 'design to raise the PO' : f.key === 'with-design' ? 'design to accept or send back' : f.key === 'rejected' ? 'production to re-propose' : 'production to propose a factory', waitingOn: f.owner as RoleId | null }; };
-  /* the sheet reads top-down from the newest request: styles with no PO yet come first, then the POs by how much trouble they are in */
-  const ORDER = ['pending', 'delayed', 'critical', 'at-risk', 'watch', 'on-track'];
-  const inTab = garment.filter(o => tab === 'open' ? o.status !== 'Closed' : o.status === 'Closed')
-    .map(o => ({ o, r: riskOf(o), s: stageFor(o) }))
-    .sort((a, b) => ORDER.indexOf(a.r.risk) - ORDER.indexOf(b.r.risk) || a.o.targetInhouse.localeCompare(b.o.targetInhouse));
+  const inTab = garment.map(o => ({ o, r: riskOf(o), j: rtwRowOf(db, o), st: rtwStatusOf(db, o) }))
+    .sort((a, b) => a.st.i - b.st.i || a.o.targetInhouse.localeCompare(b.o.targetInhouse));
   const vendors = [...new Set(inTab.map(x => x.o.vendorId).filter(Boolean))]
     .map(id => ({ id: id!, name: db.vendors.find(v => v.id === id)?.name ?? id! })).sort((a, b) => a.name.localeCompare(b.name));
-  const stages = [...new Set(inTab.map(x => x.s.stage))].sort();
-  const riskCount = (k: string) => inTab.filter(x => x.r.risk === k).length;
+  const nStatus = (k: string) => inTab.filter(x => x.st.key === k).length;
   const rows = inTab.filter(x => {
+    if (status !== 'all' && x.st.key !== status) return false;
     if (merchant !== 'all' && x.o.merchant !== merchant) return false;
     if (vendor !== 'all' && x.o.vendorId !== vendor) return false;
-    if (stage !== 'all' && x.s.stage !== stage) return false;
-    if (risk === 'late' ? !LATE.includes(x.r.risk) : risk === 'pre' ? !!x.o.poNo : risk === 'ok' ? x.r.risk !== 'on-track' : risk === 'mine' ? rtwRowOf(db, x.o).next?.act !== 'production' : false) return false;
+    if (only === 'mine' && x.j.next?.act !== 'production') return false;
+    if (only === 'late' && !x.j.late) return false;
     const t = search.trim().toLowerCase();
     if (t && !(x.o.styleName.toLowerCase().includes(t) || (x.o.poNo ?? '').toLowerCase().includes(t))) return false;
     return true;
   });
   const active = db.orders.find(o => o.id === openId) ?? null;
-  const open = db.orders.filter(o => o.status === 'Open').map(riskOf);
-  /* one PO per risk word — delayed, critical, at risk, watch, on track */
-  const ex = useExamples(rows, x => x.o.poNo ? x.r.risk : 'before PO', { n: 5, noun:'styles', done: x => x.o.status === 'Closed' ? (x.o.deliveredQty ?? 0) > 0 : x.o.milestones.length > 0 && x.o.milestones.every(m => !!m.actual) })   // closed and delivered, or every milestone landed and the PO only waits on delivery;
+  const ex = useExamples(rows, x => x.st.key, { n: 5, noun:'styles', done: x => x.st.key === 'launched' });
   const pager = usePager(ex.rows, 25);
+  const faint = { color:'var(--ink-faint)' } as const;
 
   return (
-    <Page title="RTW production tracker" lede="Every open order with its date calendar, who is chasing it, and where it is on the floor."
-      replaces="Production Tracker Final V2.xlsx — 128 columns opened by six teams, plus the Daily Monitor and Alert Dashboard tabs beside it">
+    <Page title="RTW production tracker" lede="Every RTW style from the day design requests it to the day it launches: one table, filtered by where it has got to."
+      replaces="Production Tracker Final V2.xlsx — 128 columns opened by six teams, plus the Daily Monitor and Alert Dashboard tabs beside it"
+      actions={<div className="flex gap-3 items-center text-[12.5px]">
+        <button className="vlink" onClick={() => set('tab', tab === 'orders' ? null : 'orders')}>{tab === 'orders' ? '← the tracker' : `Customer orders · ${hubOrders(db).length}`}</button>
+        <button className="vlink" onClick={() => set('tab', tab === 'settings' ? null : 'settings')}>{tab === 'settings' ? '← the tracker' : 'Lead times & risk'}</button>
+        {tab !== 'orders' && tab !== 'settings' && <button className="vlink" onClick={() => set('view', view === 'sheet' ? null : 'sheet')}>{view === 'sheet' ? 'Summary' : 'As the sheet'}</button>}
+        <ExportButton filename="rtw-production-tracker" rows={rows} cols={[
+          { label:'PO', get: (x: typeof rows[number]) => x.o.poNo ?? '' },
+          { label:'Style', get: x => x.o.styleName },
+          { label:'Category', get: x => x.o.category },
+          { label:'Factory', get: x => db.vendors.find(v => v.id === x.o.vendorId)?.name ?? '' },
+          { label:'Merchant', get: x => x.o.merchant },
+          { label:'Qty', get: x => x.o.orderQty },
+          { label:'Status', get: x => x.st.label },
+          { label:'Where it is', get: x => x.j.where },
+          { label:'Next', get: x => x.j.next?.now ?? 'done' },
+          { label:'Due in-house', get: x => x.o.targetInhouse },
+        ]} />
+      </div>}>
 
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <Tabs tabs={[{ id:'open', label:'In the tracker · open styles', count: garment.filter(o => o.status !== 'Closed').length }, { id:'closed', label:'Closed POs · delivered' }, { id:'settings', label:'Settings · lead times & risk' }, { id:'orders', label:'Customer orders · RTW & hemming', count: hubOrders(db).length }]} active={tab} onChange={t => set('tab', t)} />
-        <div className="flex gap-2 items-end">
-          <div className="pb-1"><ExportButton filename="rtw-production-tracker" rows={rows} cols={[
-            { label:'PO', get: (x: typeof rows[number]) => x.o.poNo ?? '' },
-            { label:'Style', get: x => x.o.styleName },
-            { label:'Category', get: x => x.o.category },
-            { label:'Factory', get: x => db.vendors.find(v => v.id === x.o.vendorId)?.name ?? '' },
-            { label:'Merchant', get: x => x.o.merchant },
-            { label:'Qty', get: x => x.o.orderQty },
-            { label:'Where it is', get: x => rtwRowOf(db, x.o).where },
-            { label:'Next', get: x => rtwRowOf(db, x.o).next?.now ?? 'done' },
-            { label:'Due in-house', get: x => x.o.targetInhouse },
-          ]} /></div>
-          <div style={{ width:200 }}><Field label="Merchandiser"><Select value={merchant} onChange={setMerchant} options={[{ value:'all', label:'Everyone' }, ...MERCHANDISERS.map(m => ({ value:m, label:m }))]} /></Field></div>
-          <div style={{ width:190 }}><Field label="View"><Select value={view} onChange={v => set('view', v === 'summary' ? null : v)} options={[{ value:'summary', label:'Summary' }, { value:'sheet', label:'Every column, as the sheet' }]} /></Field></div>
-        </div>
-      </div>
+      {tab === 'settings' ? <TrackerSettings /> : tab === 'orders' ? <HubOrdersTab /> : <>
+        <Card className="mb-3"><div className="px-3 py-2.5 flex flex-col gap-2">
+          <Seg value={status} onChange={setStatus} options={[{ id:'all', label:'All', count: inTab.length }, ...RTW_STATUSES.map(s => ({ id: s.key, label: s.label, count: nStatus(s.key), hint: s.hint }))]} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Seg value={only} onChange={setOnly} options={[{ id:'all', label:'Everything' }, { id:'mine', label:'Waiting on me', count: inTab.filter(x => x.j.next?.act === 'production').length }, { id:'late', label:'Running late', count: inTab.filter(x => x.j.late).length }]} />
+            <Select value={vendor} onChange={setVendor} style={{ width:'auto' }} options={[{ value:'all', label:`Every factory · ${vendors.length}` }, ...vendors.map(v => ({ value:v.id, label:v.name }))]} />
+            <Select value={merchant} onChange={setMerchant} style={{ width:'auto' }} options={[{ value:'all', label:'Every merchandiser' }, ...MERCHANDISERS.map(m => ({ value:m, label:m }))]} />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="style or PO number" style={{ width:190 }} />
+            {(vendor !== 'all' || status !== 'all' || only !== 'all' || search.trim() || merchant !== 'all') &&
+              <Button size="sm" variant="ghost" onClick={() => { setVendor('all'); setStatus('all'); setOnly('all'); setSearch(''); setMerchant('all'); }}>Clear</Button>}
+            <span className="ml-auto">{ex.strip}</span>
+          </div>
+        </div></Card>
 
-      {tab !== 'orders' && tab !== 'settings' && <Card className="mb-3"><div className="flex items-center gap-3 flex-wrap px-3 py-2.5">
-        {tab === 'open' && <Seg value={risk} onChange={setRisk} options={[
-          { id:'all', label:'All', count: inTab.length },
-          { id:'mine', label:'Waiting on me', count: inTab.filter(x => rtwRowOf(db, x.o).next?.act === 'production').length, hint:'the next move is yours: propose a factory, review a sample, send a cut ratio' },
-          { id:'pre', label:'Before the PO', count: inTab.filter(x => !x.o.poNo).length, hint:'sent by design; the factory, cost and PO are still being settled' },
-          { id:'late', label:'Running late', count: LATE.reduce((a, k) => a + riskCount(k), 0), hint:'past a planned date, or the in-house date is at risk' },
-          { id:'ok', label:'On time', count: riskCount('on-track') },
-        ]} />}
-        <Select value={vendor} onChange={setVendor} style={{ width:'auto' }}
-          options={[{ value:'all', label:`Every factory · ${vendors.length}` }, ...vendors.map(v => ({ value:v.id, label:v.name }))]} />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="style or PO number" style={{ width:190 }} />
-        {(vendor !== 'all' || risk !== 'all' || search.trim() || merchant !== 'all') &&
-          <Button size="sm" variant="ghost" onClick={() => { setVendor('all'); setStage('all'); setRisk('all'); setSearch(''); setMerchant('all'); }}>Clear</Button>}
-        <span className="ml-auto">{ex.strip}</span>
-      </div></Card>}
-
-      {tab === 'settings' ? <TrackerSettings /> : tab === 'orders' ? <HubOrdersTab /> : view === 'sheet' ? <SheetColumns rows={ex.rows.map(x => x.o)} onOpen={id => set('open', id)} /> : rows.length === 0 ? <Card><Empty title="Nothing matches those filters." body="Loosen one of them, or clear the search." /></Card> : <Card>
-        <table className="t">
-          <thead><tr><th>PO</th><th>Style</th><th>Factory</th><th>Merchant</th><th>Where it is</th><th>Next</th><th>Due in-house</th></tr></thead>
-          <tbody>{pager.pageRows.map(({ o, r, s }) => (
-            <tr key={o.id} className="row" onClick={() => set('open', o.id)}>
-              <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo ?? <span className="text-[12px]" style={{ color:'var(--ink-faint)', fontFamily:'var(--body)' }}>no PO yet</span>}</td>
-              <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{o.category}</div></td>
-              <td className="text-[12.5px]">{o.vendorId ? <VendorLink id={o.vendorId}>{vendorName(o.vendorId)}</VendorLink> : (() => { const f = factoryStateOf(o); return f.last ? <span style={{ color:'var(--ink-faint)' }}>{vendorName(f.last.vendorId)} · proposed</span> : <span style={{ color:'var(--ink-faint)' }}>—</span>; })()}</td>
-              <td className="text-[12.5px]">{o.merchant ?? <span style={{ color:'var(--ink-faint)' }}>—</span>}</td>
-              <td>{(() => { const j = rtwRowOf(db, o); return <Pill tone={j.tone}>{j.step} of {j.steps.length} · {j.where}</Pill>; })()}</td>
-              <td className="text-[12.5px]">{(() => { const j = rtwRowOf(db, o); return j.next ? <>{j.next.now}{j.next.act === 'production' && <span className="pill role-production ml-1">you</span>}</> : <span style={{ color:'var(--ink-faint)' }}>done</span>; })()}</td>
-              <td style={{ whiteSpace:'nowrap' }}>{fmtDate(o.targetInhouse)}</td>
-            </tr>))}</tbody>
-        </table>
-        <Pager page={pager.page} pageCount={pager.pageCount} onChange={pager.setPage} from={pager.from} to={pager.to} total={pager.total} noun="purchase orders" />
-      </Card>}
+        {view === 'sheet' ? <SheetColumns rows={ex.rows.map(x => x.o)} onOpen={id => set('open', id)} /> : rows.length === 0 ? <Card><Empty title="Nothing matches those filters." body="Loosen one of them, or clear the search." /></Card> : <Card>
+          <table className="t">
+            <thead><tr><th>PO</th><th>Style</th><th className="num">Pcs</th><th>Factory</th><th>Status</th><th>Where it is</th><th>Next</th><th>Due in-house</th></tr></thead>
+            <tbody>{pager.pageRows.map(({ o, r, j, st }) => (
+              <tr key={o.id} className="row" onClick={() => set('open', o.id)}>
+                <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo ?? <span className="text-[12px]" style={{ ...faint, fontFamily:'var(--body)' }}>no PO yet</span>}</td>
+                <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={faint}>{o.category}{o.merchant ? ` · ${o.merchant}` : ''}</div></td>
+                <td className="num">{o.orderQty}</td>
+                <td className="text-[12.5px]">{o.vendorId ? <VendorLink id={o.vendorId}>{vendorName(o.vendorId)}</VendorLink> : (() => { const f = factoryStateOf(o); return f.last ? <span style={faint}>{vendorName(f.last.vendorId)} · proposed</span> : <span style={faint}>—</span>; })()}</td>
+                <td><Pill tone={j.tone}>{st.label}</Pill></td>
+                <td className="text-[12.5px]">{j.where}</td>
+                <td className="text-[12.5px]">{j.next ? <>{j.next.now}{j.next.act === 'production' && <span className="pill role-production ml-1">you</span>}</> : <span style={faint}>done</span>}</td>
+                <td style={{ whiteSpace:'nowrap' }}>{fmtDate(o.targetInhouse)}{r.bufferDays != null && o.status !== 'Closed' && <div className="text-[11px]" style={{ color: r.bufferDays < 0 ? 'var(--risk)' : 'var(--ink-faint)' }}>{r.bufferDays < 0 ? `${-r.bufferDays}d late` : `${r.bufferDays}d to spare`}</div>}</td>
+              </tr>))}</tbody>
+          </table>
+          <Pager page={pager.page} pageCount={pager.pageCount} onChange={pager.setPage} from={pager.from} to={pager.to} total={pager.total} noun="styles" />
+        </Card>}
+      </>}
 
       <Drawer open={!!active} onClose={() => set('open', null)} title={active?.poNo ?? active?.styleName ?? ''} subtitle={active && <><Pill tone={RISK_TONE[riskOf(active).risk]}>{riskOf(active).risk.replace('-', ' ')}</Pill><span>{active.styleName} · {vendorName(active.vendorId)} · {active.merchant}</span></>}>
-        {active && <RtwRequirement key={active.id} o={active} initial="tna" />}
+        {active && <RtwRequirement key={active.id} o={active} />}
       </Drawer>
     </Page>
   );
