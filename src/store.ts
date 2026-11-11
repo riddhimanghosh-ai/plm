@@ -405,7 +405,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         sourcing: { stage: 'vendors', submittedOn: null, extension: null, fabricPo: null },
         cutQty: null, deliveredQty: null, rejectedQty: null, receipts: [], split: null, status: 'Requirement',
         activity: [{ at: now(), who: who(), what: 'Requirement created' }],
-      }), 'Requirement created. It is now sourcing\'s turn.');
+      }), 'Requirement created. Add the prototype, BOM and tech pack, then send it — sourcing and production start from there.');
       return id;
     },
     updateRequirement(id, patch) { touch(db => { const o = db.orders.find(x => x.id === id); if (!o) return; Object.assign(o, patch); log(o, `Requirement updated · ${Object.keys(patch).join(', ')}`); }, 'Saved.'); },

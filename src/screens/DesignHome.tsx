@@ -130,7 +130,7 @@ export function DesignHome() {
   return (
     <Page title="Design requirements" lede="Everything design has asked for, at one of four stages: requirement, sourcing, finalised and ordered, execution."
       replaces="the design meeting's un-minuted list, the brief emailed to sourcing, and three trackers that each start too late"
-      actions={design ? <Button variant="primary" onClick={() => set('new', '1')}>+ New requirement</Button> : <ActsBy role={['design', 'planning']} does="raises a requirement — what is needed, for which product, by when" inline />}>
+      actions={design ? <Button variant="primary" onClick={() => set('new', RTW_ONLY ? 'rtw' : '1')}>{RTW_ONLY ? '+ New RTW style' : '+ New requirement'}</Button> : <ActsBy role={['design', 'planning']} does="raises a requirement — what is needed, for which product, by when" inline />}>
 
       <div className="flex items-end gap-3 flex-wrap mb-3">
         <Seg value={stage} onChange={v => setStage(v as typeof stage)} label="Stage" options={[
@@ -180,7 +180,7 @@ export function DesignHome() {
       <Drawer open={newKind === 'options'} onClose={() => set('new', null)} title="New requirement · several fabric options" back={{ label:'product type', onClick: () => set('new', '1') }}>
         {newKind === 'options' && <NewRequest defaults={{ count: params.get('count'), category: params.get('category'), brief: params.get('brief') }} onDone={created} />}
       </Drawer>
-      <Drawer open={newKind === 'rtw'} onClose={() => set('new', null)} title="New requirement · an RTW style" back={{ label:'product type', onClick: () => set('new', '1') }}>
+      <Drawer open={newKind === 'rtw'} onClose={() => set('new', null)} title="New requirement · an RTW style" back={RTW_ONLY ? undefined : { label:'product type', onClick: () => set('new', '1') }}>
         {newKind === 'rtw' && <NewRequirement initialMode={'bsc-buys' as SourcingMode} onDone={created} />}
       </Drawer>
 
