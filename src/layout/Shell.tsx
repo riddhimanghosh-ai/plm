@@ -2,7 +2,7 @@
    of entries per role — people migrating off spreadsheets adopt a few screens,
    not forty. */
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useApp } from '../store';
 import { PEOPLE, ROLE_LABEL, STORES } from '../domain/reference';
 import { MTM_ONLY, RTW_ONLY, EDITION_LABEL, inEdition } from '../domain/edition';
@@ -71,7 +71,8 @@ function Crumbs() {
   const entry = NAV.filter(n => n.path !== '/' && navPath.startsWith(n.path)).sort((a, b) => b.path.length - a.path.length)[0];
   const fabric = loc.pathname.startsWith('/fabric/') ? db.fabrics.find(f => f.id === loc.pathname.split('/')[2]) : null;
   const [from, setFrom] = useState<{ path: string; label: string } | null>(null);
-  useEffect(() => {
+  /* before paint, so the 'opened from' crumb never pushes the heading down after the fact */
+  useLayoutEffect(() => {
     let prev: { path: string; label: string } | null = null;
     try { prev = JSON.parse(sessionStorage.getItem(PREV_KEY) ?? 'null'); } catch { /* storage off */ }
     const me = NAV.filter(n => n.path !== '/' && navPath.startsWith(n.path)).sort((a, b) => b.path.length - a.path.length)[0];
