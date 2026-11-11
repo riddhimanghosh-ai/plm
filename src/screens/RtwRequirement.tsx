@@ -21,6 +21,16 @@ import { OrderSummary, FactoryDocs, MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
 import { ActsBy } from './Who';
 
+/* the steps each desk works in; every other step shows as a status line, not a panel */
+const MINE: Record<string, string[]> = {
+  design: ['raised', 'proto', 'sent', 'sourcing', 'factory', 'cloth', 'launch'],
+  planning: ['raised', 'launch'],
+  sourcing: ['sourcing', 'cloth'],
+  production: ['factory', 'cloth', 'sample', 'tna'],
+  merchandiser: ['factory', 'cloth', 'sample', 'tna'],
+  warehouse: ['received'],
+};
+
 export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: string }) {
   const { db, role, updateRequirement, handToSourcing } = useApp();
   const design = role === 'design' || role === 'owner';
@@ -40,8 +50,11 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const sent = o.status !== 'Requirement';
   const faint = { color: 'var(--ink-faint)' } as const;
   const { steps: journey, current, next } = rtwJourneyOf(db, o);
-  const [open, setOpen] = useState<string>(initial ?? journey[current]?.key ?? 'launch');
-  const at = (k: string) => open === k;
+  const mineKeys = role === 'owner' ? null : (MINE[role] ?? []);
+  const isMine = (k: string) => !mineKeys || mineKeys.includes(k);
+  const firstMine = journey.slice(Math.max(current, 0)).find(x => isMine(x.key))?.key ?? journey.filter(x => isMine(x.key)).slice(-1)[0]?.key ?? journey[current]?.key ?? 'launch';
+  const [open, setOpen] = useState<string>(initial && isMine(initial) ? initial : firstMine);
+  const at = (k: string) => open === k && isMine(k);
 
   /* the order's numbers, editable by design until it is sent */
   const [qty, setQty] = useState(String(o.orderQty)); const [target, setTarget] = useState(dateInput(o.targetInhouse)); const [cost, setCost] = useState(String(o.targetCost));
@@ -58,7 +71,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         <span className="rtw-next-k">{mine ? 'Your move' : 'Next'}</span>
         <span className="rtw-next-v">{next.now ?? next.label}</span>
         {next.act && <span className={`pill role-${next.act === 'merchandiser' ? 'production' : next.act}`}>{RTW_ACTOR_LABEL[next.act]}</span>}
-        {!at(next.key) && <button type="button" className="cta" onClick={() => panel(next.key)}>go there →</button>}
+        {!at(next.key) && isMine(next.key) && <button type="button" className="cta" onClick={() => panel(next.key)}>go there →</button>}
       </> : <><span className="rtw-next-k">Done</span><span className="rtw-next-v">launched {fmtDate(launch?.launchedOn)}</span></>}
     </div>
 
@@ -68,6 +81,11 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         {RTW_PHASES.map(ph => <div key={ph.key} className="rtw-phase">
           <div className="cap">{ph.label}</div>
           {journey.map((x, i) => x.phase === ph.key && (() => { const done = !!x.on; const now = i === current;
+            if (!isMine(x.key)) return <div key={x.key} className={`rtw-step flat${done ? ' done' : now ? ' now' : ''}`} title={x.who}>
+              <span className="cl-box" aria-hidden>{done ? '✓' : i + 1}</span>
+              <span className="rtw-step-main"><span className="rtw-step-label">{x.label}</span>
+                <span className="rtw-step-sub">{done ? `${fmtDate(x.on!)}${x.by ? ` · ${x.by}` : ''}` : now ? (x.now ?? 'now') : x.who}</span></span>
+            </div>;
             return <button type="button" key={x.key} onClick={() => panel(x.key)} aria-current={at(x.key) ? 'step' : undefined} className={`rtw-step${done ? ' done' : now ? ' now' : ''}`} title={x.who}>
               <span className="cl-box" aria-hidden>{done ? '✓' : i + 1}</span>
               <span className="rtw-step-main"><span className="rtw-step-label">{x.label}</span>
@@ -140,7 +158,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         : merchant && !design && !prod ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" />}
     </Section>}
 
-    {at('sample') && (o.poNo ? <SampleSection o={o} editable={prod || merchant} /> : <Section title="Sample" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>The factory samples the bulk cloth once the PO is raised and the cloth has landed.</div></Section>)}
+    {at('sample') && (o.poNo ? <SampleSection o={o} editable={prod || merchant} open /> : <Section title="Sample" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>The factory samples the bulk cloth once the PO is raised and the cloth has landed.</div></Section>)}
 
     {at('tna') && <Section title="Made · the TNA" collapsible={false} right={<Pill tone={o.status === 'Closed' ? 'neutral' : r.risk === 'on-track' ? 'good' : r.risk === 'delayed' || r.risk === 'critical' ? 'risk' : 'warn'}>{o.poNo ? (o.status === 'Closed' ? 'delivered' : `${st.stage}${r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : ''}`) : 'after the PO'}</Pill>}>
       {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>The milestones are generated from the PO date. Nitin and the factory merchant log each step as it happens.</div>
@@ -151,7 +169,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         </>}
     </Section>}
 
-    {at('received') && (o.poNo ? <ReceiptLots o={o} editable={wh} /> : <Section title="Received at BSC" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>The warehouse counts the goods in by size when the factory dispatches.</div></Section>)}
+    {at('received') && (o.poNo ? <ReceiptLots o={o} editable={wh} open /> : <Section title="Received at BSC" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>The warehouse counts the goods in by size when the factory dispatches.</div></Section>)}
 
     {at('launch') && <Section title="Launch" collapsible={false} right={<Pill tone={launch?.launchedOn ? 'good' : launch ? 'info' : 'neutral'}>{launch?.launchedOn ? `launched ${fmtDate(launch.launchedOn)}` : launch ? `${launch.dropMonth} drop` : 'not in a drop yet'}</Pill>}>
       {launch ? <>

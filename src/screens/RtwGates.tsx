@@ -14,7 +14,7 @@ import { Section, Pill, Button, Input, Select, Field, KV, Note } from '../ui';
 import { VendorLink } from './Vendors';
 import { ActsBy, OwnerPill } from './Who';
 
-export function SampleSection({ o, editable }: { o: ProductionOrder; editable: boolean }) {
+export function SampleSection({ o, editable, open }: { o: ProductionOrder; editable: boolean; open?: boolean }) {
   const { submitSample, reviewSample } = useApp();
   const s = sampleStatusOf(o);
   const [draft, setDraft] = useState<SampleRound['comments']>([]);
@@ -22,7 +22,7 @@ export function SampleSection({ o, editable }: { o: ProductionOrder; editable: b
   const postPo = o.status === 'Open' || o.status === 'Closed';
   const tone = s.state === 'approved' ? 'good' : s.state === 'resubmit' ? 'risk' : s.state === 'with production unit' ? 'warn' : 'neutral';
   return (
-    <Section title="Sample approval · PP go-ahead" right={<div className="flex gap-2 items-center"><Pill tone={tone}>{s.state}</Pill><OwnerPill editable={editable} owner="Production unit" /></div>}>
+    <Section title="Sample approval · PP go-ahead" defaultOpen={open} right={<div className="flex gap-2 items-center"><Pill tone={tone}>{s.state}</Pill><OwnerPill editable={editable} owner="Production unit" /></div>}>
       <KV k="Sample from" v={o.vendorId ? <VendorLink id={o.vendorId} /> : 'the bulk factory, once allocated'} note="as the tracker has it: PPS Submission follows the PO — the bulk factory makes the PP sample from the tech pack and job card; the production unit approves it" />
       {!postPo && <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Starts after the PO is raised.</div>}
       {postPo && s.rounds.length === 0 && <div className="py-2 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>No sample has reached the production unit yet.</div>}
@@ -102,7 +102,7 @@ export function QcSection({ o, editable }: { o: ProductionOrder; editable: boole
 }
 
 /* ---------- receipt in lots — 300 of 500 today, the balance later ------------------ */
-export function ReceiptLots({ o, editable }: { o: ProductionOrder; editable: boolean }) {
+export function ReceiptLots({ o, editable, open }: { o: ProductionOrder; editable: boolean; open?: boolean }) {
   const { receiveLot } = useApp();
   const rc = receiptOf(o);
   const [cut, setCut] = useState(String(o.cutQty ?? o.orderQty));
@@ -127,7 +127,7 @@ export function ReceiptLots({ o, editable }: { o: ProductionOrder; editable: boo
   const dispatched = o.milestones.find(m => m.key === 'Dispatch')?.actual;
   const otif = otifOf(o);
   return (
-    <Section title={rc.lots.length ? `Receipt · ${rc.received} of ${rc.base} in${rc.partial ? ` · balance ${rc.balance}` : ''}` : 'Receipt'} right={<div className="flex gap-2 items-center">{rc.partial && <Pill tone="warn">partially received</Pill>}{o.status === 'Closed' && <Pill tone={otif === 'OTIF' ? 'good' : 'risk'}>{otif}</Pill>}<OwnerPill editable={editable} owner="Warehouse" /></div>}>
+    <Section title={rc.lots.length ? `Receipt · ${rc.received} of ${rc.base} in${rc.partial ? ` · balance ${rc.balance}` : ''}` : 'Receipt'} defaultOpen={open} right={<div className="flex gap-2 items-center">{rc.partial && <Pill tone="warn">partially received</Pill>}{o.status === 'Closed' && <Pill tone={otif === 'OTIF' ? 'good' : 'risk'}>{otif}</Pill>}<OwnerPill editable={editable} owner="Warehouse" /></div>}>
       {!editable && <ActsBy role="warehouse" does="counts each lot in; the PO closes when the balance lands or is closed short" />}
       {rc.lots.length > 0 && <div className="pb-1">{rc.lots.map((l, i) => <KV key={i} k={`Lot ${i + 1} · ${fmtDate(l.at)} · ${l.by}`} v={<span>{l.qty} received{l.rejected ? ` · ${l.rejected} rejected` : ''}{l.bySize ? <div className="text-[11px] mono" style={{ color:'var(--ink-faint)' }}>{Object.entries(l.bySize).filter(([, n]) => n).map(([sz, n]) => `${sz}:${n}`).join(' ')}</div> : null}</span>} note={[l.note, l.balanceExpectedOn ? `balance promised by ${fmtDate(l.balanceExpectedOn)}` : ''].filter(Boolean).join(' · ') || undefined} />)}
         <KV k="Cut · received · rejected · balance" v={`${rc.base} · ${rc.received} · ${rc.rejected} · ${rc.balance}`} note="computed from the lots, not typed" />

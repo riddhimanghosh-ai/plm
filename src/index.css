@@ -497,6 +497,9 @@ h1::after { background: var(--accent); }
 .rtw-step-sub { font-size: 11px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 1px; }
 .rtw-step.now .rtw-step-sub { color: var(--accent); font-weight: 600; }
 .rtw-step:hover { background: var(--surface-2); }
+.rtw-step.flat { cursor: default; padding-top: 4px; padding-bottom: 4px; opacity: .8; }
+.rtw-step.flat:hover { background: transparent; }
+.rtw-step.flat .rtw-step-label { font-weight: 500; font-size: 12px; }
 .rtw-step[aria-current] { border-color: var(--ink); background: var(--surface); }
 .rtw-step.now[aria-current] { border-color: var(--accent); background: var(--accent-soft); }
 .rtw-panel { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
