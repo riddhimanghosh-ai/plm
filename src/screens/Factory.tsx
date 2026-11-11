@@ -398,6 +398,7 @@ function IncomingTab({ rows, onOpen }: { rows: ProductionOrder[]; onOpen: (id: s
         const clothTone = fs?.receipt ? (fab.short > 0 ? 'risk' : 'good') : fs?.sentToFactoryOn ? 'warn' : 'neutral';
         const status = fs?.receipt && trimsIn === trims.length && !fab.short && !trimsShort ? { t:'good' as const, l:'all in' } : (fab.short > 0 || trimsShort > 0) ? { t:'risk' as const, l:'short' } : fs?.sentToFactoryOn && !fs.receipt ? { t:'warn' as const, l:'cloth on the way' } : trimsIn > 0 || fs?.receipt ? { t:'info' as const, l:'partly in' } : { t:'neutral' as const, l:'nothing yet' };
         const next = fab.cr && !fab.cr.given ? { who:'design', what: fab.cr.kind === 'cut-short' ? 'design to approve cutting fewer' : 'design to give new sizes' }
+          : fab.cr?.given && !fab.cr.sentToFactoryOn ? { who:'production', what:'Nitin to send the new sizes' }
           : fs?.sentToFactoryOn && !fs.receipt ? { who:'us', what:'count the cloth in' }
           : trimsIn < trims.length && (fs?.receipt || trimsIn > 0) ? { who:'us', what: `count ${trims.length - trimsIn} trim${trims.length - trimsIn > 1 ? 's' : ''} in` }
           : (fab.short > 0 || trimsShort > 0) ? { who:'us', what:'tell design it is short' }

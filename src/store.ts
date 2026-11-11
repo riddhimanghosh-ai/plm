@@ -122,6 +122,8 @@ export interface AppState {
   askCutRatio(orderId: string, reason: string, kind?: 'ratio' | 'cut-short', proposedBreakup?: { size: string; qty: number }[] | null): void;
   giveCutRatio(orderId: string, breakup: { size: string; qty: number }[]): void;
   sendCutRatio(orderId: string): void;
+  /* design changes a ratio it already gave; if production had sent it, it goes again */
+  reviseCutRatio(orderId: string, breakup: { size: string; qty: number }[]): void;
   convertBlock(blockId: string): void;
   releaseBlock(blockId: string): void;
   setFabricHold(fabricId: string, hold: boolean): void;
@@ -792,6 +794,13 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         if (cr.askedByRole === 'merchandiser') cr.sentToFactoryOn = now();
         log(o, `${cr.kind === 'cut-short' ? 'Cut-short' : 'Cut ratio'} ${cr.proposedBreakup && JSON.stringify(cr.proposedBreakup) === JSON.stringify(breakup) ? 'approved' : 'given'} by design · ${o.cutQty} pcs · ${breakup.filter(x => x.qty).map(x => `${x.size}:${x.qty}`).join(' ')}`); },
         'New cut ratio on the order.' + (get().db.orders.find(x => x.id === orderId)?.cutRatios?.slice(-1)[0]?.askedByRole === 'merchandiser' ? ' The factory raised it, so it already has it.' : ' Production sends it to the factory.'));
+    },
+    reviseCutRatio(orderId, breakup) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); const cr = [...(o?.cutRatios ?? [])].reverse().find(x => x.given); if (!o || !cr || !cr.given) return;
+        cr.given = { on: now(), by: who(), breakup }; o.sizeBreakup = breakup.map(x => ({ ...x })); o.cutQty = breakup.reduce((a, x) => a + x.qty, 0);
+        cr.sentToFactoryOn = cr.askedByRole === 'merchandiser' ? now() : null;
+        log(o, `Cut ratio changed by design · ${o.cutQty} pcs · ${breakup.filter(x => x.qty).map(x => `${x.size}:${x.qty}`).join(' ')}`); },
+        'Cut ratio changed.' + (get().db.orders.find(x => x.id === orderId)?.cutRatios?.slice(-1)[0]?.askedByRole === 'merchandiser' ? ' The factory sees it at once.' : ' Production sends it to the factory again.'));
     },
     sendCutRatio(orderId) { touch(db => { const o = db.orders.find(x => x.id === orderId); const cr = [...(o?.cutRatios ?? [])].reverse().find(x => x.given && !x.sentToFactoryOn); if (!o || !cr) return; cr.sentToFactoryOn = now(); log(o, 'Cut ratio sent to the factory'); }, 'The factory has the new ratio.'); },
     allocateFactory(orderId, factoryId, rationale) {
