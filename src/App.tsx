@@ -32,7 +32,7 @@ import { Analyse } from './screens/Analyse';
 import { Sheet } from './screens/Sheet';
 import { Fabrics, FabricPage } from './screens/Fabrics';
 import { PrepDesk } from './screens/Preprod';
-import { MTM_ONLY, OPTIONS_OFF } from './domain/edition';
+import { MTM_ONLY, RTW_ONLY, OPTIONS_OFF } from './domain/edition';
 
 /* No Today screen: each role lands on the first screen it works in. */
 function Landing() {
@@ -51,15 +51,15 @@ export default function App() {
           <Route path="/sourcing" element={<Sourcing />} />
           <Route path="/tracker" element={MTM_ONLY ? <Navigate to="/" replace /> : <Tracker />} />
           <Route path="/factory" element={<Factory />} />
-          <Route path="/mtm" element={<Mtm />} />
-          <Route path="/cad" element={<PrepDesk key="cad" step="cad" />} />
-          <Route path="/cutting" element={<PrepDesk key="cutting" step="cutting" />} />
-          <Route path="/fusing" element={<PrepDesk key="fusing" step="fusing" />} />
-          <Route path="/compiling" element={<PrepDesk key="compiling" step="compiling" />} />
+          <Route path="/mtm" element={RTW_ONLY ? <Navigate to="/" replace /> : <Mtm />} />
+          <Route path="/cad" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="cad" step="cad" />} />
+          <Route path="/cutting" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="cutting" step="cutting" />} />
+          <Route path="/fusing" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="fusing" step="fusing" />} />
+          <Route path="/compiling" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="compiling" step="compiling" />} />
           <Route path="/outbound" element={<OutboundPage />} />
           <Route path="/otif" element={MTM_ONLY ? <Navigate to="/" replace /> : <Otif />} />
           <Route path="/warehouse" element={MTM_ONLY ? <Navigate to="/" replace /> : <Warehouse />} />
-          <Route path="/stores" element={<Stores />} />
+          <Route path="/stores" element={RTW_ONLY ? <Navigate to="/" replace /> : <Stores />} />
           <Route path="/health" element={MTM_ONLY ? <Navigate to="/" replace /> : <Health />} />
           <Route path="/planning" element={MTM_ONLY ? <Navigate to="/" replace /> : <Planning />} />
           <Route path="/analyse" element={MTM_ONLY ? <Navigate to="/" replace /> : <Analyse />} />
@@ -68,9 +68,9 @@ export default function App() {
           <Route path="/insights" element={MTM_ONLY ? <Navigate to="/" replace /> : <Insights />} />
           <Route path="/grn" element={MTM_ONLY ? <Navigate to="/" replace /> : <GrnPage />} />
           <Route path="/concepts" element={<ToDesign kind="MTM" form="mtm" />} />
-          <Route path="/swatches" element={<Swatches />} />
+          <Route path="/swatches" element={RTW_ONLY ? <Navigate to="/" replace /> : <Swatches />} />
           <Route path="/design" element={<DesignHome />} />
-          <Route path="/fabrics" element={<Fabrics />} />
+          <Route path="/fabrics" element={RTW_ONLY ? <Navigate to="/" replace /> : <Fabrics />} />
           <Route path="/fabric/:id" element={<FabricPage />} />
           <Route path="/designs" element={<Navigate to="/fabrics?tab=designs" replace />} />
           <Route path="/vendors" element={<VendorsPage only="factories" />} />

@@ -6,7 +6,7 @@
 
 import type { ReturnCase, ResolutionStep, Concept, BomLine, Costing, CustomerOrder, Db, Fabric, FabricQuote, Launch, LaunchPiece, MaterialLine, OrderTag, TrimItem, GarmentCategory, Milestone, ProductionOrder, RoleId, RtwAction, RtwOption, ThreadKind, Vendor, SourcingMode , TrackerConfig, PlanningReview, PlanningKind, PrepStep } from './types';
 import { mainSizesOf, HEALTH_MIN_SIZE_PCT, HEALTH_MIN_COVER_WEEKS, LOW_STOCK_WEEKS, FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, MILESTONES, MILESTONE_OWNER, OFFSETS, OTIF_TOLERANCE, PRE_PRODUCTION, RISK, MID_SIZES, VELOCITY, WOF_CLEAR, WOF_EXIT, WOF_URGENT, STORE_LOW_METRES, GROWTH_UPLIFT, METRES_PER_SHIRT, RTW_REORDER_TRIGGER_DAYS, RTW_MOQ, STORES, SHEET_FREE_EDIT, SHEET_STORE_EDIT, SHEET_AMEND, REALLOCATING_FIELDS, BOOK_EDITION, BOOK_CONFIRM_DAYS, SWATCH_KINDS, MARKETING_LEAD_DAYS, DISPLAY_PLAN, isBottoms, PP_FREEZE_HOURS, PIECES_PER_TAILOR_DAY, AGING_DAYS, CORPORATE_FACTORY, URGENT_FACTORY, COSTING_DEFAULTS, DISCOUNT_BAU, DISCOUNT_ADDITIONAL, gstFor, PACKAGING_BOM, TRIM_CARD, CONSUMPTION_DEFAULT, HEMMED, PEOPLE, ROLE_LABEL } from './reference';
-import { MTM_ONLY, isRtwHref, OPTIONS_OFF } from './edition';
+import { MTM_ONLY, RTW_ONLY, isRtwHref, isMtmHref, OPTIONS_OFF } from './edition';
 
 export const TODAY = new Date('2026-09-12T09:00:00+05:30');
 export const iso = (d: Date) => d.toISOString();
@@ -717,7 +717,7 @@ export function mentionsFor(db: Db, personId: string, role: RoleId, viewerRole: 
     out.push({ threadId: t.id, commentId: c.id, kind: t.kind, subjectId: t.subjectId, at: c.at, who: c.who, role: c.role, text: c.text, step: c.step,
       label, href, resolved: (c.resolved ?? []).find(r => r.by === personId) ?? null });
   }));
-  return out.filter(m => !MTM_ONLY || !isRtwHref(m.href)).sort((a, b) => b.at.localeCompare(a.at));
+  return out.filter(m => (!MTM_ONLY || !isRtwHref(m.href)) && (!RTW_ONLY || !isMtmHref(m.href))).sort((a, b) => b.at.localeCompare(a.at));
 }
 
 /* ---------- RTW customer orders — fulfilled by the unit or the store shelf ---- */
@@ -1403,7 +1403,7 @@ export function alertsFor(db: Db, role: RoleId, opts?: { storeId?: string; all?:
   /* design and planning work from the one Requirements screen — their alerts
      land there, with the record opened in place; other teams keep their lists */
   out.forEach(a => { if (a.role === 'design' || a.role === 'planning') a.href = a.href.replace(/^#\/(concepts|requirements|requests)\?open=/, '#/design?open='); });
-  return out.filter(a => !MTM_ONLY || !isRtwHref(a.href)).sort((a, b) => b.weight - a.weight);
+  return out.filter(a => (!MTM_ONLY || !isRtwHref(a.href)) && (!RTW_ONLY || !isMtmHref(a.href))).sort((a, b) => b.weight - a.weight);
 }
 
 /* ---------- what the stores are asking each other for ----------------------

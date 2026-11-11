@@ -25,7 +25,7 @@ import { fabricStateOf, designFlowOf, conceptOf, openFabricPos, samplingGateOf, 
 import { StepFlow } from './Flow';
 import type { Concept, OptionRequest } from '../domain/types';
 import { FabricRequirement } from './FabricRequirement';
-import { MTM_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
+import { MTM_ONLY, RTW_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
 
 export function Sourcing() {
   const { db, role } = useApp();
@@ -68,7 +68,7 @@ export function Sourcing() {
   const ex = useExamples(filtered, o => rowState(o).key, { noun:'styles', done: o => rowState(o).key === 'received' });
   const pager = usePager(ex.rows, 20);
   const TONE: Record<string, Tone> = { neutral:'neutral', info:'info', warn:'warn', risk:'risk', good:'good', accent:'accent' };
-  const side = MTM_ONLY ? 'mtm' : ((params.get('side') as 'mtm' | 'rtw' | null) ?? 'rtw');
+  const side = MTM_ONLY ? 'mtm' : RTW_ONLY ? 'rtw' : ((params.get('side') as 'mtm' | 'rtw' | null) ?? 'rtw');
   const setSide = (k: string) => { const n = new URLSearchParams(params); n.set('side', k); n.delete('open'); setParams(n, { replace:true }); };
   /* one short phrase per state — the long sentence lives on the record */
   const shortLabel = (key: string, label: string) => ({ 'add-vendor':'put a vendor', 'with-design':'with design · push the PO', extension:'extend the hold', 'wait-factory':'fabric PO raised · waiting for the factory PO', bought:'send it to the factory', sent:'at the factory · being counted', received:'received at the factory', short:'short at the factory', 'ratio-asked':'short · design deciding the cut', 'ratio-given':'short · new ratio given' } as Record<string, string>)[key] ?? label;
@@ -77,7 +77,7 @@ export function Sourcing() {
   return (
     <Page title="Fabric sourcing" lede="Sourcing's desk: new MTM fabrics to find a mill for, and the cloth to buy and send for every RTW purchase order."
       replaces="five vendor emails a morning, a price remembered from last season, a WhatsApp to design asking 'which one?'">
-      {!MTM_ONLY && <div className="mb-3"><Seg value={side} onChange={setSide} options={[
+      {!MTM_ONLY && !RTW_ONLY && <div className="mb-3"><Seg value={side} onChange={setSide} options={[
         { id:'mtm', label:'MTM · new fabrics for the books', count: mtmRows.filter(r => r.mine).length },
         { id:'rtw', label:'RTW · cloth for bulk styles', count: sorted.filter(o => rowState(o).owner === 'sourcing').length },
       ]} /></div>}

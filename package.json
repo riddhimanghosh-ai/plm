@@ -8,8 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "dev:rtw": "VITE_EDITION=rtw vite --port 5177 --strictPort",
     "dev:mtm": "VITE_EDITION=mtm vite --port 5176",
-    "build:mtm": "VITE_EDITION=mtm tsc -b && VITE_EDITION=mtm vite build"
+    "build:mtm": "VITE_EDITION=mtm tsc -b && VITE_EDITION=mtm vite build",
+    "build:rtw": "VITE_EDITION=rtw tsc -b && VITE_EDITION=rtw vite build"
   },
   "dependencies": {
     "react": "^19.2.8",

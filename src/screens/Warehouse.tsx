@@ -15,7 +15,7 @@ import { outboundOf } from '../domain/engines';
 import { Page, Card, Pill, Input, Button, Drawer, KV, Section, Note, Tabs, Empty, useExamples } from '../ui';
 import { ActsBy, OwnerPill } from './Who';
 import { UnitAlterations } from './HemTrip';
-import { MTM_ONLY } from '../domain/edition';
+import { MTM_ONLY, RTW_ONLY } from '../domain/edition';
 import { PoReceiving } from './PoReceiving';
 
 export function Warehouse() {
@@ -194,7 +194,7 @@ const WH_TABS: { id: string; label: string; title: string; line: string; cta: st
   { id:'alterations', label:'Alterations', title:'Alterations via the hemming unit', line:'Pieces from the stores on their way to the hemming unit and back.', cta:'Open' },
   { id:'grn', label:'GRN register', title:'Goods received notes', line:'Every receipt, with the PO it was received against, for finance.', cta:'Open' },
 ];
-const whTabs = () => WH_TABS.filter(t => !(MTM_ONLY && t.rtw));
+const whTabs = () => WH_TABS.filter(t => !(MTM_ONLY && t.rtw) && !(RTW_ONLY && !t.rtw && !['grn', 'transfers', 'outbound'].includes(t.id)));
 function WarehouseNav({ tab, onTab, counts }: { tab: string; onTab: (t: string) => void; counts: Record<string, number> }) {
   return <div className="mb-3"><Tabs tabs={[{ id:'today', label:'Today' }, ...whTabs().map(t => ({ id:t.id, label:t.label, hint:t.title, count: counts[t.id] || undefined }))]} active={tab} onChange={onTab} wrap /></div>;
 }

@@ -17,7 +17,7 @@ import { ConceptDetail, NewConcept } from './Concepts';
 import { RequirementDetail, NewRequirement } from './Requirements';
 import { RequestDetail, NewRequest } from './OptionRequests';
 import type { SourcingMode } from '../domain/types';
-import { MTM_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
+import { MTM_ONLY, RTW_ONLY, catLabel, OPTIONS_OFF } from '../domain/edition';
 
 type Kind = 'MTM' | 'RTW' | 'FOB' | 'Options';
 type Stage = 1 | 2 | 3 | 4 | 5;   // 5 = live / done
@@ -58,7 +58,7 @@ export function DesignHome() {
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
     /* MTM concepts — one fabric each; a request's bought cloth is a concept too, listed under its request */
-    (db.concepts ?? []).filter(c => c.kind === 'new-fabric' && !/^cn-req-/.test(c.id)).forEach((c: Concept) => {
+    (db.concepts ?? []).filter(c => !RTW_ONLY && c.kind === 'new-fabric' && !/^cn-req-/.test(c.id)).forEach((c: Concept) => {
       const f = designFlowOf(db, { kind:'concept', c }); const s = conceptOf(db, c);
       /* 3 = finalised and ordered, cloth not yet in; 4 = cloth in, operations executing */
       /* MTM edition: the stage is the step design is on — the five steps of the flow, in order */
@@ -137,7 +137,7 @@ export function DesignHome() {
           { id:'all', label:'All', count: base.length },
           ...([1, 2, 3, 4, 5] as Stage[]).filter(s => STAGE_LABEL[s]).map(s => ({ id: String(s), label: STAGE_LABEL[s], count: count(r => r.stage === s), hint: STAGE_HINT[s] })),
         ]} />
-        {!MTM_ONLY && <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[{ id:'all', label:'Every kind' }, { id:'MTM', label:'MTM fabric', count: count(r => r.kind === 'MTM') }, ...(MTM_ONLY ? [] : [{ id:'RTW', label:'RTW style', count: count(r => r.kind === 'RTW') }]), ...(OPTIONS_OFF ? [] : [{ id:'Options', label:'Several options', count: count(r => r.kind === 'Options') }])]} />}
+        {!MTM_ONLY && !RTW_ONLY && <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[{ id:'all', label:'Every kind' }, { id:'MTM', label:'MTM fabric', count: count(r => r.kind === 'MTM') }, ...(MTM_ONLY ? [] : [{ id:'RTW', label:'RTW style', count: count(r => r.kind === 'RTW') }]), ...(OPTIONS_OFF ? [] : [{ id:'Options', label:'Several options', count: count(r => r.kind === 'Options') }])]} />}
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search requirement, fabric, style…" style={{ width: 240 }} aria-label="search requirements" />
         <span className="text-[12px] ml-auto" style={{ color:'var(--ink-faint)' }}>{showAll
           ? <>{rows.length} requirements · <button type="button" className="vlink" onClick={() => set('all', null)}>show the {examples.length} examples</button></>
