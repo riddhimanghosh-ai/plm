@@ -42,8 +42,8 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   { path:'/fusing',       label:'Fusing desk',                hint:'fuse collar, cuff and placket interlining',     group:'Production · MTM', roles:['owner','production','warehouse','fusing'] },
   { path:'/compiling',    label:'Compiling desk',             hint:'check the bundle, approve contrast fabric',     group:'Production · MTM', roles:['owner','production','warehouse','compiling'] },
   { path:'/tracker',      label:'RTW production tracker',     hint:'every bulk PO, date by date',                    group:'Production · RTW', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
-  { path:'/outbound',     label:'RTW materials to factories', hint:'RTW materials to issue against a PO',    group:'Production · RTW', roles:['owner','production','warehouse'] , hideFor:['production','warehouse']},
-  { path:'/otif',         label:'RTW production analytics',   hint:'OTIF, daily monitor, escalations, merchandiser alerts — read off the tracker', group:'Production · RTW', roles:['owner','production','planning'] },
+  /* Production · RTW in PLM is the tracker alone; analytics read off it sit with planning, and materials go from sourcing straight to the factory */
+  { path:'/otif',         label:'RTW production analytics',   hint:'OTIF, daily monitor, escalations, merchandiser alerts — read off the tracker', group:'Planning', roles:['owner','planning'] },
   { path:'/factory',      label:'My factory · merchandiser',   hint:"the floor's own day: output, pieces, cloth",     group:'Merchandiser', roles:['owner','merchandiser','production'] , hideFor:['production']},
 
   /* moving */

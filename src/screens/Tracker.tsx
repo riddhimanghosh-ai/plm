@@ -85,9 +85,8 @@ export function Tracker() {
     <Page title="RTW production tracker" lede="Every RTW style from the day design requests it to the day it launches: one table, filtered by where it has got to."
       replaces="Production Tracker Final V2.xlsx — 128 columns opened by six teams, plus the Daily Monitor and Alert Dashboard tabs beside it"
       actions={<div className="flex gap-3 items-center text-[12.5px]">
-        <button className="vlink" onClick={() => set('tab', tab === 'orders' ? null : 'orders')}>{tab === 'orders' ? '← the tracker' : `Customer orders · ${hubOrders(db).length}`}</button>
         <button className="vlink" onClick={() => set('tab', tab === 'settings' ? null : 'settings')}>{tab === 'settings' ? '← the tracker' : 'Lead times & risk'}</button>
-        {tab !== 'orders' && tab !== 'settings' && <button className="vlink" onClick={() => set('view', view === 'sheet' ? null : 'sheet')}>{view === 'sheet' ? 'Summary' : 'As the sheet'}</button>}
+        {tab !== 'settings' && <button className="vlink" onClick={() => set('view', view === 'sheet' ? null : 'sheet')}>{view === 'sheet' ? 'Summary' : 'As the sheet'}</button>}
         <ExportButton filename="rtw-production-tracker" rows={rows} cols={[
           { label:'PO', get: (x: typeof rows[number]) => x.o.poNo ?? '' },
           { label:'Style', get: x => x.o.styleName },
@@ -102,7 +101,7 @@ export function Tracker() {
         ]} />
       </div>}>
 
-      {tab === 'settings' ? <TrackerSettings /> : tab === 'orders' ? <HubOrdersTab /> : <>
+      {tab === 'settings' ? <TrackerSettings /> : <>
         <Card className="mb-3"><div className="px-3 py-2.5 flex flex-col gap-2">
           <Seg value={status} onChange={setStatus} options={[{ id:'all', label:'All', count: inTab.length }, ...RTW_STATUSES.map(s => ({ id: s.key, label: s.label, count: nStatus(s.key), hint: s.hint }))]} />
           <div className="flex items-center gap-2 flex-wrap">

@@ -9,7 +9,7 @@ export const MTM_ONLY = import.meta.env.VITE_EDITION === 'mtm';
 export const RTW_ONLY = import.meta.env.VITE_EDITION === 'rtw';
 export const EDITION_LABEL = MTM_ONLY ? 'MTM' : RTW_ONLY ? 'RTW' : null;
 /* screens that do not exist in the RTW edition */
-export const MTM_PATHS = ['/swatches', '/fabrics', '/designs', '/mtm', '/cad', '/cutting', '/fusing', '/compiling', '/stores'];
+export const MTM_PATHS = ['/swatches', '/fabrics', '/designs', '/vendors', '/mtm', '/cad', '/cutting', '/fusing', '/compiling', '/stores'];
 /* an alert or search hit that points at an MTM screen or record is dropped in the RTW edition */
 export const isMtmHref = (h: string | undefined | null) => !!h && (MTM_PATHS.some(p => h.startsWith(`#${p}`)) || h.includes('side=mtm') || /open=(cn|c|req|cust|co)-/.test(h));
 /* is this path shown in the current edition */
