@@ -1470,11 +1470,14 @@ orders.forEach((o, i) => {
     const sent = o.activity?.find(a => /^Sent to production/i.test(a.what))?.at ?? o.styleHandover;
     const d = (n: number) => iso(addDays(sent, n));
     o.sampleCycle = i % 3 === 0
-      ? { rounds: [{ n: 1, kind: 'prototype', sentOn: d(0), dueOn: d(6), sampledOn: d(7), trialOn: d(8), outcome: 'remarks', remarks: 'collar stand 2 mm higher; placket to match the swatch', cadUpdatedOn: d(9) },
+      ? { rounds: [{ n: 1, kind: 'prototype', sentOn: d(0), dueOn: d(6), sampledOn: d(7), trialOn: d(8), outcome: 'approved', remarks: null, cadUpdatedOn: null },
+                   { n: 1, kind: 'sample', sentOn: d(8), dueOn: d(12), sampledOn: d(13), trialOn: d(13), outcome: 'remarks', remarks: 'collar stand 2 mm higher; placket to match the swatch', cadUpdatedOn: d(14) },
                    { n: 2, kind: 'sample', sentOn: d(10), dueOn: d(16), sampledOn: null, trialOn: null, outcome: null, remarks: null, cadUpdatedOn: null }], approvedOn: null }
       : i % 3 === 1
       ? { rounds: [{ n: 1, kind: 'prototype', sentOn: d(0), dueOn: d(5), sampledOn: d(6), trialOn: null, outcome: null, remarks: null, cadUpdatedOn: null }], approvedOn: null }
-      : { rounds: [{ n: 1, kind: 'prototype', sentOn: d(0), dueOn: d(6), sampledOn: d(6), trialOn: d(7), outcome: 'approved', remarks: null, cadUpdatedOn: null }], approvedOn: d(7), approvedBy: 'Kunal' };
+      : { rounds: [{ n: 1, kind: 'prototype', sentOn: d(0), dueOn: d(6), sampledOn: d(6), trialOn: d(7), outcome: 'approved', remarks: null, cadUpdatedOn: null },
+                   { n: 1, kind: 'sample', sentOn: d(7), dueOn: d(12), sampledOn: d(12), trialOn: d(13), outcome: 'approved', remarks: null, cadUpdatedOn: null },
+                   { n: 1, kind: 'trial', sentOn: d(13), dueOn: d(15), sampledOn: d(15), trialOn: d(16), outcome: 'approved', remarks: null, cadUpdatedOn: null }], approvedOn: d(16), approvedBy: 'Kunal' };
   }
   if (o.status === 'Open' && o.poNo) { o.poAckOn = o.poAckOn ?? o.poDate; if (i % 4 === 0) o.poCosts = { logistics: 6000 + (i % 5) * 1500, other: i % 8 === 0 ? [{ label: 'Testing', amount: 2500 }] : [] }; }
 });

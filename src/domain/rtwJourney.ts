@@ -17,7 +17,7 @@ export const SOURCE_LABEL = { design: 'Design ask', planning: 'Planning reorder'
 export const RTW_INTRO: Record<string, string> = {
   raised: 'Where the ask came from (a design ask, a planning reorder or an Enigma auto-PO) and what it asks for: the style, how many, by when, at what cost.',
   design: 'Design works the style up: the cloth brief, the BOM, the CAD. One click sends it to the factory for sampling.',
-  sample: 'Rounds with the factory until the sample is right: sent with a due date, sample back, trial. Remarks mean design updates the CAD and the design and sends it again.',
+  sample: 'A checklist of three stages: prototype, sampling cycle, trial cycle. Each goes to the factory with a due date and comes back to be approved or given remarks; remarks mean design updates the CAD and the design and sends it again. A stage the style does not need is marked not needed.',
   factory: 'The bulk order: quantity and size-wise quantity. Nitin proposes the factory, design accepts and raises the PO with the piece cost, logistics and other costs. The factory acknowledges it. Sourcing is shopping the cloth at the same time.',
   cloth: 'Sourcing shops the cloth and trims from the day the sample is approved, beside the bulk order; design uploads the tech pack; the factory counts everything in and approves it. Short cloth comes back to design, whose new cut ratio the factory sees at once.',
   tna: 'Every milestone from fabric PO to finishing. The factory logs its own dates; late steps show in red.',
@@ -41,10 +41,13 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
   const late = r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : '';
   const sc = o.sampleCycle; const openRound = sc?.rounds.find(x => !x.outcome) ?? null; const lastRound = sc?.rounds[sc.rounds.length - 1] ?? null;
   const sampleOn = sc ? sc.approvedOn : (sent ? (proto.approved?.reviewedOn ?? o.proto?.skipped?.on ?? sample.ppGoAhead ?? (o.poDate ?? null)) : null);
+  const STAGE_LBL = { prototype: 'prototype', sample: 'sampling cycle', trial: 'trial cycle' } as const;
+  const skippedSt = new Set(sc?.skipped ?? []);
+  const curStage = (['prototype', 'sample', 'trial'] as const).find(k => !skippedSt.has(k) && !sc?.rounds.some(x => x.kind === k && x.outcome === 'approved')) ?? null;
   const sampleNow = !sent ? 'after it is sent for sampling'
-    : openRound ? (!openRound.sampledOn ? `factory sample due ${openRound.dueOn ? fmtDate(openRound.dueOn) : 'date not set'}` : !openRound.trialOn ? `design to trial round ${openRound.n}` : `design to approve round ${openRound.n} or give remarks`)
-    : lastRound?.outcome === 'remarks' ? (!lastRound.cadUpdatedOn ? 'design to update the CAD and the design' : `design to send round ${lastRound.n + 1}`)
-    : sc ? 'approved' : 'design to send the first round';
+    : openRound ? (!openRound.sampledOn ? `${STAGE_LBL[openRound.kind]} round ${openRound.n} due ${openRound.dueOn ? fmtDate(openRound.dueOn) : 'date not set'}` : `design to approve the ${STAGE_LBL[openRound.kind]} or give remarks`)
+    : lastRound?.outcome === 'remarks' && !lastRound.cadUpdatedOn ? 'design to update the CAD and the design'
+    : sc?.approvedOn ? 'approved' : curStage ? `design to send the ${STAGE_LBL[curStage]}` : 'approved';
   const sampleAct: RtwActor = openRound && !openRound.sampledOn ? 'merchandiser' : 'design';
   const sh = o.shipping; const shipOn = sh?.closedOn ?? (rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : null) ?? (o.status === 'Closed' ? (ms('Inhouse ETA')?.actual ?? dispatched) : null);
   const shipNow = !sh?.awbOn ? 'factory to generate the AWB' : !sh.pickedOn ? 'courier to pick up' : !sh.shippedOn ? 'factory to ship' : !sh.deliveredOn ? 'GRN on Enigma to come' : !sh.closedOn ? 'Nitin to close it' : 'closed';
@@ -82,7 +85,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
   const current = ratioOpen ? steps.findIndex(x => x.key === 'cloth') : steps.findIndex(x => !x.on);
   const next = current >= 0 ? steps[current] : null;
   /* "where it is" for a list: the step name, or the TNA stage while it is being made */
-  const where = ratioOpen ? `cut ratio with design · short ${fab.short} m` : !next ? `launched ${fmtDate(launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? `${st.stage}${late}` : next.key === 'sample' && openRound ? `sample round ${openRound.n}` : next.label;
+  const where = ratioOpen ? `cut ratio with design · short ${fab.short} m` : !next ? `launched ${fmtDate(launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? `${st.stage}${late}` : next.key === 'sample' && openRound ? `${({ prototype: 'prototype', sample: 'sampling', trial: 'trial' } as const)[openRound.kind]} round ${openRound.n}` : next.label;
   return { steps, current, next, where };
 }
 

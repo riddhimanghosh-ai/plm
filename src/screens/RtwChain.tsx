@@ -3,7 +3,7 @@
    the factory's sign-off on everything received, QC, the shipping cycle, and COGS. */
 import { useState } from 'react';
 import { useApp } from '../store';
-import type { ProductionOrder } from '../domain/types';
+import type { ProductionOrder, SampleStage } from '../domain/types';
 import { fmtDate, daysAgo, receiptOf, fmtMoney } from '../domain/engines';
 import { Section, Pill, Button, KV, Field, Input, fromDateInput, dateInput } from '../ui';
 import { VendorLink } from './Vendors';
@@ -12,45 +12,70 @@ import { ActsBy } from './Who';
 const faint = { color: 'var(--ink-faint)' } as const;
 const soft = { color: 'var(--ink-soft)' } as const;
 
-/* ── 1. the sample cycle: rounds with the factory until the sample is right ── */
+/* ── 1. the sample checklist: prototype, sampling cycle, trial cycle — each approved or not, with its dates and remarks ── */
+const STAGES: { key: SampleStage; label: string; hint: string }[] = [
+  { key: 'prototype', label: 'Prototype', hint: 'the first make of the design' },
+  { key: 'sample', label: 'Sampling cycle', hint: 'samples until the make is right' },
+  { key: 'trial', label: 'Trial cycle', hint: 'the fit trial on the body' },
+];
 export function SampleCycleSection({ o, design, factory }: { o: ProductionOrder; design: boolean; factory: boolean }) {
-  const { sendForSampling, logSampleCycle } = useApp();
-  const sc = o.sampleCycle ?? { rounds: [], approvedOn: null };
-  const open = sc.rounds.find(r => !r.outcome) ?? null; const last = sc.rounds[sc.rounds.length - 1] ?? null;
-  const [due, setDue] = useState(''); const [kind, setKind] = useState<'prototype' | 'sample'>(sc.rounds.length ? 'sample' : 'prototype');
-  const [remarks, setRemarks] = useState('');
+  const { sendForSampling, logSampleCycle, skipSampleStage } = useApp();
+  const sc = o.sampleCycle ?? { rounds: [], approvedOn: null, skipped: [] };
+  const skipped = new Set(sc.skipped ?? []);
+  const [due, setDue] = useState(''); const [remarks, setRemarks] = useState('');
   const sent = o.status !== 'Requirement';
-  const canSend = design && sent && !open && !sc.approvedOn && (!last || last.outcome !== 'remarks' || !!last.cadUpdatedOn);
-  const overdue = open && !open.sampledOn && open.dueOn && daysAgo(open.dueOn) > 0;
-  const tone = sc.approvedOn ? 'good' : overdue ? 'risk' : open ? 'warn' : last?.outcome === 'remarks' ? 'warn' : 'neutral';
-  const label = sc.approvedOn ? `approved · round ${last?.n}` : open ? (open.sampledOn ? `round ${open.n} with design` : `round ${open.n} at the factory${open.dueOn ? ` · due ${fmtDate(open.dueOn)}` : ''}${overdue ? ` · ${daysAgo(open.dueOn!)}d late` : ''}`) : last?.outcome === 'remarks' ? (last.cadUpdatedOn ? 'CAD updated · send the next round' : 'remarks · CAD and design to update') : sent ? 'not started' : 'after it is sent';
-  return <Section title="Sample cycle" collapsible={false} right={<Pill tone={tone}>{label}</Pill>}>
-    {!sent && <div className="text-[12.5px] py-1" style={faint}>Starts once design sends the style to the factory for sampling.</div>}
-    {sc.rounds.map(r => <div key={r.n} className="py-2" style={{ borderBottom: '1px solid var(--line-soft)' }}>
-      <div className="flex items-center gap-2 flex-wrap"><span className="font-medium">{r.kind === 'prototype' ? 'Prototype' : 'Sample'} round {r.n}</span>
-        <Pill tone={r.outcome === 'approved' ? 'good' : r.outcome === 'remarks' ? 'warn' : r.sampledOn ? 'info' : 'neutral'}>{r.outcome === 'approved' ? 'approved' : r.outcome === 'remarks' ? 'remarks' : r.trialOn ? 'trialled' : r.sampledOn ? 'back from the factory' : 'at the factory'}</Pill></div>
-      <div className="text-[11.5px] pt-0.5" style={soft}>sent {fmtDate(r.sentOn)}{r.dueOn ? ` · due ${fmtDate(r.dueOn)}` : ''}{r.sampledOn ? ` · back ${fmtDate(r.sampledOn)}` : ''}{r.trialOn ? ` · trial ${fmtDate(r.trialOn)}` : ''}{r.cadUpdatedOn ? ` · CAD and design updated ${fmtDate(r.cadUpdatedOn)}` : ''}</div>
-      {r.remarks && <div className="text-[12px] pt-1" style={{ color: 'var(--warn)' }}>Remarks: {r.remarks}</div>}
-      {!r.outcome && <div className="flex gap-2 pt-2 flex-wrap items-end">
-        {!r.sampledOn && factory && <Button size="sm" variant="primary" onClick={() => logSampleCycle(o.id, { sampledOn: new Date().toISOString() })}>Sample sent back to BSC</Button>}
-        {!r.sampledOn && !factory && <ActsBy role="merchandiser" does={`sends the sample${r.dueOn ? ` by ${fmtDate(r.dueOn)}` : ''}`} />}
-        {!r.sampledOn && design && <Field label="Due on"><Input type="date" value={dateInput(r.dueOn) || ''} onChange={e => logSampleCycle(o.id, { dueOn: fromDateInput(e.target.value) })} /></Field>}
-        {r.sampledOn && !r.trialOn && design && <Button size="sm" onClick={() => logSampleCycle(o.id, { trialOn: new Date().toISOString() })}>Trialled</Button>}
-        {r.sampledOn && design && <>
-          <Button size="sm" variant="primary" onClick={() => logSampleCycle(o.id, { outcome: 'approved', trialOn: r.trialOn ?? new Date().toISOString() })}>Approve · sample is right</Button>
-          <div style={{ flex: '1 1 220px' }}><Field label="Remarks"><Input value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="what to change" /></Field></div>
-          <Button size="sm" variant="ghost" disabled={!remarks.trim()} onClick={() => { logSampleCycle(o.id, { outcome: 'remarks', remarks: remarks.trim(), trialOn: r.trialOn ?? new Date().toISOString() }); setRemarks(''); }}>Give remarks</Button>
-        </>}
-        {r.sampledOn && !design && <ActsBy role="design" does="trials it, then approves or gives remarks" />}
-      </div>}
-      {r.outcome === 'remarks' && !r.cadUpdatedOn && (design ? <div className="pt-2"><Button size="sm" variant="primary" onClick={() => logSampleCycle(o.id, { cadUpdatedOn: new Date().toISOString() })}>CAD and design updated</Button></div> : <ActsBy role="design" does="updates the CAD and the design, then sends the next round" />)}
-    </div>)}
-    {canSend && <div className="flex gap-2 pt-3 flex-wrap items-end">
-      <Field label="Round"><select className="input" value={kind} onChange={e => setKind(e.target.value as 'prototype' | 'sample')}><option value="prototype">Prototype</option><option value="sample">Sample</option></select></Field>
-      <Field label="Factory to give it by"><Input type="date" value={due} onChange={e => setDue(e.target.value)} /></Field>
-      <Button size="sm" variant="primary" onClick={() => { sendForSampling(o.id, kind, fromDateInput(due)); setDue(''); }}>{sc.rounds.length ? `Send round ${sc.rounds.length + 1} to the factory` : 'Send to the factory for sampling'}</Button>
-    </div>}
-    {sc.approvedOn && <div className="pt-2 text-[12.5px]" style={{ color: 'var(--good)' }}>Approved {fmtDate(sc.approvedOn)}{sc.approvedBy ? ` by ${sc.approvedBy}` : ''}. The bulk order and PO come next.</div>}
+  const roundsOf = (k: SampleStage) => sc.rounds.filter(r => r.kind === k);
+  const approvedOf = (k: SampleStage) => roundsOf(k).find(r => r.outcome === 'approved') ?? null;
+  /* the stage being worked: the first one not approved and not marked not needed */
+  const current = STAGES.find(st => !skipped.has(st.key) && !approvedOf(st.key))?.key ?? null;
+  const open = sc.rounds.find(r => !r.outcome) ?? null;
+  const fmt = (d: string | null | undefined) => d ? fmtDate(d) : '—';
+  const done = STAGES.filter(st => skipped.has(st.key) || approvedOf(st.key)).length;
+  return <Section title="Sample checklist" collapsible={false} right={<Pill tone={sc.approvedOn ? 'good' : done ? 'warn' : 'neutral'}>{sc.approvedOn ? `all approved · ${fmtDate(sc.approvedOn)}` : `${done} of ${STAGES.length} done`}</Pill>}>
+    {!sent && <div className="text-[12.5px] pb-2" style={faint}>Starts once design sends the style to the factory for sampling. A stage this style does not need can be marked now.</div>}
+    <div style={{ overflowX: 'auto' }}><table className="t compact">
+      <thead><tr><th>Stage</th><th>Approved?</th><th>Dates</th><th>Remarks</th><th></th></tr></thead>
+      <tbody>{STAGES.map(st => {
+        const rs = roundsOf(st.key); const ok = approvedOf(st.key); const isSkip = skipped.has(st.key);
+        const isCur = current === st.key; const cur = open && open.kind === st.key ? open : null; const last = rs[rs.length - 1] ?? null;
+        const needCad = last?.outcome === 'remarks' && !last.cadUpdatedOn;
+        const overdue = cur && !cur.sampledOn && cur.dueOn && daysAgo(cur.dueOn) > 0;
+        const tone = isSkip ? 'neutral' : ok ? 'good' : overdue ? 'risk' : cur || needCad ? 'warn' : 'neutral';
+        const status = isSkip ? 'not needed' : ok ? `approved · round ${ok.n}` : cur ? (cur.sampledOn ? `round ${cur.n} with design` : `round ${cur.n} at the factory${overdue ? ` · ${daysAgo(cur.dueOn!)}d late` : ''}`) : needCad ? 'remarks · CAD to update' : rs.length ? 'send the next round' : 'not started';
+        return <tr key={st.key} style={{ opacity: isSkip ? .55 : 1, verticalAlign: 'top' }}>
+          <td><div className="font-medium">{st.label}</div><div className="text-[11px]" style={faint}>{st.hint}</div></td>
+          <td><Pill tone={tone}>{status}</Pill></td>
+          <td className="text-[11.5px]" style={{ ...soft, whiteSpace: 'nowrap' }}>{rs.length ? rs.map(r => <div key={r.n}>R{r.n} · sent {fmt(r.sentOn)} · due {fmt(r.dueOn)} · back {fmt(r.sampledOn)}{r.outcome === 'approved' ? ' · ✓' : ''}</div>) : '—'}</td>
+          <td className="text-[12px]" style={{ whiteSpace: 'normal', minWidth: 180 }}>{rs.filter(r => r.remarks).length ? rs.filter(r => r.remarks).map(r => <div key={r.n} style={{ color: 'var(--warn)' }}>R{r.n}: {r.remarks}{r.cadUpdatedOn ? <span style={faint}> · CAD updated {fmtDate(r.cadUpdatedOn)}</span> : ''}</div>) : <span style={faint}>—</span>}</td>
+          <td style={{ whiteSpace: 'nowrap' }}>
+            {!isSkip && !ok && !rs.length && design && <button type="button" className="vlink text-[11.5px]" onClick={() => skipSampleStage(o.id, st.key, true)}>not needed</button>}
+            {isSkip && design && <button type="button" className="vlink text-[11.5px]" onClick={() => skipSampleStage(o.id, st.key, false)}>needed after all</button>}
+          </td>
+        </tr>; })}</tbody>
+    </table></div>
+    {/* the one action open now, for the stage being worked */}
+    {sent && current && (() => {
+      const st = STAGES.find(x => x.key === current)!; const rs = roundsOf(current); const last = rs[rs.length - 1] ?? null;
+      const cur = open && open.kind === current ? open : null;
+      return <div className="pt-3 mt-2" style={{ borderTop: '1px solid var(--line-soft)' }}>
+        <div className="label">{st.label} · now</div>
+        {cur && !cur.sampledOn && <div className="flex gap-2 items-end flex-wrap pt-1">
+          {factory ? <Button size="sm" variant="primary" onClick={() => logSampleCycle(o.id, { sampledOn: new Date().toISOString() })}>Round {cur.n} sent back to BSC</Button> : <ActsBy role="merchandiser" does={`sends round ${cur.n} back${cur.dueOn ? ` by ${fmtDate(cur.dueOn)}` : ''}`} />}
+          {design && <Field label="Due from the factory"><Input type="date" value={dateInput(cur.dueOn) || ''} onChange={e => logSampleCycle(o.id, { dueOn: fromDateInput(e.target.value) })} /></Field>}
+        </div>}
+        {cur && cur.sampledOn && (design ? <div className="flex gap-2 items-end flex-wrap pt-1">
+          <Button size="sm" variant="primary" onClick={() => logSampleCycle(o.id, { outcome: 'approved', trialOn: cur.trialOn ?? new Date().toISOString() })}>Approve {st.label.toLowerCase()}</Button>
+          <div style={{ flex: '1 1 240px' }}><Field label="Or remarks"><Input value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="what to change" /></Field></div>
+          <Button size="sm" variant="ghost" disabled={!remarks.trim()} onClick={() => { logSampleCycle(o.id, { outcome: 'remarks', remarks: remarks.trim(), trialOn: cur.trialOn ?? new Date().toISOString() }); setRemarks(''); }}>Give remarks</Button>
+        </div> : <ActsBy role="design" does="approves it or gives remarks" />)}
+        {!cur && last?.outcome === 'remarks' && !last.cadUpdatedOn && (design ? <div className="pt-1"><Button size="sm" variant="primary" onClick={() => logSampleCycle(o.id, { cadUpdatedOn: new Date().toISOString() })}>CAD and design updated</Button></div> : <ActsBy role="design" does="updates the CAD and the design" />)}
+        {!cur && !open && (!last || last.outcome !== 'remarks' || !!last.cadUpdatedOn) && (design ? <div className="flex gap-2 items-end flex-wrap pt-1">
+          <Field label="Factory to give it by"><Input type="date" value={due} onChange={e => setDue(e.target.value)} /></Field>
+          <Button size="sm" variant="primary" onClick={() => { sendForSampling(o.id, current, fromDateInput(due)); setDue(''); }}>Send {st.label.toLowerCase()} round {rs.length + 1} to the factory</Button>
+        </div> : <ActsBy role="design" does={`sends the ${st.label.toLowerCase()} to the factory`} />)}
+        {open && open.kind !== current && <div className="text-[12.5px] pt-1" style={faint}>A {STAGES.find(x => x.key === open.kind)?.label.toLowerCase()} round is still open.</div>}
+      </div>; })()}
+    {sc.approvedOn && <div className="pt-2 text-[12.5px]" style={{ color: 'var(--good)' }}>Sampling done {fmtDate(sc.approvedOn)}{sc.approvedBy ? ` · ${sc.approvedBy}` : ''}. The bulk order and PO come next; sourcing starts shopping the cloth at the same time.</div>}
   </Section>;
 }
 

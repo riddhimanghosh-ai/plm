@@ -200,7 +200,8 @@ export interface QcAudit {
 export type SourcingMode = 'bsc-buys' | 'fob-nominated' | 'vendor-sources';
 export interface FobNomination { supplierVendorId: string; emailedOn: string | null; by: string | null; note: string }
 
-export interface SampleCycleRound { n: number; kind: 'prototype' | 'sample'; sentOn: string | null; dueOn: string | null; sampledOn: string | null; trialOn: string | null; outcome: 'approved' | 'remarks' | null; remarks: string | null; cadUpdatedOn: string | null }
+export type SampleStage = 'prototype' | 'sample' | 'trial';   // prototype · sampling cycle · trial cycle
+export interface SampleCycleRound { n: number; kind: SampleStage; sentOn: string | null; dueOn: string | null; sampledOn: string | null; trialOn: string | null; outcome: 'approved' | 'remarks' | null; remarks: string | null; cadUpdatedOn: string | null }
 export interface ProductionOrder {
   id: string;
   poNo: string | null;           // null until sourcing allocates
@@ -268,7 +269,7 @@ export interface ProductionOrder {
      factory's acknowledgement; the factory's sign-off on everything received; QC; the shipping cycle; COGS closed */
   source?: 'design' | 'planning' | 'auto-po';
   /* each round: sent to the factory with a due date → sample back → trial → approved, or remarks → CAD and design updated → sent again */
-  sampleCycle?: { rounds: SampleCycleRound[]; approvedOn: string | null; approvedBy?: string | null } | null;
+  sampleCycle?: { rounds: SampleCycleRound[]; approvedOn: string | null; approvedBy?: string | null; skipped?: SampleStage[] } | null;
   poCosts?: { logistics: number | null; other: { label: string; amount: number }[] } | null;   // per PO, on top of piece cost × qty
   poAckOn?: string | null; poAckBy?: string | null;
   receivedApprovedOn?: string | null; receivedApprovedBy?: string | null;

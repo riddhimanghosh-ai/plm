@@ -6,10 +6,12 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails } from './domain/types';
+import type { PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails, SampleStage } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
 import { prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
+const SAMPLE_STAGES: SampleStage[] = ['prototype', 'sample', 'trial'];
+const STAGE_NAME: Record<SampleStage, string> = { prototype: 'Prototype', sample: 'Sampling cycle', trial: 'Trial cycle' };
 import { PEOPLE, MERCHANDISERS, ORDER_STAGE_NEXT, METRES_PER_SHIRT, STORES, SHEET_LABEL, MILESTONES, MILESTONE_OWNER, PRE_PRODUCTION, SHIRT_PRESETS, defaultSpec, defaultMeasurements, defaultPattern } from './domain/reference';
 
 /* `undoAt` is the depth of the stack this toast was raised at: its Undo button
@@ -211,7 +213,8 @@ export interface AppState {
   setMilestone(orderId: string, key: string, patch: Partial<Pick<Milestone, 'plan' | 'revised' | 'actual' | 'delayReason'>>): void;   // a key not yet on the PO is added to its plan
   skipMilestone(orderId: string, key: string, skip: boolean): void;
   /* the chain after 12 Nov 2026 */
-  sendForSampling(orderId: string, kind: 'prototype' | 'sample', dueOn: string | null): void;   // a new round goes to the factory, with when the sample is due
+  sendForSampling(orderId: string, kind: SampleStage, dueOn: string | null): void;
+  skipSampleStage(orderId: string, kind: SampleStage, skip: boolean): void;   // a stage this style does not need   // a new round goes to the factory, with when the sample is due
   logSampleCycle(orderId: string, patch: { dueOn?: string | null; sampledOn?: string | null; trialOn?: string | null; outcome?: 'approved' | 'remarks' | null; remarks?: string | null; cadUpdatedOn?: string | null }): void;   // the open round
   setPoCosts(orderId: string, costs: { logistics: number | null; other: { label: string; amount: number }[] }): void;
   ackPo(orderId: string): void;                                              // the factory has the PO
@@ -1286,21 +1289,35 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     sendForSampling(orderId, kind, dueOn) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.sampleCycle = o.sampleCycle ?? { rounds: [], approvedOn: null };
         const sc = o.sampleCycle; if (sc.rounds.some(r => !r.outcome)) return;   // one round open at a time
-        sc.rounds.push({ n: sc.rounds.length + 1, kind, sentOn: now(), dueOn, sampledOn: null, trialOn: null, outcome: null, remarks: null, cadUpdatedOn: null });
-        log(o, `${kind === 'prototype' ? 'Prototype' : 'Sample'} round ${sc.rounds.length} sent to the factory${dueOn ? ` · due ${new Date(dueOn).toLocaleDateString('en-IN')}` : ''}`); },
-        'Sent to the factory for sampling; the record chases the due date.');
+        const n = sc.rounds.filter(r => r.kind === kind).length + 1;
+        sc.rounds.push({ n, kind, sentOn: now(), dueOn, sampledOn: null, trialOn: null, outcome: null, remarks: null, cadUpdatedOn: null });
+        log(o, `${STAGE_NAME[kind]} round ${n} sent to the factory${dueOn ? ` · due ${new Date(dueOn).toLocaleDateString('en-IN')}` : ''}`); },
+        'Sent to the factory; the record chases the due date.');
+    },
+    skipSampleStage(orderId, kind, skip) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.sampleCycle = o.sampleCycle ?? { rounds: [], approvedOn: null };
+        const sc = o.sampleCycle; const set = new Set(sc.skipped ?? []); if (skip) set.add(kind); else set.delete(kind); sc.skipped = [...set];
+        const left = SAMPLE_STAGES.filter(k => !set.has(k) && !sc.rounds.some(r => r.kind === k && r.outcome === 'approved'));
+        if (!left.length && !sc.approvedOn) { sc.approvedOn = now(); sc.approvedBy = who(); }
+        log(o, `${STAGE_NAME[kind]} ${skip ? 'not needed for this style' : 'needed after all'}`); },
+        skip ? `${STAGE_NAME[kind]} marked not needed.` : `${STAGE_NAME[kind]} is back on the list.`);
     },
     logSampleCycle(orderId, patch) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.sampleCycle = o.sampleCycle ?? { rounds: [], approvedOn: null };
         const sc = o.sampleCycle; const r = sc.rounds.find(x => !x.outcome) ?? sc.rounds[sc.rounds.length - 1]; if (!r) return;
         Object.assign(r, patch);
-        if (patch.outcome === 'approved') { sc.approvedOn = now(); sc.approvedBy = who(); log(o, `Round ${r.n} approved — the bulk order can be placed`); }
-        else if (patch.outcome === 'remarks') log(o, `Round ${r.n}: remarks — ${r.remarks ?? 'see the record'} · design updates the CAD and the design, then sends again`);
-        else if (patch.cadUpdatedOn) log(o, `CAD and design updated after round ${r.n}`);
-        else if (patch.sampledOn) log(o, `Round ${r.n} back from the factory`);
-        else if (patch.trialOn) log(o, `Round ${r.n} trialled`);
-        else if (patch.dueOn) log(o, `Round ${r.n} due ${new Date(patch.dueOn).toLocaleDateString('en-IN')}`); },
-        patch.outcome === 'approved' ? 'Sample approved. Place the bulk order.' : patch.outcome === 'remarks' ? 'Remarks on the record: update the CAD and the design, then send the next round.' : patch.cadUpdatedOn ? 'CAD and design updated; send the next round.' : 'Logged.');
+        if (patch.outcome === 'approved') {
+          /* the last stage this style needs closes the sample cycle; the bulk order comes next */
+          const skipped = new Set(sc.skipped ?? []);
+          const left = SAMPLE_STAGES.filter(k => !skipped.has(k) && !sc.rounds.some(x => x.kind === k && x.outcome === 'approved'));
+          if (!left.length) { sc.approvedOn = now(); sc.approvedBy = who(); log(o, `${STAGE_NAME[r.kind]} round ${r.n} approved — sampling done, the bulk order can be placed`); }
+          else log(o, `${STAGE_NAME[r.kind]} round ${r.n} approved — ${STAGE_NAME[left[0]].toLowerCase()} next`);
+        }
+        else if (patch.outcome === 'remarks') log(o, `${STAGE_NAME[r.kind]} round ${r.n}: remarks — ${r.remarks ?? 'see the record'} · design updates the CAD and the design, then sends again`);
+        else if (patch.cadUpdatedOn) log(o, `CAD and design updated after ${STAGE_NAME[r.kind].toLowerCase()} round ${r.n}`);
+        else if (patch.sampledOn) log(o, `${STAGE_NAME[r.kind]} round ${r.n} back from the factory`);
+        else if (patch.dueOn) log(o, `${STAGE_NAME[r.kind]} round ${r.n} due ${new Date(patch.dueOn).toLocaleDateString('en-IN')}`); },
+        patch.outcome === 'approved' ? 'Approved.' : patch.outcome === 'remarks' ? 'Remarks on the record: update the CAD and the design, then send the next round.' : patch.cadUpdatedOn ? 'CAD and design updated; send the next round.' : 'Logged.');
     },
     setPoCosts(orderId, costs) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.poCosts = costs;
@@ -1792,7 +1809,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 135,
+  version: 136,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1804,7 +1821,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 135 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 136 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),
