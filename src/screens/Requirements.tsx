@@ -264,19 +264,27 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const curve = typed ? Object.entries(typed).filter(([, n]) => n > 0).map(([size, q]) => ({ size, qty: q })) : spread;
 
   /* the form's parts side by side (Blocks) or one under the other (Stacked); Blocks by default, the choice remembered */
-  const [view, setView] = useState<'stacked' | 'blocks'>(() => { try { return localStorage.getItem('rtw-new-view') === 'stacked' ? 'stacked' : 'blocks'; } catch { return 'blocks'; } });
-  const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem('rtw-new-view', v); } catch { /* storage off */ } };
+  const [view, setView] = useState<'stacked' | 'blocks' | 'tabs'>(() => { try { const v = localStorage.getItem('rtw-new-view'); return v === 'stacked' || v === 'blocks' ? v : 'tabs'; } catch { return 'tabs'; } });
+  const pickView = (v: 'stacked' | 'blocks' | 'tabs') => { setView(v); try { localStorage.setItem('rtw-new-view', v); } catch { /* storage off */ } };
+  /* Tabs: one part at a time, a strip across the top; the strip marks what is still empty */
+  const PARTS = [{ k:'what', label:'What', ok: !!style.trim() }, { k:'qty', label:'How many · when · cost', ok: !!Number(qty) }, ...(mode !== 'vendor-sources' ? [{ k:'fabric', label:'Fabric brief', ok: !!look.trim() }] : []), { k:'sizes', label:'Size break-up', ok: true }, { k:'bom', label:'Bill of materials', ok: bom.length > 0 }];
+  const [tab, setTab] = useState('what');
+  const show = (k: string) => view !== 'tabs' || tab === k;
+  const tabIndex = PARTS.findIndex(x => x.k === tab);
   return <>
-    <div className="flex justify-end mb-2"><div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div></div>
+    <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+      {view === 'tabs' ? <div className="seg" role="tablist">{PARTS.map((p, i) => <button type="button" key={p.k} role="tab" aria-selected={tab === p.k} className={tab === p.k ? 'on' : ''} onClick={() => setTab(p.k)}>{i + 1} · {p.label}{p.ok ? ' ✓' : ''}</button>)}</div> : <span />}
+      <div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'tabs' ? 'on' : ''} onClick={() => pickView('tabs')}>Tabs</button><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div>
+    </div>
     <div className={view === 'blocks' ? 'rtw-blocks' : undefined}>
-    <Section title="What" collapsible={false}>
+    {show('what') && <Section title="What" collapsible={false}>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'1fr 1fr' }}>
         <Field label="Category (decides the milestone template)"><Select value={category} onChange={v => { setCategory(v as GarmentCategory); setSub(SUB_CATEGORIES[v as GarmentCategory][0]); }} options={GARMENT_CATEGORIES.map(c => ({ value:c, label:c }))} /></Field>
         <Field label="Sub-category"><Select value={sub} onChange={setSub} options={SUB_CATEGORIES[category].map(s => ({ value:s, label:s }))} /></Field>
         <div style={{ gridColumn:'1 / -1' }}><Field label="Style / colour"><Input value={style} onChange={e => setStyle(e.target.value)} placeholder="2-Ply Egyptian Cotton White Twill Shirt" /></Field></div>
       </div>
-    </Section>
-    <Section title="How many, by when, at what cost" collapsible={false}>
+    </Section>}
+    {show('qty') && <Section title="How many, by when, at what cost" collapsible={false}>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'repeat(3,1fr)' }}>
         <Field label="Order qty"><Input type="number" value={qty} onChange={e => setQty(e.target.value)} /></Field>
         <Field label="Target inhouse date"><Input type="date" value={target} onChange={e => setTarget(e.target.value)} /></Field>
@@ -285,8 +293,8 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       <div className="pt-3">
         <div className="text-[12.5px]" style={{ color:'var(--ink-soft)' }}><b>The cloth:</b> BSC buys it for every bulk style. Sourcing puts a vendor against the brief from the day you send it; you push the fabric PO; sourcing sends the cloth straight to the factory.</div>
       </div>
-    </Section>
-    {mode !== 'vendor-sources' && <Section title={mode === 'bsc-buys' ? 'What fabric — the brief sourcing shops against' : 'What fabric — what the vendor must buy'} collapsible={false}>
+    </Section>}
+    {mode !== 'vendor-sources' && show('fabric') && <Section title={mode === 'bsc-buys' ? 'What fabric — the brief sourcing shops against' : 'What fabric — what the vendor must buy'} collapsible={false}>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'1fr 1fr 1fr' }}>
         <Field label="Cloth / weave" hint="the word you would say to the mill"><Input value={look} onChange={e => setLook(e.target.value)} placeholder="Oxford, 2-ply poplin, brushed twill" /></Field>
         <Field label="Composition"><Input value={comp} onChange={e => setComp(e.target.value)} placeholder="100% cotton" /></Field>
@@ -295,13 +303,14 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
         <div style={{ gridColumn:'1 / -1' }}><Field label="Notes for sourcing"><Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="handfeel over price; must hold a crease; match last season's shade" /></Field></div>
       </div>
     </Section>}
-    <Section title="Order qty break-up" collapsible={false} right={typed ? <Button size="sm" variant="ghost" onClick={() => setTyped(null)}>Spread {qty || 0} over the usual sizes again</Button> : <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>spread over the usual sizes — type over any of them</span>}>
+    {show('sizes') && <Section title="Order qty break-up" collapsible={false} right={typed ? <Button size="sm" variant="ghost" onClick={() => setTyped(null)}>Spread {qty || 0} over the usual sizes again</Button> : <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>spread over the usual sizes — type over any of them</span>}>
       <SizeGrid breakup={curve} edit onChange={(sz, n) => setTyped(t => { const base = t ?? Object.fromEntries(spread.map(x => [x.size, x.qty])); return { ...base, [sz]: n }; })} />
-    </Section>
-    <Section title="Bill of materials — built here, from the trims master" collapsible={false}>
+    </Section>}
+    {show('bom') && <Section title="Bill of materials — built here, from the trims master" collapsible={false}>
       <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Pick each trim and packaging line from the master so the names match stock, the trim card and the COGS sheet. Each line shows whether the unit holds enough for {typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty) || 0} pieces; what is short is what sourcing buys.</div>
       <BomEditor lines={bom} onChange={setBom} orderQty={typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty) || 0} />
-    </Section>
+    </Section>}
+    {view === 'tabs' && <div className="flex gap-2 pt-2">{tabIndex > 0 && <Button size="sm" variant="ghost" onClick={() => setTab(PARTS[tabIndex - 1].k)}>← {PARTS[tabIndex - 1].label}</Button>}{tabIndex < PARTS.length - 1 && <Button size="sm" onClick={() => setTab(PARTS[tabIndex + 1].k)}>{PARTS[tabIndex + 1].label} →</Button>}</div>}
     <Note>Handing over starts the lead-time clock; the category picks the TNA milestone template.</Note>
     </div>
     <div className="flex gap-2 pt-3"><Button variant="primary" disabled={!style.trim() || !Number(qty)} onClick={() => { const id = createRequirement({
