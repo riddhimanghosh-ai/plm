@@ -92,7 +92,7 @@ export function Factory() {
         {openOrder && <OrderPanel o={openOrder} mine={mine} />}
       </Drawer>
       <Drawer open={!!openRtw} onClose={() => set('open', null)} title={openRtw?.poNo ?? ''} subtitle={openRtw && <>{openRtw.styleName} · {openRtw.orderQty} pcs · in-house by {fmtDate(openRtw.targetInhouse)}</>}>
-        {openRtw && <RtwRequirement key={openRtw.id} o={openRtw} initial={rtwTab === 'in' ? 'cloth' : rtwTab === 'tna' ? 'tna' : 'factory'} />}
+        {openRtw && <RtwRequirement key={openRtw.id} o={openRtw} initial={rtwTab === 'in' ? 'cloth' : rtwTab === 'tna' ? 'tna' : undefined /* POs for us: open at the step the order is on */} />}
       </Drawer>
     </Page>
   );
