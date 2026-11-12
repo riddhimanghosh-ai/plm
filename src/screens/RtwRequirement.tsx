@@ -143,10 +143,11 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
       </Section>
     </>}
 
+    {/* the checklist always takes the full width of the step, in Blocks as in Stacked */}
     {at('sample') && <>
-      <SampleCycleSection o={o} design={design} factory={merchant || prod} />
-      {(o.proto?.rounds?.length ?? 0) > 0 && <div className="pt-3"><ProtoSection o={o} canReview={false} canLog={false} /></div>}
-      {(o.samples?.length ?? 0) > 0 && <div className="pt-3"><SampleSection o={o} editable={false} /></div>}
+      <div className="rtw-full"><SampleCycleSection o={o} design={design} factory={merchant || prod} /></div>
+      {(o.proto?.rounds?.length ?? 0) > 0 && <div className="pt-3 rtw-full"><ProtoSection o={o} canReview={false} canLog={false} /></div>}
+      {(o.samples?.length ?? 0) > 0 && <div className="pt-3 rtw-full"><SampleSection o={o} editable={false} /></div>}
     </>}
 
     {at('factory') && <Section title="Factory · PO" collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone={fst.tone}>{fst.label}</Pill><span className="pill role-production">Nitin</span></span>}>

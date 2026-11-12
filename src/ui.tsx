@@ -233,7 +233,7 @@ export function useOverlay(open: boolean) {
   return () => drawerStack[drawerStack.length - 1] === me.current;
 }
 
-const DRAWER_W = 'bsc-plm-drawer-share-2';   // a fraction of the window; new key so earlier saved widths open at the new default
+const DRAWER_W = 'bsc-plm-drawer-share-3';   // 12 Nov 2026: new key so every browser opens wide again (92%) instead of an older, narrower saved width   // a fraction of the window; new key so earlier saved widths open at the new default
 export function Drawer({ open, onClose, title, subtitle, back, children }: { open: boolean; onClose: () => void; title: React.ReactNode; subtitle?: React.ReactNode; back?: { label: string; onClick: () => void }; children: React.ReactNode }) {
   const body = useRef<HTMLDivElement>(null);
   const onTop = useOverlay(open);
