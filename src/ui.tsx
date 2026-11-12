@@ -419,10 +419,12 @@ const completeness = (v: unknown, depth = 0): number => {
   if (typeof v === 'object') return depth > 1 ? 1 : Object.values(v as Record<string, unknown>).reduce<number>((n, x) => n + completeness(x, depth + 1), 0);
   return 1;
 };
-export function useExamples<T>(rows: T[], key: (r: T) => unknown, opts: { n?: number; score?: (r: T) => number; noun?: string; done?: (r: T) => boolean } = {}): { rows: T[]; all: boolean; total: number; strip: React.ReactNode; missingDone: boolean } {
-  const { n = 4, score = completeness, noun = 'rows', done } = opts;
+export function useExamples<T>(rows: T[], key: (r: T) => unknown, opts: { n?: number; score?: (r: T) => number; noun?: string; done?: (r: T) => boolean; perGroup?: number } = {}): { rows: T[]; all: boolean; total: number; strip: React.ReactNode; missingDone: boolean } {
+  /* perGroup (12 Nov 2026): a sample of at most that many rows of each status, shown even in quiet mode; the full list is one click away */
+  const groupsN = opts.perGroup ? new Set(rows.map(r => String(key(r)))).size : 0;
+  const { score = completeness, noun = 'rows', done } = opts; const n = opts.perGroup ? groupsN * opts.perGroup : (opts.n ?? 4);
   const [params, setParams] = useSearchParams();
-  const quiet = useAppStore(s => !!s.settings.quiet);
+  const quiet = useAppStore(s => !!s.settings.quiet) && !opts.perGroup;
   const all = quiet || params.get('all') === '1';   // quiet mode shows the real list, no examples
   const { picked, missingDone } = useMemo(() => {
     const finished = done ? rows.filter(done) : [];
@@ -430,14 +432,15 @@ export function useExamples<T>(rows: T[], key: (r: T) => unknown, opts: { n?: nu
     if (rows.length <= n) return { picked: rows, missingDone: missing };
     const out = new Set<T>();
     /* first, what "done" looks like — the fullest finished record */
-    if (finished.length) out.add(finished.slice().sort((a, b) => score(b) - score(a))[0]);
+    if (finished.length && !opts.perGroup) out.add(finished.slice().sort((a, b) => score(b) - score(a))[0]);
     const groups = new Map<string, T[]>();
     rows.forEach(r => { if (out.has(r)) return; const k = String(key(r)); if (!groups.has(k)) groups.set(k, []); groups.get(k)!.push(r); });
     /* then one of each other state, best first, until the handful is full */
     const lists = [...groups.values()].map(g => g.slice().sort((a, b) => score(b) - score(a)));
-    for (let i = 0; out.size < n; i++) { let any = false; for (const g of lists) { if (g[i] !== undefined && out.size < n) { out.add(g[i]); any = true; } } if (!any) break; }
+    if (opts.perGroup) lists.forEach(g => g.slice(0, opts.perGroup).forEach(r => out.add(r)));
+    else for (let i = 0; out.size < n; i++) { let any = false; for (const g of lists) { if (g[i] !== undefined && out.size < n) { out.add(g[i]); any = true; } } if (!any) break; }
     return { picked: rows.filter(r => out.has(r)), missingDone: missing };
-  }, [rows, n]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, n, opts.perGroup]); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (v: string | null) => { const q = new URLSearchParams(params); v ? q.set('all', v) : q.delete('all'); setParams(q, { replace: true }); };
   const strip = !quiet && (rows.length > n || missingDone) ? <span className="text-[12px] no-print ex-strip" style={{ color:'var(--ink-faint)' }}>{rows.length <= n ? null : all
     ? <>{rows.length} {noun} · <button type="button" className="vlink" onClick={() => set(null)}>show {Math.min(n, rows.length)} examples</button></>

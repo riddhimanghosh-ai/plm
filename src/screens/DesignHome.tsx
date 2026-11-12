@@ -130,8 +130,10 @@ export function DesignHome() {
     return [rtw, mtm, fob, opts].filter((r): r is Row => !!r);
   }, [rows, db]);
   const quiet = useAppStore(s => !!s.settings.quiet);
-  const showAll = quiet || params.get('all') === '1';   // quiet mode: the real list
-  const base = showAll ? rows : examples;
+  /* 12 Nov 2026: a sample of two styles for each pending type, even in quiet mode; "show all" is one click away */
+  const showAll = params.get('all') === '1'; void quiet;
+  const sample = useMemo(() => { const seen = new Map<string, number>(); return rows.filter(r => { const k = `${r.kind}·${r.pending}`; const c = seen.get(k) ?? 0; if (c >= 2) return false; seen.set(k, c + 1); return true; }); }, [rows]);
+  const base = showAll ? rows : sample;
   const isMe = (r: Row) => r.owner === asRole;
   const shown = base.filter(r => (kind === 'all' || r.kind === kind) && (stage === 'all' || String(r.stage) === stage)
     && (who === 'all' || (who === 'me' ? isMe(r) : r.owner === who)) && (pending === 'all' || r.pending === pending)
@@ -171,8 +173,8 @@ export function DesignHome() {
         {!MTM_ONLY && !RTW_ONLY && <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[{ id:'all', label:'Every kind' }, { id:'MTM', label:'MTM fabric', count: count(r => r.kind === 'MTM') }, ...(MTM_ONLY ? [] : [{ id:'RTW', label:'RTW style', count: count(r => r.kind === 'RTW') }]), ...(OPTIONS_OFF ? [] : [{ id:'Options', label:'Several options', count: count(r => r.kind === 'Options') }])]} />}
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search requirement, fabric, style…" style={{ width: 240 }} aria-label="search requirements" />
         <span className="text-[12px] ml-auto" style={{ color:'var(--ink-faint)' }}>{showAll
-          ? <>{rows.length} requirements · <button type="button" className="vlink" onClick={() => set('all', null)}>show the {examples.length} examples</button></>
-          : <>{examples.length} worked examples, one of each kind · <button type="button" className="vlink" onClick={() => set('all', '1')}>show all {rows.length}</button></>}</span>
+          ? <>{rows.length} requirements · <button type="button" className="vlink" onClick={() => set('all', null)}>show two of each type</button></>
+          : <>{sample.length} shown, two of each pending type · <button type="button" className="vlink" onClick={() => set('all', '1')}>show all {rows.length}</button></>}</span>
       </div>
 
       <Card><div style={{ overflowX:'auto' }}><table className="t compact">

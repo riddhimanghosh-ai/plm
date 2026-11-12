@@ -77,7 +77,7 @@ export function Tracker() {
     return true;
   });
   const active = db.orders.find(o => o.id === openId) ?? null;
-  const ex = useExamples(rows, x => x.st.key, { n: 5, noun:'styles', done: x => x.st.key === 'launched' });
+  const ex = useExamples(rows, x => x.st.key, { perGroup: 2, noun:'styles' });
   const pager = usePager(ex.rows, 25);
   const faint = { color:'var(--ink-faint)' } as const;
 
