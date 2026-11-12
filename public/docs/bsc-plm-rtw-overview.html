@@ -1,0 +1,163 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RTW at a glance</title>
+<style>body{margin:0;background:#fff;color:#1a1a13;font-family:Inter,system-ui,sans-serif;padding:24px}h1{font-size:22px;margin:0 0 4px}p{margin:0 0 12px;color:#6b6759;font-size:13.5px;max-width:110ch}
+.legend{display:flex;gap:18px;font-size:12px;color:#6b6759;margin-bottom:10px;flex-wrap:wrap}.legend i{display:inline-block;vertical-align:middle;margin-right:5px}
+.legend .c{width:12px;height:12px;border-radius:50%;background:#3c4a30}.legend .b{width:16px;height:11px;border-radius:3px;border:1.4px solid #8a7a3a;background:#fffdf6}
+.legend .d{width:10px;height:10px;transform:rotate(45deg);border:1.4px solid #3c4a30;background:#e7ebe0}.legend .o{width:16px;height:11px;border-radius:3px;border:1.4px dashed #a9a391}
+.wrap{overflow:auto;border:1px solid #e3ddcd;border-radius:10px}svg{display:block;width:100%;height:auto;min-width:1100px}</style></head>
+<body><h1>RTW in PLM · at a glance</h1><p>Nine modules, each with what happens in it. The top band runs from the ask to everything received at the factory; production is the TNA and QC; post-production is shipping, COGS and the design codes. Diamonds are the two decisions that loop back. Shipping and the GRN stay outside PLM for now.</p><div class="legend"><span><i class="c"></i> start · end</span><span><i class="b"></i> module</span><span><i class="d"></i> decision</span><span><i class="o"></i> outside PLM for now</span></div><div class="wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 960" font-family="Inter, Helvetica, Arial, sans-serif"><defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#4a4a40"/></marker></defs><rect width="1500" height="960" fill="#fff"/><rect x="16" y="14" width="1468" height="534" rx="18" fill="#eef3e8" stroke="#a3b58f" stroke-width="1.3"/>
+<text x="34" y="42" font-size="14" font-weight="700" letter-spacing=".04em" fill="#3c4a30">CONCEPTUALIZATION · PRE-PRODUCTION</text>
+<rect x="1006" y="580" width="478" height="360" rx="18" fill="#fdf3df" stroke="#d6b26a" stroke-width="1.3"/>
+<text x="1024" y="608" font-size="14" font-weight="700" letter-spacing=".04em" fill="#3c4a30">PRODUCTION</text>
+<rect x="1223.6" y="902" width="244.4" height="24" rx="12" fill="#fde2e2" stroke="#e5a3a3"/><text x="1345.8" y="919" text-anchor="middle" font-size="12" font-weight="600" fill="#9b2c2c">⚠ heaviest manual and tedious work</text>
+<rect x="16" y="580" width="974" height="360" rx="18" fill="#e8eef8" stroke="#8fa6cf" stroke-width="1.3"/>
+<text x="34" y="608" font-size="14" font-weight="700" letter-spacing=".04em" fill="#3c4a30">POST-PRODUCTION</text>
+<path d="M96 228L130 228" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M380 202.5L430 202.5" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M680 228L713 228" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M765 280L765 325L555.0 325L555.0 285" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="660.0" y="319" font-size="11.5" fill="#5d5a4e" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">no · remarks → update CAD, next round</text>
+<path d="M817 228L837 228L837 138.5L860 138.5" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="825" y="218" font-size="11.5" fill="#5d5a4e" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">yes</text>
+<path d="M837 228L837 363.5L860 363.5" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="803" y="353.5" font-size="11.5" fill="#5d5a4e" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">in parallel</text>
+<path d="M1110 138.5L1140 138.5L1140 212.0L1180 212.0" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="1130" y="128.5" font-size="11.5" fill="#5d5a4e" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">PO out</text>
+<path d="M1110 363.5L1140 363.5L1140 212.0" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="1132" y="353.5" font-size="11.5" fill="#5d5a4e" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">cloth in</text>
+<path d="M1305.0 304L1305.0 640" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="1349.0" y="472.0" font-size="11.5" fill="#5d5a4e" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">all received</text>
+<path d="M1180 720L1132 720" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M1080 772L1080 816L1305.0 816L1305.0 786" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="1192.5" y="810" font-size="11.5" fill="#5d5a4e" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">no · rework</text>
+<path d="M1028 720L970 720" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="999.0" y="710" font-size="11.5" fill="#5d5a4e" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">yes</text>
+<path d="M720 713.0L680 713.0" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M430 713.0L380 713.0" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M130 720L100 720" fill="none" stroke="#4a4a40" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="130" y="120" width="250" height="165" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
+<rect x="130" y="120" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="130" y="150" width="250" height="12" fill="#3c4a30"/>
+<circle cx="152" cy="141" r="12" fill="#fff"/><text x="152" y="145.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">1</text>
+<text x="172" y="146" font-size="14.5" font-weight="700" fill="#fff">Requirement</text>
+<text x="144" y="180" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">DESIGN · PLANNING · ENIGMA</text>
+<circle cx="149" cy="198" r="2.6" fill="#8a7a3a"/>
+<text x="160" y="202" font-size="12.5" fill="#1a1a13">Starts from: design ask,</text>
+<text x="160" y="221" font-size="12.5" fill="#1a1a13">planning reorder or Enigma auto-PO</text>
+<circle cx="149" cy="236" r="2.6" fill="#8a7a3a"/>
+<text x="160" y="240" font-size="12.5" fill="#1a1a13">Style, qty by size, date, cost</text>
+<circle cx="149" cy="255" r="2.6" fill="#8a7a3a"/>
+<text x="160" y="259" font-size="12.5" fill="#1a1a13">Cloth brief · BOM · CAD</text>
+<circle cx="149" cy="274" r="2.6" fill="#8a7a3a"/>
+<text x="160" y="278" font-size="12.5" fill="#1a1a13">Send to the factory for sampling</text>
+<rect x="430" y="120" width="250" height="165" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
+<rect x="430" y="120" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="430" y="150" width="250" height="12" fill="#3c4a30"/>
+<circle cx="452" cy="141" r="12" fill="#fff"/><text x="452" y="145.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">2</text>
+<text x="472" y="146" font-size="14.5" font-weight="700" fill="#fff">Sample cycle</text>
+<text x="444" y="180" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">FACTORY · DESIGN</text>
+<circle cx="449" cy="198" r="2.6" fill="#8a7a3a"/>
+<text x="460" y="202" font-size="12.5" fill="#1a1a13">Prototype</text>
+<circle cx="449" cy="217" r="2.6" fill="#8a7a3a"/>
+<text x="460" y="221" font-size="12.5" fill="#1a1a13">Sampling cycle</text>
+<circle cx="449" cy="236" r="2.6" fill="#8a7a3a"/>
+<text x="460" y="240" font-size="12.5" fill="#1a1a13">Trial cycle</text>
+<circle cx="449" cy="255" r="2.6" fill="#8a7a3a"/>
+<text x="460" y="259" font-size="12.5" fill="#1a1a13">Each: due date, back, approve</text>
+<text x="460" y="278" font-size="12.5" fill="#1a1a13">or remarks → update CAD and design</text>
+<rect x="860" y="56" width="250" height="165" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
+<rect x="860" y="56" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="860" y="86" width="250" height="12" fill="#3c4a30"/>
+<circle cx="882" cy="77" r="12" fill="#fff"/><text x="882" y="81.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">3</text>
+<text x="902" y="82" font-size="14.5" font-weight="700" fill="#fff">Bulk order and PO</text>
+<text x="874" y="116" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">NITIN · DESIGN · FACTORY</text>
+<circle cx="879" cy="134" r="2.6" fill="#8a7a3a"/>
+<text x="890" y="138" font-size="12.5" fill="#1a1a13">Qty and size-wise qty</text>
+<circle cx="879" cy="153" r="2.6" fill="#8a7a3a"/>
+<text x="890" y="157" font-size="12.5" fill="#1a1a13">Nitin proposes, design accepts</text>
+<circle cx="879" cy="172" r="2.6" fill="#8a7a3a"/>
+<text x="890" y="176" font-size="12.5" fill="#1a1a13">Piece + logistics + other costs</text>
+<circle cx="879" cy="191" r="2.6" fill="#8a7a3a"/>
+<text x="890" y="195" font-size="12.5" fill="#1a1a13">Factory acknowledges the PO</text>
+<circle cx="879" cy="210" r="2.6" fill="#8a7a3a"/>
+<text x="890" y="214" font-size="12.5" fill="#1a1a13">TNA generated from the PO date</text>
+<rect x="860" y="300" width="250" height="127" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
+<rect x="860" y="300" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="860" y="330" width="250" height="12" fill="#3c4a30"/>
+<circle cx="882" cy="321" r="12" fill="#fff"/><text x="882" y="325.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">4</text>
+<text x="902" y="326" font-size="14.5" font-weight="700" fill="#fff">Cloth and trims · in parallel</text>
+<text x="874" y="360" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">SOURCING</text>
+<circle cx="879" cy="378" r="2.6" fill="#8a7a3a"/>
+<text x="890" y="382" font-size="12.5" fill="#1a1a13">Vendor · price · hold</text>
+<circle cx="879" cy="397" r="2.6" fill="#8a7a3a"/>
+<text x="890" y="401" font-size="12.5" fill="#1a1a13">Fabric PO to the mill (Enigma)</text>
+<circle cx="879" cy="416" r="2.6" fill="#8a7a3a"/>
+<text x="890" y="420" font-size="12.5" fill="#1a1a13">Send cloth and trims to the factory</text>
+<rect x="1180" y="120" width="250" height="184" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
+<rect x="1180" y="120" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="1180" y="150" width="250" height="12" fill="#3c4a30"/>
+<circle cx="1202" cy="141" r="12" fill="#fff"/><text x="1202" y="145.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">5</text>
+<text x="1222" y="146" font-size="14.5" font-weight="700" fill="#fff">Tech pack and count-in</text>
+<text x="1194" y="180" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">DESIGN · FACTORY · SOURCING</text>
+<circle cx="1199" cy="198" r="2.6" fill="#8a7a3a"/>
+<text x="1210" y="202" font-size="12.5" fill="#1a1a13">Design uploads the tech pack</text>
+<circle cx="1199" cy="217" r="2.6" fill="#8a7a3a"/>
+<text x="1210" y="221" font-size="12.5" fill="#1a1a13">Factory counts cloth and trims in</text>
+<circle cx="1199" cy="236" r="2.6" fill="#8a7a3a"/>
+<text x="1210" y="240" font-size="12.5" fill="#1a1a13">Cloth short → design gives a new</text>
+<text x="1210" y="259" font-size="12.5" fill="#1a1a13">cut ratio; factory sees it at once</text>
+<circle cx="1199" cy="274" r="2.6" fill="#8a7a3a"/>
+<text x="1210" y="278" font-size="12.5" fill="#1a1a13">Trims short → sourcing sends the rest</text>
+<circle cx="1199" cy="293" r="2.6" fill="#8a7a3a"/>
+<text x="1210" y="297" font-size="12.5" fill="#1a1a13">Factory approves all received</text>
+<rect x="1180" y="640" width="250" height="146" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
+<rect x="1180" y="640" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="1180" y="670" width="250" height="12" fill="#3c4a30"/>
+<circle cx="1202" cy="661" r="12" fill="#fff"/><text x="1202" y="665.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">6</text>
+<text x="1222" y="666" font-size="14.5" font-weight="700" fill="#fff">Manufacturing</text>
+<text x="1194" y="700" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">FACTORY · NITIN</text>
+<circle cx="1199" cy="718" r="2.6" fill="#8a7a3a"/>
+<text x="1210" y="722" font-size="12.5" fill="#1a1a13">TNA: 22 steps</text>
+<text x="1210" y="741" font-size="12.5" fill="#1a1a13">planned · revised · actual on each</text>
+<circle cx="1199" cy="756" r="2.6" fill="#8a7a3a"/>
+<text x="1210" y="760" font-size="12.5" fill="#1a1a13">Not-needed steps skipped</text>
+<circle cx="1199" cy="775" r="2.6" fill="#8a7a3a"/>
+<text x="1210" y="779" font-size="12.5" fill="#1a1a13">Tracker · OTIF · late in red</text>
+<rect x="720" y="640" width="250" height="165" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
+<rect x="720" y="640" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="720" y="670" width="250" height="12" fill="#3c4a30"/>
+<circle cx="742" cy="661" r="12" fill="#fff"/><text x="742" y="665.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">7</text>
+<text x="762" y="666" font-size="14.5" font-weight="700" fill="#fff">Shipping cycle</text>
+<text x="734" y="700" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">FACTORY · SHRAVANI · NITIN</text>
+<circle cx="739" cy="718" r="2.6" fill="#a9a391"/>
+<text x="750" y="722" font-size="12.5" fill="#8a8676" font-style="italic">AWB · courier · shipped</text>
+<text x="750" y="741" font-size="12.5" fill="#8a8676" font-style="italic">not in PLM yet</text>
+<circle cx="739" cy="756" r="2.6" fill="#a9a391"/>
+<text x="750" y="760" font-size="12.5" fill="#8a8676" font-style="italic">Delivered · GRN by Shravani</text>
+<text x="750" y="779" font-size="12.5" fill="#8a8676" font-style="italic">on Enigma, as today</text>
+<circle cx="739" cy="794" r="2.6" fill="#8a7a3a"/>
+<text x="750" y="798" font-size="12.5" fill="#1a1a13">Shipment closed · shipping cost</text>
+<rect x="728" y="706" width="234" height="78" rx="8" fill="none" stroke="#a9a391" stroke-dasharray="5 4"/>
+<rect x="430" y="640" width="250" height="146" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
+<rect x="430" y="640" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="430" y="670" width="250" height="12" fill="#3c4a30"/>
+<circle cx="452" cy="661" r="12" fill="#fff"/><text x="452" y="665.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">8</text>
+<text x="472" y="666" font-size="14.5" font-weight="700" fill="#fff">COGS and profitability</text>
+<text x="444" y="700" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">NITIN · DESIGN SEE IT</text>
+<circle cx="449" cy="718" r="2.6" fill="#8a7a3a"/>
+<text x="460" y="722" font-size="12.5" fill="#1a1a13">Manufacturing cost from the PO</text>
+<circle cx="449" cy="737" r="2.6" fill="#8a7a3a"/>
+<text x="460" y="741" font-size="12.5" fill="#1a1a13">Logistics, shipping, other costs</text>
+<circle cx="449" cy="756" r="2.6" fill="#8a7a3a"/>
+<text x="460" y="760" font-size="12.5" fill="#1a1a13">COGS per piece vs MRP</text>
+<circle cx="449" cy="775" r="2.6" fill="#8a7a3a"/>
+<text x="460" y="779" font-size="12.5" fill="#1a1a13">Margin per style</text>
+<rect x="130" y="640" width="250" height="146" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
+<rect x="130" y="640" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="130" y="670" width="250" height="12" fill="#3c4a30"/>
+<circle cx="152" cy="661" r="12" fill="#fff"/><text x="152" y="665.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">9</text>
+<text x="172" y="666" font-size="14.5" font-weight="700" fill="#fff">Design codes</text>
+<text x="144" y="700" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">DESIGN · PLANNING · ENIGMA</text>
+<circle cx="149" cy="718" r="2.6" fill="#8a7a3a"/>
+<text x="160" y="722" font-size="12.5" fill="#1a1a13">Add to a drop · name · date</text>
+<circle cx="149" cy="737" r="2.6" fill="#8a7a3a"/>
+<text x="160" y="741" font-size="12.5" fill="#1a1a13">Mint design codes</text>
+<text x="160" y="760" font-size="12.5" fill="#1a1a13">name · cloth · MRP · sizes</text>
+<circle cx="149" cy="775" r="2.6" fill="#8a7a3a"/>
+<text x="160" y="779" font-size="12.5" fill="#1a1a13">Rows and variants in Enigma</text>
+<path d="M765 176L817 228L765 280L713 228Z" fill="#e7ebe0" stroke="#3c4a30" stroke-width="1.6"/>
+<text x="765" y="226" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1a1a13">Sample</text><text x="765" y="242" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1a1a13">right?</text>
+<path d="M1080 668L1132 720L1080 772L1028 720Z" fill="#e7ebe0" stroke="#3c4a30" stroke-width="1.6"/>
+<text x="1080" y="718" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1a1a13">QC</text><text x="1080" y="734" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1a1a13">passed?</text>
+<circle cx="62" cy="228" r="34" fill="#3c4a30"/><text x="62" y="233" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">Ask</text>
+<circle cx="62" cy="720" r="38" fill="#fff" stroke="#3c4a30" stroke-width="5"/><text x="62" y="718" text-anchor="middle" font-size="12.5" font-weight="700" fill="#3c4a30">Ready</text><text x="62" y="733" text-anchor="middle" font-size="12.5" font-weight="700" fill="#3c4a30">to sell</text></svg></div></body></html>
