@@ -233,7 +233,7 @@ export function useOverlay(open: boolean) {
   return () => drawerStack[drawerStack.length - 1] === me.current;
 }
 
-const DRAWER_W = 'bsc-plm-drawer-share-3';   // 12 Nov 2026: new key so every browser opens wide again (92%) instead of an older, narrower saved width   // a fraction of the window; new key so earlier saved widths open at the new default
+const DRAWER_W = 'bsc-plm-drawer-share-4';   // 12 Nov 2026: new key so every browser opens wide again (92%) instead of an older, narrower saved width   // a fraction of the window; new key so earlier saved widths open at the new default
 export function Drawer({ open, onClose, title, subtitle, back, children }: { open: boolean; onClose: () => void; title: React.ReactNode; subtitle?: React.ReactNode; back?: { label: string; onClick: () => void }; children: React.ReactNode }) {
   const body = useRef<HTMLDivElement>(null);
   const onTop = useOverlay(open);
@@ -244,7 +244,10 @@ export function Drawer({ open, onClose, title, subtitle, back, children }: { ope
      remembered, because a person who wants it wide wants it wide every time. */
   /* remembered as a share of the window (0.35–0.9), so a width saved on a small
      screen does not come back as a sliver on a large one */
-  const [width, setWidth] = useState(() => { const f = Number(localStorage.getItem(DRAWER_W)); const share = f > 0.3 && f <= 0.95 ? f : 0.92; return Math.max(380, Math.round(window.innerWidth * share)); });
+  /* default (12 Nov 2026): everything right of the sidebar except a ~100px strip of the list, so the sidebar and a
+     sliver of the list stay in view; a width the person drags to is remembered as a share of the window and wins */
+  const [width, setWidth] = useState(() => { const f = Number(localStorage.getItem(DRAWER_W)); if (f > 0.3 && f <= 0.95) return Math.max(380, Math.round(window.innerWidth * f));
+    const side = document.querySelector('aside')?.getBoundingClientRect().width ?? 264; return Math.max(380, Math.round(window.innerWidth - side - 100)); });
   const drag = useRef<{ x: number; w: number } | null>(null);
   const clamp = (w: number) => Math.max(380, Math.min(window.innerWidth - 120, w));
   useEffect(() => {
