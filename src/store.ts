@@ -10,7 +10,7 @@ import type { PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMo
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
 import { prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
-import { PEOPLE, MERCHANDISERS, ORDER_STAGE_NEXT, METRES_PER_SHIRT, STORES, SHEET_LABEL, SHIRT_PRESETS, defaultSpec, defaultMeasurements, defaultPattern } from './domain/reference';
+import { PEOPLE, MERCHANDISERS, ORDER_STAGE_NEXT, METRES_PER_SHIRT, STORES, SHEET_LABEL, MILESTONES, MILESTONE_OWNER, PRE_PRODUCTION, SHIRT_PRESETS, defaultSpec, defaultMeasurements, defaultPattern } from './domain/reference';
 
 /* `undoAt` is the depth of the stack this toast was raised at: its Undo button
    may only revert its own change, never a later one that landed on top. */
@@ -208,7 +208,8 @@ export interface AppState {
 
   /* production */
   updateExecution(orderId: string, patch: Partial<Pick<ProductionOrder, 'merchant' | 'jobCardNo' | 'fabricReady' | 'trimsReady' | 'finalFob' | 'remarks'>> & { costingClosure?: Partial<ProductionOrder['costingClosure']> }): void;
-  setMilestone(orderId: string, key: string, patch: Partial<Pick<Milestone, 'plan' | 'revised' | 'actual' | 'delayReason'>>): void;
+  setMilestone(orderId: string, key: string, patch: Partial<Pick<Milestone, 'plan' | 'revised' | 'actual' | 'delayReason'>>): void;   // a key not yet on the PO is added to its plan
+  skipMilestone(orderId: string, key: string, skip: boolean): void;   // not needed for this PO, or needed after all
   /** production agrees with the factory: part now, balance later — the same PO, split */
   splitDispatch(orderId: string, lots: { qty: number; dispatchOn: string }[], reason: string): void;
   dispatchSplitLot(orderId: string, index: number): void;
@@ -1273,12 +1274,25 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, `Lot ${index + 1} of the split dispatched · ${l.qty} pcs`); }, 'Lot dispatched — the warehouse will receive it as a lot.');
     },
     clearSplit(orderId) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.split = null; log(o, 'Split cancelled — whole order ships together'); }, 'Split removed.'); },
+    skipMilestone(orderId, key, skip) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); const m = o?.milestones.find(x => x.key === key); if (!o || !m) return;
+        if (skip) { m.skipped = { on: now(), by: who() }; m.actual = m.actual ?? m.revised ?? m.plan; m.revised = null; m.delayReason = null; log(o, `"${key}" not needed for this PO`); }
+        else { m.skipped = null; m.actual = null; log(o, `"${key}" needed after all`); } },
+        skip ? `${key} marked not needed; the chain flows past it.` : `${key} is back on the plan.`);
+    },
     setMilestone(orderId, key, patch) {
       touch(db => {
         const o = db.orders.find(x => x.id === orderId); if (!o) return;
-        const idx = o.milestones.findIndex(m => m.key === key); if (idx < 0) return;
+        let idx = o.milestones.findIndex(m => m.key === key);
+        if (idx < 0) {
+          /* a step the category's plan leaves out, added to this PO by logging a date for it; kept in the sheet's order */
+          if (!(MILESTONES as readonly string[]).includes(key)) return;
+          o.milestones.push({ key, label: key, owner: (MILESTONE_OWNER[key] ?? 'production') as RoleId, stage: PRE_PRODUCTION.has(key) ? 'pre-production' : 'production', plan: patch.plan ?? patch.actual ?? now(), revised: null, actual: null, delayReason: null });
+          o.milestones.sort((a, b) => (MILESTONES as readonly string[]).indexOf(a.key) - (MILESTONES as readonly string[]).indexOf(b.key));
+          idx = o.milestones.findIndex(m => m.key === key); log(o, `"${key}" added to this PO's plan`);
+        }
         const m = o.milestones[idx];
-        Object.assign(m, patch);
+        Object.assign(m, patch); if (patch.actual) m.skipped = null;
         if (m.actual) {
           const slip = Math.max(0, daysBetween(m.plan, m.actual));
           m.revised = null;

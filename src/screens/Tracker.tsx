@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp, useAppStore } from '../store';
 import type { Milestone, ProductionOrder } from '../domain/types';
-import { cutFromFabric, leadTimesOf, otifOf, riskOf, stageOf, fmtDate, fmtMoney, daysAgo, fmtRel, costingOf, hubOrders, fulfilFromOf, trackerConfig, autoPlanLogicOf, rtwDocsOf, factoryStateOf, fabricStateOf, type Risk } from '../domain/engines';
+import { iso, TODAY, cutFromFabric, leadTimesOf, otifOf, riskOf, stageOf, fmtDate, fmtMoney, daysAgo, fmtRel, costingOf, hubOrders, fulfilFromOf, trackerConfig, autoPlanLogicOf, rtwDocsOf, factoryStateOf, fabricStateOf, type Risk } from '../domain/engines';
 import { ORDER_STEPS } from '../domain/reference';
 import { ThreadPanel } from './Thread';
 import { RecordTail } from './RecordTail';
@@ -333,15 +333,16 @@ const FLOW_COLOR: Record<FlowState, string> = { done: 'var(--good)', late: 'var(
 const FLOW_LABEL: Record<FlowState, string> = { done: 'done', late: 'done late', overdue: 'past plan, nothing logged', now: 'next up', pending: 'planned' };
 
 export function MilestoneGrid({ o, editable, bare }: { o: ProductionOrder; editable: boolean; bare?: boolean }) {
-  const { setMilestone } = useApp();
+  const { setMilestone, skipMilestone } = useApp();
   const [view, setView] = useState<'flow' | 'table'>('flow');
   const [open, setOpen] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, Partial<Milestone>>>({});
   const d = (m: Milestone) => ({ ...m, ...draft[m.key] });
-  const changed = (m: Milestone) => !!draft[m.key];
-  const save = (m: Milestone) => { const p = draft[m.key]; if (!p) return; setMilestone(o.id, m.key, p); setDraft(x => { const n = { ...x }; delete n[m.key]; return n; }); };
-  const steps = allSteps(o); const live = steps.filter(m => !m.na); const na = steps.filter(m => m.na);
-  const nextKey = live.find(m => !m.actual)?.key ?? null;
+  const changed = (m: Milestone) => !!draft[m.key] || !!(m as Milestone & { na?: boolean }).na;
+  const save = (m: Milestone) => { const p = draft[m.key] ?? ((m as Milestone & { na?: boolean }).na ? { plan: iso(TODAY) } : undefined); if (!p) return; setMilestone(o.id, m.key, p); setDraft(x => { const n = { ...x }; delete n[m.key]; return n; }); };
+  /* every block the sheet has, in its order: the ones the category's plan leaves out are greyed, and so are the ones marked not needed */
+  const steps = allSteps(o); const live = steps; const na = steps.filter(m => m.na);
+  const nextKey = live.find(m => !m.actual && !m.na)?.key ?? null;
   const COLS = 4; const rows: typeof live[] = []; for (let i = 0; i < live.length; i += COLS) rows.push(live.slice(i, i + COLS));
   const faint = { color: 'var(--ink-faint)' } as const;
   const editing = open ? live.find(m => m.key === open) ?? null : null;
@@ -353,8 +354,8 @@ export function MilestoneGrid({ o, editable, bare }: { o: ProductionOrder; edita
       <Field label="Revised"><Input type="date" value={dateInput(v.revised)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], revised: fromDateInput(e.target.value) } }))} style={{ width: 140 }} /></Field>
       <Field label="Actual"><Input type="date" value={dateInput(v.actual)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], actual: fromDateInput(e.target.value) } }))} style={{ width: 140 }} /></Field>
       <Field label="Why it moved"><Select value={v.delayReason ?? ''} onChange={val => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], delayReason: val || null } }))} options={[{ value: '', label: '— reason —' }, ...DELAY_REASONS.map(rz => ({ value: rz, label: rz }))]} /></Field>
-      <Button size="sm" variant="primary" disabled={!changed(m)} onClick={() => { save(m); setOpen(null); }}>Save</Button>
-      {!editable && null}
+      <Button size="sm" variant="primary" disabled={!changed(m)} onClick={() => { save(m); setOpen(null); }}>{(m as Milestone & { na?: boolean }).na ? 'Add to this PO\'s plan' : 'Save'}</Button>
+      {!(m as Milestone & { na?: boolean }).na && <Button size="sm" variant={m.skipped ? undefined : 'ghost'} onClick={() => { skipMilestone(o.id, m.key, !m.skipped); setOpen(null); }}>{m.skipped ? 'Needed after all' : 'Not needed for this PO'}</Button>}
     </div> : <div className="flex gap-4 text-[12.5px]"><span><span style={faint}>Plan </span>{fmtDate(m.plan)}</span><span><span style={faint}>Revised </span>{fmtDate(m.revised)}</span><span><span style={faint}>Actual </span>{fmtDate(m.actual)}</span><span><span style={faint}>Why </span>{m.delayReason ?? '—'}</span></div>}
     <div className="text-[11.5px] pt-2" style={faint}>An actual that lands late pushes every open step behind it by the same number of days. A revised date wants a reason.</div>
   </div>; };
@@ -362,7 +363,7 @@ export function MilestoneGrid({ o, editable, bare }: { o: ProductionOrder; edita
   const flow = <>
     <div className="flex items-center gap-3 mb-2 text-[11.5px]" style={faint}>
       {(['done', 'late', 'overdue', 'now', 'pending'] as FlowState[]).map(st => <span key={st} className="flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: 3, background: FLOW_COLOR[st], display: 'inline-block' }} />{FLOW_LABEL[st]}</span>)}
-      {na.length > 0 && <span className="ml-auto">{na.length} steps not in this category's plan</span>}
+      {na.length > 0 && <span className="ml-auto">{na.length} greyed: not in this category's plan · click one to add it</span>}
       <span className={na.length ? '' : 'ml-auto'}><Seg options={[{ id: 'flow', label: 'Flow' }, { id: 'table', label: 'Table' }]} value={view} onChange={setView} /></span>
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, columnGap: 28, rowGap: 26 }}>
@@ -370,13 +371,13 @@ export function MilestoneGrid({ o, editable, bare }: { o: ProductionOrder; edita
         const items = cells.map((m, ci) => { const idx = ri * COLS + (rev ? row.length - 1 - ci : ci); const { state, late } = flowStateOf(m, m.key === nextKey); const isLastInRow = rev ? ci === 0 : ci === row.length - 1; const hasNext = idx < live.length - 1; const col = FLOW_COLOR[state];
           const hArrow = hasNext && !isLastInRow; const vArrow = hasNext && isLastInRow; const selected = open === m.key;
           return <div key={m.key} style={{ position: 'relative', gridColumn: rev ? ci + 1 + pad : undefined }}>
-            <button onClick={() => setOpen(selected ? null : m.key)} className="text-left w-full" style={{ border: `1.5px solid ${state === 'pending' ? 'var(--line)' : col}`, boxShadow: selected ? `0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent)` : undefined, borderRadius: 8, padding: '8px 10px', background: state === 'now' ? 'color-mix(in srgb, var(--accent) 7%, #fff)' : state === 'done' ? 'color-mix(in srgb, var(--good) 6%, #fff)' : '#fff', minHeight: 78, cursor: 'pointer' }}>
+            <button onClick={() => setOpen(selected ? null : m.key)} className="text-left w-full" style={{ opacity: m.na || m.skipped ? .5 : 1, border: `1.5px solid ${state === 'pending' || m.skipped ? 'var(--line)' : col}`, boxShadow: selected ? `0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent)` : undefined, borderRadius: 8, padding: '8px 10px', background: state === 'now' ? 'color-mix(in srgb, var(--accent) 7%, #fff)' : state === 'done' ? 'color-mix(in srgb, var(--good) 6%, #fff)' : '#fff', minHeight: 78, cursor: 'pointer' }}>
               <div className="flex items-center gap-2"><span className="mono text-[10px]" style={{ color: state === 'pending' ? 'var(--ink-faint)' : col, fontWeight: 700 }}>{String(idx + 1).padStart(2, '0')}</span><span className="font-medium text-[12.5px] truncate">{m.key}</span>{late > 0 && <span className="pill risk ml-auto" style={{ fontSize: 10 }}>+{late}d</span>}{state === 'now' && <span className="pill accent ml-auto" style={{ fontSize: 10 }}>next</span>}{state === 'overdue' && <span className="pill warn ml-auto" style={{ fontSize: 10 }}>overdue</span>}</div>
               <div className="text-[10.5px] mt-0.5" style={faint}>{ROLE_LABEL[m.owner]}</div>
               <div className="mono text-[11px] mt-1 flex gap-2 flex-wrap">
-                <span style={{ textDecoration: m.revised ? 'line-through' : undefined, color: m.revised || m.actual ? 'var(--ink-faint)' : undefined }}>{fmtDate(m.plan)}</span>
+                {!m.na && !m.skipped && <span style={{ textDecoration: m.revised ? 'line-through' : undefined, color: m.revised || m.actual ? 'var(--ink-faint)' : undefined }}>{fmtDate(m.plan)}</span>}
                 {m.revised && !m.actual && <span style={{ color: 'var(--warn)' }}>→ {fmtDate(m.revised)}</span>}
-                {m.actual && <span style={{ color: late ? 'var(--risk)' : 'var(--good)', fontWeight: 600 }}>✓ {fmtDate(m.actual)}</span>}
+                {m.skipped ? <span style={{ color: 'var(--ink-faint)', fontWeight: 600 }}>not needed</span> : m.na ? <span style={{ color: 'var(--ink-faint)' }}>not in this plan</span> : m.actual && <span style={{ color: late ? 'var(--risk)' : 'var(--good)', fontWeight: 600 }}>✓ {fmtDate(m.actual)}</span>}
               </div>
               {m.delayReason && <div className="text-[10.5px] mt-0.5 truncate" style={{ color: 'var(--warn)' }}>{m.delayReason}</div>}
             </button>

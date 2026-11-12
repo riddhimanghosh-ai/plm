@@ -244,7 +244,7 @@ export function Drawer({ open, onClose, title, subtitle, back, children }: { ope
      remembered, because a person who wants it wide wants it wide every time. */
   /* remembered as a share of the window (0.35–0.9), so a width saved on a small
      screen does not come back as a sliver on a large one */
-  const [width, setWidth] = useState(() => { const f = Number(localStorage.getItem(DRAWER_W)); const share = f > 0.3 && f <= 0.95 ? f : 0.82; return Math.max(380, Math.round(window.innerWidth * share)); });
+  const [width, setWidth] = useState(() => { const f = Number(localStorage.getItem(DRAWER_W)); const share = f > 0.3 && f <= 0.95 ? f : 0.92; return Math.max(380, Math.round(window.innerWidth * share)); });
   const drag = useRef<{ x: number; w: number } | null>(null);
   const clamp = (w: number) => Math.max(380, Math.min(window.innerWidth - 120, w));
   useEffect(() => {

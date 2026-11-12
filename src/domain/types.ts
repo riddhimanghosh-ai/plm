@@ -129,6 +129,7 @@ export interface Milestone {
   revised: string | null;        // ISO — the current commitment when it has moved
   actual: string | null;         // ISO — what really happened
   delayReason: string | null;    // required when revised is set by a person
+  skipped?: { on: string; by: string } | null;   // "not needed for this PO": the chain flows past it; it is never counted as done late
 }
 
 /* ---------- costing — New Cogs Working v2.xlsx, column for column ------
