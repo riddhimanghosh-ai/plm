@@ -1460,6 +1460,8 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
   fresh.filter(c => c.patSentOn && !c.approvalSentOn).forEach(c => { c.sampling = 'needed'; c.samplingDecided = { on: c.raisedOn, by: c.raisedBy }; });
   const undecided = fresh.find(c => !c.patSentOn); if (undecided) { undecided.sampling = 'pending'; undecided.samplingDecided = null; } }
 
+/* 12 Nov 2026: a cut ratio design has given is at the factory; nobody sends it on */
+orders.forEach(o => (o.cutRatios ?? []).forEach(cr => { if (cr.given && !cr.sentToFactoryOn) cr.sentToFactoryOn = cr.given.on; }));
 /* 12 Nov 2026: where each ask came from, and the sample cycle on the styles still before their PO.
    Core reorders come from Enigma's auto-PO run, repeats from the planning review, new styles from design. */
 orders.forEach((o, i) => {

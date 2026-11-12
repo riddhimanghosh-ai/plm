@@ -1,178 +1,159 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 6400 970" width="6400" height="970" font-family="Inter, Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5250 640" width="5250" height="640" font-family="Inter, Helvetica, Arial, sans-serif">
 <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#555"/></marker></defs>
-<rect width="6400" height="970" fill="#fff"/>
-<rect x="130" y="22" width="1600" height="26" rx="6" fill="#efeadf"/><text x="930.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Design · sample</text>
-<rect x="1740" y="22" width="1830" height="26" rx="6" fill="#efeadf"/><text x="2655.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Order · buy</text>
-<rect x="3580" y="22" width="680" height="26" rx="6" fill="#efeadf"/><text x="3920.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Make · QC</text>
-<rect x="4270" y="22" width="910" height="26" rx="6" fill="#efeadf"/><text x="4725.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Ship · cost</text>
-<rect x="5190" y="22" width="1140" height="26" rx="6" fill="#efeadf"/><text x="5760.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Launch</text>
-<rect x="10" y="70" width="6380" height="110" fill="#fff" stroke="#e3ddcd"/>
-<text x="22" y="130.0" font-size="13" font-weight="700" fill="#3c4a30">Planning</text>
-<rect x="10" y="180" width="6380" height="110" fill="#fbfaf6" stroke="#e3ddcd"/>
-<text x="22" y="240.0" font-size="13" font-weight="700" fill="#3c4a30">Design</text>
-<rect x="10" y="290" width="6380" height="110" fill="#fff" stroke="#e3ddcd"/>
-<text x="22" y="350.0" font-size="13" font-weight="700" fill="#3c4a30">Sourcing</text>
-<rect x="10" y="400" width="6380" height="110" fill="#fbfaf6" stroke="#e3ddcd"/>
-<text x="22" y="460.0" font-size="13" font-weight="700" fill="#3c4a30">Nitin · production</text>
-<rect x="10" y="510" width="6380" height="110" fill="#fff" stroke="#e3ddcd"/>
-<text x="22" y="570.0" font-size="13" font-weight="700" fill="#3c4a30">Factory</text>
-<rect x="10" y="620" width="6380" height="110" fill="#fbfaf6" stroke="#e3ddcd"/>
-<text x="22" y="680.0" font-size="13" font-weight="700" fill="#3c4a30">Enigma</text>
-<rect x="10" y="730" width="6380" height="110" fill="#fff" stroke="#e3ddcd"/>
-<text x="22" y="790.0" font-size="13" font-weight="700" fill="#3c4a30">Finance</text>
-<rect x="10" y="840" width="6380" height="110" fill="#fbfaf6" stroke="#e3ddcd"/>
-<text x="22" y="900.0" font-size="13" font-weight="700" fill="#3c4a30">Stores</text>
-<path d="M340 125.0L475.0 125.0L475.0 207.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="407.5" y="119.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">reorder</text>
-<path d="M340 675.0L475.0 675.0L475.0 263.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="407.5" y="669.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">auto-PO</text>
-<path d="M570 235.0L610 235.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M800 235.0L840 235.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M1030 235.0L1165.0 235.0L1165.0 537.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M1260 565.0L1395.0 565.0L1395.0 263.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M1490 235.0L1530 235.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="1510.0" y="229.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">remarks</text>
-<path d="M1530 235.0L1165.0 235.0L1165.0 537.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="1347.5" y="229.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">next round</text>
-<path d="M1490 235.0L1855.0 235.0L1855.0 427.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="1672.5" y="229.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">approved</text>
-<path d="M1950 455.0L2085.0 455.0L2085.0 263.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M1990 235.0L1855.0 235.0L1855.0 427.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="1922.5" y="229.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">send back</text>
-<path d="M2180 235.0L2315.0 235.0L2315.0 647.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="2247.5" y="229.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">raise</text>
-<path d="M2410 675.0L2545.0 675.0L2545.0 593.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M2640 565.0L2775.0 565.0L2775.0 263.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M2640 565.0L2775.0 565.0L2775.0 373.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M2870 345.0L3005.0 345.0L3005.0 647.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M3005.0 647.0L3005.0 373.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M3100 345.0L3235.0 345.0L3235.0 537.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M2870 235.0L3695.0 235.0L3695.0 537.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="3282.5" y="229.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">tech pack</text>
-<path d="M3235.0 537.0L3235.0 263.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="3241.0" y="400.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">short</text>
-<path d="M3330 235.0L3465.0 235.0L3465.0 427.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M3560 455.0L3695.0 455.0L3695.0 537.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M3330 565.0L3600 565.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="3465.0" y="559.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">all in</text>
-<path d="M3790 565.0L3830 565.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M3925.0 537.0L3925.0 483.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="3931.0" y="510.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">dates</text>
-<path d="M4020 565.0L4060 565.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M4155.0 537.0C4155.0 497.0,3925.0 497.0,3925.0 537.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="4040.0" y="531.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">rework</text>
-<path d="M4250 565.0L4290 565.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="4270.0" y="559.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">pass</text>
-<path d="M4480 565.0L4615.0 565.0L4615.0 647.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M4710 675.0L4845.0 675.0L4845.0 483.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M4940 455.0L5075.0 455.0L5075.0 757.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M4710 675.0L5305.0 675.0L5305.0 153.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<text x="5007.5" y="669.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">goods at HO</text>
-<path d="M5400 125.0L5535.0 125.0L5535.0 207.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M5535.0 263.0L5535.0 647.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M5400 125.0L5670 125.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M5765.0 153.0L5765.0 647.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M5860 675.0L5995.0 675.0L5995.0 867.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M6090 895.0L6225.0 895.0L6225.0 153.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M5630 235.0L6225.0 235.0L6225.0 153.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
-<path d="M6225.0 153.0L6225.0 647.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<rect width="5250" height="640" fill="#fff"/>
+<rect x="130" y="22" width="1370" height="26" rx="6" fill="#efeadf"/><text x="815.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Design · sample</text>
+<rect x="1510" y="22" width="910" height="26" rx="6" fill="#efeadf"/><text x="1965.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Order · buy, in parallel</text>
+<rect x="2430" y="22" width="910" height="26" rx="6" fill="#efeadf"/><text x="2885.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Count-in</text>
+<rect x="3350" y="22" width="680" height="26" rx="6" fill="#efeadf"/><text x="3690.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Make · QC</text>
+<rect x="4040" y="22" width="680" height="26" rx="6" fill="#efeadf"/><text x="4380.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Ship · cost</text>
+<rect x="4730" y="22" width="450" height="26" rx="6" fill="#efeadf"/><text x="4955.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Codes</text>
+<rect x="10" y="70" width="5230" height="110" fill="#fff" stroke="#e3ddcd"/>
+<text x="22" y="130.0" font-size="13" font-weight="700" fill="#3c4a30">Design · Planning</text>
+<rect x="10" y="180" width="5230" height="110" fill="#fbfaf6" stroke="#e3ddcd"/>
+<text x="22" y="240.0" font-size="13" font-weight="700" fill="#3c4a30">Sourcing</text>
+<rect x="10" y="290" width="5230" height="110" fill="#fff" stroke="#e3ddcd"/>
+<text x="22" y="350.0" font-size="13" font-weight="700" fill="#3c4a30">Nitin · production</text>
+<rect x="10" y="400" width="5230" height="110" fill="#fbfaf6" stroke="#e3ddcd"/>
+<text x="22" y="460.0" font-size="13" font-weight="700" fill="#3c4a30">Factory</text>
+<rect x="10" y="510" width="5230" height="110" fill="#fff" stroke="#e3ddcd"/>
+<text x="22" y="570.0" font-size="13" font-weight="700" fill="#3c4a30">Enigma</text>
+<path d="M340 125.0L380 125.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="360.0" y="119.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">reorder</text>
+<path d="M340 565.0L475.0 565.0L475.0 153.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="407.5" y="559.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">auto-PO</text>
+<path d="M570 125.0L610 125.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M800 125.0L840 125.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M1030 125.0L1165.0 125.0L1165.0 427.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M1260 455.0L1395.0 455.0L1395.0 153.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M1300 125.0L1165.0 125.0L1165.0 427.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1232.5" y="119.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">remarks → next round</text>
+<path d="M1490 125.0L1625.0 125.0L1625.0 317.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1557.5" y="119.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">approved</text>
+<path d="M1490 125.0L1625.0 125.0L1625.0 207.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1557.5" y="119.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">approved · in parallel</text>
+<path d="M1720 345.0L1855.0 345.0L1855.0 153.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M1760 125.0L1625.0 125.0L1625.0 317.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1692.5" y="119.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">send back</text>
+<path d="M1950 125.0L2085.0 125.0L2085.0 537.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="2017.5" y="119.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">raise</text>
+<path d="M2180 565.0L2315.0 565.0L2315.0 483.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M2410 455.0L2545.0 455.0L2545.0 153.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M1720 235.0L1855.0 235.0L1855.0 537.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M1950 565.0L2085.0 565.0L2085.0 263.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M2180 235.0L2545.0 235.0L2545.0 427.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="2362.5" y="229.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">cloth and trims</text>
+<path d="M2545.0 153.0L2545.0 427.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="2551.0" y="290.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">tech pack</text>
+<path d="M2640 455.0L2680 455.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M2870 455.0L3140 455.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="3005.0" y="449.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">yes</text>
+<path d="M2870 455.0L3005.0 455.0L3005.0 153.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="2937.5" y="449.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">cloth short</text>
+<path d="M3100 125.0L3235.0 125.0L3235.0 427.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="3167.5" y="119.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">factory sees it</text>
+<path d="M2870 455.0L3005.0 455.0L3005.0 263.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="2937.5" y="449.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">trims short</text>
+<path d="M2910 235.0L2545.0 235.0L2545.0 427.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="2727.5" y="229.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">count again</text>
+<path d="M3330 455.0L3370 455.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M3465.0 427.0L3465.0 373.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="3471.0" y="400.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">dates</text>
+<path d="M3560 455.0L3600 455.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M3695.0 427.0C3695.0 387.0,3465.0 387.0,3465.0 427.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="3580.0" y="421.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">rework</text>
+<path d="M3790 455.0L3830 455.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="3810.0" y="449.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">pass</text>
+<path d="M4020 455.0L4155.0 455.0L4155.0 537.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M4250 565.0L4385.0 565.0L4385.0 373.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M4480 345.0L4520 345.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M4250 565.0L4845.0 565.0L4845.0 153.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="4547.5" y="559.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">goods at HO</text>
+<path d="M4940 125.0L4980 125.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M5075.0 153.0L5075.0 537.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
 <rect x="150" y="97.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
 <text x="245.0" y="122.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Planning review</text>
 <text x="245.0" y="136.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">reorder: stock · ROS · cover</text>
-<rect x="150" y="647.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
-<text x="245.0" y="672.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Auto-PO</text>
-<text x="245.0" y="686.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">core style below threshold</text>
-<rect x="380" y="207.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="475.0" y="232.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Requirement raised</text>
-<text x="475.0" y="246.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">design ask · reorder · auto-PO</text>
-<rect x="610" y="207.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="705.0" y="232.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Design the style</text>
-<text x="705.0" y="246.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">brief · BOM · CAD</text>
-<rect x="840" y="207.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="935.0" y="232.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Send for sampling</text>
-<text x="935.0" y="246.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">sample due date</text>
-<rect x="1070" y="537.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="1165.0" y="562.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Make the sample</text>
-<text x="1165.0" y="576.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">by the due date</text>
-<rect x="1300" y="207.0" width="190" height="56" rx="28" fill="#e7ebe0" stroke="#3c4a30" stroke-width="1.4"/>
-<text x="1395.0" y="232.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Trial · sample right?</text>
-<text x="1395.0" y="246.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">or remarks</text>
+<rect x="150" y="537.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
+<text x="245.0" y="562.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Auto-PO</text>
+<text x="245.0" y="576.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">core style below threshold</text>
+<rect x="380" y="97.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="475.0" y="122.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Requirement raised</text>
+<text x="475.0" y="136.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">design ask · reorder · auto-PO</text>
+<rect x="610" y="97.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="705.0" y="122.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Design the style</text>
+<text x="705.0" y="136.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">brief · BOM · CAD</text>
+<rect x="840" y="97.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="935.0" y="122.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Send for sampling</text>
+<text x="935.0" y="136.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">sample due date</text>
+<rect x="1070" y="427.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="1165.0" y="452.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Make the sample</text>
+<text x="1165.0" y="466.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">by the due date</text>
+<rect x="1300" y="97.0" width="190" height="56" rx="28" fill="#e7ebe0" stroke="#3c4a30" stroke-width="1.4"/>
+<text x="1395.0" y="122.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Trial · sample right?</text>
+<text x="1395.0" y="136.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">or remarks → update CAD</text>
+<rect x="1530" y="317.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="1625.0" y="342.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Propose a factory</text>
+<text x="1625.0" y="356.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">cost · date agreed</text>
 <rect x="1530" y="207.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="1625.0" y="232.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Update CAD and design</text>
-<text x="1625.0" y="246.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">from the remarks</text>
-<rect x="1760" y="427.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="1855.0" y="452.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Propose a factory</text>
-<text x="1855.0" y="466.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">cost · date agreed</text>
-<rect x="1990" y="207.0" width="190" height="56" rx="28" fill="#e7ebe0" stroke="#3c4a30" stroke-width="1.4"/>
-<text x="2085.0" y="232.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Bulk order · accept?</text>
-<text x="2085.0" y="246.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">qty by size · raise the PO</text>
-<rect x="2220" y="647.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
-<text x="2315.0" y="672.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Factory PO</text>
-<text x="2315.0" y="686.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">+ logistics, other costs</text>
-<rect x="2450" y="537.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="2545.0" y="569.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Acknowledge the PO</text>
-<rect x="2680" y="207.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="2775.0" y="239.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Upload the tech pack</text>
-<rect x="2680" y="317.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="2775.0" y="342.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Shop cloth and trims</text>
-<text x="2775.0" y="356.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">vendor · price · hold</text>
-<rect x="2910" y="647.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
-<text x="3005.0" y="672.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Fabric PO to the mill</text>
-<text x="3005.0" y="686.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">DRAFT → Open</text>
-<rect x="2910" y="317.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="3005.0" y="342.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Send cloth and trims</text>
-<text x="3005.0" y="356.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">to the factory</text>
-<rect x="3140" y="537.0" width="190" height="56" rx="28" fill="#e7ebe0" stroke="#3c4a30" stroke-width="1.4"/>
-<text x="3235.0" y="562.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Count in</text>
-<text x="3235.0" y="576.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">cloth short?</text>
-<rect x="3140" y="207.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="3235.0" y="232.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Cut ratio</text>
-<text x="3235.0" y="246.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">or approve cut-short</text>
+<text x="1625.0" y="232.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Shop cloth and trims</text>
+<text x="1625.0" y="246.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">in parallel with the PO</text>
+<rect x="1760" y="97.0" width="190" height="56" rx="28" fill="#e7ebe0" stroke="#3c4a30" stroke-width="1.4"/>
+<text x="1855.0" y="122.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Bulk order · accept?</text>
+<text x="1855.0" y="136.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">qty by size · raise the PO</text>
+<rect x="1760" y="537.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
+<text x="1855.0" y="562.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Fabric PO to the mill</text>
+<text x="1855.0" y="576.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">DRAFT → Open</text>
+<rect x="1990" y="537.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
+<text x="2085.0" y="562.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Factory PO</text>
+<text x="2085.0" y="576.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">+ logistics, other costs</text>
+<rect x="1990" y="207.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="2085.0" y="232.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Send cloth and trims</text>
+<text x="2085.0" y="246.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">to the factory</text>
+<rect x="2220" y="427.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="2315.0" y="459.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Acknowledge the PO</text>
+<rect x="2450" y="97.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="2545.0" y="129.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Upload the tech pack</text>
+<rect x="2450" y="427.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="2545.0" y="452.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Count cloth and</text>
+<text x="2545.0" y="466.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">trims in</text>
+<rect x="2680" y="427.0" width="190" height="56" rx="28" fill="#e7ebe0" stroke="#3c4a30" stroke-width="1.4"/>
+<text x="2775.0" y="459.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">All in, as ordered?</text>
+<rect x="2910" y="97.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="3005.0" y="122.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Cloth short: new cut ratio</text>
+<text x="3005.0" y="136.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">factory sees it at once</text>
+<rect x="2910" y="207.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="3005.0" y="232.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Trims short:</text>
+<text x="3005.0" y="246.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">send the balance</text>
+<rect x="3140" y="427.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="3235.0" y="459.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Approve all received</text>
 <rect x="3370" y="427.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="3465.0" y="452.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Send the new ratio</text>
-<text x="3465.0" y="466.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">to the factory</text>
-<rect x="3600" y="537.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="3695.0" y="569.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Approve all received</text>
-<rect x="3830" y="537.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="3925.0" y="562.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Make · log the TNA</text>
-<text x="3925.0" y="576.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">22 milestones</text>
+<text x="3465.0" y="452.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Make · log the TNA</text>
+<text x="3465.0" y="466.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">22 milestones</text>
+<rect x="3370" y="317.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="3465.0" y="342.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Tracker · OTIF</text>
+<text x="3465.0" y="356.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">escalations</text>
+<rect x="3600" y="427.0" width="190" height="56" rx="28" fill="#e7ebe0" stroke="#3c4a30" stroke-width="1.4"/>
+<text x="3695.0" y="452.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">QC passed?</text>
+<text x="3695.0" y="466.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">or rework</text>
 <rect x="3830" y="427.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="3925.0" y="452.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Tracker · OTIF</text>
-<text x="3925.0" y="466.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">escalations</text>
-<rect x="4060" y="537.0" width="190" height="56" rx="28" fill="#e7ebe0" stroke="#3c4a30" stroke-width="1.4"/>
-<text x="4155.0" y="562.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">QC passed?</text>
-<text x="4155.0" y="576.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">or rework</text>
-<rect x="4290" y="537.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="4385.0" y="562.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">AWB · courier</text>
-<text x="4385.0" y="576.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">shipped</text>
-<rect x="4520" y="647.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
-<text x="4615.0" y="672.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Delivered · GRN</text>
-<text x="4615.0" y="686.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">by size, lot by lot</text>
-<rect x="4750" y="427.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="4845.0" y="452.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Close the shipment</text>
-<text x="4845.0" y="466.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">shipping cost</text>
-<rect x="4980" y="757.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="5075.0" y="782.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">COGS vs MRP</text>
-<text x="5075.0" y="796.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">margin per style</text>
-<rect x="5210" y="97.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="5305.0" y="122.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Add to a drop</text>
-<text x="5305.0" y="136.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">marketing name · date</text>
-<rect x="5440" y="207.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="5535.0" y="232.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Mint design codes</text>
-<text x="5535.0" y="246.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">name · cloth · MRP · sizes</text>
-<rect x="5440" y="647.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
-<text x="5535.0" y="672.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Design rows + variants</text>
-<text x="5535.0" y="686.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">in Enigma</text>
-<rect x="5670" y="97.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="5765.0" y="122.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Display &amp; fit plan</text>
-<text x="5765.0" y="136.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">per store</text>
-<rect x="5670" y="647.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
-<text x="5765.0" y="679.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">STO to stores</text>
-<rect x="5900" y="867.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="5995.0" y="892.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Pieces received</text>
-<text x="5995.0" y="906.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">(RetailOS)</text>
-<rect x="6130" y="97.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
-<text x="6225.0" y="129.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Make live</text>
-<rect x="6130" y="647.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
-<text x="6225.0" y="679.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Live · Shopify sync</text>
+<text x="3925.0" y="452.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">AWB · courier</text>
+<text x="3925.0" y="466.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">shipped</text>
+<rect x="4060" y="537.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
+<text x="4155.0" y="562.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Delivered · GRN</text>
+<text x="4155.0" y="576.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">by size, lot by lot</text>
+<rect x="4290" y="317.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="4385.0" y="342.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Close the shipment</text>
+<text x="4385.0" y="356.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">shipping cost</text>
+<rect x="4520" y="317.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="4615.0" y="342.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">COGS vs MRP</text>
+<text x="4615.0" y="356.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">Nitin and design see it</text>
+<rect x="4750" y="97.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="4845.0" y="122.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Add to a drop</text>
+<text x="4845.0" y="136.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">marketing name · date</text>
+<rect x="4980" y="97.0" width="190" height="56" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.4"/>
+<text x="5075.0" y="122.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Mint design codes</text>
+<text x="5075.0" y="136.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">name · cloth · MRP · sizes</text>
+<rect x="4980" y="537.0" width="190" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.4"/>
+<text x="5075.0" y="562.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Design rows + variants</text>
+<text x="5075.0" y="576.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">in Enigma</text>
 </svg>

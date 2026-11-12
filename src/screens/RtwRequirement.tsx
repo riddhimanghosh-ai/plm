@@ -26,13 +26,12 @@ import { ActsBy } from './Who';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
 const MINE: Record<string, string[]> = {
-  design: ['raised', 'design', 'sample', 'factory', 'cloth', 'launch'],
+  design: ['raised', 'design', 'sample', 'factory', 'cloth', 'cogs', 'launch'],
   planning: ['raised', 'cogs', 'launch'],
   sourcing: ['cloth'],
-  production: ['sample', 'factory', 'cloth', 'tna', 'qc', 'ship'],
+  production: ['sample', 'factory', 'cloth', 'tna', 'qc', 'ship', 'cogs'],
   merchandiser: ['sample', 'factory', 'cloth', 'tna', 'qc', 'ship'],
   warehouse: ['ship'],
-  finance: ['cogs'],
 };
 
 export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: string }) {
@@ -188,7 +187,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
       <div className="pt-3"><ReceiptLots o={o} editable={false} open /></div>
     </> : <Section title="Shipping cycle" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>After QC: AWB, courier, shipped, delivered, closed.</div></Section>)}
 
-    {at('cogs') && <CogsSection o={o} finance={finance} />}
+    {at('cogs') && <CogsSection o={o} finance={prod || design} />}
 
     {at('launch') && <Section title="Launch" collapsible={false} right={<Pill tone={launch?.launchedOn ? 'good' : launch ? 'info' : 'neutral'}>{launch?.launchedOn ? `launched ${fmtDate(launch.launchedOn)}` : launch ? `${launch.dropMonth} drop` : 'not in a drop yet'}</Pill>}>
       {launch ? <>

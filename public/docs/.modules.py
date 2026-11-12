@@ -2,49 +2,53 @@ import sys, html
 out_html, out_drawio, out_svg = sys.argv[1], sys.argv[2], sys.argv[3]
 # modules: key, title, who, nodes [(id, label, kind)], kind: step | decision | system | source
 M = [
- ('req','1 · Requirement','Design · Planning · Enigma',[
+ ('req','1 · Requirement','Design · Planning · Enigma auto-PO',[
    ('src','SOURCES','sourcesrow'),
    ('r1','Requirement raised\nstyle · target qty · date · cost','step'),
-   ('r2','Design the style\n(new launch) · sketch, cloth, fit','step'),
+   ('r2','Design the style\n(new launch) · brief, BOM, CAD','step'),
    ('r3','Send to the factory for sampling','step')]),
  ('smp','2 · Sample cycle','Factory · Design',[
    ('s1','Factory sample due on …\nETA tracked','step'),
    ('s2','Sampling → trial','step'),
-   ('s3','Changes?\nmodify and sample again','decision'),
+   ('s3','Remarks?\nupdate CAD and design, sample again','decision'),
    ('s4','Sample approved','step')]),
- ('po','3 · Bulk order and PO','Design · Nitin · Factory',[
+ ('po','3 · Bulk order and PO','Nitin · Design · Factory',[
    ('p1','Bulk production order\nquantity · size-wise quantity','step'),
    ('p2','PO to the factory\npiece cost + logistics + other costs','step'),
    ('p3','Factory PO on Enigma\nTNA generated from the PO date','system'),
-   ('p4','Factory receives the PO\nacknowledged','step')]),
- ('shop','4 · Tech pack and shopping','Design · Sourcing · Factory',[
+   ('p4','Factory acknowledges the PO','step')]),
+ ('shop','4 · Cloth and trims · in parallel','Sourcing',[
+   ('h1','Shop the cloth and trims\nvendor · price · hold','step'),
+   ('h2','Fabric PO to the mill\nDRAFT → Open','system'),
+   ('h3','Send cloth and trims to the factory\n"fabric issued for RTW"','step')]),
+ ('rcv','5 · Tech pack and count-in','Design · Factory · Sourcing',[
    ('t1','Design uploads the tech pack','step'),
-   ('t2','Sourcing shops fabric and trims\nvendor · fabric PO · "issued for RTW"','step'),
-   ('t3','Cloth short? cut ratio\nor cut-short with design','decision'),
+   ('t2','Factory counts cloth and trims in','step'),
+   ('t3','All in, as ordered?\nyes → approve','decision'),
+   ('t3a','No · cloth short: design gives a new\ncut ratio · factory sees it at once','step'),
+   ('t3b','No · trims short: sourcing sends\nthe balance · count again','step'),
    ('t4','Factory approves all received','step')]),
- ('mfg','5 · Manufacturing','Factory · Nitin',[
+ ('mfg','6 · Manufacturing and QC','Factory · Nitin',[
    ('m1','TNA updates · 22 milestones\nnot-needed steps skipped','step'),
-   ('m2','Tracker · OTIF · late in red','step')]),
- ('qc','6 · QC','Factory · Production',[
-   ('q1','Final inspection','step'),
-   ('q2','Passed?\nrework goes back to the TNA','decision')]),
- ('ship','7 · Shipping cycle','Factory · Logistics · Enigma',[
-   ('h1','AWB generated','step'),
-   ('h2','Courier picked up','step'),
-   ('h3','Shipped','step'),
-   ('h4','Delivered · GRN at BSC\nby size, lot by lot','system'),
-   ('h5','Done · everything closed','step')]),
- ('cogs','8 · COGS and profitability','Finance · Planning',[
+   ('m2','Tracker · OTIF · late in red','step'),
+   ('q2','QC passed?\nrework goes back to the TNA','decision')]),
+ ('ship','7 · Shipping cycle','Factory · Enigma · Nitin',[
+   ('x1','AWB generated · courier picked up','step'),
+   ('x2','Shipped','step'),
+   ('x3','Delivered · GRN at BSC\nby size, lot by lot','system'),
+   ('x4','Done · everything closed','step')]),
+ ('cogs','8 · COGS and profitability','Nitin · Design see it',[
    ('c1','Manufacturing cost\nfrom the PO','step'),
    ('c2','Shipping and other costs\nfrom the shipping cycle','step'),
    ('c3','COGS per piece vs MRP\nprofitability per style','step')]),
- ('lau','9 · Launch','Planning · Design · Enigma · Stores',[
-   ('l1','After delivery: add to a drop\ndesign codes → Enigma','system'),
-   ('l2','Stickers · display & fit → STO\nstores · make live','step')]),
+ ('lau','9 · Design codes','Design · Planning · Enigma',[
+   ('l1','After delivery: add to a drop\nname · date','step'),
+   ('l2','Mint design codes\nname · cloth · MRP · sizes','step'),
+   ('l3','Design rows + variants\ncreated in Enigma','system')]),
 ]
 SOURCES=[('Design ask','source'),('Planning reorder\nstock & cover','source'),('Enigma auto-PO\nbelow threshold','sourcesys')]
-INTER=[('r3','s1',''),('s4','p1','right'),('p4','t1',''),('t4','m1',''),('m2','q1',''),('q2','h1','passed'),('h5','c1',''),('c3','l1','')]
-LOOPS=[('s3','s1','yes · modify'),('t3','t4','new sizes')]
+INTER=[('r3','s1',''),('s4','p1','right'),('s4','h1','right · in parallel'),('p4','t1',''),('h3','t2','cloth in'),('t4','m1',''),('q2','x1','passed'),('x4','c1',''),('c3','l1','')]
+LOOPS=[('s3','s1','yes · sample again')]
 # layout
 COLS=5; MW=300; NW=256; NH=52; GAP=14; PAD=14; HEAD=40; MX=40; MY=40; GX=MW+60; SRC_W=76
 FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','source':'#fde7c9','sourcesys':'#dbeafe'}
@@ -108,7 +112,7 @@ svg.append('</svg>'); svg_text='\n'.join(svg); open(out_svg,'w').write(svg_text)
 legend='<div class="legend"><span><i style="background:#fde7c9;border-color:#b45309;border-radius:8px"></i> how a requirement starts</span><span><i style="background:#fffbe6;border-color:#8a7a3a"></i> step in PLM</span><span><i style="background:#e7ebe0;border-color:#3c4a30;border-radius:10px"></i> decision</span><span><i style="background:#dbeafe;border-color:#1d4ed8"></i> on Enigma</span></div>'
 page=f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RTW modules v2</title>
 <style>body{{margin:0;background:#fff;color:#1a1a13;font-family:Inter,system-ui,sans-serif;padding:24px}}h1{{font-size:22px;margin:0 0 4px}}p{{margin:0 0 14px;color:#6b6759;font-size:13.5px}}.legend{{display:flex;gap:16px;font-size:12px;color:#6b6759;margin-bottom:10px;flex-wrap:wrap}}.legend i{{display:inline-block;width:14px;height:10px;border:1.4px solid;border-radius:3px;vertical-align:middle;margin-right:4px}}.wrap{{overflow:auto;border:1px solid #e3ddcd;border-radius:8px}}svg{{display:block}}</style></head>
-<body><h1>RTW in PLM · nine modules (v2, after the 12 Nov meeting)</h1><p>In BSC's order: design and the sample cycle first, then the bulk order and PO (with logistics and other costs, acknowledged by the factory), the tech pack and the shopping of fabric and trims, manufacturing on the TNA, QC, the shipping cycle (AWB, courier, shipped, delivered, closed), COGS to profitability. A requirement starts three ways: a design ask, a planning reorder, or an Enigma auto-PO on a core style below its threshold. Also as <a href="bsc-plm-rtw-modules.drawio" download>a draw.io file</a>, <a href="bsc-plm-rtw-modules.svg" download>SVG</a>; see also the <a href="bsc-plm-rtw-flowchart.html">flowchart</a> and the <a href="bsc-plm-rtw-swimlane.html">swimlane</a>.</p>{legend}<div class="wrap">{svg_text.replace(f'width="{width}" height="{height}"', 'style="width:100%;height:auto;min-width:1100px"',1)}</div></body></html>'''
+<body><h1>RTW in PLM · nine modules (v2, after the 12 Nov meeting)</h1><p>In BSC's order: design and the sample cycle first, then the bulk order and PO (with logistics and other costs, acknowledged by the factory) with sourcing shopping the cloth and trims in parallel, the tech pack and count-in (design's new cut ratio goes straight to the factory), manufacturing on the TNA, QC, the shipping cycle (AWB, courier, shipped, delivered, closed), COGS that Nitin and design see, then the design codes. A requirement starts three ways: a design ask, a planning reorder, or an Enigma auto-PO on a core style below its threshold. Also as <a href="bsc-plm-rtw-modules.drawio" download>a draw.io file</a>, <a href="bsc-plm-rtw-modules.svg" download>SVG</a>; see also the <a href="bsc-plm-rtw-flowchart.html">flowchart</a> and the <a href="bsc-plm-rtw-swimlane.html">swimlane</a>.</p>{legend}<div class="wrap">{svg_text.replace(f'width="{width}" height="{height}"', 'style="width:100%;height:auto;min-width:1100px"',1)}</div></body></html>'''
 open(out_html,'w').write(page)
 # draw.io
 STY={'step':'rounded=0;whiteSpace=wrap;html=1;fillColor=#fffbe6;strokeColor=#8a7a3a;fontSize=11;','decision':'rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#e7ebe0;strokeColor=#3c4a30;fontSize=11;','system':'rounded=0;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;','source':'ellipse;whiteSpace=wrap;html=1;fillColor=#fde7c9;strokeColor=#b45309;fontSize=10;','sourcesys':'ellipse;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=10;'}

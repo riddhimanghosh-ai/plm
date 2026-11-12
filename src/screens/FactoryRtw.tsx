@@ -164,7 +164,7 @@ function CutRatioBanner({ cr, order: o }: { cr: NonNullable<ProductionOrder['cut
     <div className="flex items-start justify-between gap-3 flex-wrap">
       <div>
         <div className="cr-banner-title">{sent ? `New ${kind} from design` : `New ${kind} given by design`}</div>
-        <div className="text-[12px]" style={{ color:'var(--ink-soft)' }}>{sent ? `sent to you ${fmtDate(cr.sentToFactoryOn!)} · cut ${total} pcs to these sizes` : `given ${fmtDate(g.on)} by ${g.by} · Nitin is sending it to you`} · the cloth count stays as counted, nothing to count again</div>
+        <div className="text-[12px]" style={{ color:'var(--ink-soft)' }}>{sent ? `given ${fmtDate(g.on)} by ${g.by} · cut ${total} pcs to these sizes` : `given ${fmtDate(g.on)} by ${g.by} · Nitin is sending it to you`} · the cloth count stays as counted, nothing to count again</div>
       </div>
       <Pill tone={sent ? 'good' : 'warn'}>{sent ? `new ${kind} at the factory` : `new ${kind} given · coming`}</Pill>
     </div>

@@ -1,55 +1,49 @@
 import sys, html
 out_html, out_drawio, out_svg = sys.argv[1], sys.argv[2], sys.argv[3]
 
-LANES = [('plan','Planning'),('design','Design'),('sourcing','Sourcing'),('nitin','Nitin · production'),('factory','Factory'),('enigma','Enigma'),('finance','Finance'),('stores','Stores')]
-PHASES = [('Design · sample',0,7),('Order · buy',7,15),('Make · QC',15,18),('Ship · cost',18,22),('Launch',22,27)]
+LANES = [('design','Design · Planning'),('sourcing','Sourcing'),('nitin','Nitin · production'),('factory','Factory'),('enigma','Enigma')]
+PHASES = [('Design · sample',0,6),('Order · buy, in parallel',6,10),('Count-in',10,14),('Make · QC',14,17),('Ship · cost',17,20),('Codes',20,22)]
 # id, lane, col, label, kind(step|decision|system)
 N = [
- ('p1','plan',0,'Planning review\nreorder: stock · ROS · cover','step'),
+ ('p1','design',0,'Planning review\nreorder: stock · ROS · cover','step'),
  ('e0','enigma',0,'Auto-PO\ncore style below threshold','system'),
  ('d1','design',1,'Requirement raised\ndesign ask · reorder · auto-PO','step'),
  ('d2','design',2,'Design the style\nbrief · BOM · CAD','step'),
  ('d3','design',3,'Send for sampling\nsample due date','step'),
  ('f1','factory',4,'Make the sample\nby the due date','step'),
- ('d4','design',5,'Trial · sample right?\nor remarks','decision'),
- ('d5','design',6,'Update CAD and design\nfrom the remarks','step'),
- ('n1','nitin',7,'Propose a factory\ncost · date agreed','step'),
- ('d6','design',8,'Bulk order · accept?\nqty by size · raise the PO','decision'),
- ('e2','enigma',9,'Factory PO\n+ logistics, other costs','system'),
- ('f2','factory',10,'Acknowledge the PO','step'),
- ('d7','design',11,'Upload the tech pack','step'),
- ('s1','sourcing',11,'Shop cloth and trims\nvendor · price · hold','step'),
- ('e1','enigma',12,'Fabric PO to the mill\nDRAFT → Open','system'),
- ('s2','sourcing',12,'Send cloth and trims\nto the factory','step'),
- ('f3','factory',13,'Count in\ncloth short?','decision'),
- ('d8','design',13,'Cut ratio\nor approve cut-short','step'),
- ('n2','nitin',14,'Send the new ratio\nto the factory','step'),
- ('f4','factory',15,'Approve all received','step'),
- ('f5','factory',16,'Make · log the TNA\n22 milestones','step'),
- ('n3','nitin',16,'Tracker · OTIF\nescalations','step'),
- ('f6','factory',17,'QC passed?\nor rework','decision'),
- ('f7','factory',18,'AWB · courier\nshipped','step'),
- ('e4','enigma',19,'Delivered · GRN\nby size, lot by lot','system'),
- ('n4','nitin',20,'Close the shipment\nshipping cost','step'),
- ('fi','finance',21,'COGS vs MRP\nmargin per style','step'),
- ('p3','plan',22,'Add to a drop\nmarketing name · date','step'),
- ('d9','design',23,'Mint design codes\nname · cloth · MRP · sizes','step'),
- ('e5','enigma',23,'Design rows + variants\nin Enigma','system'),
- ('p4','plan',24,'Display & fit plan\nper store','step'),
- ('e6','enigma',24,'STO to stores','system'),
- ('st1','stores',25,'Pieces received\n(RetailOS)','step'),
- ('p5','plan',26,'Make live','step'),
- ('e7','enigma',26,'Live · Shopify sync','system'),
+ ('d4','design',5,'Trial · sample right?\nor remarks → update CAD','decision'),
+ ('n1','nitin',6,'Propose a factory\ncost · date agreed','step'),
+ ('s1','sourcing',6,'Shop cloth and trims\nin parallel with the PO','step'),
+ ('d6','design',7,'Bulk order · accept?\nqty by size · raise the PO','decision'),
+ ('e1','enigma',7,'Fabric PO to the mill\nDRAFT → Open','system'),
+ ('e2','enigma',8,'Factory PO\n+ logistics, other costs','system'),
+ ('s2','sourcing',8,'Send cloth and trims\nto the factory','step'),
+ ('f2','factory',9,'Acknowledge the PO','step'),
+ ('d7','design',10,'Upload the tech pack','step'),
+ ('f3','factory',10,'Count cloth and\ntrims in','step'),
+ ('f3b','factory',11,'All in, as ordered?','decision'),
+ ('d9','design',12,'Cloth short: new cut ratio\nfactory sees it at once','step'),
+ ('s3','sourcing',12,'Trims short:\nsend the balance','step'),
+ ('f4','factory',13,'Approve all received','step'),
+ ('f5','factory',14,'Make · log the TNA\n22 milestones','step'),
+ ('n3','nitin',14,'Tracker · OTIF\nescalations','step'),
+ ('f6','factory',15,'QC passed?\nor rework','decision'),
+ ('f7','factory',16,'AWB · courier\nshipped','step'),
+ ('e4','enigma',17,'Delivered · GRN\nby size, lot by lot','system'),
+ ('n4','nitin',18,'Close the shipment\nshipping cost','step'),
+ ('cg','nitin',19,'COGS vs MRP\nNitin and design see it','step'),
+ ('p3','design',20,'Add to a drop\nmarketing name · date','step'),
+ ('d8','design',21,'Mint design codes\nname · cloth · MRP · sizes','step'),
+ ('e5','enigma',21,'Design rows + variants\nin Enigma','system'),
 ]
 E = [
  ('p1','d1','reorder'),('e0','d1','auto-PO'),('d1','d2',''),('d2','d3',''),('d3','f1',''),('f1','d4',''),
- ('d4','d5','remarks'),('d5','f1','next round'),('d4','n1','approved'),
- ('n1','d6',''),('d6','n1','send back'),('d6','e2','raise'),('e2','f2',''),
- ('f2','d7',''),('f2','s1',''),('s1','e1',''),('e1','s2',''),('s2','f3',''),('d7','f4','tech pack'),
- ('f3','d8','short'),('d8','n2',''),('n2','f4',''),('f3','f4','all in'),
+ ('d4','f1','remarks → next round'),('d4','n1','approved'),('d4','s1','approved · in parallel'),
+ ('n1','d6',''),('d6','n1','send back'),('d6','e2','raise'),('e2','f2',''),('f2','d7',''),
+ ('s1','e1',''),('e1','s2',''),('s2','f3','cloth and trims'),('d7','f3','tech pack'),
+ ('f3','f3b',''),('f3b','f4','yes'),('f3b','d9','cloth short'),('d9','f4','factory sees it'),('f3b','s3','trims short'),('s3','f3','count again'),
  ('f4','f5',''),('f5','n3','dates'),('f5','f6',''),('f6','f5','rework'),('f6','f7','pass'),
- ('f7','e4',''),('e4','n4',''),('n4','fi',''),('e4','p3','goods at HO'),
- ('p3','d9',''),('d9','e5',''),('p3','p4',''),('p4','e6',''),('e6','st1',''),('st1','p5',''),('d9','p5',''),('p5','e7',''),
+ ('f7','e4',''),('e4','n4',''),('n4','cg',''),('e4','p3','goods at HO'),('p3','d8',''),('d8','e5',''),
 ]
 W,H = 190,56; GX,GY = 230,110; X0,Y0 = 150,70; LANE_H = GY
 cols = max(n[2] for n in N)+1
@@ -96,7 +90,7 @@ open(out_svg,'w').write(svg_text)
 legend='<div class="legend"><span><i style="background:#fffbe6;border-color:#8a7a3a"></i> step in PLM</span><span><i style="background:#e7ebe0;border-color:#3c4a30;border-radius:10px"></i> decision</span><span><i style="background:#dbeafe;border-color:#1d4ed8"></i> on Enigma</span></div>'
 page=f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RTW swimlane</title>
 <style>body{{margin:0;background:#fff;color:#1a1a13;font-family:Inter,system-ui,sans-serif;padding:24px}}h1{{font-size:22px;margin:0 0 4px}}p{{margin:0 0 14px;color:#6b6759;font-size:13.5px}}.legend{{display:flex;gap:16px;font-size:12px;color:#6b6759;margin-bottom:10px}}.legend i{{display:inline-block;width:14px;height:10px;border:1.4px solid;border-radius:3px;vertical-align:middle;margin-right:4px}}.wrap{{overflow:auto;border:1px solid #e3ddcd;border-radius:8px}}svg{{display:block}}</style></head>
-<body><h1>RTW in PLM · the complete flow, one lane per role (v2, after the 12 Nov meeting)</h1><p>Left to right: design and the sample cycle → bulk order and PO → tech pack and shopping → make and QC → shipping and COGS → launch. Loops: sample remarks back to the factory, factory proposal sent back, cut ratio, QC rework. Blue boxes are what happens on Enigma. Also as <a href="bsc-plm-rtw-swimlane.drawio" download>a draw.io file</a> and <a href="bsc-plm-rtw-swimlane.svg" download>SVG</a>.</p>{legend}<div class="wrap">{svg_text.replace(f'width="{width}" height="{height}"', 'style="width:100%;height:auto;min-width:1400px"',1)}</div></body></html>'''
+<body><h1>RTW in PLM · the complete flow, one lane per role (v2, after the 12 Nov meeting)</h1><p>Left to right: design and the sample cycle → the bulk order and PO, with sourcing shopping the cloth in parallel from the approved sample → count-in (all in, cloth short to design, trims short to sourcing) → make and QC → shipping and COGS (Nitin and design see it) → design codes. Planning sits in the Design lane. Blue boxes are what happens on Enigma. Also as <a href="bsc-plm-rtw-swimlane.drawio" download>a draw.io file</a> and <a href="bsc-plm-rtw-swimlane.svg" download>SVG</a>.</p>{legend}<div class="wrap">{svg_text.replace(f'width="{width}" height="{height}"', 'style="width:100%;height:auto;min-width:1400px"',1)}</div></body></html>'''
 open(out_html,'w').write(page)
 
 # draw.io: one swimlane per role, nodes inside, edges orthogonal

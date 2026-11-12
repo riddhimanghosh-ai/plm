@@ -43,7 +43,8 @@ export function Sourcing() {
      raises the PO, getting the cloth in is still sourcing's job */
   /* Nitin's flow (3 Oct 2026): sourcing starts once design has raised the PO to the factory — buy the cloth, send it straight to the factory. Legacy quoting rows stay visible until they clear. */
   /* one loop for MTM and RTW: the request arrives, sourcing puts a vendor, design pushes the fabric PO, sourcing gets the cloth to the factory */
-  const inbox = db.orders.filter(o => o.fabricNominated && (o.status === 'Quoting' || o.status === 'Allocated' || o.status === 'Open') && !['received', 'vendor-sources', 'drafting'].includes(fabricStateOf(o).key));
+  /* sourcing shops the cloth once the sample is right, at the same time as the bulk order and PO */
+  const inbox = db.orders.filter(o => o.fabricNominated && (!o.sampleCycle || !!o.sampleCycle.approvedOn) && (o.status === 'Quoting' || o.status === 'Allocated' || o.status === 'Open') && !['received', 'vendor-sources', 'drafting'].includes(fabricStateOf(o).key));
   const vendorSources = db.orders.filter(o => (o.status === 'Requirement' || o.status === 'Quoting') && !o.fabricNominated);
   const needed = (o: ProductionOrder) => o.costing.consumption != null ? Math.ceil(o.costing.consumption * o.orderQty) : null;
   const briefOf = (o: ProductionOrder) => o.fabricBrief ? [o.fabricBrief.look, o.fabricBrief.composition, o.fabricBrief.colour].filter(Boolean).join(' · ') : '—';

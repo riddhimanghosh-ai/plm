@@ -166,6 +166,6 @@ export function CogsSection({ o, finance }: { o: ProductionOrder; finance: boole
     <KV k="COGS" v={<b>{fmtMoney(total)}</b>} note={`${fmtMoney(perPiece)} per piece over ${pcs} received`} />
     <KV k="MRP" v={mrp != null ? fmtMoney(mrp) : '—'} note={mrp != null ? 'from the option in Enigma' : 'no option yet'} />
     <KV k="Margin" v={margin != null ? <b style={{ color: margin < 0.5 ? 'var(--risk)' : 'var(--good)' }}>{Math.round(margin * 100)}%</b> : '—'} note={margin != null ? `${fmtMoney((mrp ?? 0) - perPiece)} per piece` : undefined} />
-    {!o.cogsClosedOn && delivered && (finance ? <div className="pt-2"><Button size="sm" variant="primary" onClick={() => closeCogs(o.id)}>Close COGS</Button></div> : <ActsBy role="finance" does="closes COGS once the shipment is closed" />)}
+    {!o.cogsClosedOn && delivered && (finance ? <div className="pt-2"><Button size="sm" variant="primary" onClick={() => closeCogs(o.id)}>Close COGS</Button></div> : <ActsBy role={['production', 'design']} does="close COGS once the shipment is closed; Nitin and design see it" />)}
   </Section>;
 }

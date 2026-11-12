@@ -825,17 +825,17 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     giveCutRatio(orderId, breakup) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); const cr = [...(o?.cutRatios ?? [])].reverse().find(x => !x.given); if (!o || !cr) return;
         cr.given = { on: now(), by: who(), breakup }; o.sizeBreakup = breakup.map(x => ({ ...x })); o.cutQty = breakup.reduce((a, x) => a + x.qty, 0);
-        /* the factory raised it, so the factory already knows — nothing to send on */
-        if (cr.askedByRole === 'merchandiser') cr.sentToFactoryOn = now();
+        /* design's answer is the factory's: no one sends it on (12 Nov 2026) */
+        cr.sentToFactoryOn = now();
         log(o, `${cr.kind === 'cut-short' ? 'Cut-short' : 'Cut ratio'} ${cr.proposedBreakup && JSON.stringify(cr.proposedBreakup) === JSON.stringify(breakup) ? 'approved' : 'given'} by design · ${o.cutQty} pcs · ${breakup.filter(x => x.qty).map(x => `${x.size}:${x.qty}`).join(' ')}`); },
-        'New cut ratio on the order.' + (get().db.orders.find(x => x.id === orderId)?.cutRatios?.slice(-1)[0]?.askedByRole === 'merchandiser' ? ' The factory raised it, so it already has it.' : ' Production sends it to the factory.'));
+        'New cut ratio on the order. The factory sees it at once.');
     },
     reviseCutRatio(orderId, breakup) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); const cr = [...(o?.cutRatios ?? [])].reverse().find(x => x.given); if (!o || !cr || !cr.given) return;
         cr.given = { on: now(), by: who(), breakup }; o.sizeBreakup = breakup.map(x => ({ ...x })); o.cutQty = breakup.reduce((a, x) => a + x.qty, 0);
-        cr.sentToFactoryOn = cr.askedByRole === 'merchandiser' ? now() : null;
+        cr.sentToFactoryOn = now();
         log(o, `Cut ratio changed by design · ${o.cutQty} pcs · ${breakup.filter(x => x.qty).map(x => `${x.size}:${x.qty}`).join(' ')}`); },
-        'Cut ratio changed.' + (get().db.orders.find(x => x.id === orderId)?.cutRatios?.slice(-1)[0]?.askedByRole === 'merchandiser' ? ' The factory sees it at once.' : ' Production sends it to the factory again.'));
+        'Cut ratio changed. The factory sees it at once.');
     },
     sendCutRatio(orderId) { touch(db => { const o = db.orders.find(x => x.id === orderId); const cr = [...(o?.cutRatios ?? [])].reverse().find(x => x.given && !x.sentToFactoryOn); if (!o || !cr) return; cr.sentToFactoryOn = now(); log(o, 'Cut ratio sent to the factory'); }, 'The factory has the new ratio.'); },
     allocateFactory(orderId, factoryId, rationale) {
@@ -1792,7 +1792,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 134,
+  version: 135,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1804,7 +1804,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 134 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 135 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),
