@@ -20,7 +20,7 @@ const SCREEN_LABEL: [string, string][] = [
   ['#/sourcing', 'Fabric sourcing'], ['#/mills', 'Fabric vendors · mills'], ['#/vendors', 'Factories & capacity'],
   ['#/mtm', 'MTM daily production'], ['#/factory', 'My factory · merchandiser'], ['#/tracker', 'RTW production tracker'],
   ['#/outbound', 'Outbound to factories'], ['#/otif', 'Delivery performance'],
-  ['#/warehouse', 'Warehouse & unit'], ['#/grn', 'Goods received · GRN'], ['#/stores', 'My store'],
+  ['#/stores', 'My store'],
   ['#/design', 'Requirements'],
 ];
 const screenOf = (href: string) => SCREEN_LABEL.find(([p]) => href.startsWith(p))?.[1] ?? 'Somewhere in the tool';

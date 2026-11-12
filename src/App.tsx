@@ -21,11 +21,9 @@ import { OutboundPage } from './screens/Outbound';
 import { Swatches } from './screens/Swatches';
 import { DesignHome } from './screens/DesignHome';
 import { Otif } from './screens/Otif';
-import { Warehouse } from './screens/Warehouse';
 import { Stores } from './screens/Stores';
 import { Launches } from './screens/Launches';
 import { Insights } from './screens/Insights';
-import { GrnPage } from './screens/Warehouse';
 import { Health } from './screens/Health';
 import { Planning } from './screens/Planning';
 import { Analyse } from './screens/Analyse';
@@ -58,7 +56,7 @@ export default function App() {
           <Route path="/compiling" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="compiling" step="compiling" />} />
           <Route path="/outbound" element={<OutboundPage />} />
           <Route path="/otif" element={MTM_ONLY ? <Navigate to="/" replace /> : <Otif />} />
-          <Route path="/warehouse" element={MTM_ONLY ? <Navigate to="/" replace /> : <Warehouse />} />
+          <Route path="/warehouse" element={<Navigate to="/" replace />} />{/* the warehouse lives on Enigma */}
           <Route path="/stores" element={RTW_ONLY ? <Navigate to="/" replace /> : <Stores />} />
           <Route path="/health" element={MTM_ONLY ? <Navigate to="/" replace /> : <Health />} />
           <Route path="/planning" element={MTM_ONLY ? <Navigate to="/" replace /> : <Planning />} />
@@ -66,7 +64,7 @@ export default function App() {
           <Route path="/sheet" element={MTM_ONLY ? <Navigate to="/" replace /> : <Sheet />} />
           <Route path="/launches" element={MTM_ONLY ? <Navigate to="/" replace /> : <Launches />} />
           <Route path="/insights" element={MTM_ONLY ? <Navigate to="/" replace /> : <Insights />} />
-          <Route path="/grn" element={MTM_ONLY ? <Navigate to="/" replace /> : <GrnPage />} />
+          <Route path="/grn" element={<Navigate to="/" replace />} />
           <Route path="/concepts" element={<ToDesign kind="MTM" form="mtm" />} />
           <Route path="/swatches" element={RTW_ONLY ? <Navigate to="/" replace /> : <Swatches />} />
           <Route path="/design" element={<DesignHome />} />

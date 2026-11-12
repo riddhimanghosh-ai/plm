@@ -16,7 +16,7 @@ export const isMtmHref = (h: string | undefined | null) => !!h && (MTM_PATHS.som
 export const inEdition = (path: string) => !(MTM_ONLY && RTW_PATHS.includes(path)) && !(RTW_ONLY && MTM_PATHS.includes(path));
 /* screens that do not exist in the MTM edition */
 /* 20 Oct 2026: the warehouse portal is out of the MTM edition too — receiving lives on the fabric PO and the fabric record */
-export const RTW_PATHS = ['/planning', '/analyse', '/sheet', '/health', '/insights', '/launches', '/tracker', '/otif', '/requirements', '/warehouse', '/grn', '/outbound'];
+export const RTW_PATHS = ['/planning', '/analyse', '/sheet', '/health', '/insights', '/launches', '/tracker', '/otif', '/requirements'];
 /* an alert or search hit that points at an RTW screen or record is dropped in the MTM edition */
 export const isRtwHref = (h: string | undefined | null) => !!h && (RTW_PATHS.some(p => h.startsWith(`#${p}`)) || h.includes('side=rtw') || h.includes('tab=rtw') || h.includes('tab=shelves') || h.includes('tab=rtw-orders') || h.includes('tab=launches'));
 

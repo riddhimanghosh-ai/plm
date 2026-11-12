@@ -1403,7 +1403,7 @@ export function alertsFor(db: Db, role: RoleId, opts?: { storeId?: string; all?:
   /* design and planning work from the one Requirements screen — their alerts
      land there, with the record opened in place; other teams keep their lists */
   out.forEach(a => { if (a.role === 'design' || a.role === 'planning') a.href = a.href.replace(/^#\/(concepts|requirements|requests)\?open=/, '#/design?open='); });
-  return out.filter(a => (!MTM_ONLY || !isRtwHref(a.href)) && (!RTW_ONLY || !isMtmHref(a.href))).sort((a, b) => b.weight - a.weight);
+  return out.filter(a => a.role !== 'warehouse' && !/^#\/(warehouse|grn)\b/.test(a.href ?? '')).filter(a => (!MTM_ONLY || !isRtwHref(a.href)) && (!RTW_ONLY || !isMtmHref(a.href))).sort((a, b) => b.weight - a.weight);
 }
 
 /* ---------- what the stores are asking each other for ----------------------

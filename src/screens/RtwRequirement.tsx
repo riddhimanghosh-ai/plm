@@ -55,8 +55,10 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const firstMine = journey.slice(Math.max(current, 0)).find(x => isMine(x.key))?.key ?? journey.filter(x => isMine(x.key)).slice(-1)[0]?.key ?? journey[current]?.key ?? 'launch';
   const [open, setOpen] = useState<string>(initial && isMine(initial) ? initial : firstMine);
   /* how the open step lays its parts out: stacked (one under the other) or blocks (side by side, each part its own card) */
-  const [view, setView] = useState<'stacked' | 'blocks'>(() => { try { return localStorage.getItem('rtw-step-view') === 'blocks' ? 'blocks' : 'stacked'; } catch { return 'stacked'; } });
-  const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem('rtw-step-view', v); } catch { /* storage off */ } };
+  const viewKey = (k: string) => `rtw-step-view:${k}`;
+  const readView = (k: string): 'stacked' | 'blocks' => { try { return localStorage.getItem(viewKey(k)) === 'blocks' ? 'blocks' : 'stacked'; } catch { return 'stacked'; } };
+  const [view, setView] = useState<'stacked' | 'blocks'>(() => readView(initial && isMine(initial) ? initial : firstMine));
+  const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem(viewKey(open), v); } catch { /* storage off */ } };
   const at = (k: string) => open === k && isMine(k);
 
   /* the order's numbers, editable by design until it is sent */
@@ -65,7 +67,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
 
   const mine = !!next?.act && next.act === role;
   const onTracker = typeof location !== 'undefined' && location.hash.startsWith('#/tracker');
-  const panel = (k: string) => { setOpen(k); requestAnimationFrame(() => document.getElementById(`rtw-step-${o.id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); };
+  const panel = (k: string) => { setOpen(k); setView(readView(k)); requestAnimationFrame(() => document.getElementById(`rtw-step-${o.id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); };
 
   return <>
     {/* one line that says what happens next, and whose move it is */}

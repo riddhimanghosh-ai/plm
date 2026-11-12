@@ -10,7 +10,7 @@ export type RtwActor = 'design' | 'sourcing' | 'production' | 'merchandiser' | '
 export type RtwPhase = 'design' | 'buy' | 'make';
 export type RtwStep = { key: string; label: string; who: string; on: string | null | undefined; by?: string | null; now?: string; act?: RtwActor; phase: RtwPhase };
 export const RTW_PHASES: { key: RtwPhase; label: string }[] = [{ key: 'design', label: 'Design' }, { key: 'buy', label: 'Buy · cloth and factory' }, { key: 'make', label: 'Make · land · launch' }];
-export const RTW_ACTOR_LABEL: Record<RtwActor, string> = { design: 'Design', sourcing: 'Sourcing', production: 'Nitin', merchandiser: 'Factory', warehouse: 'Warehouse', planning: 'Planning' };
+export const RTW_ACTOR_LABEL: Record<RtwActor, string> = { design: 'Design', sourcing: 'Sourcing', production: 'Nitin', merchandiser: 'Factory', warehouse: 'Enigma', planning: 'Planning' };
 export const RTW_INTRO: Record<string, string> = {
   raised: 'What design asked for: the style, how many, by when, at what cost.',
   proto: 'Three things go on before it can be sent: the prototype (or "none needed"), the cloth brief sourcing shops against, and the BOM with the tech pack.',
@@ -20,7 +20,7 @@ export const RTW_INTRO: Record<string, string> = {
   cloth: 'Once both POs are out, sourcing sends the cloth and trims to the factory, which counts them in. Short cloth comes back to design for a cut ratio.',
   sample: 'The factory sends the first sample from bulk cloth; production approves it or asks for another round.',
   tna: 'Every milestone from fabric PO to dispatch. The factory logs its own dates; late steps show in red.',
-  received: 'The warehouse counts the goods in by size, lot by lot.',
+  received: 'The warehouse counts the goods in on Enigma; the GRN comes back here by size, lot by lot.',
   launch: 'Planning puts the style in a drop; the launch record carries the date, the stores and the marketing name.',
 };
 
@@ -61,8 +61,8 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
       now: !o.poNo ? 'after the PO' : sample.state === 'with production unit' ? 'production to review' : sample.state === 'resubmit' ? 'factory to resubmit' : 'factory to send the first sample' },
     { key: 'tna', phase: 'make', label: 'Made · the TNA', who: 'Nitin · Factory', on: dispatched, by: dispatched ? 'dispatched' : null, act: 'merchandiser',
       now: !o.poNo ? 'after the PO' : nextMs ? `factory to log ${nextMs.key.length <= 3 ? nextMs.key : nextMs.key.toLowerCase()}${late}` : st.stage },
-    { key: 'received', phase: 'make', label: 'Received at BSC', who: 'Warehouse', act: 'warehouse', on: rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : null, by: rc.lots.length ? `${rc.received} pcs` : null,
-      now: rc.partial ? `${rc.received} of ${rc.base} in` : dispatched ? 'warehouse to count it in' : 'after dispatch' },
+    { key: 'received', phase: 'make', label: 'Received at BSC', who: 'Enigma · GRN', act: 'warehouse', on: rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : null, by: rc.lots.length ? `${rc.received} pcs` : null,
+      now: rc.partial ? `${rc.received} of ${rc.base} in` : dispatched ? 'GRN on Enigma to come' : 'after dispatch' },
     { key: 'launch', phase: 'make', label: 'Launched', who: 'Planning · Design', act: 'planning', on: launch?.launchedOn, by: launch?.dropMonth,
       now: launch ? `${launch.dropMonth} drop${launch.launchOn ? ` · ${fmtDate(launch.launchOn)}` : ''}` : 'planning puts it in a drop' },
   ];
@@ -92,7 +92,7 @@ export const RTW_STATUSES = [
   { key: 'cloth', label: 'Cloth at factory', hint: 'cloth counted in; the sample is next' },
   { key: 'sample', label: 'In production', hint: 'sample approved, bulk being made' },
   { key: 'dispatched', label: 'Shipped to BSC', hint: 'on the road from the factory' },
-  { key: 'received', label: 'At warehouse', hint: 'counted in by size' },
+  { key: 'received', label: 'Received', hint: 'GRN on Enigma, by size' },
   { key: 'launched', label: 'Launched', hint: 'in a drop' },
 ] as const;
 export type RtwStatusKey = typeof RTW_STATUSES[number]['key'];

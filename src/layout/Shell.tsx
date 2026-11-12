@@ -47,8 +47,7 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   { path:'/factory',      label:'My factory · merchandiser',   hint:"the floor's own day: output, pieces, cloth",     group:'Merchandiser', roles:['owner','merchandiser','production'] , hideFor:['production']},
 
   /* moving */
-  { path:'/warehouse',    label:'Warehouse & unit',           hint:'goods in, bundles out, STOs, swatch books',      group:'Warehouse', roles:['owner','warehouse','production'] , hideFor:['production']},
-  { path:'/grn',          label:'Goods received · GRN',       hint:'every receipt with its PO, for GST and recon',   group:'Warehouse', roles:['owner','warehouse'] },
+  /* 12 Nov 2026: no warehouse portal in PLM — goods in, GRNs and STOs all happen on Enigma; PLM reads the GRN back onto the PO */
 
   /* selling */
   { path:'/stores',       label:'My store',                   hint:'orders, customers, stock, returns',              group:'Store',    roles:['owner','store'] },
@@ -185,7 +184,7 @@ export function Shell() {
           {!demoAll && <>
             <div className="text-[11px] uppercase tracking-[.1em]" style={{ color:'var(--sidebar-soft)' }}>Signed in as</div>
             <Select value={personId} onChange={setPerson} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
-              groups={(Object.keys(ROLE_LABEL) as RoleId[]).filter(r => MTM_ONLY ? (r !== 'planning' && r !== 'warehouse') : RTW_ONLY ? NAV.some(n => n.roles.includes(r) && inEdition(n.path) && r !== 'owner') || r === 'owner' : true).map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
+              groups={(Object.keys(ROLE_LABEL) as RoleId[]).filter(r => r !== 'warehouse').filter(r => MTM_ONLY ? (r !== 'planning') : RTW_ONLY ? NAV.some(n => n.roles.includes(r) && inEdition(n.path) && r !== 'owner') || r === 'owner' : true).map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
           </>}
           {myRole === 'merchandiser' && !demoAll && <Select value={factoryId} onChange={setFactory} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
             options={db.vendors.filter(v => (RTW_ONLY ? v.kind.endsWith('factory') : v.mtm) && v.kind !== 'Hemming unit').map(v => ({ value:v.id, label:v.name }))} />}
