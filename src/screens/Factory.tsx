@@ -396,7 +396,13 @@ function IncomingTab({ rows, onOpen }: { rows: ProductionOrder[]; onOpen: (id: s
         const trimsShort = trims.filter(x => x.m.receivedOn && x.m.receivedQty != null && x.m.receivedQty < x.m.requiredQty).length;
         const clothLine = fs?.receipt ? (fab.short > 0 ? `${fs.receipt.metresOk} m in · short ${fab.short} m` : `${fs.receipt.metresOk} m in`) : fs?.sentToFactoryOn ? `${fs.metresSent ?? '—'} m sent ${fmtDate(fs.sentToFactoryOn)}` : fab.need != null ? `${fab.need} m to come` : 'to come';
         const clothTone = fs?.receipt ? (fab.short > 0 ? 'risk' : 'good') : fs?.sentToFactoryOn ? 'warn' : 'neutral';
-        const status = fs?.receipt && trimsIn === trims.length && !fab.short && !trimsShort ? { t:'good' as const, l:'all in' } : (fab.short > 0 || trimsShort > 0) ? { t:'risk' as const, l:'short' } : fs?.sentToFactoryOn && !fs.receipt ? { t:'warn' as const, l:'cloth on the way' } : trimsIn > 0 || fs?.receipt ? { t:'info' as const, l:'partly in' } : { t:'neutral' as const, l:'nothing yet' };
+        const crKind = fab.cr?.kind === 'cut-short' ? 'cut-short' : 'cut ratio';
+        /* a cut-ratio ask changes the row's status: with design → given (coming) → at the factory; the cloth stays short underneath */
+        const status = fs?.receipt && trimsIn === trims.length && !fab.short && !trimsShort ? { t:'good' as const, l:'all in' }
+          : fab.cr?.sentToFactoryOn && fab.cr.given ? { t:'good' as const, l:`new ${crKind} at the factory` }
+          : fab.cr?.given ? { t:'warn' as const, l:`new ${crKind} given · coming` }
+          : fab.cr && !fab.cr.given ? { t:'warn' as const, l:`${crKind} with design` }
+          : (fab.short > 0 || trimsShort > 0) ? { t:'risk' as const, l:'short' } : fs?.sentToFactoryOn && !fs.receipt ? { t:'warn' as const, l:'cloth on the way' } : trimsIn > 0 || fs?.receipt ? { t:'info' as const, l:'partly in' } : { t:'neutral' as const, l:'nothing yet' };
         const next = fab.cr && !fab.cr.given ? { who:'design', what: fab.cr.kind === 'cut-short' ? 'design to approve cutting fewer' : 'design to give new sizes' }
           : fab.cr?.given && !fab.cr.sentToFactoryOn ? { who:'production', what:'Nitin to send the new sizes' }
           : fs?.sentToFactoryOn && !fs.receipt ? { who:'us', what:'count the cloth in' }
