@@ -209,7 +209,16 @@ export interface AppState {
   /* production */
   updateExecution(orderId: string, patch: Partial<Pick<ProductionOrder, 'merchant' | 'jobCardNo' | 'fabricReady' | 'trimsReady' | 'finalFob' | 'remarks'>> & { costingClosure?: Partial<ProductionOrder['costingClosure']> }): void;
   setMilestone(orderId: string, key: string, patch: Partial<Pick<Milestone, 'plan' | 'revised' | 'actual' | 'delayReason'>>): void;   // a key not yet on the PO is added to its plan
-  skipMilestone(orderId: string, key: string, skip: boolean): void;   // not needed for this PO, or needed after all
+  skipMilestone(orderId: string, key: string, skip: boolean): void;
+  /* the chain after 12 Nov 2026 */
+  sendForSampling(orderId: string, kind: 'prototype' | 'sample', dueOn: string | null): void;   // a new round goes to the factory, with when the sample is due
+  logSampleCycle(orderId: string, patch: { dueOn?: string | null; sampledOn?: string | null; trialOn?: string | null; outcome?: 'approved' | 'remarks' | null; remarks?: string | null; cadUpdatedOn?: string | null }): void;   // the open round
+  setPoCosts(orderId: string, costs: { logistics: number | null; other: { label: string; amount: number }[] }): void;
+  ackPo(orderId: string): void;                                              // the factory has the PO
+  approveAllReceived(orderId: string): void;                                 // the factory signs off cloth and trims
+  recordQc(orderId: string, result: 'pass' | 'rework' | 'reject', note: string): void;
+  shipStep(orderId: string, step: 'awb' | 'picked' | 'shipped' | 'delivered' | 'closed', value?: { awbNo?: string; courier?: string; shippingCost?: number | null }): void;
+  closeCogs(orderId: string): void;   // not needed for this PO, or needed after all
   /** production agrees with the factory: part now, balance later — the same PO, split */
   splitDispatch(orderId: string, lots: { qty: number; dispatchOn: string }[], reason: string): void;
   dispatchSplitLot(orderId: string, index: number): void;
@@ -1274,6 +1283,48 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, `Lot ${index + 1} of the split dispatched · ${l.qty} pcs`); }, 'Lot dispatched — the warehouse will receive it as a lot.');
     },
     clearSplit(orderId) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.split = null; log(o, 'Split cancelled — whole order ships together'); }, 'Split removed.'); },
+    sendForSampling(orderId, kind, dueOn) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.sampleCycle = o.sampleCycle ?? { rounds: [], approvedOn: null };
+        const sc = o.sampleCycle; if (sc.rounds.some(r => !r.outcome)) return;   // one round open at a time
+        sc.rounds.push({ n: sc.rounds.length + 1, kind, sentOn: now(), dueOn, sampledOn: null, trialOn: null, outcome: null, remarks: null, cadUpdatedOn: null });
+        log(o, `${kind === 'prototype' ? 'Prototype' : 'Sample'} round ${sc.rounds.length} sent to the factory${dueOn ? ` · due ${new Date(dueOn).toLocaleDateString('en-IN')}` : ''}`); },
+        'Sent to the factory for sampling; the record chases the due date.');
+    },
+    logSampleCycle(orderId, patch) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.sampleCycle = o.sampleCycle ?? { rounds: [], approvedOn: null };
+        const sc = o.sampleCycle; const r = sc.rounds.find(x => !x.outcome) ?? sc.rounds[sc.rounds.length - 1]; if (!r) return;
+        Object.assign(r, patch);
+        if (patch.outcome === 'approved') { sc.approvedOn = now(); sc.approvedBy = who(); log(o, `Round ${r.n} approved — the bulk order can be placed`); }
+        else if (patch.outcome === 'remarks') log(o, `Round ${r.n}: remarks — ${r.remarks ?? 'see the record'} · design updates the CAD and the design, then sends again`);
+        else if (patch.cadUpdatedOn) log(o, `CAD and design updated after round ${r.n}`);
+        else if (patch.sampledOn) log(o, `Round ${r.n} back from the factory`);
+        else if (patch.trialOn) log(o, `Round ${r.n} trialled`);
+        else if (patch.dueOn) log(o, `Round ${r.n} due ${new Date(patch.dueOn).toLocaleDateString('en-IN')}`); },
+        patch.outcome === 'approved' ? 'Sample approved. Place the bulk order.' : patch.outcome === 'remarks' ? 'Remarks on the record: update the CAD and the design, then send the next round.' : patch.cadUpdatedOn ? 'CAD and design updated; send the next round.' : 'Logged.');
+    },
+    setPoCosts(orderId, costs) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.poCosts = costs;
+        log(o, `PO costs set · logistics ₹${(costs.logistics ?? 0).toLocaleString('en-IN')}${costs.other.length ? ` · ${costs.other.map(x => `${x.label} ₹${x.amount.toLocaleString('en-IN')}`).join(', ')}` : ''}`); }, 'PO costs saved; COGS reads them.');
+    },
+    ackPo(orderId) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o || o.poAckOn) return; o.poAckOn = now(); o.poAckBy = who(); log(o, 'PO acknowledged by the factory'); }, 'PO acknowledged.'); },
+    approveAllReceived(orderId) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o || o.receivedApprovedOn) return; o.receivedApprovedOn = now(); o.receivedApprovedBy = who(); log(o, 'Factory approved everything received — cloth and trims'); }, 'Approved: the factory has what it needs to make.'); },
+    recordQc(orderId, result, note) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.qc = [...(o.qc ?? []), { inspectedOn: now(), result, note: note.trim() || null, by: who() }];
+        const fi = o.milestones.find(m => m.key === 'FI'); if (fi && result === 'pass' && !fi.actual) fi.actual = now();
+        log(o, `QC ${result}${note.trim() ? ` · ${note.trim()}` : ''}`); }, result === 'pass' ? 'QC passed; shipping next.' : result === 'rework' ? 'Rework: back to the factory floor.' : 'Rejected.');
+    },
+    shipStep(orderId, step, value) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; const sh = o.shipping ?? { awbNo: null, awbOn: null, courier: null, pickedOn: null, shippedOn: null, deliveredOn: null, closedOn: null, shippingCost: null }; o.shipping = sh; const t = now();
+        if (step === 'awb') { sh.awbNo = value?.awbNo ?? sh.awbNo; sh.courier = value?.courier ?? sh.courier; sh.awbOn = sh.awbOn ?? t; }
+        if (step === 'picked') sh.pickedOn = sh.pickedOn ?? t;
+        if (step === 'shipped') { sh.shippedOn = sh.shippedOn ?? t; const d = o.milestones.find(m => m.key === 'Dispatch'); if (d && !d.actual) d.actual = t; }
+        if (step === 'delivered') { sh.deliveredOn = sh.deliveredOn ?? t; const d = o.milestones.find(m => m.key === 'Inhouse ETA'); if (d && !d.actual) d.actual = t; }
+        if (step === 'closed') { sh.closedOn = sh.closedOn ?? t; o.status = 'Closed'; }
+        if (value?.shippingCost != null) sh.shippingCost = value.shippingCost;
+        log(o, { awb:`AWB ${sh.awbNo ?? ''} generated${sh.courier ? ` · ${sh.courier}` : ''}`, picked:'Courier picked up', shipped:'Shipped', delivered:'Delivered at BSC · GRN on Enigma', closed:'Done · everything closed' }[step]); },
+        { awb:'AWB on the record.', picked:'Picked up.', shipped:'Shipped; the TNA\'s Dispatch is logged.', delivered:'Delivered; the GRN comes back from Enigma by size.', closed:'Closed. COGS can be finalised.' }[step]);
+    },
+    closeCogs(orderId) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o || o.cogsClosedOn) return; o.cogsClosedOn = now(); log(o, 'COGS closed'); }, 'COGS closed for this style.'); },
     skipMilestone(orderId, key, skip) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); const m = o?.milestones.find(x => x.key === key); if (!o || !m) return;
         if (skip) { m.skipped = { on: now(), by: who() }; m.actual = m.actual ?? m.revised ?? m.plan; m.revised = null; m.delayReason = null; log(o, `"${key}" not needed for this PO`); }
@@ -1741,7 +1792,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 133,
+  version: 134,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1753,7 +1804,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 133 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < 134 ? { db: structuredClone(SEED) } : {}) } as AppState;
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

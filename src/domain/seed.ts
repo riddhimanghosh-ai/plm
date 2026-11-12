@@ -1460,6 +1460,22 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
   fresh.filter(c => c.patSentOn && !c.approvalSentOn).forEach(c => { c.sampling = 'needed'; c.samplingDecided = { on: c.raisedOn, by: c.raisedBy }; });
   const undecided = fresh.find(c => !c.patSentOn); if (undecided) { undecided.sampling = 'pending'; undecided.samplingDecided = null; } }
 
+/* 12 Nov 2026: where each ask came from, and the sample cycle on the styles still before their PO.
+   Core reorders come from Enigma's auto-PO run, repeats from the planning review, new styles from design. */
+orders.forEach((o, i) => {
+  o.source = /core/i.test(o.program ?? '') || i % 9 === 4 ? 'auto-po' : i % 5 === 2 ? 'planning' : 'design';
+  if (o.status === 'Quoting' || o.status === 'Allocated') {
+    const sent = o.activity?.find(a => /^Sent to production/i.test(a.what))?.at ?? o.styleHandover;
+    const d = (n: number) => iso(addDays(sent, n));
+    o.sampleCycle = i % 3 === 0
+      ? { rounds: [{ n: 1, kind: 'prototype', sentOn: d(0), dueOn: d(6), sampledOn: d(7), trialOn: d(8), outcome: 'remarks', remarks: 'collar stand 2 mm higher; placket to match the swatch', cadUpdatedOn: d(9) },
+                   { n: 2, kind: 'sample', sentOn: d(10), dueOn: d(16), sampledOn: null, trialOn: null, outcome: null, remarks: null, cadUpdatedOn: null }], approvedOn: null }
+      : i % 3 === 1
+      ? { rounds: [{ n: 1, kind: 'prototype', sentOn: d(0), dueOn: d(5), sampledOn: d(6), trialOn: null, outcome: null, remarks: null, cadUpdatedOn: null }], approvedOn: null }
+      : { rounds: [{ n: 1, kind: 'prototype', sentOn: d(0), dueOn: d(6), sampledOn: d(6), trialOn: d(7), outcome: 'approved', remarks: null, cadUpdatedOn: null }], approvedOn: d(7), approvedBy: 'Kunal' };
+  }
+  if (o.status === 'Open' && o.poNo) { o.poAckOn = o.poAckOn ?? o.poDate; if (i % 4 === 0) o.poCosts = { logistics: 6000 + (i % 5) * 1500, other: i % 8 === 0 ? [{ label: 'Testing', amount: 2500 }] : [] }; }
+});
 export const SEED: Db = {
   lostSales,
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,

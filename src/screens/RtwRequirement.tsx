@@ -19,21 +19,26 @@ import { BriefEditor, PutInDrop } from './Requirements';
 import { MilestoneGrid } from './Tracker';
 import { OrderSummary, FactoryDocs, MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
+import { SampleCycleSection, PoCostsSection, ApproveReceivedSection, QcSection, ShippingSection, CogsSection } from './RtwChain';
+import { SOURCE_LABEL } from '../domain/rtwJourney';
 import { LaunchCodes, LaunchStickers } from './Launches';
 import { ActsBy } from './Who';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
 const MINE: Record<string, string[]> = {
-  design: ['raised', 'proto', 'sent', 'sourcing', 'factory', 'cloth', 'launch'],
-  planning: ['raised', 'launch'],
-  sourcing: ['sourcing', 'cloth'],
-  production: ['factory', 'cloth', 'sample', 'tna'],
-  merchandiser: ['factory', 'cloth', 'sample', 'tna'],
-  warehouse: ['received'],
+  design: ['raised', 'design', 'sample', 'factory', 'cloth', 'launch'],
+  planning: ['raised', 'cogs', 'launch'],
+  sourcing: ['cloth'],
+  production: ['sample', 'factory', 'cloth', 'tna', 'qc', 'ship'],
+  merchandiser: ['sample', 'factory', 'cloth', 'tna', 'qc', 'ship'],
+  warehouse: ['ship'],
+  finance: ['cogs'],
 };
 
 export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: string }) {
-  const { db, role, updateRequirement, handToSourcing } = useApp();
+  const { db, role, updateRequirement, handToSourcing, sendForSampling } = useApp();
+  const finance = role === 'finance' || role === 'owner';
+  const [sampleDue, setSampleDue] = useState('');
   const design = role === 'design' || role === 'owner';
   const planning = role === 'planning' || role === 'owner';
   const prod = role === 'production' || role === 'owner';
@@ -118,39 +123,32 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         <KV k="Target cost" v={fmtMoney(o.targetCost)} note="per piece" />
       </>}
       <KV k="Style" v={o.styleName} note={`${o.category} · ${o.subCategory}${o.fit ? ` · ${o.fit}` : ''}${o.program ? ` · ${o.program}` : ''}`} />
+      <KV k="Came from" v={<Pill tone={o.source === 'auto-po' ? 'info' : o.source === 'planning' ? 'warn' : 'neutral'}>{SOURCE_LABEL[o.source ?? 'design']}</Pill>} note={o.source === 'auto-po' ? 'a core style fell below its threshold in Enigma; nobody raised it by hand' : o.source === 'planning' ? 'a reorder from the planning review' : undefined} />
       <KV k="Raised" v={fmtDate(raised?.at ?? o.styleHandover)} note={raised?.who ?? undefined} />
-      <KV k="Cloth" v="BSC buys it" note="sourcing puts a vendor against the brief, design pushes the fabric PO, sourcing sends the cloth to the factory" />
+      <KV k="Cloth" v="BSC buys it" note="after the sample is right and the PO is out: sourcing shops the cloth and trims and sends them to the factory" />
       {editable && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updateRequirement(o.id, { orderQty: Number(qty), targetInhouse: fromDateInput(target) ?? o.targetInhouse, targetCost: Number(cost) })}>Save</Button></div>}
       <div className="cap pt-3">Order qty break-up · {total} pcs</div>
       <SizeGrid breakup={o.sizeBreakup} />
     </Section>}
 
-    {at('proto') && <>
-      <div><ProtoSection o={o} canReview={editable} canLog={canLogProto && o.status === 'Requirement'} open /></div>
-      {o.fabricNominated && <div className="pt-3">{editable ? <BriefEditor o={o} /> : <FabricBriefSection o={o} />}</div>}
+    {at('design') && <>
+      {o.fabricNominated && <div>{editable ? <BriefEditor o={o} /> : <FabricBriefSection o={o} />}</div>}
       <div className="pt-3"><BomSection o={o} editable={editable} open /></div>
-      <Section title="Tech pack · job card" collapsible={false} right={<Pill tone={readiness.techPack ? 'good' : 'warn'}>{readiness.techPack ? 'tech pack on' : 'tech pack missing'}</Pill>}><DocsChecklist o={o} editable={design} /></Section>
+      <Section title="Send to the factory for sampling" collapsible={false} right={sent ? <Pill tone="good">sent {fmtDate(sentLog?.at ?? o.styleHandover)}</Pill> : <Pill tone="warn">not sent</Pill>}>
+        {sent ? <div className="text-[12.5px] py-1">Sent {fmtDate(sentLog?.at ?? o.styleHandover)}{sentLog?.who ? ` by ${sentLog.who}` : ''}. The sample cycle runs from here; the bulk order and PO follow once the sample is right.</div>
+          : design ? <div className="flex gap-2 items-end flex-wrap pt-1">
+              <Field label="Factory to give the sample by"><Input type="date" value={sampleDue} onChange={e => setSampleDue(e.target.value)} /></Field>
+              <Button variant="primary" onClick={() => { handToSourcing(o.id); sendForSampling(o.id, 'prototype', fromDateInput(sampleDue)); }}>Send to the factory for sampling →</Button>
+              <span className="text-[11.5px]" style={faint}>the CAD and the design go with it; Nitin places it at a factory</span>
+            </div> : <ActsBy role="design" does="sends the style to the factory for sampling" />}
+      </Section>
     </>}
 
-    {at('sent') && <Section title="Send it on" collapsible={false} right={sent ? <Pill tone="good">sent {fmtDate(sentLog?.at ?? o.styleHandover)}</Pill> : <Pill tone={readiness.ready ? 'good' : 'warn'}>{readiness.ready ? 'ready' : `${readiness.blockers.length} to do`}</Pill>}>
-      {sent ? <div className="text-[12.5px] py-1">Sent {fmtDate(sentLog?.at ?? o.styleHandover)}{sentLog?.who ? ` by ${sentLog.who}` : ''}. Sourcing is finding the cloth vendor and Nitin a factory; both run at the same time.</div>
-        : <>
-          <div className="checklist">
-            {([['Prototype', readiness.proto.ok, readiness.proto.state === 'skipped' ? 'not needed' : readiness.proto.state], ['Tech pack attached', readiness.techPack, readiness.techPack ? 'on the record' : 'attach it under Proto · BOM · tech pack'], ['Cloth brief', readiness.fabricLine, readiness.fabricLine ? 'written' : 'write the brief sourcing shops against']] as [string, boolean, string][]).map(([l, ok, s]) =>
-              <div key={l} className={`cl-row${ok ? ' done' : ''}`}><span className="cl-box">{ok ? '✓' : ''}</span><div className="cl-main"><div className="cl-label">{l}</div><div className="cl-status">{s}</div></div></div>)}
-          </div>
-          <div className="flex gap-2 items-center pt-3 flex-wrap">
-            {design ? <Button variant="primary" disabled={!readiness.ready} onClick={() => handToSourcing(o.id)}>Send to sourcing and production →</Button> : <ActsBy role={['design', 'planning']} does="sends it once the proto, BOM and tech pack are on" />}
-            <span className="text-[11.5px]" style={faint}>one click: sourcing gets the cloth brief, Nitin gets the style to place</span>
-          </div>
-        </>}
-    </Section>}
-
-    {at('sourcing') && <Section title="Cloth vendor · fabric PO" collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone={o.sourcing?.fabricPo ? 'good' : sent ? 'info' : 'neutral'}>{o.sourcing?.fabricPo ? `fabric PO ${o.sourcing.fabricPo.no}` : sent ? ss.label : 'after it is sent'}</Pill><span className="pill role-sourcing">Sourcing</span></span>}>
-      {!o.fabricNominated ? <div className="text-[12.5px] py-1" style={faint}>The factory buys its own cloth for this style.</div>
-        : !sent ? <div className="text-[12.5px] py-1" style={faint}>Starts the day the request is sent: sourcing puts one vendor against the cloth brief; design pushes the fabric PO, or sends it back.</div>
-        : <FabricFinalisationSection o={o} bare part="sourcing" />}
-    </Section>}
+    {at('sample') && <>
+      <SampleCycleSection o={o} design={design} factory={merchant || prod} />
+      {(o.proto?.rounds?.length ?? 0) > 0 && <div className="pt-3"><ProtoSection o={o} canReview={false} canLog={false} /></div>}
+      {(o.samples?.length ?? 0) > 0 && <div className="pt-3"><SampleSection o={o} editable={false} /></div>}
+    </>}
 
     {at('factory') && <Section title="Factory · PO" collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone={fst.tone}>{fst.label}</Pill><span className="pill role-production">Nitin</span></span>}>
       {!sent ? <div className="text-[12.5px] py-1" style={faint}>Starts the day the request is sent: Nitin proposes a factory with the cost and date agreed on the phone; design accepts and raises the PO. The PO generates the TNA.</div>
@@ -160,15 +158,19 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
           {o.poNo && <OrderSummary o={o} onDates={() => panel('tna')} />}
         </>}
     </Section>}
+    {at('factory') && o.poNo && <div className="pt-3"><PoCostsSection o={o} design={design} factory={merchant} /></div>}
     {at('factory') && o.poNo && <Section title="Documents the factory works from" collapsible={false}><FactoryDocs o={o} /></Section>}
 
+    {at('cloth') && <Section title="Tech pack · job card" collapsible={false} right={<Pill tone={readiness.techPack ? 'good' : 'warn'}>{readiness.techPack ? 'tech pack on' : 'tech pack to upload'}</Pill>}><DocsChecklist o={o} editable={design} /></Section>}
+    {at('cloth') && o.fabricNominated && !o.sourcing?.fabricPo && <Section title="Shopping · cloth vendor and fabric PO" collapsible={false}>{!sent ? <div className="text-[12.5px] py-1" style={faint}>After the PO.</div> : <FabricFinalisationSection o={o} bare part="sourcing" />}</Section>}
     {at('cloth') && <Section title="Cloth at the factory" collapsible={false} right={<Pill tone={fab.tone}>{o.poNo ? fab.label : 'after the PO'}</Pill>}>
       {!o.fabricNominated ? <div className="text-[12.5px] py-1" style={faint}>The factory buys its own cloth.</div>
         : !o.sourcing?.fabricPo || !o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Once both POs are out, sourcing sends the cloth straight to the factory; the factory counts it in. Short cloth comes back to design for a cut ratio.</div>
         : (merchant && !design && !prod) || (role === 'owner' && location.hash.startsWith('#/factory')) ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" />}
     </Section>}
+    {at('cloth') && o.poNo && <div className="pt-3"><ApproveReceivedSection o={o} factory={merchant} /></div>}
 
-    {at('sample') && (o.poNo ? <SampleSection o={o} editable={prod || merchant} open /> : <Section title="Sample" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>The factory samples the bulk cloth once the PO is raised and the cloth has landed.</div></Section>)}
+
 
     {at('tna') && <Section title="Made · the TNA" collapsible={false} right={<Pill tone={o.status === 'Closed' ? 'neutral' : r.risk === 'on-track' ? 'good' : r.risk === 'delayed' || r.risk === 'critical' ? 'risk' : 'warn'}>{o.poNo ? (o.status === 'Closed' ? 'delivered' : `${st.stage}${r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : ''}`) : 'after the PO'}</Pill>}>
       {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>The milestones are generated from the PO date. Nitin and the factory merchant log each step as it happens.</div>
@@ -179,7 +181,14 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         </>}
     </Section>}
 
-    {at('received') && (o.poNo ? <ReceiptLots o={o} editable={wh} open /> : <Section title="Received at BSC" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>The warehouse counts the goods in by size when the factory dispatches.</div></Section>)}
+    {at('qc') && (o.poNo ? <QcSection o={o} factory={merchant || prod} /> : <Section title="QC" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>After the PO and finishing.</div></Section>)}
+
+    {at('ship') && (o.poNo ? <>
+      <ShippingSection o={o} factory={merchant} prod={prod} />
+      <div className="pt-3"><ReceiptLots o={o} editable={false} open /></div>
+    </> : <Section title="Shipping cycle" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>After QC: AWB, courier, shipped, delivered, closed.</div></Section>)}
+
+    {at('cogs') && <CogsSection o={o} finance={finance} />}
 
     {at('launch') && <Section title="Launch" collapsible={false} right={<Pill tone={launch?.launchedOn ? 'good' : launch ? 'info' : 'neutral'}>{launch?.launchedOn ? `launched ${fmtDate(launch.launchedOn)}` : launch ? `${launch.dropMonth} drop` : 'not in a drop yet'}</Pill>}>
       {launch ? <>

@@ -43,7 +43,7 @@ const STAGE_HINT: Record<Stage, string> = MTM_ONLY ? {
 };
 
 /* the order the Pending dropdown lists things in: the journey's order, the cut ratio first because it is urgent */
-const PENDING_ORDER = ['Cut ratio pending', 'Prototype pending', 'BOM pending', 'Tech pack pending', 'Send to sourcing & production pending', 'Fabric PO pending', 'Vendor pending', 'Extension pending', 'Factory PO pending', 'Cloth at the factory pending', 'Sample pending', 'Being made · TNA pending', 'GRN on Enigma pending', 'Swatches pending', 'Launch pending', 'Launched', 'Live'];
+const PENDING_ORDER = ['Cut ratio pending', 'Send for sampling pending', 'Sample at the factory pending', 'Sample review pending', 'CAD and design update pending', 'Bulk order · PO pending', 'PO acknowledgement pending', 'Fabric PO pending', 'Vendor pending', 'Extension pending', 'Cloth at the factory pending', 'Factory sign-off pending', 'Being made · TNA pending', 'QC pending', 'Shipping pending', 'COGS pending', 'Swatches pending', 'Launch pending', 'Launched', 'Live'];
 interface Row { id: string; kind: Kind; name: string; brief: string; raisedBy: string; raisedOn: string; stage: Stage; owner: RoleId | null; next: string; sourcing: string | null; href: string; where?: string; urgent?: boolean; pending: string }
 
 export function DesignHome() {
@@ -90,11 +90,13 @@ export function DesignHome() {
       const j = rtwRowOf(db, o); const fab = fabricStateOf(o);
       const blocker = (j.next?.now ?? '').toLowerCase();
       const pend = fab.key === 'ratio-asked' || fab.key === 'ratio-given' ? 'Cut ratio' : !j.next ? 'Launched'
-        : j.next.key === 'proto' ? (blocker.includes('tech pack') ? 'Tech pack' : blocker.includes('bom') ? 'BOM' : 'Prototype')
-        : j.next.key === 'sent' ? 'Send to sourcing & production' : j.next.key === 'sourcing' ? 'Fabric PO' : j.next.key === 'factory' ? 'Factory PO'
-        : j.next.key === 'cloth' ? 'Cloth at the factory' : j.next.key === 'sample' ? 'Sample' : j.next.key === 'tna' ? 'Being made · TNA' : j.next.key === 'received' ? 'GRN on Enigma' : 'Launch';
+        : j.next.key === 'design' ? 'Send for sampling'
+        : j.next.key === 'sample' ? (blocker.includes('due') ? 'Sample at the factory' : blocker.includes('cad') ? 'CAD and design update' : 'Sample review')
+        : j.next.key === 'factory' ? 'Bulk order · PO'
+        : j.next.key === 'cloth' ? (blocker.includes('acknowledge') ? 'PO acknowledgement' : blocker.includes('fabric po') || blocker.includes('shop') ? 'Fabric PO' : blocker.includes('approve all') ? 'Factory sign-off' : 'Cloth at the factory')
+        : j.next.key === 'tna' ? 'Being made · TNA' : j.next.key === 'qc' ? 'QC' : j.next.key === 'ship' ? 'Shipping' : j.next.key === 'cogs' ? 'COGS' : 'Launch';
       out.push({ where: j.where, urgent: fab.key === 'ratio-asked', pending: pend === 'Launched' ? 'Launched' : `${pend} pending`, id: o.id, kind: mode === 'fob-nominated' ? 'FOB' : 'RTW', name: o.styleName, brief: o.fabricBrief?.look ? `${o.fabricBrief.look}${o.fabricBrief.colour ? ` · ${o.fabricBrief.colour}` : ''} · ${o.orderQty} pcs` : `${o.category} · ${o.orderQty} pcs`,
-        raisedBy: 'Design', raisedOn: o.styleHandover, stage: st, owner: j.next?.act === 'design' ? 'design' : f.now.state === 'done' ? null : f.now.owner, next: j.next ? j.next.now ?? j.next.label : 'launched',
+        raisedBy: o.source === 'auto-po' ? 'Enigma auto-PO' : o.source === 'planning' ? 'Planning' : 'Design', raisedOn: o.styleHandover, stage: st, owner: j.next?.act === 'design' ? 'design' : f.now.state === 'done' ? null : f.now.owner, next: j.next ? j.next.now ?? j.next.label : 'launched',
         sourcing: mode === 'vendor-sources' ? null : mode === 'fob-nominated' ? (o.fobNomination?.emailedOn ? 'finalised' : 'design to name the supplier') : poDone ? 'finalised' : o.status === 'Requirement' ? null : ss.label,
         href: o.id });
     });

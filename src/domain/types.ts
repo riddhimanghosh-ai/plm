@@ -200,6 +200,7 @@ export interface QcAudit {
 export type SourcingMode = 'bsc-buys' | 'fob-nominated' | 'vendor-sources';
 export interface FobNomination { supplierVendorId: string; emailedOn: string | null; by: string | null; note: string }
 
+export interface SampleCycleRound { n: number; kind: 'prototype' | 'sample'; sentOn: string | null; dueOn: string | null; sampledOn: string | null; trialOn: string | null; outcome: 'approved' | 'remarks' | null; remarks: string | null; cadUpdatedOn: string | null }
 export interface ProductionOrder {
   id: string;
   poNo: string | null;           // null until sourcing allocates
@@ -263,6 +264,17 @@ export interface ProductionOrder {
   vendorId: string | null;
   poDate: string | null;
   finalFob: number | null;
+  /* 12 Nov 2026, BSC's chain: where the ask came from; the sample cycle before the PO; the PO's other costs and the
+     factory's acknowledgement; the factory's sign-off on everything received; QC; the shipping cycle; COGS closed */
+  source?: 'design' | 'planning' | 'auto-po';
+  /* each round: sent to the factory with a due date → sample back → trial → approved, or remarks → CAD and design updated → sent again */
+  sampleCycle?: { rounds: SampleCycleRound[]; approvedOn: string | null; approvedBy?: string | null } | null;
+  poCosts?: { logistics: number | null; other: { label: string; amount: number }[] } | null;   // per PO, on top of piece cost × qty
+  poAckOn?: string | null; poAckBy?: string | null;
+  receivedApprovedOn?: string | null; receivedApprovedBy?: string | null;
+  qc?: { inspectedOn: string; result: 'pass' | 'rework' | 'reject'; note: string | null; by: string }[] | null;
+  shipping?: { awbNo: string | null; awbOn: string | null; courier: string | null; pickedOn: string | null; shippedOn: string | null; deliveredOn: string | null; closedOn: string | null; shippingCost: number | null } | null;
+  cogsClosedOn?: string | null;
   costingClosure: { plan: string | null; revised: string | null; actual: string | null };   // target · revised plan · actual, as the sheet has it
 
   /* — Production Unit writes these — */
