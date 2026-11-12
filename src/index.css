@@ -510,6 +510,13 @@ h1::after { background: var(--accent); }
 .rtw-blocks > * { margin: 0 !important; padding-top: 0 !important; min-width: 0; }
 .rtw-blocks > .pt-3, .rtw-blocks > .pt-2 { padding-top: 0 !important; }
 .rtw-view button { font-size: 11.5px; padding: 3px 9px; }
+/* one cut-ratio ask: the header line, then the sizes as a small table (was / proposed / given), changed sizes coloured */
+.cr-ask { padding: 10px 0 6px; border-top: 1px solid var(--line-soft); }
+.cr-ask:first-of-type { border-top: 0; padding-top: 4px; }
+.cr-sizes { margin-top: 6px; font-size: 12.5px; }
+.cr-sizes th, .cr-sizes td { padding: 4px 8px; }
+.cr-sizes tr[data-tone=good] td:first-child { color: var(--good); }
+.cr-sizes tr[data-tone=warn] td:first-child { color: var(--warn); }
 .rtw-panel-head h2 { font-size: 18px; font-weight: 700; margin: 2px 0 4px; letter-spacing: -.01em; }
 .rtw-panel-head p { font-size: 12.5px; color: var(--ink-soft); margin: 0; max-width: 70ch; }
 .sec-head button:focus { outline: none; }
