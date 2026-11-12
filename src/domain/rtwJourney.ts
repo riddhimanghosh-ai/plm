@@ -58,7 +58,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
       act: sample.state === 'with production unit' ? 'production' : 'merchandiser',
       now: !o.poNo ? 'after the PO' : sample.state === 'with production unit' ? 'production to review' : sample.state === 'resubmit' ? 'factory to resubmit' : 'factory to send the first sample' },
     { key: 'tna', phase: 'make', label: 'Made · the TNA', who: 'Nitin · Factory', on: dispatched, by: dispatched ? 'dispatched' : null, act: 'merchandiser',
-      now: !o.poNo ? 'after the PO' : nextMs ? `factory to log ${nextMs.key.toLowerCase()}${late}` : st.stage },
+      now: !o.poNo ? 'after the PO' : nextMs ? `factory to log ${nextMs.key.length <= 3 ? nextMs.key : nextMs.key.toLowerCase()}${late}` : st.stage },
     { key: 'received', phase: 'make', label: 'Received at BSC', who: 'Warehouse', act: 'warehouse', on: rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : null, by: rc.lots.length ? `${rc.received} pcs` : null,
       now: rc.partial ? `${rc.received} of ${rc.base} in` : dispatched ? 'warehouse to count it in' : 'after dispatch' },
     { key: 'launch', phase: 'make', label: 'Launched', who: 'Planning · Design', act: 'planning', on: launch?.launchedOn, by: launch?.dropMonth,
