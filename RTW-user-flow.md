@@ -127,6 +127,17 @@ Each step ticks itself when its data exists. The first unticked step is "where i
 
 ---
 
+## Cut ratio, from material intake to the factory cutting
+
+1. **Factory, Cloth & material incoming.** Opens the PO row, enters metres OK, metres damaged, a note, saves.
+2. **Short cloth.** Pill "short N m". Two buttons: "Ask design to change the sizes", or "Propose to cut fewer…" (size grid prefilled to what the cloth allows, plus Why). The cloth count is final from here; the inputs disappear.
+3. **Factory after asking.** "Cut ratio" block with the trail: who asked, when, old sizes, proposed sizes, pill "with design". Row Next: "design to give new sizes" or "design to approve cutting fewer".
+4. **Design is told.** Waiting on you: critical alert. Requirements and tracker rows show the same Next. The record opens on step 6, Cloth at the factory.
+5. **Design answers.** One input per size for the cloth that is there (usable metres and the pieces they allow shown above), prefilled with the proposal. "Give this cut ratio" or "Approve the cut-short". The order's sizes and cut quantity change.
+6. **Who sends it on.** Factory raised it: goes straight to the factory. Nitin raised it from the tracker: pill "new cut ratio given · to send", Nitin clicks "Send the new ratio to <factory>".
+7. **Factory sees the result.** Pill "new cut ratio at the factory"; cloth row "short N m · sizes changed"; green note with the date and new piece count; "Sizes to cut" grid shows design's sizes. Nothing to count again.
+8. **Design changes it later.** "Change the sizes…" then "Give the changed ratio" adds a line to the trail; the factory sees new sizes as a status change, cloth count untouched. Same send rule as 6.
+
 ## The one status row, as every list shows it
 
 With design → Finding cloth & factory → Cloth ordered → PO raised → Cloth at factory → In production → Shipped to BSC → At warehouse → Launched.
