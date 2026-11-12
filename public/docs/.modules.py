@@ -42,7 +42,7 @@ M = [
    ('l6','Stores receive (RetailOS)','step'),
    ('l7','Make live · Shopify sync','system')]),
 ]
-SOURCES=[('Design ask','source'),('Planning reorder\nstock · ROS · cover','source'),('Enigma auto-PO\ncore style below threshold','sourcesys')]
+SOURCES=[('Design ask','source'),('Planning reorder\nstock & cover','source'),('Enigma auto-PO\nbelow threshold','sourcesys')]
 INTER=[('r4','c1','cloth brief'),('r4','f1','style'),('c4','m1',''),('f3','c4','after both POs'),('f3','m1',''),('m2','s1','no · all in'),('m5','s1',''),('s2','t1','yes'),('t3','g1',''),('g2','l1','goods at HO')]
 LOOPS=[('c2','c1','send back'),('f2','f1','send back'),('s2','s1','resubmit')]
 # layout
