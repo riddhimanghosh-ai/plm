@@ -1116,7 +1116,7 @@ export function fabricStateOf(o: ProductionOrder) {
   /* after the fabric PO — get the cloth to the factory and counted in */
   if (fs?.receipt) {
     if (cr && !cr.given) return mk('ratio-asked', cr.kind === 'cut-short' ? `short ${short} m · cut-short proposed — design to approve` : `short ${short} m · modified ratio asked of design`, 'design', 'risk');
-    if (cr && cr.given && !cr.sentToFactoryOn) return mk('ratio-given', 'new cut ratio given · send it to the factory', 'production', 'warn');
+    if (cr && cr.given && !cr.sentToFactoryOn) return mk('ratio-given', `new ${cr.kind === 'cut-short' ? 'cut-short' : 'cut ratio'} given · send it to the factory`, 'production', 'warn');
     if (short > 0 && !cr) return mk('short', `received short by ${short} m`, 'production', 'risk');
     return mk('received', `received at the factory · ${fs.receipt.metresOk} m`, 'production', 'good');
   }
@@ -1268,7 +1268,7 @@ export function alertsFor(db: Db, role: RoleId, opts?: { storeId?: string; all?:
     if (fab.key === 'short' && want('production')) add({ id:`fab-short-${o.id}`, role:'production', level:'critical', title:`${o.styleName} · fabric short by ${fab.short} m`, detail:'ask design for a modified ratio, propose a cut-short, or get sourcing to top it up', href, weight: 860 });
     if (fab.key === 'short' && want('merchandiser')) add({ id:`fab-short-m-${o.id}`, role:'merchandiser', level:'warn', title:`${o.styleName} · cloth short by ${fab.short} m`, detail:'ask for a modified ratio, or propose what you can cut from the cloth that landed', href:`#/factory?side=rtw&open=${o.id}`, weight: 820 });
     if (fab.key === 'ratio-asked' && want('design')) add({ id:`ratio-${o.id}`, role:'design', level:'critical', title:`${o.styleName} · ${fab.cr!.kind === 'cut-short' ? `cut-short proposed · ${fab.cr!.proposedBreakup?.reduce((a, x) => a + x.qty, 0) ?? '—'} of ${fab.cr!.originalBreakup.reduce((a, x) => a + x.qty, 0)} pcs` : 'modified ratio needed'}`, detail:`${fab.cr!.reason} — the factory is waiting to cut`, href:`#/requirements?open=${o.id}`, weight: 900 });
-    if (fab.key === 'ratio-given' && want('production')) add({ id:`ratio-send-${o.id}`, role:'production', level:'warn', title:`${o.styleName} · send the new cut ratio to the factory`, detail:`given by ${fab.cr!.given!.by} ${fmtAgo(fab.cr!.given!.on)}`, href, weight: 850 });
+    if (fab.key === 'ratio-given' && want('production')) add({ id:`ratio-send-${o.id}`, role:'production', level:'warn', title:`${o.styleName} · send the new ${fab.cr!.kind === 'cut-short' ? 'cut-short' : 'cut ratio'} to the factory`, detail:`given by ${fab.cr!.given!.by} ${fmtAgo(fab.cr!.given!.on)}`, href, weight: 850 });
   });
 
   /* RTW before and after the cloth: the prototype gate, a shortlist to pick from, the trims to cover */

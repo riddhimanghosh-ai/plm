@@ -54,6 +54,9 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const isMine = (k: string) => !mineKeys || mineKeys.includes(k);
   const firstMine = journey.slice(Math.max(current, 0)).find(x => isMine(x.key))?.key ?? journey.filter(x => isMine(x.key)).slice(-1)[0]?.key ?? journey[current]?.key ?? 'launch';
   const [open, setOpen] = useState<string>(initial && isMine(initial) ? initial : firstMine);
+  /* how the open step lays its parts out: stacked (one under the other) or blocks (side by side, each part its own card) */
+  const [view, setView] = useState<'stacked' | 'blocks'>(() => { try { return localStorage.getItem('rtw-step-view') === 'blocks' ? 'blocks' : 'stacked'; } catch { return 'stacked'; } });
+  const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem('rtw-step-view', v); } catch { /* storage off */ } };
   const at = (k: string) => open === k && isMine(k);
 
   /* the order's numbers, editable by design until it is sent */
@@ -96,7 +99,9 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
 
       <div className="rtw-panel" id={`rtw-step-${o.id}`}>
         {(() => { const i = journey.findIndex(x => x.key === open); const x = journey[i]; if (!x) return null;
-          return <div className="rtw-panel-head"><div className="cap">Step {i + 1} of {journey.length} · {x.who}</div><h2>{x.label}</h2><p>{RTW_INTRO[x.key]}</p></div>; })()}
+          return <div className="rtw-panel-head"><div className="flex items-start justify-between gap-3 flex-wrap"><div><div className="cap">Step {i + 1} of {journey.length} · {x.who}</div><h2>{x.label}</h2></div>
+            <div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div></div><p>{RTW_INTRO[x.key]}</p></div>; })()}
+        <div className={view === 'blocks' ? 'rtw-blocks' : undefined}>
     {at('raised') && <Section title="The ask" collapsible={false} right={<span className="pill role-design">Design</span>}>
       {editable ? <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
         <Field label="Order qty"><Input type="number" value={qty} onChange={e => setQty(e.target.value)} /></Field>
@@ -116,7 +121,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
     </Section>}
 
     {at('proto') && <>
-      <ProtoSection o={o} canReview={editable} canLog={canLogProto && o.status === 'Requirement'} open />
+      <div><ProtoSection o={o} canReview={editable} canLog={canLogProto && o.status === 'Requirement'} open /></div>
       {o.fabricNominated && <div className="pt-3">{editable ? <BriefEditor o={o} /> : <FabricBriefSection o={o} />}</div>}
       <div className="pt-3"><BomSection o={o} editable={editable} open /></div>
       <Section title="Tech pack · job card" collapsible={false} right={<Pill tone={readiness.techPack ? 'good' : 'warn'}>{readiness.techPack ? 'tech pack on' : 'tech pack missing'}</Pill>}><DocsChecklist o={o} editable={design} /></Section>
@@ -179,7 +184,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         <div className="pt-1"><a className="cta" href={`#/launches?open=${launch.id}`}>the launch · gates, stores, marketing →</a></div>
       </> : <>{planning ? null : <div className="text-[12.5px] py-1" style={faint}>Planning puts it in a drop once it is in production; design mints the design code when the goods land.</div>}<PutInDrop o={o} /></>}
     </Section>}
-
+        </div>
       </div>
     </div></div>
 

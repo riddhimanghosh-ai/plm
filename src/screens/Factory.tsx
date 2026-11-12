@@ -332,7 +332,7 @@ function todosOf(db: Db, o: ProductionOrder): { todos: Todo[]; next: { key: stri
   if (short.length && fab.key !== 'short' && !openAsk) todos.push({ tab:'materials', text:`${short.map(m => o.bom[m.bomIndex]?.item).join(', ')} short · propose a cut-short`, tone:'risk' });
   if (openAsk) info.push(`Your ${fab.cr!.kind === 'cut-short' ? 'cut-short' : 'cut ratio ask'} is with design`);
   const given = (o.cutRatios ?? []).filter(c => c.given && c.sentToFactoryOn).slice(-1)[0];
-  if (given) info.push(`Design gave a new cut ratio on ${fmtDate(given.sentToFactoryOn!)} · cut ${given.given!.breakup.reduce((a, x) => a + x.qty, 0)} pcs`);
+  if (given) info.push(`Design gave a new ${given.kind === 'cut-short' ? 'cut-short' : 'cut ratio'} on ${fmtDate(given.sentToFactoryOn!)} · cut ${given.given!.breakup.reduce((a, x) => a + x.qty, 0)} pcs`);
   const live = o.milestones.filter(m => !m.actual); const nxt = live[0] ?? null;
   const next = nxt ? { key: nxt.key, due: nxt.revised ?? nxt.plan, overdue: new Date(nxt.revised ?? nxt.plan) < new Date() } : null;
   if (next?.overdue && o.status !== 'Closed') todos.push({ tab:'dates', text:`Log ${next.key} · was due ${fmtDate(next.due)}${live.length > 1 ? `, then ${live.length - 1} more step${live.length > 2 ? 's' : ''}` : ''}`, tone:'warn' });

@@ -9,7 +9,8 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp, useAppStore } from '../store';
 import type { Concept, ProductionOrder, OptionRequest, RoleId } from '../domain/types';
-import { designFlowOf, sourcingStateOf, sourcingModeOf, conceptOf, fmtDate, daysAgo } from '../domain/engines';
+import { designFlowOf, sourcingStateOf, sourcingModeOf, conceptOf, fmtDate, daysAgo, fabricStateOf } from '../domain/engines';
+import { rtwRowOf } from '../domain/rtwJourney';
 import { ROLE_LABEL } from '../domain/reference';
 import { Page, Card, Pill, Seg, Th, Button, Drawer, Input } from '../ui';
 import { ActsBy } from './Who';
@@ -41,7 +42,7 @@ const STAGE_HINT: Record<Stage, string> = MTM_ONLY ? {
   5:'sellable in stores (and online, for MTM)',
 };
 
-interface Row { id: string; kind: Kind; name: string; brief: string; raisedBy: string; raisedOn: string; stage: Stage; owner: RoleId | null; next: string; sourcing: string | null; href: string }
+interface Row { id: string; kind: Kind; name: string; brief: string; raisedBy: string; raisedOn: string; stage: Stage; owner: RoleId | null; next: string; sourcing: string | null; href: string; where?: string; urgent?: boolean }
 
 export function DesignHome() {
   const { db, role, myRole } = useApp();
@@ -78,8 +79,10 @@ export function DesignHome() {
       const fabricLine = (o.materials ?? []).find(m => o.bom[m.bomIndex]?.kind === 'fabric');
       const inProduction = o.fabricReady || !!fabricLine?.receivedOn || !!o.vendorId || (o.samples?.length ?? 0) > 0;
       const st: Stage = launch?.launchedOn ? 5 : poDone ? (inProduction ? 4 : 3) : o.status === 'Requirement' ? 1 : 2;
-      out.push({ id: o.id, kind: mode === 'fob-nominated' ? 'FOB' : 'RTW', name: o.styleName, brief: o.fabricBrief?.look ? `${o.fabricBrief.look}${o.fabricBrief.colour ? ` · ${o.fabricBrief.colour}` : ''} · ${o.orderQty} pcs` : `${o.category} · ${o.orderQty} pcs`,
-        raisedBy: 'Design', raisedOn: o.styleHandover, stage: st, owner: f.now.state === 'done' ? null : f.now.owner, next: f.now.state === 'done' ? 'launched' : (f.now.action ?? f.now.label),
+      /* the same Where it is · Next every RTW list shows; a cut-ratio ask is design's move and shows red */
+      const j = rtwRowOf(db, o); const fab = fabricStateOf(o);
+      out.push({ where: j.where, urgent: fab.key === 'ratio-asked', id: o.id, kind: mode === 'fob-nominated' ? 'FOB' : 'RTW', name: o.styleName, brief: o.fabricBrief?.look ? `${o.fabricBrief.look}${o.fabricBrief.colour ? ` · ${o.fabricBrief.colour}` : ''} · ${o.orderQty} pcs` : `${o.category} · ${o.orderQty} pcs`,
+        raisedBy: 'Design', raisedOn: o.styleHandover, stage: st, owner: j.next?.act === 'design' ? 'design' : f.now.state === 'done' ? null : f.now.owner, next: j.next ? j.next.now ?? j.next.label : 'launched',
         sourcing: mode === 'vendor-sources' ? null : mode === 'fob-nominated' ? (o.fobNomination?.emailedOn ? 'finalised' : 'design to name the supplier') : poDone ? 'finalised' : o.status === 'Requirement' ? null : ss.label,
         href: o.id });
     });
@@ -150,6 +153,8 @@ export function DesignHome() {
           <Th hint="what design asked for — the working name and the brief">Requirement</Th>
           {!MTM_ONLY && <Th hint="MTM fabric · RTW style">Kind</Th>}
           <Th hint="where it stands">Stage</Th>
+          <Th hint="the step it is on">Where it is</Th>
+          <Th hint="the next move, and whose">Next</Th>
         </tr></thead>
         <tbody>{shown.length === 0 ? <tr><td colSpan={5} className="text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Nothing here.</td></tr> : shown.map(r => <tr key={r.id} className="row" onClick={() => set('open', r.href)}>
           <td style={{ whiteSpace:'normal', minWidth: 260 }}><span className="font-medium">{r.name}</span><div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{r.brief.slice(0, 110)}{r.brief.length > 110 ? '…' : ''}</div><div className="text-[10.5px]" style={{ color:'var(--ink-faint)' }}>{r.raisedBy} · {fmtDate(r.raisedOn)} · {daysAgo(r.raisedOn)}d</div></td>
@@ -157,6 +162,8 @@ export function DesignHome() {
           <td style={{ whiteSpace:'normal', minWidth: 260 }}>
             <Pill tone={STAGE_TONE[r.stage]}>{STAGE_LABEL[r.stage]}</Pill>
           </td>
+          <td className="text-[12.5px]" style={{ whiteSpace:'normal', minWidth: 160 }}>{r.where ?? (r.sourcing ?? '')}</td>
+          <td className="text-[12.5px]" style={{ whiteSpace:'normal', minWidth: 200 }}>{r.urgent ? <Pill tone="risk">{r.next}</Pill> : <><span style={{ fontWeight: r.owner === 'design' ? 600 : 400 }}>{r.next}</span>{r.owner && r.owner !== 'design' ? <span className="pill ml-1" style={{ fontSize: 10.5 }}>{r.owner}</span> : null}</>}</td>
         </tr>)}</tbody>
       </table></div></Card>
 

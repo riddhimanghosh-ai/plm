@@ -4,7 +4,7 @@
    "next" from the same words, so design, sourcing, Nitin, the factory and the
    warehouse all see the same thing. */
 import type { Db, ProductionOrder } from './types';
-import { fmtDate, sendReadinessOf, sourcingStateOf, factoryStateOf, sampleStatusOf, protoStatusOf, receiptOf, riskOf, stageOf } from './engines';
+import { fmtDate, sendReadinessOf, sourcingStateOf, factoryStateOf, sampleStatusOf, protoStatusOf, receiptOf, riskOf, stageOf, fabricStateOf } from './engines';
 
 export type RtwActor = 'design' | 'sourcing' | 'production' | 'merchandiser' | 'warehouse' | 'planning';
 export type RtwPhase = 'design' | 'buy' | 'make';
@@ -27,7 +27,7 @@ export const RTW_INTRO: Record<string, string> = {
 export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; current: number; next: RtwStep | null; where: string } {
   const readiness = sendReadinessOf(db, o); const proto = protoStatusOf(o);
   const ss = sourcingStateOf(o); const fst = factoryStateOf(o); const sample = sampleStatusOf(o);
-  const rc = receiptOf(o); const r = riskOf(o); const st = stageOf(o);
+  const rc = receiptOf(o); const r = riskOf(o); const st = stageOf(o); const fab = fabricStateOf(o);
   const launch = (db.launches ?? []).find(l => l.orderId === o.id) ?? null;
   const nameOf = (id: string | null | undefined) => db.vendors.find(v => v.id === id)?.name ?? '—';
   const raised = o.activity?.find(a => /created|raised/i.test(a.what)) ?? null;
@@ -51,9 +51,11 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
     { key: 'factory', phase: 'buy', label: 'Factory · PO', who: 'Nitin · Design', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}` : null,
       act: fst.key === 'accepted' || fst.key === 'with-design' ? 'design' : 'production',
       now: !sent ? 'starts when sent' : fst.key === 'accepted' ? 'design to raise the PO' : fst.key === 'with-design' ? 'design to accept or send back' : 'Nitin to propose a factory' },
+    /* a cut-ratio ask moves the step to design (or to Nitin, to send the answer on): the lists all say so */
     { key: 'cloth', phase: 'buy', label: 'Cloth at the factory', who: 'Sourcing · Factory', on: !o.fabricNominated ? o.poDate : o.fabricSupply?.receipt?.on, by: o.fabricSupply?.receipt ? `${o.fabricSupply.receipt.metresOk} m` : null,
-      act: o.fabricSupply?.sentToFactoryOn ? 'merchandiser' : 'sourcing',
-      now: !o.poNo ? 'after the PO' : o.fabricSupply?.sentToFactoryOn ? 'factory to count it in' : 'sourcing to send it' },
+      act: fab.key === 'ratio-asked' ? 'design' : fab.key === 'ratio-given' ? 'production' : o.fabricSupply?.sentToFactoryOn ? 'merchandiser' : 'sourcing',
+      now: !o.poNo ? 'after the PO' : fab.key === 'ratio-asked' ? (fab.cr?.kind === 'cut-short' ? 'design to approve the cut-short' : 'design to give new sizes') : fab.key === 'ratio-given' ? `Nitin to send the new ${fab.cr?.kind === 'cut-short' ? 'cut-short' : 'ratio'} to the factory`
+        : o.fabricSupply?.sentToFactoryOn ? 'factory to count it in' : 'sourcing to send it' },
     { key: 'sample', phase: 'make', label: 'Sample approved', who: 'Factory · Production', on: sample.ppGoAhead, by: sample.approved ? `round ${sample.approved.round}` : null,
       act: sample.state === 'with production unit' ? 'production' : 'merchandiser',
       now: !o.poNo ? 'after the PO' : sample.state === 'with production unit' ? 'production to review' : sample.state === 'resubmit' ? 'factory to resubmit' : 'factory to send the first sample' },
@@ -64,10 +66,12 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
     { key: 'launch', phase: 'make', label: 'Launched', who: 'Planning · Design', act: 'planning', on: launch?.launchedOn, by: launch?.dropMonth,
       now: launch ? `${launch.dropMonth} drop${launch.launchOn ? ` · ${fmtDate(launch.launchOn)}` : ''}` : 'planning puts it in a drop' },
   ];
-  const current = steps.findIndex(x => !x.on);
+  /* an open cut-ratio ask pulls the record back to the cloth step until it is answered and sent, even though the cloth is counted */
+  const ratioOpen = o.status === 'Open' && (fab.key === 'ratio-asked' || fab.key === 'ratio-given');
+  const current = ratioOpen ? steps.findIndex(x => x.key === 'cloth') : steps.findIndex(x => !x.on);
   const next = current >= 0 ? steps[current] : null;
   /* "where it is" for a list: the step name, or the TNA stage while it is being made */
-  const where = !next ? `launched ${fmtDate(launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? `${st.stage}${late}` : next.label;
+  const where = ratioOpen ? (fab.key === 'ratio-asked' ? `cut ratio with design · short ${fab.short} m` : `new ${fab.cr?.kind === 'cut-short' ? 'cut-short' : 'cut ratio'} to send`) : !next ? `launched ${fmtDate(launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? `${st.stage}${late}` : next.label;
   return { steps, current, next, where };
 }
 
