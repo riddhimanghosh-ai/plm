@@ -52,6 +52,9 @@ export function DesignHome() {
   const prod = role === 'production' || role === 'owner';
   /* the kind is in the URL: /concepts, /requests and /requirements now land here with it set */
   const kind = (params.get('kind') as 'all' | Kind | null) ?? 'all';
+  /* whose move: everything, waiting on design, or the cut-ratio asks from the factory */
+  const who = (params.get('who') as 'all' | 'me' | 'ratio' | null) ?? 'all';
+  const setWho = (w: 'all' | 'me' | 'ratio') => set('who', w === 'all' ? null : w);
   const setKind = (k: 'all' | Kind) => set('kind', k === 'all' ? null : k);
   const [stage, setStage] = useState<'all' | `${Stage}`>('all');
   const [q, setQ] = useState('');
@@ -118,7 +121,9 @@ export function DesignHome() {
   const quiet = useAppStore(s => !!s.settings.quiet);
   const showAll = quiet || params.get('all') === '1';   // quiet mode: the real list
   const base = showAll ? rows : examples;
+  const isMe = (r: Row) => r.owner === asRole; const isRatio = (r: Row) => !!r.urgent;
   const shown = base.filter(r => (kind === 'all' || r.kind === kind) && (stage === 'all' || String(r.stage) === stage)
+    && (who === 'all' || (who === 'me' ? isMe(r) : isRatio(r)))
     && (!q.trim() || q.toLowerCase().split(/\s+/).every(w => `${r.name} ${r.brief} ${r.kind}`.toLowerCase().includes(w))));
   const count = (f: (r: Row) => boolean) => base.filter(f).length;
   /* everything opens in place: ?open=<id> is a concept, an order or a request; ?new= is the chooser or one of the four forms */
@@ -137,6 +142,11 @@ export function DesignHome() {
       actions={design ? <Button variant="primary" onClick={() => set('new', RTW_ONLY ? 'rtw' : '1')}>{RTW_ONLY ? '+ New RTW style' : '+ New requirement'}</Button> : <ActsBy role={['design', 'planning']} does="raises a requirement — what is needed, for which product, by when" inline />}>
 
       <div className="flex items-end gap-3 flex-wrap mb-3">
+        <Seg value={who} onChange={v => setWho(v as typeof who)} options={[
+          { id:'all', label:'Everything' },
+          { id:'me', label: asRole === 'design' ? 'Waiting on me' : 'Waiting on design', count: count(isMe) },
+          { id:'ratio', label:'Cut ratio asked', count: count(isRatio), hint:'the factory is short of cloth and needs new sizes, or wants to cut fewer' },
+        ]} />
         <Seg value={stage} onChange={v => setStage(v as typeof stage)} label="Stage" options={[
           { id:'all', label:'All', count: base.length },
           ...([1, 2, 3, 4, 5] as Stage[]).filter(s => STAGE_LABEL[s]).map(s => ({ id: String(s), label: STAGE_LABEL[s], count: count(r => r.stage === s), hint: STAGE_HINT[s] })),
