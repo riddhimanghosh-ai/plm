@@ -364,7 +364,7 @@ export function FactoryFinalisationSection({ o, columns, bare }: { o: Production
    The same trail shows to design (who answers) and to the factory (who waits), so both read one status. */
 export function CutRatioTrail({ o }: { o: ProductionOrder }) {
   const pcs = (b: { size: string; qty: number }[]) => b.reduce((a, x) => a + x.qty, 0);
-  const kindOf = (k: string) => k === 'cut-short' ? 'cut-short' : 'cut ratio';
+  const kindOf = (k?: string) => k === 'cut-short' ? 'cut-short' : 'cut ratio';
   return <>{(o.cutRatios ?? []).map((cr, i) => {
     const cols = o.sizeBreakup.map(x => x.size);
     const qty = (b: { size: string; qty: number }[] | undefined, size: string) => b?.find(x => x.size === size)?.qty ?? 0;
