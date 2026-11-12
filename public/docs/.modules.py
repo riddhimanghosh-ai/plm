@@ -32,10 +32,10 @@ M = [
    ('m1','TNA updates · 22 milestones\nnot-needed steps skipped','step'),
    ('m2','Tracker · OTIF · late in red','step'),
    ('q2','QC passed?\nrework goes back to the TNA','decision')]),
- ('ship','7 · Shipping cycle','Factory · Enigma · Nitin',[
-   ('x1','AWB generated · courier picked up','step'),
-   ('x2','Shipped','step'),
-   ('x3','Delivered · GRN at BSC\nby size, lot by lot','system'),
+ ('ship','7 · Shipping cycle','Factory · Shravani · Nitin',[
+   ('x1','AWB generated · courier picked up\nnot in PLM yet','outside'),
+   ('x2','Shipped\nnot in PLM yet','outside'),
+   ('x3','Delivered · GRN at BSC\nShravani on Enigma, as today','outside'),
    ('x4','Done · everything closed','step')]),
  ('cogs','8 · COGS and profitability','Nitin · Design see it',[
    ('c1','Manufacturing cost\nfrom the PO','step'),
@@ -51,8 +51,9 @@ INTER=[('r3','s1',''),('s4','p1','right'),('s4','h1','right · in parallel'),('p
 LOOPS=[('s3','s1','yes · sample again')]
 # layout
 COLS=5; MW=300; NW=256; NH=52; GAP=14; PAD=14; HEAD=40; MX=40; MY=40; GX=MW+60; SRC_W=76
-FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','source':'#fde7c9','sourcesys':'#dbeafe'}
-STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8','source':'#b45309','sourcesys':'#1d4ed8'}
+FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','source':'#fde7c9','sourcesys':'#dbeafe','outside':'#f4f3ef'}
+STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8','source':'#b45309','sourcesys':'#1d4ed8','outside':'#a9a391'}
+DASHED=' stroke-dasharray="5 4"'
 def esc(s): return html.escape(s)
 def mod_height(nodes): return HEAD+PAD+sum((NH if k!='sourcesrow' else NH+10)+GAP for _,_,k in nodes)-GAP+PAD
 rows=[M[i:i+COLS] for i in range(0,len(M),COLS)]
@@ -106,16 +107,16 @@ for nid,(x,y0,w,h,kind,label) in pos.items():
             for j,t in enumerate(lines): svg.append(f'<text x="{sx+sw/2}" y="{y0+h/2+4+(j-(len(lines)-1)/2)*12}" text-anchor="middle" font-size="{10 if j==0 else 8.5}" font-weight="{600 if j==0 else 400}" fill="#1a1a13">{esc(t)}</text>')
         continue
     lines=label.split('\n')
-    svg.append(f'<rect x="{x}" y="{y0}" width="{w}" height="{h}" rx="{26 if kind=="decision" else 6}" fill="{FILL[kind]}" stroke="{STROKE[kind]}" stroke-width="1.3"/>')
+    svg.append(f'<rect x="{x}" y="{y0}" width="{w}" height="{h}" rx="{26 if kind=="decision" else 6}" fill="{FILL[kind]}" stroke="{STROKE[kind]}" stroke-width="1.3"{DASHED if kind=="outside" else ""}/>')
     for j,t in enumerate(lines): svg.append(f'<text x="{x+w/2}" y="{y0+h/2+4+(j-(len(lines)-1)/2)*13}" text-anchor="middle" font-size="{11.5 if j==0 else 10.5}" font-weight="{600 if j==0 else 400}" fill="#1a1a13">{esc(t)}</text>')
 svg.append('</svg>'); svg_text='\n'.join(svg); open(out_svg,'w').write(svg_text)
-legend='<div class="legend"><span><i style="background:#fde7c9;border-color:#b45309;border-radius:8px"></i> how a requirement starts</span><span><i style="background:#fffbe6;border-color:#8a7a3a"></i> step in PLM</span><span><i style="background:#e7ebe0;border-color:#3c4a30;border-radius:10px"></i> decision</span><span><i style="background:#dbeafe;border-color:#1d4ed8"></i> on Enigma</span></div>'
+legend='<div class="legend"><span><i style="background:#fde7c9;border-color:#b45309;border-radius:8px"></i> how a requirement starts</span><span><i style="background:#fffbe6;border-color:#8a7a3a"></i> step in PLM</span><span><i style="background:#e7ebe0;border-color:#3c4a30;border-radius:10px"></i> decision</span><span><i style="background:#dbeafe;border-color:#1d4ed8"></i> on Enigma</span><span><i style="background:#f4f3ef;border:1.4px dashed #a9a391"></i> outside PLM for now</span></div>'
 page=f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RTW modules v2</title>
 <style>body{{margin:0;background:#fff;color:#1a1a13;font-family:Inter,system-ui,sans-serif;padding:24px}}h1{{font-size:22px;margin:0 0 4px}}p{{margin:0 0 14px;color:#6b6759;font-size:13.5px}}.legend{{display:flex;gap:16px;font-size:12px;color:#6b6759;margin-bottom:10px;flex-wrap:wrap}}.legend i{{display:inline-block;width:14px;height:10px;border:1.4px solid;border-radius:3px;vertical-align:middle;margin-right:4px}}.wrap{{overflow:auto;border:1px solid #e3ddcd;border-radius:8px}}svg{{display:block}}</style></head>
 <body><h1>RTW in PLM · nine modules (v2, after the 12 Nov meeting)</h1><p>In BSC's order: design and the sample cycle first, then the bulk order and PO (with logistics and other costs, acknowledged by the factory) with sourcing shopping the cloth and trims in parallel, the tech pack and count-in (design's new cut ratio goes straight to the factory), manufacturing on the TNA, QC, the shipping cycle (AWB, courier, shipped, delivered, closed), COGS that Nitin and design see, then the design codes. A requirement starts three ways: a design ask, a planning reorder, or an Enigma auto-PO on a core style below its threshold. Also as <a href="bsc-plm-rtw-modules.drawio" download>a draw.io file</a>, <a href="bsc-plm-rtw-modules.svg" download>SVG</a>; see also the <a href="bsc-plm-rtw-flowchart.html">flowchart</a> and the <a href="bsc-plm-rtw-swimlane.html">swimlane</a>.</p>{legend}<div class="wrap">{svg_text.replace(f'width="{width}" height="{height}"', 'style="width:100%;height:auto;min-width:1100px"',1)}</div></body></html>'''
 open(out_html,'w').write(page)
 # draw.io
-STY={'step':'rounded=0;whiteSpace=wrap;html=1;fillColor=#fffbe6;strokeColor=#8a7a3a;fontSize=11;','decision':'rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#e7ebe0;strokeColor=#3c4a30;fontSize=11;','system':'rounded=0;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;','source':'ellipse;whiteSpace=wrap;html=1;fillColor=#fde7c9;strokeColor=#b45309;fontSize=10;','sourcesys':'ellipse;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=10;'}
+STY={'outside':'rounded=0;whiteSpace=wrap;html=1;fillColor=#f4f3ef;strokeColor=#a9a391;dashed=1;fontColor=#6b6759;fontSize=11;','step':'rounded=0;whiteSpace=wrap;html=1;fillColor=#fffbe6;strokeColor=#8a7a3a;fontSize=11;','decision':'rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#e7ebe0;strokeColor=#3c4a30;fontSize=11;','system':'rounded=0;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;','source':'ellipse;whiteSpace=wrap;html=1;fillColor=#fde7c9;strokeColor=#b45309;fontSize=10;','sourcesys':'ellipse;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=10;'}
 cells=['<mxCell id="0"/>','<mxCell id="1" parent="0"/>']
 for k,t,w,nodes in M:
     x,y0,mw,mh=mpos[k]

@@ -17,8 +17,8 @@ SPINE = [
  ('f4','factory','Approve all received','step'),
  ('f5','factory','Make · log the TNA\n22 milestones','step'),
  ('f6','factory','QC passed?','decision'),
- ('f7','factory','AWB · courier · shipped','step'),
- ('e4','enigma','Delivered · GRN\nby size, lot by lot','system'),
+ ('f7','factory','AWB · courier · shipped\nnot in PLM yet','outside'),
+ ('e4','enigma','Delivered · GRN\nShravani on Enigma, as today','outside'),
  ('n4','nitin','Close the shipment\nshipping cost','step'),
  ('cg','nd','COGS vs MRP\nmargin per style','step'),
  ('p3','dp','Add to a drop\nname · date','step'),
@@ -39,7 +39,8 @@ SIDE = [
 # back-loops and joins: from, to, label
 LOOPS = [('d4','f1','no · remarks → update CAD and design · next round'),('d6','n1','send back'),('f6','f5','rework'),('d9','f4','then'),('t9','f3','count again'),('f3b','f4','yes'),('d4','n1','yes'),('f6','f7','yes'),('s2','f3','cloth and trims in')]
 COLS=6; W,H=186,58; GX=226; SUB=H+26; X0,Y0=40,40
-FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe'}; STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8'}
+FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','outside':'#f4f3ef'}; STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8','outside':'#a9a391'}
+DASHED=' stroke-dasharray="5 4"'
 node={}
 for n in SPINE: node[n[0]]=n
 for p,i,r,l,k,_ in SIDE: node[i]=(i,r,l,k)
@@ -124,18 +125,18 @@ for a,b,lab in LOOPS:
         svg.append(f'<text x="{x}" y="{ay+H/2-6}" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">{esc(lab)}</text>')
 for nid,(x,y) in pos.items():
     _,role,label,kind=node[nid][:4]; lines=label.split('\n')
-    svg.append(f'<rect x="{x}" y="{y}" width="{W}" height="{H}" rx="{28 if kind=="decision" else 6}" fill="{FILL[kind]}" stroke="{STROKE[kind]}" stroke-width="1.4"/>')
+    svg.append(f'<rect x="{x}" y="{y}" width="{W}" height="{H}" rx="{28 if kind=="decision" else 6}" fill="{FILL[kind]}" stroke="{STROKE[kind]}" stroke-width="1.4"{DASHED if kind=="outside" else ""}/>')
     svg.append(f'<text x="{x+8}" y="{y+12}" font-size="9" fill="#6b6759" font-weight="600" letter-spacing=".06em">{esc(ROLE[role].upper())}</text>')
     for i,t in enumerate(lines):
         svg.append(f'<text x="{x+W/2}" y="{y+H/2+6+(i-(len(lines)-1)/2)*13}" text-anchor="middle" font-size="{11.5 if i==0 else 10.5}" font-weight="{600 if i==0 else 400}" fill="#1a1a13">{esc(t)}</text>')
 svg.append('</svg>'); svg_text='\n'.join(svg)
 open(out_svg,'w').write(svg_text)
-legend='<div class="legend"><span><i style="background:#fffbe6;border-color:#8a7a3a"></i> step in PLM</span><span><i style="background:#e7ebe0;border-color:#3c4a30;border-radius:10px"></i> decision</span><span><i style="background:#dbeafe;border-color:#1d4ed8"></i> on Enigma</span><span>reads left to right, then down and back</span></div>'
+legend='<div class="legend"><span><i style="background:#fffbe6;border-color:#8a7a3a"></i> step in PLM</span><span><i style="background:#e7ebe0;border-color:#3c4a30;border-radius:10px"></i> decision</span><span><i style="background:#dbeafe;border-color:#1d4ed8"></i> on Enigma</span><span><i style="background:#f4f3ef;border:1.4px dashed #a9a391"></i> outside PLM for now</span><span>reads left to right, then down and back</span></div>'
 page=f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RTW flowchart</title>
 <style>body{{margin:0;background:#fff;color:#1a1a13;font-family:Inter,system-ui,sans-serif;padding:24px}}h1{{font-size:22px;margin:0 0 4px}}p{{margin:0 0 14px;color:#6b6759;font-size:13.5px}}.legend{{display:flex;gap:16px;font-size:12px;color:#6b6759;margin-bottom:10px}}.legend i{{display:inline-block;width:14px;height:10px;border:1.4px solid;border-radius:3px;vertical-align:middle;margin-right:4px}}.wrap{{overflow:auto;border:1px solid #e3ddcd;border-radius:8px}}svg{{display:block}}</style></head>
 <body><h1>RTW in PLM · the flow, box by box (v2, after the 12 Nov meeting)</h1><p>The main line snakes left to right, then down and back. Once the sample is right, sourcing shops the cloth and trims in parallel with the bulk order and PO. At count-in: all in goes straight to approval; cloth short goes to design, whose new cut ratio the factory sees at once; trims short goes to sourcing for the balance. Blue boxes are Enigma. The chart ends at the design codes. Also as <a href="bsc-plm-rtw-flowchart.drawio" download>a draw.io file</a>, <a href="bsc-plm-rtw-flowchart.svg" download>SVG</a>, and <a href="bsc-plm-rtw-swimlane.html">the same flow as a swimlane</a>.</p>{legend}<div class="wrap">{svg_text.replace(f'width="{width}" height="{height}"', 'style="width:100%;height:auto;min-width:1100px"',1)}</div></body></html>'''
 open(out_html,'w').write(page)
-STY={'step':'rounded=0;whiteSpace=wrap;html=1;fillColor=#fffbe6;strokeColor=#8a7a3a;fontSize=11;','decision':'rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#e7ebe0;strokeColor=#3c4a30;fontSize=11;','system':'rounded=0;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;'}
+STY={'outside':'rounded=0;whiteSpace=wrap;html=1;fillColor=#f4f3ef;strokeColor=#a9a391;dashed=1;fontColor=#6b6759;fontSize=11;','step':'rounded=0;whiteSpace=wrap;html=1;fillColor=#fffbe6;strokeColor=#8a7a3a;fontSize=11;','decision':'rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#e7ebe0;strokeColor=#3c4a30;fontSize=11;','system':'rounded=0;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;'}
 cells=['<mxCell id="0"/>','<mxCell id="1" parent="0"/>']
 for nid,(x,y) in pos.items():
     _,role,label,kind=node[nid][:4]

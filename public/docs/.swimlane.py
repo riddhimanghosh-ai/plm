@@ -28,8 +28,8 @@ N = [
  ('f5','factory',14,'Make · log the TNA\n22 milestones','step'),
  ('n3','nitin',14,'Tracker · OTIF\nescalations','step'),
  ('f6','factory',15,'QC passed?\nor rework','decision'),
- ('f7','factory',16,'AWB · courier\nshipped','step'),
- ('e4','enigma',17,'Delivered · GRN\nby size, lot by lot','system'),
+ ('f7','factory',16,'AWB · courier · shipped\nnot in PLM yet','outside'),
+ ('e4','enigma',17,'Delivered · GRN\nShravani on Enigma, as today','outside'),
  ('n4','nitin',18,'Close the shipment\nshipping cost','step'),
  ('cg','nitin',19,'COGS vs MRP\nNitin and design see it','step'),
  ('p3','design',20,'Add to a drop\nmarketing name · date','step'),
@@ -51,8 +51,9 @@ width = X0 + cols*GX + 40; height = Y0 + len(LANES)*LANE_H + 20
 lane_y = {k: Y0 + i*LANE_H for i,(k,_) in enumerate(LANES)}
 pos = {n[0]: (X0 + n[2]*GX, lane_y[n[1]] + (LANE_H-H)/2) for n in N}
 node = {n[0]: n for n in N}
-FILL = {'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','loop':'#fde2e2'}
-STROKE = {'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8','loop':'#b91c1c'}
+FILL = {'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','loop':'#fde2e2','outside':'#f4f3ef'}
+STROKE = {'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8','loop':'#b91c1c','outside':'#a9a391'}
+DASHED=' stroke-dasharray="5 4"'
 
 def esc(s): return html.escape(s)
 svg = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" font-family="Inter, Helvetica, Arial, sans-serif">',
@@ -81,13 +82,13 @@ for a,b,l in E: edge(a,b,l)
 for nid,lane,col,label,kind in N:
     x,y=pos[nid]; lines=label.split('\n')
     if kind=='decision': svg.append(f'<rect x="{x}" y="{y}" width="{W}" height="{H}" rx="28" fill="{FILL[kind]}" stroke="{STROKE[kind]}" stroke-width="1.4"/>')
-    else: svg.append(f'<rect x="{x}" y="{y}" width="{W}" height="{H}" rx="6" fill="{FILL[kind]}" stroke="{STROKE[kind]}" stroke-width="1.4"/>')
+    else: svg.append(f'<rect x="{x}" y="{y}" width="{W}" height="{H}" rx="6" fill="{FILL[kind]}" stroke="{STROKE[kind]}" stroke-width="1.4"{DASHED if kind=="outside" else ""}/>')
     for i,t in enumerate(lines):
         svg.append(f'<text x="{x+W/2}" y="{y+H/2+(i-(len(lines)-1)/2)*14+4}" text-anchor="middle" font-size="{11.5 if i==0 else 10.5}" font-weight="{600 if i==0 else 400}" fill="#1a1a13">{esc(t)}</text>')
 svg.append('</svg>')
 svg_text='\n'.join(svg)
 open(out_svg,'w').write(svg_text)
-legend='<div class="legend"><span><i style="background:#fffbe6;border-color:#8a7a3a"></i> step in PLM</span><span><i style="background:#e7ebe0;border-color:#3c4a30;border-radius:10px"></i> decision</span><span><i style="background:#dbeafe;border-color:#1d4ed8"></i> on Enigma</span></div>'
+legend='<div class="legend"><span><i style="background:#fffbe6;border-color:#8a7a3a"></i> step in PLM</span><span><i style="background:#e7ebe0;border-color:#3c4a30;border-radius:10px"></i> decision</span><span><i style="background:#dbeafe;border-color:#1d4ed8"></i> on Enigma</span><span><i style="background:#f4f3ef;border:1.4px dashed #a9a391"></i> outside PLM for now</span></div>'
 page=f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RTW swimlane</title>
 <style>body{{margin:0;background:#fff;color:#1a1a13;font-family:Inter,system-ui,sans-serif;padding:24px}}h1{{font-size:22px;margin:0 0 4px}}p{{margin:0 0 14px;color:#6b6759;font-size:13.5px}}.legend{{display:flex;gap:16px;font-size:12px;color:#6b6759;margin-bottom:10px}}.legend i{{display:inline-block;width:14px;height:10px;border:1.4px solid;border-radius:3px;vertical-align:middle;margin-right:4px}}.wrap{{overflow:auto;border:1px solid #e3ddcd;border-radius:8px}}svg{{display:block}}</style></head>
 <body><h1>RTW in PLM · the complete flow, one lane per role (v2, after the 12 Nov meeting)</h1><p>Left to right: design and the sample cycle → the bulk order and PO, with sourcing shopping the cloth in parallel from the approved sample → count-in (all in, cloth short to design, trims short to sourcing) → make and QC → shipping and COGS (Nitin and design see it) → design codes. Planning sits in the Design lane. Blue boxes are what happens on Enigma. Also as <a href="bsc-plm-rtw-swimlane.drawio" download>a draw.io file</a> and <a href="bsc-plm-rtw-swimlane.svg" download>SVG</a>.</p>{legend}<div class="wrap">{svg_text.replace(f'width="{width}" height="{height}"', 'style="width:100%;height:auto;min-width:1400px"',1)}</div></body></html>'''
@@ -98,7 +99,7 @@ cells=['<mxCell id="0"/>','<mxCell id="1" parent="0"/>']
 lane_w = width-20
 for i,(k,label) in enumerate(LANES):
     cells.append(f'<mxCell id="lane_{k}" value="{esc(label)}" style="swimlane;horizontal=0;startSize=120;fillColor=#efeadf;strokeColor=#c9c1a8;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="0" y="{i*LANE_H}" width="{lane_w}" height="{LANE_H}" as="geometry"/></mxCell>')
-STY={'step':'rounded=0;whiteSpace=wrap;html=1;fillColor=#fffbe6;strokeColor=#8a7a3a;fontSize=11;','decision':'rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#e7ebe0;strokeColor=#3c4a30;fontSize=11;','system':'rounded=0;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;'}
+STY={'outside':'rounded=0;whiteSpace=wrap;html=1;fillColor=#f4f3ef;strokeColor=#a9a391;dashed=1;fontColor=#6b6759;fontSize=11;','step':'rounded=0;whiteSpace=wrap;html=1;fillColor=#fffbe6;strokeColor=#8a7a3a;fontSize=11;','decision':'rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#e7ebe0;strokeColor=#3c4a30;fontSize=11;','system':'rounded=0;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;'}
 for nid,lane,col,label,kind in N:
     v=esc(label).replace('\n','&lt;br&gt;')
     cells.append(f'<mxCell id="{nid}" value="{v}" style="{STY[kind]}" vertex="1" parent="lane_{lane}"><mxGeometry x="{X0-10+col*GX}" y="{(LANE_H-H)/2}" width="{W}" height="{H}" as="geometry"/></mxCell>')
