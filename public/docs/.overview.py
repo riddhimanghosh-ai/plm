@@ -51,7 +51,8 @@ def band(x0, y0, x1, y1, label, fill, line, note=None):
         tw = len(note) * 6.7 + 30
         add(f'<rect x="{x1-tw-16}" y="{y1-38}" width="{tw}" height="24" rx="12" fill="#fde2e2" stroke="#e5a3a3"/>'
             f'<text x="{x1-tw/2-16}" y="{y1-21}" text-anchor="middle" font-size="12" font-weight="600" fill="#9b2c2c">⚠ {esc(note)}</text>')
-band(16, 14, WIDTH - 16, 548, 'Conceptualization · Pre-production', '#eef3e8', '#a3b58f')
+band(16, 14, 824, 548, 'Conceptualization · design and sampling', '#f3efe2', '#c9b98a')
+band(840, 14, WIDTH - 16, 548, 'Pre-production · bulk order, PO and sourcing', '#eef3e8', '#a3b58f')
 band(1006, 580, WIDTH - 16, 940, 'Production', '#fdf3df', '#d6b26a', 'heaviest manual and tedious work')
 band(16, 580, 990, 940, 'Post-production', '#e8eef8', '#8fa6cf')
 
@@ -134,6 +135,6 @@ page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 .legend .c{{width:12px;height:12px;border-radius:50%;background:#3c4a30}}.legend .b{{width:16px;height:11px;border-radius:3px;border:1.4px solid #8a7a3a;background:#fffdf6}}
 .legend .d{{width:10px;height:10px;transform:rotate(45deg);border:1.4px solid #3c4a30;background:#e7ebe0}}.legend .o{{width:16px;height:11px;border-radius:3px;border:1.4px dashed #a9a391}}
 .wrap{{overflow:auto;border:1px solid #e3ddcd;border-radius:10px}}svg{{display:block;width:100%;height:auto;min-width:1100px}}</style></head>
-<body><h1>RTW in PLM · at a glance</h1><p>Nine modules, each with what happens in it. The top band runs from the ask to everything received at the factory; production is the TNA and QC; post-production is shipping, COGS and the design codes. Diamonds are the two decisions that loop back. Shipping and the GRN stay outside PLM for now.</p>{legend}<div class="wrap">{svg_text}</div></body></html>'''
+<body><h1>RTW in PLM · at a glance</h1><p>Nine modules, each with what happens in it, in four phases: conceptualization (the ask, design and the sample cycle), pre-production (the bulk order and PO with sourcing in parallel, through everything received at the factory), production (the TNA and QC), and post-production (shipping, COGS and the design codes). Diamonds are the two decisions that loop back. Shipping and the GRN stay outside PLM for now.</p>{legend}<div class="wrap">{svg_text}</div></body></html>'''
 open(out_html, 'w').write(page)
 print('ok')
