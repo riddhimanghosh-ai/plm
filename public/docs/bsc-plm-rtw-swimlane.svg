@@ -1,12 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5250 640" width="5250" height="640" font-family="Inter, Helvetica, Arial, sans-serif">
 <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#555"/></marker></defs>
 <rect width="5250" height="640" fill="#fff"/>
-<rect x="130" y="22" width="1370" height="26" rx="6" fill="#efeadf"/><text x="815.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Design · sample</text>
-<rect x="1510" y="22" width="910" height="26" rx="6" fill="#efeadf"/><text x="1965.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Order · buy, in parallel</text>
-<rect x="2430" y="22" width="910" height="26" rx="6" fill="#efeadf"/><text x="2885.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Count-in</text>
-<rect x="3350" y="22" width="680" height="26" rx="6" fill="#efeadf"/><text x="3690.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Make · QC</text>
-<rect x="4040" y="22" width="680" height="26" rx="6" fill="#efeadf"/><text x="4380.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Ship · cost</text>
-<rect x="4730" y="22" width="450" height="26" rx="6" fill="#efeadf"/><text x="4955.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">Codes</text>
+<rect x="130" y="22" width="3210" height="26" rx="6" fill="#eef3e8" stroke="#a3b58f"/><text x="144" y="40" font-size="13" font-weight="700" fill="#3c4a30">CONCEPTUALIZATION · PRE-PRODUCTION</text>
+<rect x="3350" y="22" width="450" height="26" rx="6" fill="#fdf3df" stroke="#d6b26a"/><text x="3364" y="40" font-size="13" font-weight="700" fill="#3c4a30">PRODUCTION</text>
+<rect x="3810" y="22" width="1370" height="26" rx="6" fill="#e8eef8" stroke="#8fa6cf"/><text x="3824" y="40" font-size="13" font-weight="700" fill="#3c4a30">POST-PRODUCTION</text>
 <rect x="10" y="70" width="5230" height="110" fill="#fff" stroke="#e3ddcd"/>
 <text x="22" y="130.0" font-size="13" font-weight="700" fill="#3c4a30">Design · Planning</text>
 <rect x="10" y="180" width="5230" height="110" fill="#fbfaf6" stroke="#e3ddcd"/>
@@ -17,6 +14,9 @@
 <text x="22" y="460.0" font-size="13" font-weight="700" fill="#3c4a30">Factory</text>
 <rect x="10" y="510" width="5230" height="110" fill="#fff" stroke="#e3ddcd"/>
 <text x="22" y="570.0" font-size="13" font-weight="700" fill="#3c4a30">Enigma</text>
+<rect x="130" y="70" width="3210" height="550" rx="10" fill="#eef3e8" fill-opacity=".55" stroke="#a3b58f" stroke-opacity=".7"/>
+<rect x="3350" y="70" width="450" height="550" rx="10" fill="#fdf3df" fill-opacity=".55" stroke="#d6b26a" stroke-opacity=".7"/>
+<rect x="3810" y="70" width="1370" height="550" rx="10" fill="#e8eef8" fill-opacity=".55" stroke="#8fa6cf" stroke-opacity=".7"/>
 <path d="M340 125.0L380 125.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>
 <text x="360.0" y="119.0" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">reorder</text>
 <path d="M340 565.0L475.0 565.0L475.0 153.0" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"/>

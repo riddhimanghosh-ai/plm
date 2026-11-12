@@ -50,7 +50,10 @@ SOURCES=[('Design ask','source'),('Planning reorder\nstock & cover','source'),('
 INTER=[('r3','s1',''),('s4','p1','right'),('s4','h1','right · in parallel'),('p4','t1',''),('h3','t2','cloth in'),('t4','m1',''),('q2','x1','passed'),('x4','c1',''),('c3','l1','')]
 LOOPS=[('s3','s1','yes · sample again')]
 # layout
-COLS=5; MW=300; NW=256; NH=52; GAP=14; PAD=14; HEAD=40; MX=40; MY=40; GX=MW+60; SRC_W=76
+COLS=5; MW=300; NW=256; NH=52; GAP=14; PAD=14; HEAD=40; MX=56; MY=76; GX=MW+60; SRC_W=76
+# three background bands behind the chart: conceptualization and pre-production, production, post-production
+BANDS = [('Conceptualization · Pre-production', '#eef3e8', '#a3b58f'), ('Production', '#fdf3df', '#d6b26a'), ('Post-production', '#e8eef8', '#8fa6cf')]
+MGROUP = {'req':0,'smp':0,'po':0,'shop':0,'rcv':0,'mfg':1,'ship':2,'cogs':2,'lau':2}
 FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','source':'#fde7c9','sourcesys':'#dbeafe','outside':'#f4f3ef'}
 STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8','source':'#b45309','sourcesys':'#1d4ed8','outside':'#a9a391'}
 DASHED=' stroke-dasharray="5 4"'
@@ -65,11 +68,16 @@ for row in rows:
         for nid,label,kind in nodes:
             h=NH+10 if kind=='sourcesrow' else NH
             pos[nid]=(x+(MW-NW)/2,ny,NW,h,kind,label); ny+=h+GAP
-    y+=rh+50
-width=MX+COLS*GX-60+MX; height=y
+    y+=rh+96
+width=MX+COLS*GX-60+MX+16; height=y
 svg=[f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" font-family="Inter, Helvetica, Arial, sans-serif">',
  '<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#555"/></marker></defs>',
  f'<rect width="{width}" height="{height}" fill="#fff"/>']
+for gi,(gname,gfill,gline) in enumerate(BANDS):
+    ks=[k for k,g in MGROUP.items() if g==gi]
+    bx0=min(mpos[k][0] for k in ks)-20; by0=min(mpos[k][1] for k in ks)-44; bx1=max(mpos[k][0]+mpos[k][2] for k in ks)+20; by1=max(mpos[k][1]+mpos[k][3] for k in ks)+18
+    svg.append(f'<rect x="{bx0}" y="{by0}" width="{bx1-bx0}" height="{by1-by0}" rx="16" fill="{gfill}" stroke="{gline}" stroke-width="1.2"/>')
+    svg.append(f'<text x="{bx0+16}" y="{by0+26}" font-size="14" font-weight="700" fill="#3c4a30" letter-spacing=".02em">{esc(gname.upper())}</text>')
 for k,t,w,nodes in M:
     x,y0,mw,mh=mpos[k]
     svg.append(f'<rect x="{x}" y="{y0}" width="{mw}" height="{mh}" rx="10" fill="#fbfaf6" stroke="#c9c1a8" stroke-width="1.2"/>')

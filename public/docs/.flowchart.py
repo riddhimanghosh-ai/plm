@@ -38,7 +38,10 @@ SIDE = [
 ]
 # back-loops and joins: from, to, label
 LOOPS = [('d4','f1','no · remarks → update CAD and design · next round'),('d6','n1','send back'),('f6','f5','rework'),('d9','f4','then'),('t9','f3','count again'),('f3b','f4','yes'),('d4','n1','yes'),('f6','f7','yes'),('s2','f3','cloth and trims in')]
-COLS=6; W,H=186,58; GX=226; SUB=H+26; X0,Y0=40,40
+COLS=6; W,H=186,58; GX=226; SUB=H+26; X0,Y0=56,70
+# three background bands behind the chart: conceptualization and pre-production, production, post-production
+BANDS = [('Conceptualization · Pre-production', '#eef3e8', '#a3b58f'), ('Production', '#fdf3df', '#d6b26a'), ('Post-production', '#e8eef8', '#8fa6cf')]
+GROUP = {**{k: 0 for k in ['r1','e0','r2','r3','f1','d4','n1','s1','e1','s2','d6','f2','e2','d7','f3','t9','f3b','d9','f4']}, **{k: 1 for k in ['f5','n3','f6']}, **{k: 2 for k in ['f7','e4','n4','cg','p3','d8','e5']}}
 FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','outside':'#f4f3ef'}; STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8','outside':'#a9a391'}
 DASHED=' stroke-dasharray="5 4"'
 node={}
@@ -58,7 +61,7 @@ for p,i,*_ in SIDE:
 rows=[SPINE[i:i+COLS] for i in range(0,len(SPINE),COLS)]
 row_h=[]; row_y=[]; y=Y0
 for row in rows:
-    dmax=max([depth.get(n[0],0) for n in row]+[0]); row_y.append(y); rh=H+dmax*SUB+54; row_h.append(rh); y+=rh
+    dmax=max([depth.get(n[0],0) for n in row]+[0]); row_y.append(y); rh=H+dmax*SUB+92; row_h.append(rh); y+=rh
 pos={}
 for ri,row in enumerate(rows):
     rev=ri%2==1
@@ -68,7 +71,7 @@ for ri,row in enumerate(rows):
 rows_bottom=y
 for i,(r,d) in sub_of.items():
     px,py=pos[r]; pos[i]=(px,py+d*SUB)
-width=X0+COLS*GX; height=max(rows_bottom, max(v[1] for v in pos.values())+H+20)
+width=X0+COLS*GX+16; height=max(rows_bottom, max(v[1] for v in pos.values())+H+20)
 def esc(s): return html.escape(s)
 svg=[f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" font-family="Inter, Helvetica, Arial, sans-serif">',
  '<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#555"/></marker></defs>',
@@ -77,6 +80,12 @@ def line(d,label=None,lx=0,ly=0,dash=False):
     dashattr = ' stroke-dasharray="5 4"' if dash else ''
     svg.append(f'<path d="{d}" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"{dashattr}/>')
     if label: svg.append(f'<text x="{lx}" y="{ly}" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">{esc(label)}</text>')
+for gi,(gname,gfill,gline) in enumerate(BANDS):
+    ids=[k for k,g in GROUP.items() if g==gi and k in pos]
+    if not ids: continue
+    bx0=min(pos[k][0] for k in ids)-14; by0=min(pos[k][1] for k in ids)-40; bx1=max(pos[k][0] for k in ids)+W+14; by1=max(pos[k][1] for k in ids)+H+20
+    svg.append(f'<rect x="{bx0}" y="{by0}" width="{bx1-bx0}" height="{by1-by0}" rx="14" fill="{gfill}" stroke="{gline}" stroke-width="1.2"/>')
+    svg.append(f'<text x="{bx0+14}" y="{by0+22}" font-size="13" font-weight="700" fill="#3c4a30" letter-spacing=".02em">{esc(gname.upper())}</text>')
 # spine arrows (snake)
 for i in range(len(SPINE)-1):
     a,b=SPINE[i][0],SPINE[i+1][0]; (ax,ay),(bx,by)=pos[a],pos[b]

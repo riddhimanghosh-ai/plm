@@ -2,7 +2,7 @@ import sys, html
 out_html, out_drawio, out_svg = sys.argv[1], sys.argv[2], sys.argv[3]
 
 LANES = [('design','Design · Planning'),('sourcing','Sourcing'),('nitin','Nitin · production'),('factory','Factory'),('enigma','Enigma')]
-PHASES = [('Design · sample',0,6),('Order · buy, in parallel',6,10),('Count-in',10,14),('Make · QC',14,17),('Ship · cost',17,20),('Codes',20,22)]
+PHASES = [('Conceptualization · Pre-production',0,14,'#eef3e8','#a3b58f'),('Production',14,16,'#fdf3df','#d6b26a'),('Post-production',16,22,'#e8eef8','#8fa6cf')]
 # id, lane, col, label, kind(step|decision|system)
 N = [
  ('p1','design',0,'Planning review\nreorder: stock · ROS · cover','step'),
@@ -59,13 +59,16 @@ def esc(s): return html.escape(s)
 svg = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" font-family="Inter, Helvetica, Arial, sans-serif">',
  '<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#555"/></marker></defs>',
  f'<rect width="{width}" height="{height}" fill="#fff"/>']
-for name,c0,c1 in PHASES:
+PHASE_BG=[]
+for name,c0,c1,fill,line_c in PHASES:
     x=X0+c0*GX-20; w=(c1-c0)*GX
-    svg.append(f'<rect x="{x}" y="22" width="{w-10}" height="26" rx="6" fill="#efeadf"/><text x="{x+w/2-5}" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#3c4a30">{esc(name)}</text>')
+    svg.append(f'<rect x="{x}" y="22" width="{w-10}" height="26" rx="6" fill="{fill}" stroke="{line_c}"/><text x="{x+14}" y="40" font-size="13" font-weight="700" fill="#3c4a30">{esc(name.upper())}</text>')
+    PHASE_BG.append(f'<rect x="{x}" y="{Y0}" width="{w-10}" height="{len(LANES)*LANE_H}" rx="10" fill="{fill}" fill-opacity=".55" stroke="{line_c}" stroke-opacity=".7"/>')
 for i,(k,label) in enumerate(LANES):
     y=lane_y[k]
     svg.append(f'<rect x="10" y="{y}" width="{width-20}" height="{LANE_H}" fill="{"#fbfaf6" if i%2 else "#fff"}" stroke="#e3ddcd"/>')
     svg.append(f'<text x="22" y="{y+LANE_H/2+5}" font-size="13" font-weight="700" fill="#3c4a30">{esc(label)}</text>')
+svg.extend(PHASE_BG)
 def edge(a,b,label):
     (ax,ay),(bx,by)=pos[a],pos[b]
     if ay==by:
