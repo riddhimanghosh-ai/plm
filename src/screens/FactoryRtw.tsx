@@ -18,6 +18,7 @@ export function OrderSummary({ o, onDates }: { o: ProductionOrder; onDates?: () 
   const d = rtwDocsOf(db, o); const fs = o.fabricSupply; const r = riskOf(o); const fab = fabricStateOf(o);
   const trims = (o.materials ?? []).map(m => ({ m, line: o.bom[m.bomIndex] })).filter(x => x.line && x.line.kind !== 'fabric');
   const given = (o.cutRatios ?? []).filter(c => c.given && c.sentToFactoryOn).slice(-1)[0];
+  const givenAny = (o.cutRatios ?? []).filter(c => c.given).slice(-1)[0];   // given by design, sent on or still with Nitin: the factory sees it either way
   const breakup = given?.given?.breakup ?? o.sizeBreakup;
   const quote = o.fabricQuotes.find(q => q.selected) ?? null; const cloth = o.bom.find(l => l.kind === 'fabric');
   const mill = db.vendors.find(v => v.id === (quote?.vendorId ?? o.fabricVendorId))?.name ?? null;
@@ -84,12 +85,17 @@ export function MaterialsPanel({ o, mine }: { o: ProductionOrder; mine: boolean 
   const clothFactor = fab.key === 'short' && fab.need ? Math.min(1, (fs?.receipt?.metresOk ?? 0) / fab.need) : 1;
   const faint = { color:'var(--ink-faint)' } as const;
   const given = (o.cutRatios ?? []).filter(c => c.given && c.sentToFactoryOn).slice(-1)[0];
+  const givenAny = (o.cutRatios ?? []).filter(c => c.given).slice(-1)[0];   // given by design, sent on or still with Nitin: the factory sees it either way
   const breakup = given?.given?.breakup ?? o.sizeBreakup;
   const cloth = o.bom.find(l => l.kind === 'fabric');
   const openAsk = fab.cr && !fab.cr.given;
   const closed = o.status === 'Closed';
   const askShort = (why: string, bk: { size: string; qty: number }[]) => { askCutRatio(o.id, why, 'cut-short', bk); setShortOpen(false); setShortWhy(''); };
   return <div className="px-4 py-3">
+    <div className="mp-parts">
+    {/* the new sizes first: it is what the factory came to see */}
+    {givenAny && <div className="mp-part pb-3"><CutRatioBanner cr={givenAny} order={o} /></div>}
+    <div className="mp-part wide">
       <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Everything below is for <span className="mono font-medium" style={{ color:'var(--ink)' }}>{o.poNo}</span> · {o.styleName} · {o.orderQty} pcs. Nothing here belongs to another PO.</div>
       <table className="t compact">
         <thead><tr><th>What is coming for {o.poNo}</th><th className="num">Coming</th><th className="num">Landed</th><th>Status</th><th></th></tr></thead>
@@ -131,18 +137,48 @@ export function MaterialsPanel({ o, mine }: { o: ProductionOrder; mine: boolean 
             <Button size="sm" variant="ghost" onClick={() => setShortOpen(false)}>Cancel</Button></div>
         </div>}
       </div>}
-      {(o.cutRatios ?? []).length > 0 && <div className="pt-3 mt-3" style={{ borderTop:'1px solid var(--line-soft)' }}>
+    </div>
+      {(o.cutRatios ?? []).length > 0 && <div className="mp-part pt-3 mt-3" style={{ borderTop:'1px solid var(--line-soft)' }}>
         <div className="label">Cut ratio</div>
         {openAsk && <div className="pb-1"><Note tone="warn">Your {fab.cr!.kind === 'cut-short' ? 'proposal to cut fewer' : 'ask to change the sizes'} is with design since {fmtDate(fab.cr!.askedOn)}. The cloth count above is final; the new sizes appear below when design answers.</Note></div>}
-        {fab.cr?.given && !fab.cr.sentToFactoryOn && <div className="pb-1"><Note tone="warn">Design has {fab.cr.kind === 'cut-short' ? 'approved the cut-short' : 'given new sizes'}; Nitin is sending it to you. Nothing to count again.</Note></div>}
-        {given && <div className="pb-1"><Note tone="good">New {given.kind === 'cut-short' ? 'cut-short' : 'cut ratio'} from design on {fmtDate(given.sentToFactoryOn!)}: cut {given.given!.breakup.reduce((a, x) => a + x.qty, 0)} pcs to the sizes below. The cloth count above stays as counted.</Note></div>}
         <CutRatioTrail o={o} />
       </div>}
 
-      <div className="pt-3 mt-3" style={{ borderTop:'1px solid var(--line-soft)' }}>
-        <div className="label">Sizes to cut{given ? ` · design changed these on ${fmtDate(given.sentToFactoryOn!)}` : ''}</div>
+      {!givenAny && <div className="mp-part pt-3 mt-3" style={{ borderTop:'1px solid var(--line-soft)' }}>
+        <div className="label">Sizes to cut</div>
         <SizeGrid breakup={breakup} />
-      </div>
+      </div>}
+    </div>
     </div>;
 }
 
+
+/* The new sizes from design, loud: one tile per size with the old quantity under it, the total,
+   and whether it is still on its way through Nitin or already at the factory. The cloth count is never reopened. */
+function CutRatioBanner({ cr, order: o }: { cr: NonNullable<ProductionOrder['cutRatios']>[number]; order: ProductionOrder }) {
+  const g = cr.given!; const sent = !!cr.sentToFactoryOn;
+  const kind = cr.kind === 'cut-short' ? 'cut-short' : 'cut ratio';
+  const was = (size: string) => cr.originalBreakup.find(x => x.size === size)?.qty ?? 0;
+  const total = g.breakup.reduce((a, x) => a + x.qty, 0); const wasTotal = cr.originalBreakup.reduce((a, x) => a + x.qty, 0);
+  return <div className="cr-banner" data-sent={sent || undefined}>
+    <div className="flex items-start justify-between gap-3 flex-wrap">
+      <div>
+        <div className="cr-banner-title">{sent ? `New ${kind} from design` : `New ${kind} given by design`}</div>
+        <div className="text-[12px]" style={{ color:'var(--ink-soft)' }}>{sent ? `sent to you ${fmtDate(cr.sentToFactoryOn!)} · cut ${total} pcs to these sizes` : `given ${fmtDate(g.on)} by ${g.by} · Nitin is sending it to you`} · the cloth count stays as counted, nothing to count again</div>
+      </div>
+      <Pill tone={sent ? 'good' : 'warn'}>{sent ? `new ${kind} at the factory` : `new ${kind} given · coming`}</Pill>
+    </div>
+    <div className="cr-tiles">
+      {g.breakup.map(x => { const w = was(x.size); const d = x.qty - w; return <div key={x.size} className="cr-tile">
+        <div className="cr-tile-size">{x.size}</div>
+        <div className="cr-tile-qty">{x.qty}</div>
+        <div className="cr-tile-was" style={d ? { color: d < 0 ? 'var(--risk)' : 'var(--good)' } : undefined}>{d ? `was ${w} · ${d > 0 ? '+' : ''}${d}` : `was ${w}`}</div>
+      </div>; })}
+      <div className="cr-tile total">
+        <div className="cr-tile-size">Cut</div>
+        <div className="cr-tile-qty">{total}</div>
+        <div className="cr-tile-was">of {o.orderQty} on the PO{total !== wasTotal ? ` · ${total - wasTotal > 0 ? '+' : ''}${total - wasTotal}` : ''}</div>
+      </div>
+    </div>
+  </div>;
+}
