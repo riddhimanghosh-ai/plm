@@ -19,7 +19,7 @@ import { BriefEditor, PutInDrop } from './Requirements';
 import { MilestoneGrid } from './Tracker';
 import { OrderSummary, FactoryDocs, MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
-import { LaunchCodes, LaunchDesk } from './Launches';
+import { LaunchCodes, LaunchDesk, LaunchStickers } from './Launches';
 import { ActsBy } from './Who';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
@@ -191,6 +191,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
     </Section>}
     {/* design codes and the desk after them, on the record itself: the RTW twin of the MTM fabric's Design & sticker */}
     {at('launch') && launch && <div className="pt-3"><LaunchCodes l={launch} isDesign={design} /></div>}
+    {at('launch') && launch?.designCode && <div className="pt-3"><LaunchStickers l={launch} canMark={design} /></div>}
     {at('launch') && launch?.designCode && <div className="pt-3"><LaunchDesk l={launch} canTick={design && !launch.launchedOn} /></div>}
         </div>
       </div>

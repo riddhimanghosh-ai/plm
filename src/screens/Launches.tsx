@@ -102,6 +102,7 @@ function LaunchDetail({ l, editable }: { l: Launch; editable: boolean }) {
   const byStore = [...new Set(l.pieces.map(p => p.storeId))].map(id => ({ id, pieces: l.pieces.filter(p => p.storeId === id) }));
   return <>
     {l.receivedAtHo && <LaunchCodes l={l} isDesign={isDesign} />}
+    {l.designCode && <LaunchStickers l={l} canMark={isDesign} />}
     {/* after the codes: the same desk a new MTM fabric goes through — Yusuf, stickers, photos, stores told */}
     {l.designCode && <LaunchDesk l={l} canTick={isDesign && !l.launchedOn} />}
     <Section title="Readiness" right={<Pill tone={s.blockers ? 'warn' : 'good'}>{s.blockers ? `${s.blockers} gate${s.blockers === 1 ? '' : 's'} open` : 'all gates green'}</Pill>}>
@@ -198,15 +199,7 @@ export function LaunchDesk({ l, canTick }: { l: Launch; canTick: boolean }) {
   const dispatched = l.pieces.length > 0 && l.pieces.every(p => p.dispatchedOn);
   const dispatchedOn = dispatched ? [...l.pieces].map(p => p.dispatchedOn!).sort().slice(-1)[0] : null;
   const done = DESK.filter(st => st.key === 'dispatched' ? dispatched : !!l.desk?.[st.key]).length;
-  const name = l.marketingName ?? l.styleName;
-  /* one sticker per design code, three across on A4, the five lines the MTM sticker has */
-  const printStickers = () => {
-    const w = window.open('', '_blank', 'width=760,height=980'); if (!w) return;
-    const labels = codes.map(c => `<div class="b"><div class="c">${c.code}</div><div class="n">${c.name || name}</div><div class="k">${[c.cloth, c.label].filter(Boolean).join(' · ').toUpperCase()} · ${l.dropMonth.toUpperCase()}</div><div class="p">${(c.mrp ?? opt?.mrp) != null ? `MRP ${(c.mrp ?? opt!.mrp).toLocaleString('en-IN')}` : 'MRP —'}</div><div class="s">Incl. of all taxes</div></div>`).join('');
-    w.document.write(`<!doctype html><title>Stickers · ${name}</title><style>body { margin:0; font-family: Calibri, -apple-system, Helvetica, Arial, sans-serif; color:#222; } @page { size: A4; margin: 10mm; } .grid { display:grid; grid-template-columns: repeat(3, 63mm); } .b { width: 63mm; height: 36mm; border:1px solid #333; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; } .c { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color:#555; } .n { font-size: 14px; font-weight: 700; margin: 2px 0; } .k { font-size: 10px; letter-spacing:.04em; } .p { font-size: 13px; margin-top: 2px; } .s { font-size: 9px; color:#666; }</style><div class="grid">${labels}</div>`);
-    w.document.close();
-    if (canTick && !l.desk?.sticker) onTick('sticker');
-  };
+  const printStickers = () => { printLaunchStickers(l, codes, opt?.mrp ?? null, STORES.length); if (canTick && !l.desk?.sticker) onTick('sticker'); };
   return <Section title="After the codes · the desk" collapsible={false} right={<Pill tone={done === DESK.length ? 'good' : done ? 'warn' : 'neutral'}>{done} of {DESK.length}</Pill>}>
     <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>The same steps a new MTM fabric goes through once it has its code. Yusuf has no PLM screen, so design ticks his steps on his word.</div>
     {DESK.map(st => { const d = st.key === 'dispatched' ? (dispatchedOn ? { on: dispatchedOn, by: 'Shravani' } : undefined) : l.desk?.[st.key];
@@ -272,3 +265,43 @@ export function LaunchCodes({ l, isDesign }: { l: Launch; isDesign: boolean }) {
   </Section>;
 }
 
+
+/* One sticker per design code, the five lines the MTM sticker has: code, name, cloth and what the code is for with the drop, MRP, taxes.
+   `copies` of each, three across on A4. */
+function printLaunchStickers(l: Launch, codes: LaunchCode[], fallbackMrp: number | null, copies: number) {
+  const w = window.open('', '_blank', 'width=760,height=980'); if (!w) return;
+  const name = l.marketingName ?? l.styleName;
+  const one = (c: LaunchCode) => `<div class="b"><div class="c">${c.code}</div><div class="n">${c.name || name}</div><div class="k">${[c.cloth, c.label].filter(Boolean).join(' · ').toUpperCase()} · ${l.dropMonth.toUpperCase()}</div><div class="p">${(c.mrp ?? fallbackMrp) != null ? `MRP ${(c.mrp ?? fallbackMrp)!.toLocaleString('en-IN')}` : 'MRP —'}</div><div class="s">Incl. of all taxes</div></div>`;
+  const labels = codes.map(c => Array.from({ length: Math.max(1, copies) }, () => one(c)).join('')).join('');
+  w.document.write(`<!doctype html><title>Stickers · ${name}</title><style>body { margin:0; font-family: Calibri, -apple-system, Helvetica, Arial, sans-serif; color:#222; } @page { size: A4; margin: 10mm; } .grid { display:grid; grid-template-columns: repeat(3, 63mm); } .b { width: 63mm; height: 36mm; border:1px solid #333; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; } .c { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color:#555; } .n { font-size: 14px; font-weight: 700; margin: 2px 0; } .k { font-size: 10px; letter-spacing:.04em; } .p { font-size: 13px; margin-top: 2px; } .s { font-size: 9px; color:#666; }</style><div class="grid">${labels}</div>`);
+  w.document.close();
+}
+/* The stickers, shown before they are printed: one preview per design code, as the swatch desk shows the MTM sticker.
+   Printing marks the desk's "Stickers printed" step. */
+export function LaunchStickers({ l, canMark }: { l: Launch; canMark: boolean }) {
+  const { db, launchDesk } = useApp();
+  const opt = db.options.find(o => o.id === l.optionId);
+  const codes: LaunchCode[] = l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', name: l.marketingName ?? l.styleName, cloth: null, category: 'Casual', style: null, mrp: opt?.mrp ?? null, sizes: [], description: null, on: l.designCodeOn ?? '', by: l.designCodeBy ?? '', enigmaOn: l.designCodeOn ?? null }] : []);
+  const [copies, setCopies] = useState(String(STORES.length));
+  const n = Math.max(1, Math.min(500, Math.round(Number(copies)) || 1));
+  const name = l.marketingName ?? l.styleName;
+  const print = () => { printLaunchStickers(l, codes, opt?.mrp ?? null, n); if (canMark && !l.desk?.sticker) launchDesk(l.id, 'sticker'); };
+  return <Section title="Stickers" collapsible={false} right={<Pill tone={l.desk?.sticker ? 'good' : codes.length ? 'neutral' : 'neutral'}>{l.desk?.sticker ? `printed ${fmtDate(l.desk.sticker.on)}` : codes.length ? 'not printed' : 'after the codes'}</Pill>}>
+    {codes.length === 0 ? <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>One sticker per design code, once design has minted them.</div> : <>
+      <div className="flex gap-3 flex-wrap py-1">
+        {codes.map(c => <div key={c.code} className="text-center" style={{ border:'1px solid var(--ink-soft)', background:'var(--surface)', width: 220, padding:'10px 6px', fontSize: 11.5, lineHeight: 1.4 }}>
+          <div className="mono" style={{ color:'var(--ink-soft)' }}>{c.code}</div>
+          <div className="font-semibold text-[13px]">{c.name || name}</div>
+          <div className="uppercase" style={{ letterSpacing:'.04em', fontSize: 10.5 }}>{[c.cloth, c.label].filter(Boolean).join(' · ')} · {l.dropMonth}</div>
+          <div style={{ color: (c.mrp ?? opt?.mrp) == null ? 'var(--warn)' : undefined }}>{(c.mrp ?? opt?.mrp) != null ? `MRP ${(c.mrp ?? opt!.mrp).toLocaleString('en-IN')}` : 'MRP —'}</div>
+          <div style={{ color:'var(--ink-faint)', fontSize: 10 }}>Incl. of all taxes</div>
+        </div>)}
+      </div>
+      <div className="flex items-end gap-2 flex-wrap pt-1">
+        <Field label="Copies of each"><Input type="number" min={1} max={500} value={copies} onChange={e => setCopies(e.target.value)} style={{ width: 90 }} /></Field>
+        <Button variant="primary" onClick={print}>Print {codes.length * n} sticker{codes.length * n === 1 ? '' : 's'}{canMark && !l.desk?.sticker ? ' & mark' : ''}</Button>
+        <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{codes.length} code{codes.length === 1 ? '' : 's'} × {n} · one per store by default</span>
+      </div>
+    </>}
+  </Section>;
+}
