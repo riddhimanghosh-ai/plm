@@ -5,7 +5,7 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useApp } from '../store';
 import { PEOPLE, ROLE_LABEL, STORES } from '../domain/reference';
-import { MTM_ONLY, RTW_ONLY, EDITION_LABEL, inEdition } from '../domain/edition';
+import { MTM_ONLY, RTW_ONLY, EDITION_LABEL, inEdition, RTW_HIDDEN_NAV_GROUPS } from '../domain/edition';
 import type { RoleId } from '../domain/types';
 import { Toasts, Select, Button } from '../ui';
 import { VendorDrawer } from '../screens/Vendors';
@@ -107,7 +107,7 @@ export function Shell() {
   /* design and planning work from the one Design requirements screen; the per-record lists stay reachable by link and drawer */
   /* Walkthrough mode is a super admin: every screen, whoever you are signed in
      as. Off, each team sees only the screens it works in. */
-  const items = (demoAll ? NAV : NAV.filter(n => n.roles.includes(role) && !(n.hideFor ?? []).includes(myRole))).filter(n => inEdition(n.path)).map(n => RTW_ONLY && n.group === 'Production · MTM' ? { ...n, group: 'Production · RTW' } : n);
+  const items = (demoAll ? NAV : NAV.filter(n => n.roles.includes(role) && !(n.hideFor ?? []).includes(myRole))).filter(n => inEdition(n.path) && !(RTW_ONLY && RTW_HIDDEN_NAV_GROUPS.includes(n.group ?? ''))).map(n => RTW_ONLY && n.group === 'Production · MTM' ? { ...n, group: 'Production · RTW' } : n);
   const allowedItems = NAV.filter(n => n.roles.includes(role));
   /* a path that is not a screen at all (the old /concepts, /requests, /requirements redirects) passes through to the router untouched — with its query intact */
   const allowed = loc.pathname === '/' || !NAV.some(n => loc.pathname.startsWith(n.path)) || allowedItems.some(n => loc.pathname.startsWith(n.path));
@@ -184,7 +184,7 @@ export function Shell() {
           {!demoAll && <>
             <div className="text-[11px] uppercase tracking-[.1em]" style={{ color:'var(--sidebar-soft)' }}>Signed in as</div>
             <Select value={personId} onChange={setPerson} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
-              groups={(Object.keys(ROLE_LABEL) as RoleId[]).filter(r => r !== 'warehouse').filter(r => MTM_ONLY ? (r !== 'planning') : RTW_ONLY ? NAV.some(n => n.roles.includes(r) && inEdition(n.path) && r !== 'owner') || r === 'owner' : true).map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
+              groups={(Object.keys(ROLE_LABEL) as RoleId[]).filter(r => !(RTW_ONLY && r === 'planning')).filter(r => r !== 'warehouse').filter(r => MTM_ONLY ? (r !== 'planning') : RTW_ONLY ? NAV.some(n => n.roles.includes(r) && inEdition(n.path) && r !== 'owner') || r === 'owner' : true).map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
           </>}
           {myRole === 'merchandiser' && !demoAll && <Select value={factoryId} onChange={setFactory} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
             options={db.vendors.filter(v => (RTW_ONLY ? v.kind.endsWith('factory') : v.mtm) && v.kind !== 'Hemming unit').map(v => ({ value:v.id, label:v.name }))} />}
