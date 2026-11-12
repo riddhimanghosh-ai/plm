@@ -748,7 +748,7 @@ export interface Launch {
      produced and received — before that the style has no sellable code */
   designCode?: string | null; designCodeOn?: string | null; designCodeBy?: string | null;
   /* an RTW style sells under several design codes (one per variant the catalogue needs); the first one also sits in designCode */
-  designCodes?: { code: string; label: string; on: string; by: string }[];
+  designCodes?: { code: string; label: string; on: string; by: string; enigmaOn?: string | null }[];   // enigmaOn: created in Enigma in the same step, as an MTM product code is
   /* after the codes, the same desk as an MTM fabric: handed to Yusuf, stickers printed, photos shared, stores told */
   desk?: Partial<Record<LaunchDeskStep, { on: string; by: string }>>;
 }

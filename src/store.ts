@@ -69,7 +69,8 @@ export interface AppState {
   createLaunch(input: Pick<Launch, 'optionId' | 'styleName' | 'dropMonth' | 'orderId' | 'expectedAtHo' | 'launchOn' | 'hero' | 'keyPointers'>): string;
   updateLaunch(id: string, patch: Partial<Pick<Launch, 'receivedAtHo' | 'marketingName' | 'marketingBriefOn' | 'launchOn' | 'launchedOn' | 'hero' | 'keyPointers' | 'expectedAtHo'>>): void;
   allocateLaunch(id: string, pieces: LaunchPiece[] | 'default'): void;
-  launchDesk(id: string, step: LaunchDeskStep): void;   // the desk after the codes, ticked step by step
+  launchDesk(id: string, step: LaunchDeskStep): void;
+  pushLaunchCodeToEnigma(id: string, code: string): void;   // a code minted before the Enigma step existed   // the desk after the codes, ticked step by step
   mintLaunchDesignCode(id: string, label?: string): void;   // design, once the goods are received; call again for every further code the style sells under
   dispatchLaunch(id: string, storeId: string | 'all'): void;
   receiveLaunch(id: string, storeId: string): void;
@@ -503,6 +504,10 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { db.launches = db.launches ?? []; db.launches.unshift({ ...input, id, receivedAtHo: null, pieces: [], marketingName: null, marketingBriefOn: null, launchedOn: null }); }, 'Added to the drop. Gates start ticking from here.');
       return id;
     },
+    pushLaunchCodeToEnigma(id, code) {
+      touch(db => { const l = (db.launches ?? []).find(x => x.id === id); const c = l?.designCodes?.find(x => x.code === code); if (!c || c.enigmaOn) return; c.enigmaOn = now();
+        const o = db.orders.find(x => x.id === l!.orderId); if (o) log(o, `Design code ${code} created in Enigma`); }, `${code} created in Enigma.`);
+    },
     launchDesk(id, step) {
       const WHAT: Record<LaunchDeskStep, string> = { handover: 'Handed to Yusuf with the design codes.', sticker: 'Stickers printed, one per design code.', photos: 'Photos shared for the website and the stores.', storesTold: 'Stores told: the style, its codes and the launch date.' };
       touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (!l || !l.designCode || l.desk?.[step]) return;
@@ -517,10 +522,10 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         const seq = 5600 + (db.launches ?? []).reduce((a, x) => a + Math.max(x.designCodes?.length ?? 0, x.designCode ? 1 : 0), 0);
         const code = `BOM-${fam}-RW-${seq}`; const t = now();
         /* one style, several codes: each one is a row of its own; the first also fills the old single field */
-        l.designCodes = [...(l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', on: l.designCodeOn ?? t, by: l.designCodeBy ?? who() }] : [])), { code, label: (label ?? '').trim() || (l.designCodes?.length ? `variant ${(l.designCodes?.length ?? 0) + 1}` : 'base'), on: t, by: who() }];
+        l.designCodes = [...(l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', on: l.designCodeOn ?? t, by: l.designCodeBy ?? who() }] : [])), { code, label: (label ?? '').trim() || (l.designCodes?.length ? `variant ${(l.designCodes?.length ?? 0) + 1}` : 'base'), on: t, by: who(), enigmaOn: t }];
         if (!l.designCode) { l.designCode = code; l.designCodeOn = t; l.designCodeBy = who(); }
-        if (o) log(o, `Design code ${code} minted${label ? ` · ${label}` : ''}`);
-      }, 'Design code minted. Add another for every variant the style sells under.');
+        if (o) log(o, `Design code ${code} minted${label ? ` · ${label}` : ''} · created in Enigma`);
+      }, 'Design code minted and created in Enigma. Add another for every variant the style sells under.');
     },
     updateLaunch(id, patch) { touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (!l) return;
         if (patch.marketingName !== undefined && l.marketingName && patch.marketingName && patch.marketingName !== l.marketingName) l.nameHistory = [...(l.nameHistory ?? []), { name: l.marketingName, until: now(), by: who(), note: 'renamed' }];

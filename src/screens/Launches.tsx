@@ -90,28 +90,20 @@ export function Launches() {
 }
 
 function LaunchDetail({ l, editable }: { l: Launch; editable: boolean }) {
-  const { db, role, updateLaunch, allocateLaunch, dispatchLaunch, receiveLaunch, launchDesk, mintLaunchDesignCode } = useApp();
+  const { db, role, updateLaunch, allocateLaunch, dispatchLaunch, receiveLaunch, mintLaunchDesignCode } = useApp();
   const isDesign = role === 'design' || role === 'owner';
   const s = launchOf(l);
   const order = db.orders.find(o => o.id === l.orderId);
   const cogs = order ? costingOf(order).cogs : null;
   const [name, setName] = useState(l.marketingName ?? '');
   const [launchOn, setLaunchOn] = useState(dateInput(l.launchOn));
-  const [pointers, setPointers] = useState(l.keyPointers); const [codeLabel, setCodeLabel] = useState('');
+  const [pointers, setPointers] = useState(l.keyPointers);
   const storeName = (id: string) => STORES.find(x => x.id === id)?.name ?? id;
   const byStore = [...new Set(l.pieces.map(p => p.storeId))].map(id => ({ id, pieces: l.pieces.filter(p => p.storeId === id) }));
   return <>
-    {/* every design code the style sells under: the base one, then one per variant design adds */}
-    {l.receivedAtHo && <Section title="Design codes" collapsible={false} right={<Pill tone={l.designCode ? 'good' : 'neutral'}>{l.designCode ? `${Math.max(l.designCodes?.length ?? 0, 1)} code${(l.designCodes?.length ?? 1) > 1 ? 's' : ''}` : 'none yet'}</Pill>}>
-      {(l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', on: l.designCodeOn ?? '', by: l.designCodeBy ?? '' }] : [])).map(c => <div key={c.code} className="kv"><span className="k mono">{c.code}</span><span className="v">{c.label}<span className="text-[11px] ml-2" style={{ color:'var(--ink-faint)' }}>{c.on ? fmtDate(c.on) : ''}{c.by ? ` · ${c.by}` : ''}</span></span></div>)}
-      {!l.designCode && <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>Goods are in; design mints the first code.</div>}
-      {isDesign && !l.launchedOn && <div className="flex gap-2 items-end pt-2 flex-wrap">
-        <div style={{ flex:'1 1 220px', maxWidth: 320 }}><Field label={l.designCode ? 'What this code is for' : 'Label (optional)'}><Input value={codeLabel} onChange={e => setCodeLabel(e.target.value)} placeholder={l.designCode ? 'e.g. navy · online only · slim fit' : 'base'} /></Field></div>
-        <Button size="sm" variant="primary" onClick={() => { mintLaunchDesignCode(l.id, codeLabel); setCodeLabel(''); }}>{l.designCode ? '+ Another design code' : 'Mint the design code'}</Button>
-      </div>}
-    </Section>}
+    {l.receivedAtHo && <LaunchCodes l={l} isDesign={isDesign} />}
     {/* after the codes: the same desk a new MTM fabric goes through — Yusuf, stickers, photos, stores told */}
-    {l.designCode && <LaunchDesk l={l} canTick={isDesign && !l.launchedOn} onTick={st => launchDesk(l.id, st)} />}
+    {l.designCode && <LaunchDesk l={l} canTick={isDesign && !l.launchedOn} />}
     <Section title="Readiness" right={<Pill tone={s.blockers ? 'warn' : 'good'}>{s.blockers ? `${s.blockers} gate${s.blockers === 1 ? '' : 's'} open` : 'all gates green'}</Pill>}>
       {s.gates.map(g => <div key={g.key} className="kv"><span className="k flex items-center gap-2"><span className="dot" style={{ background: g.ok ? 'var(--good)' : 'var(--line)' }} />{g.label}</span><span className="v" style={{ color: g.ok ? undefined : 'var(--ink-faint)' }}>{g.note}</span></div>)}
       {editable && !l.launchedOn && <div className="flex gap-2 pt-3 flex-wrap">
@@ -199,8 +191,8 @@ const DESK: { key: LaunchDeskStep | 'dispatched'; label: string; who: string }[]
   { key:'dispatched', label:'Display & fit dispatched',  who:'Shravani' },
   { key:'storesTold', label:'Stores told',               who:'Design' },
 ];
-function LaunchDesk({ l, canTick, onTick }: { l: Launch; canTick: boolean; onTick: (s: LaunchDeskStep) => void }) {
-  const { db } = useApp();
+export function LaunchDesk({ l, canTick }: { l: Launch; canTick: boolean }) {
+  const { db, launchDesk } = useApp(); const onTick = (st: LaunchDeskStep) => launchDesk(l.id, st);
   const codes = l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', on: l.designCodeOn ?? '', by: l.designCodeBy ?? '' }] : []);
   const opt = db.options.find(o => o.id === l.optionId);
   const dispatched = l.pieces.length > 0 && l.pieces.every(p => p.dispatchedOn);
@@ -224,5 +216,22 @@ function LaunchDesk({ l, canTick, onTick }: { l: Launch; canTick: boolean; onTic
           : st.key === 'sticker' ? <Button size="sm" variant="primary" onClick={printStickers}>Print {codes.length} sticker{codes.length === 1 ? '' : 's'}{canTick ? ' & mark' : ''}</Button>
           : canTick ? <Button size="sm" onClick={() => onTick(st.key as LaunchDeskStep)}>Done</Button> : <span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>not yet</span>}</span>
       </div>; })}
+  </Section>;
+}
+
+/* The design codes on a launch: minted by design once the goods are at HO, each one created in Enigma in the
+   same click, as an MTM product code is. One style can sell under several; each carries a label for what it is. */
+export function LaunchCodes({ l, isDesign }: { l: Launch; isDesign: boolean }) {
+  const { mintLaunchDesignCode, pushLaunchCodeToEnigma } = useApp();
+  const [codeLabel, setCodeLabel] = useState('');
+  const codes = l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', on: l.designCodeOn ?? '', by: l.designCodeBy ?? '', enigmaOn: l.designCodeOn ?? null }] : []);
+  return <Section title="Design codes · in Enigma" collapsible={false} right={<Pill tone={l.designCode ? 'good' : 'neutral'}>{l.designCode ? `${Math.max(codes.length, 1)} code${codes.length > 1 ? 's' : ''}` : 'none yet'}</Pill>}>
+    {codes.map(c => <div key={c.code} className="kv"><span className="k mono">{c.code}</span><span className="v flex items-center gap-2 justify-end">{c.label}{c.enigmaOn ? <Pill tone="good">in Enigma</Pill> : isDesign ? <Button size="sm" onClick={() => pushLaunchCodeToEnigma(l.id, c.code)}>Create in Enigma</Button> : <Pill tone="warn">not in Enigma</Pill>}<span className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{c.on ? fmtDate(c.on) : ''}{c.by ? ` · ${c.by}` : ''}</span></span></div>)}
+    {!l.designCode && <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>{l.receivedAtHo ? 'Goods are in; design mints the first code and it is created in Enigma at once.' : 'The codes are minted once the goods are at head office.'}</div>}
+    {isDesign && l.receivedAtHo && !l.launchedOn && <div className="flex gap-2 items-end pt-2 flex-wrap">
+      <div style={{ flex:'1 1 220px', maxWidth: 320 }}><Field label={l.designCode ? 'What this code is for' : 'Label (optional)'}><Input value={codeLabel} onChange={e => setCodeLabel(e.target.value)} placeholder={l.designCode ? 'e.g. navy · online only · slim fit' : 'base'} /></Field></div>
+      <Button size="sm" variant="primary" onClick={() => { mintLaunchDesignCode(l.id, codeLabel); setCodeLabel(''); }}>{l.designCode ? '+ Another design code · to Enigma' : 'Mint the design code · to Enigma'}</Button>
+    </div>}
+    {!isDesign && l.receivedAtHo && !l.designCode && <ActsBy role="design" does="mints the design codes; each is created in Enigma in the same click" />}
   </Section>;
 }
