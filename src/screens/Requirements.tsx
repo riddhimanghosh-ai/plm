@@ -263,7 +263,12 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const [bom, setBom] = useState<BomLine[]>(() => defaultBom('RTW CMT shirts', 'new style', true).map(l => l.kind === 'trim' && l.qtyPerPc == null ? { ...l, qtyPerPc: l.item === 'Button' ? 12 : 1 } : l));
   const curve = typed ? Object.entries(typed).filter(([, n]) => n > 0).map(([size, q]) => ({ size, qty: q })) : spread;
 
+  /* the form's parts side by side (Blocks) or one under the other (Stacked); Blocks by default, the choice remembered */
+  const [view, setView] = useState<'stacked' | 'blocks'>(() => { try { return localStorage.getItem('rtw-new-view') === 'stacked' ? 'stacked' : 'blocks'; } catch { return 'blocks'; } });
+  const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem('rtw-new-view', v); } catch { /* storage off */ } };
   return <>
+    <div className="flex justify-end mb-2"><div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div></div>
+    <div className={view === 'blocks' ? 'rtw-blocks' : undefined}>
     <Section title="What" collapsible={false}>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'1fr 1fr' }}>
         <Field label="Category (decides the milestone template)"><Select value={category} onChange={v => { setCategory(v as GarmentCategory); setSub(SUB_CATEGORIES[v as GarmentCategory][0]); }} options={GARMENT_CATEGORIES.map(c => ({ value:c, label:c }))} /></Field>
@@ -298,7 +303,8 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       <BomEditor lines={bom} onChange={setBom} orderQty={typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty) || 0} />
     </Section>
     <Note>Handing over starts the lead-time clock; the category picks the TNA milestone template.</Note>
-    <div className="flex gap-2"><Button variant="primary" disabled={!style.trim() || !Number(qty)} onClick={() => { const id = createRequirement({
+    </div>
+    <div className="flex gap-2 pt-3"><Button variant="primary" disabled={!style.trim() || !Number(qty)} onClick={() => { const id = createRequirement({
       category, subCategory: sub, styleName: style.trim(), program: null, launchMonth: null, fit: category.includes('hirt') ? 'Tailored Fit' : null,
       orderQty: typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty), sizeBreakup: curve, targetInhouse: fromDateInput(target)!, targetCost: Number(cost), styleHandover: iso(TODAY), fabricNominated: nominated, remarks: '',
       fabricBrief: mode !== 'vendor-sources' ? { look: look.trim() || style.trim(), composition: comp.trim() || null, colour: colour.trim() || null, weightGsm: null, referenceFabricId: refId || null, notes: notes.trim() } : null,
