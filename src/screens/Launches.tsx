@@ -104,7 +104,7 @@ function LaunchDetail({ l, editable }: { l: Launch; editable: boolean }) {
     {l.receivedAtHo && <LaunchCodes l={l} isDesign={isDesign} />}
     {l.designCode && <LaunchStickers l={l} canMark={isDesign} />}
     {/* after the codes: the same desk a new MTM fabric goes through — Yusuf, stickers, photos, stores told */}
-    {l.designCode && <LaunchDesk l={l} canTick={isDesign && !l.launchedOn} />}
+    {/* the desk after the codes (handed to Yusuf, photos, stores told) is the swatch desk's business, not the launch's */}
     <Section title="Readiness" right={<Pill tone={s.blockers ? 'warn' : 'good'}>{s.blockers ? `${s.blockers} gate${s.blockers === 1 ? '' : 's'} open` : 'all gates green'}</Pill>}>
       {s.gates.map(g => <div key={g.key} className="kv"><span className="k flex items-center gap-2"><span className="dot" style={{ background: g.ok ? 'var(--good)' : 'var(--line)' }} />{g.label}</span><span className="v" style={{ color: g.ok ? undefined : 'var(--ink-faint)' }}>{g.note}</span></div>)}
       {editable && !l.launchedOn && <div className="flex gap-2 pt-3 flex-wrap">

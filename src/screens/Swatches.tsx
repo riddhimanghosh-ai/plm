@@ -4,7 +4,7 @@
    journey sits, so there is no second record to keep in step. */
 import { useMemo, useState } from 'react';
 import { useApp } from '../store';
-import type { Concept } from '../domain/types';
+import type { Concept, Launch, LaunchDeskStep } from '../domain/types';
 import { fmtDate, daysAgo, conceptOf } from '../domain/engines';
 import { Page, Card, Pill, Seg, Th, Button, Section, Input, useExamples } from '../ui';
 import { STORES } from '../domain/reference';
@@ -92,8 +92,43 @@ export function Swatches() {
                 <span className="flex items-center gap-1.5"><Tick done={!!d} can={can} onTick={() => conceptSwatch(c.id, st.key)} />{d && <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{fmtDate(d)}</span>}</span></td>; })}
           </tr>; })}</tbody>
       </table></div></Card>}
+      {!MTM_ONLY && <RtwLaunchDesk show={show} />}
     </Page>
   );
+}
+
+/* RTW launches on the same desk: once design has minted the codes, the launch goes through Yusuf's steps here,
+   in the swatch desk's order. Dispatch reads off the launch's display and fit pieces. A row opens the launch. */
+const LAUNCH_DESK: { key: LaunchDeskStep | 'dispatched'; label: string; owner: 'warehouse' | 'design' }[] = [
+  { key:'handover',   label:'Handed to Yusuf',   owner:'warehouse' },
+  { key:'sticker',    label:'Stickers printed',  owner:'warehouse' },
+  { key:'photos',     label:'Photos shared',     owner:'warehouse' },
+  { key:'dispatched', label:'Display & fit out', owner:'warehouse' },
+  { key:'storesTold', label:'Stores told',       owner:'design' },
+];
+function RtwLaunchDesk({ show }: { show: 'open' | 'all' }) {
+  const { db, role, launchDesk } = useApp();
+  const wh = role === 'warehouse' || role === 'production' || role === 'owner' || role === 'design';   // Yusuf has no PLM screen: design ticks for him
+  const design = role === 'design' || role === 'owner';
+  const dateOf = (l: Launch, k: LaunchDeskStep | 'dispatched') => k === 'dispatched' ? (l.pieces.length && l.pieces.every(p => p.dispatchedOn) ? [...l.pieces].map(p => p.dispatchedOn!).sort().slice(-1)[0] : null) : (l.desk?.[k]?.on ?? null);
+  const nextOf = (l: Launch) => LAUNCH_DESK.find(st => !dateOf(l, st.key))?.key ?? null;
+  const all = (db.launches ?? []).filter(l => l.designCode);
+  const rows = all.filter(l => show === 'all' || !!nextOf(l)).sort((a, b) => Number(!nextOf(a)) - Number(!nextOf(b)) || (b.designCodeOn ?? '').localeCompare(a.designCodeOn ?? ''));
+  return <div className="mt-6">
+    <div className="flex items-end gap-3 flex-wrap mb-2"><h2 className="text-[15px] font-semibold m-0">RTW launches · after the design codes</h2><span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{all.filter(l => !!nextOf(l)).length} to do · {all.length} with codes</span></div>
+    {rows.length === 0 ? <Card><div className="pad py-6 text-center text-[12.5px]" style={{ color:'var(--ink-faint)' }}>No RTW launch on the desk.</div></Card>
+    : <Card><div style={{ overflowX:'auto' }}><table className="t compact">
+      <thead><tr><Th>Launch</Th><Th>Design codes</Th>{LAUNCH_DESK.map(st => <Th key={st.key}>{st.label}</Th>)}</tr></thead>
+      <tbody>{rows.map(l => { const next = nextOf(l); const codes = l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base' }] : []);
+        return <tr key={l.id} className="row" onClick={() => { window.location.hash = `#/launches?open=${l.id}`; }}>
+          <td style={{ whiteSpace:'normal', minWidth: 200 }}><span className="font-medium">{l.marketingName ?? l.styleName}</span><div className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{l.dropMonth} drop{l.launchedOn ? ` · live ${fmtDate(l.launchedOn)}` : ''}</div></td>
+          <td style={{ whiteSpace:'normal', minWidth: 160 }}>{codes.map(c => <div key={c.code} className="text-[11.5px]"><span className="mono">{c.code}</span> <span style={{ color:'var(--ink-faint)' }}>· {c.label}</span></div>)}</td>
+          {LAUNCH_DESK.map(st => { const d = dateOf(l, st.key); const can = st.key !== 'dispatched' && next === st.key && (st.owner === 'design' ? design : wh);
+            return <td key={st.key} onClick={e => e.stopPropagation()} style={{ whiteSpace:'nowrap' }}>
+              <span className="flex items-center gap-1.5"><Tick done={!!d} can={can} title={st.key === 'dispatched' ? 'reads off the launch pieces' : undefined} onTick={() => { if (st.key !== 'dispatched') launchDesk(l.id, st.key); }} />{d && <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{fmtDate(d)}</span>}</span></td>; })}
+        </tr>; })}</tbody>
+    </table></div></Card>}
+  </div>;
 }
 
 /** The sticker page: one sticker per fabric (fabric code, name and article, book, price). The swatch at the store
