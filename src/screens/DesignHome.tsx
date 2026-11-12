@@ -12,7 +12,7 @@ import type { Concept, ProductionOrder, OptionRequest, RoleId } from '../domain/
 import { designFlowOf, sourcingStateOf, sourcingModeOf, conceptOf, fmtDate, daysAgo, fabricStateOf } from '../domain/engines';
 import { rtwRowOf } from '../domain/rtwJourney';
 import { ROLE_LABEL } from '../domain/reference';
-import { Page, Card, Pill, Seg, Th, Button, Drawer, Input } from '../ui';
+import { Page, Card, Pill, Seg, Th, Button, Drawer, Input, Select } from '../ui';
 import { ActsBy } from './Who';
 import { ConceptDetail, NewConcept } from './Concepts';
 import { NewRequirement } from './Requirements';
@@ -42,7 +42,9 @@ const STAGE_HINT: Record<Stage, string> = MTM_ONLY ? {
   5:'sellable in stores (and online, for MTM)',
 };
 
-interface Row { id: string; kind: Kind; name: string; brief: string; raisedBy: string; raisedOn: string; stage: Stage; owner: RoleId | null; next: string; sourcing: string | null; href: string; where?: string; urgent?: boolean }
+/* the order the Pending dropdown lists things in: the journey's order, the cut ratio first because it is urgent */
+const PENDING_ORDER = ['Cut ratio pending', 'Prototype pending', 'BOM pending', 'Tech pack pending', 'Send to sourcing & production pending', 'Fabric PO pending', 'Vendor pending', 'Extension pending', 'Factory PO pending', 'Cloth at the factory pending', 'Sample pending', 'Being made · TNA pending', 'GRN on Enigma pending', 'Swatches pending', 'Launch pending', 'Launched', 'Live'];
+interface Row { id: string; kind: Kind; name: string; brief: string; raisedBy: string; raisedOn: string; stage: Stage; owner: RoleId | null; next: string; sourcing: string | null; href: string; where?: string; urgent?: boolean; pending: string }
 
 export function DesignHome() {
   const { db, role, myRole } = useApp();
@@ -53,8 +55,10 @@ export function DesignHome() {
   /* the kind is in the URL: /concepts, /requests and /requirements now land here with it set */
   const kind = (params.get('kind') as 'all' | Kind | null) ?? 'all';
   /* whose move: everything, waiting on design, or the cut-ratio asks from the factory */
-  const who = (params.get('who') as 'all' | 'me' | 'ratio' | null) ?? 'all';
-  const setWho = (w: 'all' | 'me' | 'ratio') => set('who', w === 'all' ? null : w);
+  const who = params.get('who') ?? 'all';            // whose move: a role id, or 'me'
+  const setWho = (w: string) => set('who', w === 'all' ? null : w);
+  const pending = params.get('pending') ?? 'all';    // what is pending: one of the PENDING keys
+  const setPending = (w: string) => set('pending', w === 'all' ? null : w);
   const setKind = (k: 'all' | Kind) => set('kind', k === 'all' ? null : k);
   const [stage, setStage] = useState<'all' | `${Stage}`>('all');
   const [q, setQ] = useState('');
@@ -72,7 +76,7 @@ export function DesignHome() {
       out.push({ id: c.id, kind:'MTM', name: c.naming.newName ?? c.name, brief: c.brief, raisedBy: c.raisedBy, raisedOn: c.raisedOn, stage: st,
         owner: f.now.state === 'done' ? null : f.now.owner, next: f.now.state === 'done' ? 'live' : (f.now.action ?? f.now.label),
         sourcing: c.fabricPo ? 'finalised' : s.offersWithDesign ? 'design to push PO' : c.optionsExtension && !c.optionsExtension.resolvedOn ? 'extension asked' : c.approvalSentOn ? 'sourcing to add vendors' : null,
-        href: c.id });
+        pending: f.now.state === 'done' ? 'Live' : `${f.now.label} pending`, href: c.id });
     });
     /* RTW and FOB requirements */
     db.orders.filter(o => o.status !== 'Cancelled' && !MTM_ONLY).forEach((o: ProductionOrder) => {
@@ -84,7 +88,12 @@ export function DesignHome() {
       const st: Stage = launch?.launchedOn ? 5 : poDone ? (inProduction ? 4 : 3) : o.status === 'Requirement' ? 1 : 2;
       /* the same Where it is · Next every RTW list shows; a cut-ratio ask is design's move and shows red */
       const j = rtwRowOf(db, o); const fab = fabricStateOf(o);
-      out.push({ where: j.where, urgent: fab.key === 'ratio-asked', id: o.id, kind: mode === 'fob-nominated' ? 'FOB' : 'RTW', name: o.styleName, brief: o.fabricBrief?.look ? `${o.fabricBrief.look}${o.fabricBrief.colour ? ` · ${o.fabricBrief.colour}` : ''} · ${o.orderQty} pcs` : `${o.category} · ${o.orderQty} pcs`,
+      const blocker = (j.next?.now ?? '').toLowerCase();
+      const pend = fab.key === 'ratio-asked' || fab.key === 'ratio-given' ? 'Cut ratio' : !j.next ? 'Launched'
+        : j.next.key === 'proto' ? (blocker.includes('tech pack') ? 'Tech pack' : blocker.includes('bom') ? 'BOM' : 'Prototype')
+        : j.next.key === 'sent' ? 'Send to sourcing & production' : j.next.key === 'sourcing' ? 'Fabric PO' : j.next.key === 'factory' ? 'Factory PO'
+        : j.next.key === 'cloth' ? 'Cloth at the factory' : j.next.key === 'sample' ? 'Sample' : j.next.key === 'tna' ? 'Being made · TNA' : j.next.key === 'received' ? 'GRN on Enigma' : 'Launch';
+      out.push({ where: j.where, urgent: fab.key === 'ratio-asked', pending: pend === 'Launched' ? 'Launched' : `${pend} pending`, id: o.id, kind: mode === 'fob-nominated' ? 'FOB' : 'RTW', name: o.styleName, brief: o.fabricBrief?.look ? `${o.fabricBrief.look}${o.fabricBrief.colour ? ` · ${o.fabricBrief.colour}` : ''} · ${o.orderQty} pcs` : `${o.category} · ${o.orderQty} pcs`,
         raisedBy: 'Design', raisedOn: o.styleHandover, stage: st, owner: j.next?.act === 'design' ? 'design' : f.now.state === 'done' ? null : f.now.owner, next: j.next ? j.next.now ?? j.next.label : 'launched',
         sourcing: mode === 'vendor-sources' ? null : mode === 'fob-nominated' ? (o.fobNomination?.emailedOn ? 'finalised' : 'design to name the supplier') : poDone ? 'finalised' : o.status === 'Requirement' ? null : ss.label,
         href: o.id });
@@ -96,7 +105,7 @@ export function DesignHome() {
       const withDesign = live.filter(o => o.status === 'with-design').length, ext = live.filter(o => o.status === 'extension').length, open = live.filter(o => o.status === 'open').length;
       const st: Stage = live.length > 0 && done === live.length ? 3 : done > 0 || withDesign > 0 || ext > 0 || open > 0 ? 2 : 1;   // options: 3 once every option has its PO; their cloth then runs as concepts
       const owner: RoleId | null = withDesign > 0 ? 'design' : (open > 0 || ext > 0) ? 'sourcing' : null;
-      out.push({ id: r.id, kind:'Options', name: `${r.reqNo} · ${catLabel(r.category)}`, brief: `${r.optionCount} options · ${r.brief}`, raisedBy: r.raisedBy, raisedOn: r.raisedOn, stage: st, owner,
+      out.push({ pending: withDesign ? 'Fabric PO pending' : ext ? 'Extension pending' : open ? 'Vendor pending' : done ? 'Swatches pending' : 'Send to sourcing & production pending', id: r.id, kind:'Options', name: `${r.reqNo} · ${catLabel(r.category)}`, brief: `${r.optionCount} options · ${r.brief}`, raisedBy: r.raisedBy, raisedOn: r.raisedOn, stage: st, owner,
         next: withDesign ? `push PO on ${withDesign} option${withDesign === 1 ? '' : 's'}` : ext ? `${ext} extension${ext === 1 ? '' : 's'} asked` : open ? `sourcing to add vendors on ${open}` : done ? `${done} PO raised · swatches next` : 'send',
         sourcing: `${done} PO raised · ${withDesign} design to push PO · ${open} sourcing to add vendors${ext ? ` · ${ext} extension asked` : ''}`, href: r.id });
     });
@@ -121,9 +130,9 @@ export function DesignHome() {
   const quiet = useAppStore(s => !!s.settings.quiet);
   const showAll = quiet || params.get('all') === '1';   // quiet mode: the real list
   const base = showAll ? rows : examples;
-  const isMe = (r: Row) => r.owner === asRole; const isRatio = (r: Row) => !!r.urgent;
+  const isMe = (r: Row) => r.owner === asRole;
   const shown = base.filter(r => (kind === 'all' || r.kind === kind) && (stage === 'all' || String(r.stage) === stage)
-    && (who === 'all' || (who === 'me' ? isMe(r) : isRatio(r)))
+    && (who === 'all' || (who === 'me' ? isMe(r) : r.owner === who)) && (pending === 'all' || r.pending === pending)
     && (!q.trim() || q.toLowerCase().split(/\s+/).every(w => `${r.name} ${r.brief} ${r.kind}`.toLowerCase().includes(w))));
   const count = (f: (r: Row) => boolean) => base.filter(f).length;
   /* everything opens in place: ?open=<id> is a concept, an order or a request; ?new= is the chooser or one of the four forms */
@@ -142,15 +151,21 @@ export function DesignHome() {
       actions={design ? <Button variant="primary" onClick={() => set('new', RTW_ONLY ? 'rtw' : '1')}>{RTW_ONLY ? '+ New RTW style' : '+ New requirement'}</Button> : <ActsBy role={['design', 'planning']} does="raises a requirement — what is needed, for which product, by when" inline />}>
 
       <div className="flex items-end gap-3 flex-wrap mb-3">
-        <Seg value={who} onChange={v => setWho(v as typeof who)} options={[
-          { id:'all', label:'Everything' },
-          { id:'me', label: asRole === 'design' ? 'Waiting on me' : 'Waiting on design', count: count(isMe) },
-          { id:'ratio', label:'Cut ratio asked', count: count(isRatio), hint:'the factory is short of cloth and needs new sizes, or wants to cut fewer' },
-        ]} />
-        <Seg value={stage} onChange={v => setStage(v as typeof stage)} label="Stage" options={[
-          { id:'all', label:'All', count: base.length },
-          ...([1, 2, 3, 4, 5] as Stage[]).filter(s => STAGE_LABEL[s]).map(s => ({ id: String(s), label: STAGE_LABEL[s], count: count(r => r.stage === s), hint: STAGE_HINT[s] })),
-        ]} />
+        {/* three dropdowns: the stage, what is pending, whose move */}
+        <div><span className="label">Stage</span><Select value={stage} onChange={v => setStage(v as typeof stage)} options={[
+          { value:'all', label:`Every stage · ${base.length}` },
+          ...([1, 2, 3, 4, 5] as Stage[]).filter(s => STAGE_LABEL[s]).map(s => ({ value: String(s), label: `${STAGE_LABEL[s]} · ${count(r => r.stage === s)}` })),
+        ]} /></div>
+        <div><span className="label">Pending</span><Select value={pending} onChange={setPending} options={[
+          { value:'all', label:'Anything' },
+          ...PENDING_ORDER.filter(p => base.some(r => r.pending === p)).map(p => ({ value: p, label: `${p} · ${count(r => r.pending === p)}` })),
+          ...[...new Set(base.map(r => r.pending))].filter(p => !PENDING_ORDER.includes(p)).sort().map(p => ({ value: p, label: `${p} · ${count(r => r.pending === p)}` })),
+        ]} /></div>
+        <div><span className="label">Whose move</span><Select value={who} onChange={setWho} options={[
+          { value:'all', label:'Anyone' },
+          { value:'me', label:`${asRole === 'design' ? 'Me' : 'Design'} · ${count(isMe)}` },
+          ...(['sourcing', 'production', 'merchandiser', 'planning', 'finance'] as RoleId[]).filter(r => r !== asRole && base.some(x => x.owner === r)).map(r => ({ value: r, label: `${ROLE_LABEL[r]} · ${count(x => x.owner === r)}` })),
+        ]} /></div>
         {!MTM_ONLY && !RTW_ONLY && <Seg value={kind} onChange={v => setKind(v as typeof kind)} options={[{ id:'all', label:'Every kind' }, { id:'MTM', label:'MTM fabric', count: count(r => r.kind === 'MTM') }, ...(MTM_ONLY ? [] : [{ id:'RTW', label:'RTW style', count: count(r => r.kind === 'RTW') }]), ...(OPTIONS_OFF ? [] : [{ id:'Options', label:'Several options', count: count(r => r.kind === 'Options') }])]} />}
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search requirement, fabric, style…" style={{ width: 240 }} aria-label="search requirements" />
         <span className="text-[12px] ml-auto" style={{ color:'var(--ink-faint)' }}>{showAll

@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep } from './domain/types';
+import type { PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
 import { prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
@@ -71,7 +71,8 @@ export interface AppState {
   allocateLaunch(id: string, pieces: LaunchPiece[] | 'default'): void;
   launchDesk(id: string, step: LaunchDeskStep): void;
   pushLaunchCodeToEnigma(id: string, code: string): void;   // a code minted before the Enigma step existed   // the desk after the codes, ticked step by step
-  mintLaunchDesignCode(id: string, label?: string): void;   // design, once the goods are received; call again for every further code the style sells under
+  mintLaunchDesignCode(id: string, d?: Partial<LaunchCodeDetails>): void;   // design, once the goods are received; call again for every further code the style sells under
+  updateLaunchCode(id: string, code: string, patch: Partial<LaunchCodeDetails>): void;   // details change whenever design likes; the code never does
   dispatchLaunch(id: string, storeId: string | 'all'): void;
   receiveLaunch(id: string, storeId: string): void;
   decideOption(optionId: string, decision: 'promote-to-core' | 'liquidate' | 'reorder' | 'reintroduce' | 'make-inactive', note: string, qty?: number): void;
@@ -514,18 +515,27 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         l.desk = { ...(l.desk ?? {}), [step]: { on: now(), by: who() } };
         const o = db.orders.find(x => x.id === l.orderId); if (o) log(o, WHAT[step]); }, WHAT[step]);
     },
-    mintLaunchDesignCode(id, label) {
+    mintLaunchDesignCode(id, d) {
       touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (!l || !l.receivedAtHo) return;
-        const o = db.orders.find(x => x.id === l.orderId);
+        const o = db.orders.find(x => x.id === l.orderId); const opt = db.options.find(x => x.id === l.optionId);
         const cat = (o?.category ?? l.styleName).toLowerCase();
         const fam = cat.includes('knit') && cat.includes('t-shirt') ? 'TEE' : cat.includes('jean') ? 'JEA' : cat.includes('kurta') ? 'KUR' : cat.includes('bottom') ? 'BOT' : 'SHI';
         const seq = 5600 + (db.launches ?? []).reduce((a, x) => a + Math.max(x.designCodes?.length ?? 0, x.designCode ? 1 : 0), 0);
         const code = `BOM-${fam}-RW-${seq}`; const t = now();
-        /* one style, several codes: each one is a row of its own; the first also fills the old single field */
-        l.designCodes = [...(l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', on: l.designCodeOn ?? t, by: l.designCodeBy ?? who() }] : [])), { code, label: (label ?? '').trim() || (l.designCodes?.length ? `variant ${(l.designCodes?.length ?? 0) + 1}` : 'base'), on: t, by: who(), enigmaOn: t }];
+        const clothLine = o?.bom.find(b => b.kind === 'fabric'); const brief = o?.fabricBrief;
+        const base: LaunchCodeDetails = { label: 'base', name: l.marketingName ?? l.styleName, cloth: clothLine?.item ?? (brief ? `${brief.look}${brief.composition ? ` · ${brief.composition}` : ''}` : null),
+          category: /formal|boardroom|banker/i.test(`${o?.category ?? ''} ${l.styleName}`) ? 'Formal' : 'Casual', style: null, mrp: opt?.mrp ?? null, sizes: o?.sizeBreakup.map(x => x.size) ?? ['36', '38', '40', '42', '44', '46'], description: null };
+        const prior = l.designCodes ?? (l.designCode ? [{ ...base, code: l.designCode, on: l.designCodeOn ?? t, by: l.designCodeBy ?? who(), enigmaOn: l.designCodeOn ?? null }] : []);
+        const details: LaunchCodeDetails = { ...base, label: prior.length ? `variant ${prior.length + 1}` : 'base', ...Object.fromEntries(Object.entries(d ?? {}).filter(([, v]) => v !== undefined && v !== '')) } as LaunchCodeDetails;
+        /* one style, several codes: each one is a row of its own with Enigma's details; the first also fills the old single field */
+        l.designCodes = [...prior, { ...details, code, on: t, by: who(), enigmaOn: t, enigmaSyncedOn: t }];
         if (!l.designCode) { l.designCode = code; l.designCodeOn = t; l.designCodeBy = who(); }
-        if (o) log(o, `Design code ${code} minted${label ? ` · ${label}` : ''} · created in Enigma`);
-      }, 'Design code minted and created in Enigma. Add another for every variant the style sells under.');
+        if (o) log(o, `Design code ${code} minted · ${details.label} · ${details.name} · created in Enigma`);
+      }, 'Design code minted and created in Enigma with its name, cloth, price and sizes.');
+    },
+    updateLaunchCode(id, code, patch) {
+      touch(db => { const c = (db.launches ?? []).find(x => x.id === id)?.designCodes?.find(x => x.code === code); if (!c) return; Object.assign(c, patch); if (c.enigmaOn) c.enigmaSyncedOn = now(); },
+        'Saved. Enigma has the new details; the code stays the same.');
     },
     updateLaunch(id, patch) { touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (!l) return;
         if (patch.marketingName !== undefined && l.marketingName && patch.marketingName && patch.marketingName !== l.marketingName) l.nameHistory = [...(l.nameHistory ?? []), { name: l.marketingName, until: now(), by: who(), note: 'renamed' }];

@@ -57,7 +57,9 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const [open, setOpen] = useState<string>(initial && isMine(initial) ? initial : firstMine);
   /* how the open step lays its parts out: stacked (one under the other) or blocks (side by side, each part its own card) */
   const viewKey = (k: string) => `rtw-step-view:${k}`;
-  const readView = (k: string): 'stacked' | 'blocks' => { try { return localStorage.getItem(viewKey(k)) === 'blocks' ? 'blocks' : 'stacked'; } catch { return 'stacked'; } };
+  /* Blocks by default; the cloth step (counts, cut ratio, sizes) reads better stacked. A choice made on a step is remembered for it. */
+  const defaultView = (k: string): 'stacked' | 'blocks' => k === 'cloth' ? 'stacked' : 'blocks';
+  const readView = (k: string): 'stacked' | 'blocks' => { try { const v = localStorage.getItem(viewKey(k)); return v === 'blocks' || v === 'stacked' ? v : defaultView(k); } catch { return defaultView(k); } };
   const [view, setView] = useState<'stacked' | 'blocks'>(() => readView(initial && isMine(initial) ? initial : firstMine));
   const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem(viewKey(open), v); } catch { /* storage off */ } };
   const at = (k: string) => open === k && isMine(k);

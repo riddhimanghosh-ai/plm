@@ -748,10 +748,13 @@ export interface Launch {
      produced and received — before that the style has no sellable code */
   designCode?: string | null; designCodeOn?: string | null; designCodeBy?: string | null;
   /* an RTW style sells under several design codes (one per variant the catalogue needs); the first one also sits in designCode */
-  designCodes?: { code: string; label: string; on: string; by: string; enigmaOn?: string | null }[];   // enigmaOn: created in Enigma in the same step, as an MTM product code is
+  designCodes?: LaunchCode[];   // one style, several codes; each created in Enigma in the same step, as an MTM product code is
   /* after the codes, the same desk as an MTM fabric: handed to Yusuf, stickers printed, photos shared, stores told */
   desk?: Partial<Record<LaunchDeskStep, { on: string; by: string }>>;
 }
+/* what Enigma asks for on a design: what the code is for, the sellable name, the cloth, the category, the fit, the price, the sizes */
+export interface LaunchCodeDetails { label: string; name: string; cloth: string | null; category: 'Formal' | 'Casual'; style: string | null; mrp: number | null; sizes: string[]; description: string | null }
+export interface LaunchCode extends LaunchCodeDetails { code: string; on: string; by: string; enigmaOn?: string | null; enigmaSyncedOn?: string | null }
 export type LaunchDeskStep = 'handover' | 'sticker' | 'photos' | 'storesTold';
 
 /* ---------- concepts — one record from the idea to the day it is sellable ----

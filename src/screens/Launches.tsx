@@ -6,9 +6,9 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
-import type { Launch, LaunchDeskStep } from '../domain/types';
+import type { Launch, LaunchDeskStep, LaunchCode, LaunchCodeDetails } from '../domain/types';
 import { launchOf, fmtDate, daysAgo, costingOf, TODAY, addDays, iso, type LaunchStage } from '../domain/engines';
-import { STORES, MARKETING_LEAD_DAYS } from '../domain/reference';
+import { STORES, MARKETING_LEAD_DAYS, SHIRT_STYLES } from '../domain/reference';
 import { Page, Card, Pill, Button, Drawer, KV, Section, Note, Tabs, Empty, Field, Input, Select, Seg, dateInput, fromDateInput, useExamples, type Tone } from '../ui';
 import { ThreadPanel } from './Thread';
 import { Files } from './Files';
@@ -193,8 +193,8 @@ const DESK: { key: LaunchDeskStep | 'dispatched'; label: string; who: string }[]
 ];
 export function LaunchDesk({ l, canTick }: { l: Launch; canTick: boolean }) {
   const { db, launchDesk } = useApp(); const onTick = (st: LaunchDeskStep) => launchDesk(l.id, st);
-  const codes = l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', on: l.designCodeOn ?? '', by: l.designCodeBy ?? '' }] : []);
   const opt = db.options.find(o => o.id === l.optionId);
+  const codes: LaunchCode[] = l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', name: l.marketingName ?? l.styleName, cloth: null, category: 'Casual', style: null, mrp: opt?.mrp ?? null, sizes: [], description: null, on: l.designCodeOn ?? '', by: l.designCodeBy ?? '', enigmaOn: l.designCodeOn ?? null }] : []);
   const dispatched = l.pieces.length > 0 && l.pieces.every(p => p.dispatchedOn);
   const dispatchedOn = dispatched ? [...l.pieces].map(p => p.dispatchedOn!).sort().slice(-1)[0] : null;
   const done = DESK.filter(st => st.key === 'dispatched' ? dispatched : !!l.desk?.[st.key]).length;
@@ -202,7 +202,7 @@ export function LaunchDesk({ l, canTick }: { l: Launch; canTick: boolean }) {
   /* one sticker per design code, three across on A4, the five lines the MTM sticker has */
   const printStickers = () => {
     const w = window.open('', '_blank', 'width=760,height=980'); if (!w) return;
-    const labels = codes.map(c => `<div class="b"><div class="c">${c.code}</div><div class="n">${name}</div><div class="k">${c.label.toUpperCase()} · ${l.dropMonth.toUpperCase()}</div><div class="p">${opt?.mrp != null ? `MRP ${opt.mrp.toLocaleString('en-IN')}` : 'MRP —'}</div><div class="s">Incl. of all taxes</div></div>`).join('');
+    const labels = codes.map(c => `<div class="b"><div class="c">${c.code}</div><div class="n">${c.name || name}</div><div class="k">${[c.cloth, c.label].filter(Boolean).join(' · ').toUpperCase()} · ${l.dropMonth.toUpperCase()}</div><div class="p">${(c.mrp ?? opt?.mrp) != null ? `MRP ${(c.mrp ?? opt!.mrp).toLocaleString('en-IN')}` : 'MRP —'}</div><div class="s">Incl. of all taxes</div></div>`).join('');
     w.document.write(`<!doctype html><title>Stickers · ${name}</title><style>body { margin:0; font-family: Calibri, -apple-system, Helvetica, Arial, sans-serif; color:#222; } @page { size: A4; margin: 10mm; } .grid { display:grid; grid-template-columns: repeat(3, 63mm); } .b { width: 63mm; height: 36mm; border:1px solid #333; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; } .c { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color:#555; } .n { font-size: 14px; font-weight: 700; margin: 2px 0; } .k { font-size: 10px; letter-spacing:.04em; } .p { font-size: 13px; margin-top: 2px; } .s { font-size: 9px; color:#666; }</style><div class="grid">${labels}</div>`);
     w.document.close();
     if (canTick && !l.desk?.sticker) onTick('sticker');
@@ -220,18 +220,55 @@ export function LaunchDesk({ l, canTick }: { l: Launch; canTick: boolean }) {
 }
 
 /* The design codes on a launch: minted by design once the goods are at HO, each one created in Enigma in the
-   same click, as an MTM product code is. One style can sell under several; each carries a label for what it is. */
+   same click, as an MTM product code is. One style can sell under several; each carries what Enigma asks for:
+   what it is for, the sellable name, the cloth, the category, the fit, the price, the sizes. A launched style can
+   still get another code. The details change whenever design likes; the code never does. */
+const CODE_CATS = ['Formal', 'Casual'] as const;
+function CodeForm({ initial, onSave, onCancel, saveLabel }: { initial: Partial<LaunchCodeDetails>; onSave: (d: Partial<LaunchCodeDetails>) => void; onCancel: () => void; saveLabel: string }) {
+  const [f, setF] = useState({ label: initial.label ?? '', name: initial.name ?? '', cloth: initial.cloth ?? '', category: initial.category ?? 'Casual', style: initial.style ?? '', mrp: initial.mrp != null ? String(initial.mrp) : '', sizes: (initial.sizes ?? []).join(', '), description: initial.description ?? '' });
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF(x => ({ ...x, [k]: e.target.value }));
+  const setV = (k: keyof typeof f) => (v: string) => setF(x => ({ ...x, [k]: v }));
+  return <div className="pt-2">
+    <div className="grid gap-2" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(170px, 1fr))' }}>
+      <Field label="What this code is for"><Input value={f.label} onChange={set('label')} placeholder="base · navy · online only · slim fit" /></Field>
+      <Field label="Name it sells as"><Input value={f.name} onChange={set('name')} placeholder="the marketing name" /></Field>
+      <Field label="Cloth"><Input value={f.cloth} onChange={set('cloth')} placeholder="e.g. Seersucker · 100% cotton" /></Field>
+      <Field label="Category"><Select value={f.category} onChange={setV('category')} options={CODE_CATS.map(c => ({ value: c, label: c }))} /></Field>
+      <Field label="Fit · style"><Select value={f.style} onChange={setV('style')} options={[{ value: '', label: '—' }, ...SHIRT_STYLES.map(st => ({ value: st, label: st }))]} /></Field>
+      <Field label="MRP"><Input type="number" min={0} value={f.mrp} onChange={set('mrp')} placeholder="₹" /></Field>
+      <Field label="Sizes"><Input value={f.sizes} onChange={set('sizes')} placeholder="36, 38, 40, 42, 44, 46" /></Field>
+    </div>
+    <div className="pt-2"><Field label="Description · PDP copy"><Input value={f.description} onChange={set('description')} placeholder="what the website and the store say" /></Field></div>
+    <div className="flex gap-2 pt-2 flex-wrap">
+      <Button size="sm" variant="primary" onClick={() => onSave({ label: f.label.trim() || undefined, name: f.name.trim() || undefined, cloth: f.cloth.trim() || null, category: f.category as 'Formal' | 'Casual', style: f.style || null, mrp: f.mrp === '' ? null : Number(f.mrp), sizes: f.sizes.split(/[,\s]+/).map(x => x.trim()).filter(Boolean), description: f.description.trim() || null })}>{saveLabel}</Button>
+      <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
+    </div>
+  </div>;
+}
 export function LaunchCodes({ l, isDesign }: { l: Launch; isDesign: boolean }) {
-  const { mintLaunchDesignCode, pushLaunchCodeToEnigma } = useApp();
-  const [codeLabel, setCodeLabel] = useState('');
-  const codes = l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', on: l.designCodeOn ?? '', by: l.designCodeBy ?? '', enigmaOn: l.designCodeOn ?? null }] : []);
+  const { db, mintLaunchDesignCode, updateLaunchCode, pushLaunchCodeToEnigma } = useApp();
+  const [adding, setAdding] = useState(false); const [editing, setEditing] = useState<string | null>(null);
+  const o = db.orders.find(x => x.id === l.orderId); const opt = db.options.find(x => x.id === l.optionId);
+  const codes: LaunchCode[] = l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', name: l.marketingName ?? l.styleName, cloth: null, category: 'Casual', style: null, mrp: opt?.mrp ?? null, sizes: [], description: null, on: l.designCodeOn ?? '', by: l.designCodeBy ?? '', enigmaOn: l.designCodeOn ?? null }] : []);
+  const money = (n: number | null | undefined) => n == null ? 'MRP —' : `₹${n.toLocaleString('en-IN')}`;
+  const prefill: Partial<LaunchCodeDetails> = { name: l.marketingName ?? l.styleName, cloth: o?.bom.find(b => b.kind === 'fabric')?.item ?? null, mrp: opt?.mrp ?? null, sizes: o?.sizeBreakup.map(x => x.size) ?? [] };
   return <Section title="Design codes · in Enigma" collapsible={false} right={<Pill tone={l.designCode ? 'good' : 'neutral'}>{l.designCode ? `${Math.max(codes.length, 1)} code${codes.length > 1 ? 's' : ''}` : 'none yet'}</Pill>}>
-    {codes.map(c => <div key={c.code} className="kv"><span className="k mono">{c.code}</span><span className="v flex items-center gap-2 justify-end">{c.label}{c.enigmaOn ? <Pill tone="good">in Enigma</Pill> : isDesign ? <Button size="sm" onClick={() => pushLaunchCodeToEnigma(l.id, c.code)}>Create in Enigma</Button> : <Pill tone="warn">not in Enigma</Pill>}<span className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{c.on ? fmtDate(c.on) : ''}{c.by ? ` · ${c.by}` : ''}</span></span></div>)}
-    {!l.designCode && <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>{l.receivedAtHo ? 'Goods are in; design mints the first code and it is created in Enigma at once.' : 'The codes are minted once the goods are at head office.'}</div>}
-    {isDesign && l.receivedAtHo && !l.launchedOn && <div className="flex gap-2 items-end pt-2 flex-wrap">
-      <div style={{ flex:'1 1 220px', maxWidth: 320 }}><Field label={l.designCode ? 'What this code is for' : 'Label (optional)'}><Input value={codeLabel} onChange={e => setCodeLabel(e.target.value)} placeholder={l.designCode ? 'e.g. navy · online only · slim fit' : 'base'} /></Field></div>
-      <Button size="sm" variant="primary" onClick={() => { mintLaunchDesignCode(l.id, codeLabel); setCodeLabel(''); }}>{l.designCode ? '+ Another design code · to Enigma' : 'Mint the design code · to Enigma'}</Button>
-    </div>}
+    {codes.map(c => <div key={c.code} className="py-2" style={{ borderBottom:'1px solid var(--line-soft)' }}>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap"><span className="mono font-medium">{c.code}</span><span className="pill">{c.label}</span>{c.enigmaOn ? <Pill tone="good">in Enigma</Pill> : isDesign ? <Button size="sm" onClick={() => pushLaunchCodeToEnigma(l.id, c.code)}>Create in Enigma</Button> : <Pill tone="warn">not in Enigma</Pill>}</div>
+          <div className="text-[13px] pt-0.5">{c.name}</div>
+          <div className="text-[11.5px]" style={{ color:'var(--ink-soft)' }}>{[c.cloth, c.category, c.style, money(c.mrp), c.sizes?.length ? `sizes ${c.sizes.join(' ')}` : null].filter(Boolean).join(' · ')}</div>
+          {c.description && <div className="text-[11.5px] pt-0.5" style={{ color:'var(--ink-faint)' }}>{c.description}</div>}
+        </div>
+        <div className="text-[11px] text-right" style={{ color:'var(--ink-faint)' }}>{c.on ? fmtDate(c.on) : ''}{c.by ? ` · ${c.by}` : ''}{isDesign && editing !== c.code && <div><button type="button" className="vlink" onClick={() => { setEditing(c.code); setAdding(false); }}>edit details</button></div>}</div>
+      </div>
+      {editing === c.code && <CodeForm initial={c} saveLabel="Save · sync to Enigma" onCancel={() => setEditing(null)} onSave={d => { updateLaunchCode(l.id, c.code, d); setEditing(null); }} />}
+    </div>)}
+    {!l.designCode && !adding && <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>{l.receivedAtHo ? 'Goods are in; design mints the first code and it is created in Enigma at once.' : 'The codes are minted once the goods are at head office.'}</div>}
+    {isDesign && l.receivedAtHo && !adding && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => { setAdding(true); setEditing(null); }}>{l.designCode ? '+ Another design code' : 'Mint the design code'}</Button></div>}
+    {adding && <CodeForm initial={{ ...prefill, label: codes.length ? `variant ${codes.length + 1}` : 'base' }} saveLabel="Mint · create in Enigma" onCancel={() => setAdding(false)} onSave={d => { mintLaunchDesignCode(l.id, d); setAdding(false); }} />}
     {!isDesign && l.receivedAtHo && !l.designCode && <ActsBy role="design" does="mints the design codes; each is created in Enigma in the same click" />}
   </Section>;
 }
+
