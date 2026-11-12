@@ -1,0 +1,139 @@
+import sys, html
+out_html, out_drawio, out_svg = sys.argv[1], sys.argv[2], sys.argv[3]
+ROLE = {'plan':'Planning','design':'Design','sourcing':'Sourcing','nitin':'Nitin','factory':'Factory','enigma':'Enigma','stores':'Stores'}
+# the spine, in order: id, role, label, kind
+SPINE = [
+ ('p1','plan','Review the option\nstock · ROS · cover','step'),
+ ('p2','plan','Reorder or new style ask','step'),
+ ('d1','design','Raise the requirement\nqty by size · date · cost','step'),
+ ('d2','design','Prototype rounds\nor "none needed"','step'),
+ ('d3','design','Cloth brief · BOM\n· tech pack','step'),
+ ('d4','design','Send to sourcing\nand production','step'),
+ ('s1','sourcing','Put a vendor against\nthe brief · price · hold','step'),
+ ('d5','design','Push the fabric PO?\nor send back','decision'),
+ ('n1','nitin','Propose a factory\ncost · date','step'),
+ ('d6','design','Accept the factory?\nraise the PO','decision'),
+ ('s2','sourcing','Send cloth and trims\nto the factory','step'),
+ ('f1','factory','Count cloth and trims\nin against the PO','step'),
+ ('f2','factory','Cloth short?','decision'),
+ ('f4','factory','First sample\nfrom bulk cloth','step'),
+ ('n3','nitin','Sample OK?\nPP go-ahead','decision'),
+ ('f5','factory','Make · log the TNA\n22 milestones','step'),
+ ('f6','factory','Dispatch to BSC','step'),
+ ('e4','enigma','GRN at BSC\nby size, lot by lot','system'),
+ ('p3','plan','Add to a drop\nname · date','step'),
+ ('d8','design','Mint design codes\nname · cloth · MRP · sizes','step'),
+ ('d9','design','Stickers · Yusuf\nphotos · stores told','step'),
+ ('p4','plan','Display & fit plan\nper store','step'),
+ ('st1','stores','Pieces received\n(RetailOS)','step'),
+ ('p5','plan','Make live','step'),
+]
+# boxes hanging under a spine box: parent, id, role, label, kind, edge label
+SIDE = [
+ ('d5','e1','enigma','Fabric PO to the mill\nDRAFT → Open','system','push'),
+ ('d6','e2','enigma','Factory PO\nTNA generated','system','accept'),
+ ('s2','e3','enigma','"Fabric issued for RTW"\nstock adjustment','system',''),
+ ('f2','d7','design','Give the cut ratio\nor approve cut-short','step','yes · ask design'),
+ ('d7','n2','nitin','Send the new ratio\nto the factory','step',''),
+ ('n2','f3','factory','Cut to the new sizes\ncloth count stays final','step',''),
+ ('f5','n4','nitin','Tracker · OTIF\nescalations','step','dates'),
+ ('d8','e5','enigma','Design rows + variants\ncreated in Enigma','system',''),
+ ('p4','e6','enigma','STO to stores','system',''),
+ ('p5','e7','enigma','Live · Shopify sync','system',''),
+]
+# back-loops and joins: from, to, label
+LOOPS = [('d5','s1','send back · extend'),('d6','n1','send back'),('n3','f4','resubmit'),('f3','f4','then'),('f2','f4','no · all in'),('n3','f5','yes')]
+COLS=6; W,H=186,58; GX=226; SUB=H+26; X0,Y0=40,40
+FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe'}; STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8'}
+node={}
+for n in SPINE: node[n[0]]=n
+for p,i,r,l,k,_ in SIDE: node[i]=(i,r,l,k)
+# side depth per spine column
+depth={}
+parent={i:p for p,i,*_ in SIDE}
+def root(i):
+    while i in parent: i=parent[i]
+    return i
+sub_of={}
+for p,i,*_ in SIDE:
+    r=root(i); d=1; q=i
+    while parent[q]!=r: q=parent[q]; d+=1
+    sub_of[i]=(r,d); depth[r]=max(depth.get(r,0),d)
+rows=[SPINE[i:i+COLS] for i in range(0,len(SPINE),COLS)]
+row_h=[]; row_y=[]; y=Y0
+for row in rows:
+    dmax=max([depth.get(n[0],0) for n in row]+[0]); row_y.append(y); rh=H+dmax*SUB+54; row_h.append(rh); y+=rh
+pos={}
+for ri,row in enumerate(rows):
+    rev=ri%2==1
+    for ci,n in enumerate(row):
+        c=(COLS-1-ci) if rev else ci
+        pos[n[0]]=(X0+c*GX, row_y[ri])
+for i,(r,d) in sub_of.items():
+    x,y=pos[r]; pos[i]=(x,y+d*SUB)
+width=X0+COLS*GX; height=y+20
+def esc(s): return html.escape(s)
+svg=[f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" font-family="Inter, Helvetica, Arial, sans-serif">',
+ '<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#555"/></marker></defs>',
+ f'<rect width="{width}" height="{height}" fill="#fff"/>']
+def line(d,label=None,lx=0,ly=0,dash=False):
+    dashattr = ' stroke-dasharray="5 4"' if dash else ''
+    svg.append(f'<path d="{d}" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#a)"{dashattr}/>')
+    if label: svg.append(f'<text x="{lx}" y="{ly}" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">{esc(label)}</text>')
+# spine arrows (snake)
+for i in range(len(SPINE)-1):
+    a,b=SPINE[i][0],SPINE[i+1][0]; (ax,ay),(bx,by)=pos[a],pos[b]
+    if ay==by:
+        if bx>ax: line(f'M{ax+W} {ay+H/2}L{bx} {by+H/2}')
+        else: line(f'M{ax} {ay+H/2}L{bx+W} {by+H/2}')
+    else:
+        line(f'M{ax+W/2} {ay+H}L{ax+W/2} {by}')
+# side chains: vertical from parent to child
+for p,i,r,l,k,lab in SIDE:
+    (px,py),(cx,cy)=pos[p],pos[i]
+    line(f'M{px+W/2} {py+H}L{cx+W/2} {cy}', lab, px+W/2+6, (py+H+cy)/2+4)
+# loops
+for a,b,lab in LOOPS:
+    (ax,ay),(bx,by)=pos[a],pos[b]
+    if ay==by:
+        if abs(bx-ax)<=GX+1 and lab in ('yes','no · all in','then'):
+            continue  # the spine arrow already shows this move
+        # curved back arrow above both boxes
+        x1,x2=ax+W/2,bx+W/2; top=min(ay,by)-26
+        line(f'M{x1} {ay}C{x1} {top},{x2} {top},{x2} {by}', lab, (x1+x2)/2, top+6)
+    else:
+        # from a side box back up to the spine: elbow to the right of the column
+        x1,y1=ax+W,ay+H/2; x2,y2=bx+W/2,by+H
+        if bx>ax: line(f'M{x1} {y1}L{x2} {y1}L{x2} {y2}', lab, (x1+x2)/2, y1-6)
+        else: line(f'M{ax} {ay+H/2}L{x2} {ay+H/2}L{x2} {y2}', lab, (ax+x2)/2, ay+H/2-6)
+# label the spine edges that carry a word
+for a,b,lab in LOOPS:
+    (ax,ay),(bx,by)=pos[a],pos[b]
+    if ay==by and abs(bx-ax)<=GX+1 and lab in ('yes','no · all in','then'):
+        x=(ax+W+bx)/2 if bx>ax else (ax+bx+W)/2
+        svg.append(f'<text x="{x}" y="{ay+H/2-6}" font-size="10.5" fill="#6b6759" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3">{esc(lab)}</text>')
+for nid,(x,y) in pos.items():
+    _,role,label,kind=node[nid][:4]; lines=label.split('\n')
+    svg.append(f'<rect x="{x}" y="{y}" width="{W}" height="{H}" rx="{28 if kind=="decision" else 6}" fill="{FILL[kind]}" stroke="{STROKE[kind]}" stroke-width="1.4"/>')
+    svg.append(f'<text x="{x+8}" y="{y+12}" font-size="9" fill="#6b6759" font-weight="600" letter-spacing=".06em">{esc(ROLE[role].upper())}</text>')
+    for i,t in enumerate(lines):
+        svg.append(f'<text x="{x+W/2}" y="{y+H/2+6+(i-(len(lines)-1)/2)*13}" text-anchor="middle" font-size="{11.5 if i==0 else 10.5}" font-weight="{600 if i==0 else 400}" fill="#1a1a13">{esc(t)}</text>')
+svg.append('</svg>'); svg_text='\n'.join(svg)
+open(out_svg,'w').write(svg_text)
+legend='<div class="legend"><span><i style="background:#fffbe6;border-color:#8a7a3a"></i> step in PLM</span><span><i style="background:#e7ebe0;border-color:#3c4a30;border-radius:10px"></i> decision</span><span><i style="background:#dbeafe;border-color:#1d4ed8"></i> on Enigma</span><span>reads left to right, then down and back</span></div>'
+page=f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RTW flowchart</title>
+<style>body{{margin:0;background:#fff;color:#1a1a13;font-family:Inter,system-ui,sans-serif;padding:24px}}h1{{font-size:22px;margin:0 0 4px}}p{{margin:0 0 14px;color:#6b6759;font-size:13.5px}}.legend{{display:flex;gap:16px;font-size:12px;color:#6b6759;margin-bottom:10px}}.legend i{{display:inline-block;width:14px;height:10px;border:1.4px solid;border-radius:3px;vertical-align:middle;margin-right:4px}}.wrap{{overflow:auto;border:1px solid #e3ddcd;border-radius:8px}}svg{{display:block}}</style></head>
+<body><h1>RTW in PLM · the flow, box by box</h1><p>The main line snakes left to right, then down and back. Boxes hanging below a step are what it triggers: on Enigma (blue) or the cut-ratio loop. Also as <a href="bsc-plm-rtw-flowchart.drawio" download>a draw.io file</a>, <a href="bsc-plm-rtw-flowchart.svg" download>SVG</a>, and <a href="bsc-plm-rtw-swimlane.html">the same flow as a swimlane</a>.</p>{legend}<div class="wrap">{svg_text.replace(f'width="{width}" height="{height}"', 'style="width:100%;height:auto;min-width:1100px"',1)}</div></body></html>'''
+open(out_html,'w').write(page)
+STY={'step':'rounded=0;whiteSpace=wrap;html=1;fillColor=#fffbe6;strokeColor=#8a7a3a;fontSize=11;','decision':'rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#e7ebe0;strokeColor=#3c4a30;fontSize=11;','system':'rounded=0;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;'}
+cells=['<mxCell id="0"/>','<mxCell id="1" parent="0"/>']
+for nid,(x,y) in pos.items():
+    _,role,label,kind=node[nid][:4]
+    v=f'&lt;span style=&quot;font-size:9px;color:#6b6759&quot;&gt;{esc(ROLE[role].upper())}&lt;/span&gt;&lt;br&gt;'+esc(label).replace('\n','&lt;br&gt;')
+    cells.append(f'<mxCell id="{nid}" value="{v}" style="{STY[kind]}" vertex="1" parent="1"><mxGeometry x="{x}" y="{y}" width="{W}" height="{H}" as="geometry"/></mxCell>')
+edges=[(SPINE[i][0],SPINE[i+1][0],'') for i in range(len(SPINE)-1)]+[(p,i,lab) for p,i,_,_,_,lab in SIDE]+[(a,b,l) for a,b,l in LOOPS if not (pos[a][1]==pos[b][1] and abs(pos[b][0]-pos[a][0])<=GX+1 and l in ('yes','no · all in','then'))]
+for i,(a,b,l) in enumerate(edges):
+    cells.append(f'<mxCell id="e{i}" value="{esc(l)}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;strokeColor=#555555;" edge="1" parent="1" source="{a}" target="{b}"><mxGeometry relative="1" as="geometry"/></mxCell>')
+xml=f'<mxfile host="app.diagrams.net"><diagram name="RTW flowchart" id="rtwflow">\n<mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="{width}" pageHeight="{height}" math="0" shadow="0"><root>\n'+'\n'.join(cells)+'\n</root></mxGraphModel></diagram></mxfile>'
+open(out_drawio,'w').write(xml)
+print('ok',width,height,len(pos),'boxes')
