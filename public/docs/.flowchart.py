@@ -27,7 +27,7 @@ SPINE = [
 # boxes hanging under a spine box: parent, id, role, label, kind, edge label
 SIDE = [
  ('r1','e0','enigma','or: Enigma auto-PO\ncore style below threshold','system','or'),
- ('d4','s1','sourcing','Shop cloth and trims\nin parallel with the PO','step','yes · in parallel'),
+ ('n1','s1','sourcing','Shop cloth and trims\nin parallel with the PO','step','in parallel'),
  ('s1','e1','enigma','Fabric PO to the mill\nDRAFT → Open','system',''),
  ('e1','s2','sourcing','Send cloth and trims\nto the factory','step',''),
  ('f2','e2','enigma','Factory PO on Enigma\n+ logistics, other costs · TNA','system',''),
@@ -37,12 +37,14 @@ SIDE = [
  ('d8','e5','enigma','Design rows + variants\ncreated in Enigma','system',''),
 ]
 # back-loops and joins: from, to, label
-LOOPS = [('d4','f1','no · remarks → update CAD and design · next round'),('d6','n1','send back'),('f6','f5','rework'),('d9','f4','then'),('t9','f3','count again'),('f3b','f4','yes'),('d4','n1','yes'),('f6','f7','yes'),('s2','f3','cloth and trims in')]
-COLS=6; W,H=186,58; GX=226; SUB=H+26; X0,Y0=56,70
+LOOPS = [('d4','f1','no · remarks → update CAD and design · next round'),('d6','n1','send back'),('f6','f5','rework'),('d9','f4','then'),('t9','f3','count again'),('f3b','f4','yes'),('f6','f7','yes'),('s2','f3','cloth and trims in')]
+COLS=8; W,H=186,58; GX=226; SUB=H+26; X0,Y0=56,70
+ROWS=[['r1','r2','r3','f1','d4'],['n1','d6','f2','d7','f3','f3b','f4'],['f5','f6','f7','e4','n4','cg','p3','d8']]
+WRAP_LABEL={'d4':'yes · bulk order, and sourcing in parallel','f4':'all received'}
 # three background bands behind the chart: conceptualization and pre-production, production, post-production
-BANDS = [('Conceptualization · Pre-production', '#eef3e8', '#a3b58f'), ('Production', '#fdf3df', '#d6b26a'), ('Post-production', '#e8eef8', '#8fa6cf')]
+BANDS = [('Conceptualization · design and sampling', '#f3efe2', '#c9b98a'), ('Production', '#fdf3df', '#d6b26a'), ('Post-production', '#e8eef8', '#8fa6cf'), ('Pre-production · bulk order, PO and sourcing', '#eef3e8', '#a3b58f')]
 NOTE = 'heaviest manual and tedious work'
-GROUP = {**{k: 0 for k in ['r1','e0','r2','r3','f1','d4','n1','s1','e1','s2','d6','f2','e2','d7','f3','t9','f3b','d9','f4']}, **{k: 1 for k in ['f5','n3','f6']}, **{k: 2 for k in ['f7','e4','n4','cg','p3','d8','e5']}}
+GROUP = {**{k: 0 for k in ['r1','e0','r2','r3','f1','d4']}, **{k: 3 for k in ['n1','s1','e1','s2','d6','f2','e2','d7','f3','t9','f3b','d9','f4']}, **{k: 1 for k in ['f5','n3','f6']}, **{k: 2 for k in ['f7','e4','n4','cg','p3','d8','e5']}}
 FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','outside':'#f4f3ef'}; STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8','outside':'#a9a391'}
 DASHED=' stroke-dasharray="5 4"'
 node={}
@@ -59,13 +61,14 @@ for p,i,*_ in SIDE:
     r=root(i); d=1; q=i
     while parent[q]!=r: q=parent[q]; d+=1
     sub_of[i]=(r,d); depth[r]=max(depth.get(r,0),d)
-rows=[SPINE[i:i+COLS] for i in range(0,len(SPINE),COLS)]
+spine_by_id={n[0]: n for n in SPINE}
+rows=[[spine_by_id[k] for k in r] for r in ROWS]
 row_h=[]; row_y=[]; y=Y0
 for row in rows:
     dmax=max([depth.get(n[0],0) for n in row]+[0]); row_y.append(y); rh=H+dmax*SUB+92; row_h.append(rh); y+=rh
 pos={}
 for ri,row in enumerate(rows):
-    rev=ri%2==1
+    rev=False
     for ci,n in enumerate(row):
         c=(COLS-1-ci) if rev else ci
         pos[n[0]]=(X0+c*GX, row_y[ri])
@@ -84,11 +87,11 @@ def line(d,label=None,lx=0,ly=0,dash=False):
 for gi,(gname,gfill,gline) in enumerate(BANDS):
     ids=[k for k,g in GROUP.items() if g==gi and k in pos]
     if not ids: continue
-    bx0=min(pos[k][0] for k in ids)-14; by0=min(pos[k][1] for k in ids)-40; bx1=max(pos[k][0] for k in ids)+W+14; by1=max(pos[k][1] for k in ids)+H+20
+    bx0=min(pos[k][0] for k in ids)-14; by0=min(pos[k][1] for k in ids)-58; bx1=max(pos[k][0] for k in ids)+W+14; by1=max(pos[k][1] for k in ids)+H+20
     svg.append(f'<rect x="{bx0}" y="{by0}" width="{bx1-bx0}" height="{by1-by0}" rx="14" fill="{gfill}" stroke="{gline}" stroke-width="1.2"/>')
-    svg.append(f'<text x="{bx0+14}" y="{by0+22}" font-size="13" font-weight="700" fill="#3c4a30" letter-spacing=".02em">{esc(gname.upper())}</text>')
+    svg.append(f'<text x="{bx0+14}" y="{by0+20}" font-size="13" font-weight="700" fill="#3c4a30" letter-spacing=".02em">{esc(gname.upper())}</text>')
     if gi==1:
-        tw=len(NOTE)*6.6+22; px=bx1-tw-14; py=by1-36
+        qx,qy=pos['f6']; tw=len(NOTE)*6.6+22; px=qx+W/2-tw/2; py=qy+H+18; px=min(px, bx1-tw-10)
         svg.append(f'<rect x="{px}" y="{py}" width="{tw}" height="22" rx="11" fill="#fde2e2" stroke="#e5a3a3"/><text x="{px+tw/2}" y="{py+15}" text-anchor="middle" font-size="11.5" font-weight="600" fill="#9b2c2c">⚠ {NOTE}</text>')
 # spine arrows (snake)
 for i in range(len(SPINE)-1):
@@ -97,7 +100,9 @@ for i in range(len(SPINE)-1):
         if bx>ax: line(f'M{ax+W} {ay+H/2}L{bx} {by+H/2}')
         else: line(f'M{ax} {ay+H/2}L{bx+W} {by+H/2}')
     else:
-        line(f'M{ax+W/2} {ay+H}L{ax+W/2} {by}')
+        # the row ends: drop below this row's band, run back to the next row's first box, and down into it
+        gy=by-65
+        line(f'M{ax+W/2} {ay+H}L{ax+W/2} {gy}L{bx+W/2} {gy}L{bx+W/2} {by}', WRAP_LABEL.get(a), (ax+bx+W)/2, gy-6)
 # side chains: vertical from parent to child
 for p,i,r,l,k,lab in SIDE:
     (px,py),(cx,cy)=pos[p],pos[i]
