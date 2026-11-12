@@ -190,7 +190,7 @@ export interface AppState {
   conceptSetEnigmaFlags(id: string, f: { largeCheck: boolean; compositionFamily: string | null }): void;
   conceptSwatch(id: string, step: 'inward' | 'handover' | 'cut' | 'sticker' | 'dispatched' | 'photos' | 'storesTold'): void;
   conceptSwatchPriority(id: string, priority: boolean): void;
-  dispatchSwatch(fabricId: string, storeIds: string[], trackingNo: string | null): void;   // the warehouse sends the swatch to one store, or many, with the courier's number
+  dispatchSwatch(fabricId: string, storeIds: string[], trackingNo: string | null, qty?: Record<string, number>): void;   // the warehouse sends the swatch to one store, or many, with the courier's number
   conceptOnline(id: string, step: 'photos' | 'video' | 'post' | 'live'): void;
   setSourcingMode(orderId: string, mode: SourcingMode, supplierVendorId?: string | null, note?: string): void;
   markFobEmailed(orderId: string): void;
@@ -1091,10 +1091,12 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         if (step === 'dispatched' && c.fabricId && !db.swatchDispatches.some(x => x.fabricId === c.fabricId)) STORES.forEach(st => db.swatchDispatches.push({ id:`sw-${Date.now().toString(36)}-${st.id}`, fabricId: c.fabricId!, storeId: st.id, dispatchedOn: now(), confirmedOn: null })); },
         ({ inward:'Bulk inwarded at the warehouse.', handover:'Handed to the swatch team.', cut:'Swatches cut — 25 × 25, ready for dispatch.', sticker:'Sticker page printed — the tracker\u2019s empty column, filled.', dispatched:'Swatches with shipping — one dispatch row per store.', photos:'Photos shared — design can see they have gone.', storesTold:'Stores told to display it.' } as const)[step]);
     },
-    dispatchSwatch(fabricId, storeIds, trackingNo) {
-      touch(db => storeIds.forEach(sid => { const d = db.swatchDispatches.find(x => x.fabricId === fabricId && x.storeId === sid);
-        if (d) { if (trackingNo) d.trackingNo = trackingNo; return; }
-        db.swatchDispatches.push({ id:`sw-${Date.now().toString(36)}-${sid}`, fabricId, storeId: sid, dispatchedOn: now(), confirmedOn: null, trackingNo: trackingNo || null, dispatchedBy: who() }); }),
+    dispatchSwatch(fabricId, storeIds, trackingNo, qty) {
+      touch(db => { storeIds.forEach(sid => { const d = db.swatchDispatches.find(x => x.fabricId === fabricId && x.storeId === sid);
+        if (d) { if (trackingNo) d.trackingNo = trackingNo; if (qty?.[sid]) d.qty = qty[sid]; return; }
+        db.swatchDispatches.push({ id:`sw-${Date.now().toString(36)}-${sid}`, fabricId, storeId: sid, dispatchedOn: now(), confirmedOn: null, trackingNo: trackingNo || null, dispatchedBy: who(), qty: qty?.[sid] ?? 1 }); });
+        /* every store dispatched: the desk's Dispatched step ticks itself */
+        const c = db.concepts.find(x => x.fabricId === fabricId); if (c && c.swatch && !c.swatch.dispatchedOn && STORES.every(st => db.swatchDispatches.some(x => x.fabricId === fabricId && x.storeId === st.id))) { c.swatch.dispatchedOn = now(); c.swatch.by = { ...(c.swatch.by ?? {}), dispatched: who() }; } },
         `Dispatched to ${storeIds.length} store${storeIds.length === 1 ? '' : 's'}: each store marks it received in RetailOS.`);
     },
     conceptSwatchPriority(id, priority) {

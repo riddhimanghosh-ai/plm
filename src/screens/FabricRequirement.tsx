@@ -223,8 +223,11 @@ function DetailsSection({ c, design, onSave }: { c: Concept; design: boolean; on
 /** Sent to stores: one line per store, as the STO Swatches Tracker has it: tracking no., dispatch date, receiving date.
     The warehouse dispatches (one store or all at once, with the courier's number); the store manager marks it received
     in RetailOS, and design reads here which stores have it. */
-function StoresSection({ c, rows, wh }: { c: Concept; rows: { st: { id: string; name: string; region: string }; d: SwatchDispatch | null }[]; wh: boolean }) {
+export function StoresSection({ c, rows, wh, title }: { c: Concept; rows: { st: { id: string; name: string; region: string }; d: SwatchDispatch | null }[]; wh: boolean; title?: string }) {
   const { db, dispatchSwatch } = useApp();
+  const [qty, setQty] = useState<Record<string, string>>({});
+  const qtyOf = (sid: string) => Math.max(1, Number(qty[sid] ?? '1') || 1);
+  const totalToSend = rows.filter(x => !x.d).reduce((a, x) => a + qtyOf(x.st.id), 0); const totalSent = rows.reduce((a, x) => a + (x.d?.qty ?? (x.d ? 1 : 0)), 0);
   const s = conceptOf(db, c);
   const [show, setShow] = useState<'all' | 'todo' | 'transit' | 'in'>('all');
   const [track, setTrack] = useState<Record<string, string>>({});
@@ -232,19 +235,20 @@ function StoresSection({ c, rows, wh }: { c: Concept; rows: { st: { id: string; 
   const n = { todo: rows.filter(x => !x.d).length, transit: rows.filter(x => x.d && !x.d.confirmedOn).length, in: rows.filter(x => x.d?.confirmedOn).length };
   const shown = rows.filter(x => show === 'all' ? true : show === 'todo' ? !x.d : show === 'transit' ? x.d && !x.d.confirmedOn : !!x.d?.confirmedOn);
   const ready = !!s.fabric && !!c.swatch?.handoverOn;
-  return <Section title="Sent to stores" collapsible={false} right={<Pill tone={n.in === rows.length ? 'good' : n.transit ? 'info' : 'neutral'}>{n.in} of {rows.length} received</Pill>}>
+  return <Section title={title ?? 'Sent to stores'} collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone="neutral">{totalSent} swatch{totalSent === 1 ? '' : 'es'} out{totalToSend ? ` · ${totalToSend} to send` : ''}</Pill><Pill tone={n.in === rows.length ? 'good' : n.transit ? 'info' : 'neutral'}>{n.in} of {rows.length} received</Pill></span>}>
     {!ready ? <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>Opens once the swatches are with Yusuf.</div> : <>
       <div className="flex gap-2 items-center flex-wrap mb-2">
         <Seg value={show} onChange={v => setShow(v as typeof show)} options={[{ id:'all', label:'All stores', count: rows.length }, { id:'todo', label:'Not dispatched', count: n.todo }, { id:'transit', label:'Dispatched · not received', count: n.transit }, { id:'in', label:'Received', count: n.in }]} />
         {wh && n.todo > 0 && <span className="ml-auto flex gap-1.5 items-center"><Input value={bulk} onChange={e => setBulk(e.target.value)} placeholder="tracking no. (optional)" style={{ width: 170 }} />
-          <Button size="sm" variant="primary" onClick={() => { dispatchSwatch(s.fabric!.id, rows.filter(x => !x.d).map(x => x.st.id), bulk.trim() || null); setBulk(''); }}>Dispatch to the {n.todo} left</Button></span>}
+          <Button size="sm" variant="primary" onClick={() => { dispatchSwatch(s.fabric!.id, rows.filter(x => !x.d).map(x => x.st.id), bulk.trim() || null, Object.fromEntries(rows.filter(x => !x.d).map(x => [x.st.id, qtyOf(x.st.id)]))); setBulk(''); }}>Dispatch {totalToSend} to the {n.todo} left</Button></span>}
       </div>
       <div className="tbox" style={{ maxHeight: 380 }}><table className="t compact">
-        <thead><tr><th>Store</th><th>Tracking no.</th><th>Dispatch date</th><th>Receiving date</th></tr></thead>
+        <thead><tr><th>Store</th><th className="num">Swatches</th><th>Tracking no.</th><th>Dispatch date</th><th>Receiving date</th></tr></thead>
         <tbody>{shown.map(({ st, d }) => <tr key={st.id}>
           <td className="text-[12.5px]">{st.name}<span className="text-[11px]" style={{ color:'var(--ink-faint)' }}> · {st.region}</span></td>
+          <td className="num text-[12px]">{d ? (d.qty ?? 1) : wh ? <Input type="number" min={1} value={qty[st.id] ?? '1'} onChange={e => setQty(q => ({ ...q, [st.id]: e.target.value }))} style={{ width: 56 }} aria-label={`swatches for ${st.name}`} /> : 1}</td>
           <td className="mono text-[12px]">{d?.trackingNo ? d.trackingNo : wh ? <Input value={track[st.id] ?? ''} onChange={e => setTrack(t => ({ ...t, [st.id]: e.target.value }))} placeholder="courier no." style={{ width: 140 }} /> : '—'}</td>
-          <td className="text-[12px]">{d ? fmtDate(d.dispatchedOn) : wh ? <Button size="sm" onClick={() => { dispatchSwatch(s.fabric!.id, [st.id], (track[st.id] ?? '').trim() || null); }}>Dispatch</Button> : <span style={{ color:'var(--ink-faint)' }}>not yet</span>}
+          <td className="text-[12px]">{d ? fmtDate(d.dispatchedOn) : wh ? <Button size="sm" onClick={() => { dispatchSwatch(s.fabric!.id, [st.id], (track[st.id] ?? '').trim() || null, { [st.id]: qtyOf(st.id) }); }}>Dispatch</Button> : <span style={{ color:'var(--ink-faint)' }}>not yet</span>}
             {d && !d.trackingNo && wh && (track[st.id] ?? '').trim() && <button type="button" className="vlink text-[11px] ml-2" onClick={() => dispatchSwatch(s.fabric!.id, [st.id], track[st.id].trim())}>save no.</button>}</td>
           <td className="text-[12px]">{d?.confirmedOn ? <span style={{ color:'var(--good)' }}>{fmtDate(d.confirmedOn)}{d.confirmedBy ? ` · ${d.confirmedBy}` : ''}</span> : d ? <span style={{ color: daysAgo(d.dispatchedOn) > 5 ? 'var(--risk)' : 'var(--ink-faint)' }}>awaiting the store{daysAgo(d.dispatchedOn) > 5 ? ` · ${daysAgo(d.dispatchedOn)}d` : ''}</span> : '—'}</td>
         </tr>)}</tbody></table></div>

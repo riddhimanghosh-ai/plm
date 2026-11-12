@@ -488,6 +488,7 @@ export interface SwatchDispatch {
   /* the STO Swatches Tracker's three columns per store: tracking no., dispatch date, receiving date (the store manager
      marks it received in RetailOS) */
   trackingNo?: string | null; dispatchedBy?: string | null; confirmedBy?: string | null;
+  qty?: number;                  // swatches in the parcel, one per store unless the desk says otherwise
 }
 
 /* One STO to one store. The tracker logs a wave as a series ("1931-1965") — one

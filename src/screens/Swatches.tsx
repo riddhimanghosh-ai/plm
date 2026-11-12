@@ -6,7 +6,8 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../store';
 import type { Concept, Launch, LaunchDeskStep } from '../domain/types';
 import { fmtDate, daysAgo, conceptOf } from '../domain/engines';
-import { Page, Card, Pill, Seg, Th, Button, Section, Input, useExamples } from '../ui';
+import { Page, Card, Pill, Seg, Th, Button, Section, Input, Drawer, useExamples } from '../ui';
+import { StoresSection } from './FabricRequirement';
 import { STORES } from '../domain/reference';
 import { MTM_ONLY } from '../domain/edition';
 
@@ -62,6 +63,7 @@ export function Swatches() {
   const wh = role === 'warehouse' || role === 'production' || role === 'owner';
   const design = role === 'design' || role === 'owner';
   const [show, setShow] = useState<'open' | 'all'>('open');
+  const [storesFor, setStoresFor] = useState<string | null>(null);   // the fabric whose per-store dispatch is open
   const all = useMemo(() => (db.concepts ?? []).filter(c => c.kind === 'new-fabric' && (c.fabricPo || c.swatch)), [db]);
   const rows = all.map(c => ({ c, next: nextStep(c), s: conceptOf(db, c) }))
     .filter(x => show === 'all' || !!x.next)
@@ -88,11 +90,21 @@ export function Swatches() {
             <td onClick={e => e.stopPropagation()}>{next ? <Tick done={pri} can={wh} title={pri ? 'Priority-1, click to clear' : 'mark Priority-1'} onTick={() => conceptSwatchPriority(c.id, true)} /> : null}
               {pri && wh && <button type="button" className="vlink text-[11px] ml-1" onClick={e => { e.stopPropagation(); conceptSwatchPriority(c.id, false); }}>clear</button>}</td>
             {SWATCH_STEPS.map(st => { const d = dateOf(c, st.key); const can = next === st.key && (st.owner === 'design' ? design : wh);
+              if (st.key === 'dispatched') { const sent = c.fabricId ? db.swatchDispatches.filter(x => x.fabricId === c.fabricId) : []; const got = sent.filter(x => x.confirmedOn).length;
+                /* dispatch is per store: the cell says how far it is and opens the store table, the sheet's tracking no. · dispatch date · receiving date */
+                return <td key={st.key} onClick={e => e.stopPropagation()} style={{ whiteSpace:'nowrap' }}>
+                  <span className="flex items-center gap-1.5"><Tick done={!!d} can={false} onTick={() => undefined} />
+                    <button type="button" className="vlink text-[11.5px]" onClick={() => setStoresFor(c.id)} disabled={!c.fabricId}>{sent.length ? `${sent.length} of ${STORES.length} stores · ${got} received` : c.swatch?.cutOn ? 'send to stores →' : 'stores'}</button></span></td>; }
               return <td key={st.key} onClick={e => e.stopPropagation()} style={{ whiteSpace:'nowrap' }}>
                 <span className="flex items-center gap-1.5"><Tick done={!!d} can={can} onTick={() => conceptSwatch(c.id, st.key)} />{d && <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>{fmtDate(d)}</span>}</span></td>; })}
           </tr>; })}</tbody>
       </table></div></Card>}
       {!MTM_ONLY && <RtwLaunchDesk show={show} />}
+      {(() => { const c = storesFor ? all.find(x => x.id === storesFor) : null; if (!c) return null; const s = conceptOf(db, c);
+        const rows = STORES.map(st => ({ st, d: s.fabric ? db.swatchDispatches.find(x => x.fabricId === s.fabric!.id && x.storeId === st.id) ?? null : null }));
+        return <Drawer open onClose={() => setStoresFor(null)} title={`Swatches to stores · ${designName(c)}`} subtitle={s.fabric ? <span className="mono">{s.fabric.code}</span> : null}>
+          <StoresSection c={c} rows={rows} wh={wh} title="Which store gets how many, with the courier number and the two dates" />
+        </Drawer>; })()}
     </Page>
   );
 }
