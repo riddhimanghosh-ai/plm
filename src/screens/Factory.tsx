@@ -85,13 +85,16 @@ export function Factory() {
           <div className="pt-2 text-[12.5px]"><button className="vlink" onClick={() => set('tab', tab === 'rtw-done' ? 'po' : 'rtw-done')}>{tab === 'rtw-done' ? `← back to the ${rtw.length} open PO${rtw.length === 1 ? '' : 's'}` : `Delivered POs · ${rtwDone.length} →`}</button></div>
         </>}
         {rtwTab === 'in' && <IncomingTab rows={rtw} onOpen={id => set('open', id)} />}
-        {rtwTab === 'tna' && (rtw.length === 0 ? <Card><Empty title="No PO on this floor." body="" /></Card> : rtw.map(o => <Card key={o.id} className="mb-3"><PoStrip o={o} onOpen={() => set('open', o.id)} /><div className="px-4 pb-3"><MilestoneGrid o={o} editable={mine} bare /></div></Card>))}
+        {rtwTab === 'tna' && <TnaTab rows={rtw} mine={mine} onOpen={id => set('open', id)} />}
       </>}
 
       <Drawer open={!!openOrder} onClose={() => set('open', null)} title={openOrder?.orderNo ?? ''} subtitle={openOrder && <><Pill tone={STAGE_TONE[openOrder.stage] ?? 'neutral'}>{stageLabel(openOrder.stage)}</Pill><span>{openOrder.customer} · {store(openOrder.storeId)}</span></>}>
         {openOrder && <OrderPanel o={openOrder} mine={mine} />}
       </Drawer>
-      <Drawer open={!!openRtw} onClose={() => set('open', null)} title={openRtw?.poNo ?? ''} subtitle={openRtw && <>{openRtw.styleName} · {openRtw.orderQty} pcs · in-house by {fmtDate(openRtw.targetInhouse)}</>}>
+      <Drawer open={!!openRtw} onClose={() => set('open', null)} title={openRtw?.poNo ?? ''} subtitle={openRtw && (() => { const cr = fabricStateOf(openRtw).cr; const k = cr?.kind === 'cut-short' ? 'cut-short' : 'cut ratio';
+        return <>{openRtw.styleName} · {openRtw.orderQty} pcs · in-house by {fmtDate(openRtw.targetInhouse)}
+          {cr?.given && <span className="ml-2"><Pill tone={cr.sentToFactoryOn ? 'good' : 'warn'}>{cr.sentToFactoryOn ? `${k} changed · cut ${cr.given.breakup.reduce((a, x) => a + x.qty, 0)} pcs` : `new ${k} given · coming`}</Pill></span>}
+          {cr && !cr.given && <span className="ml-2"><Pill tone="risk">{k} with design</Pill></span>}</>; })()}>
         {openRtw && <RtwRequirement key={openRtw.id} o={openRtw} initial={rtwTab === 'in' ? 'cloth' : rtwTab === 'tna' ? 'tna' : undefined /* POs for us: open at the step the order is on */} />}
       </Drawer>
     </Page>
@@ -383,12 +386,8 @@ function RtwTab({ rows, onOpen, done }: { rows: ProductionOrder[]; onOpen: (id: 
 function IncomingTab({ rows, onOpen }: { rows: ProductionOrder[]; onOpen: (id: string) => void }) {
   const { db } = useApp();
   const faint = { color:'var(--ink-faint)' } as const;
-  if (rows.length === 0) return <Card><Empty title="Nothing coming to this floor." body="Cloth and trims show up here against their PO the moment sourcing sends them." /></Card>;
-  return <Card>
-    <div className="px-4 pt-3 pb-1 text-[12.5px]" style={{ color:'var(--ink-soft)' }}>Each line is one PO. Cloth and trims are listed against the PO they are for; open the row to count them in.</div>
-    <table className="t">
-      <thead><tr><th>PO</th><th>Style</th><th className="num">Pcs</th><th>Cloth for this PO</th><th>Trims for this PO</th><th>Status</th><th>Next</th></tr></thead>
-      <tbody>{rows.map(o => {
+  const [filter, setFilter] = useState<'all' | 'us' | 'ratio'>('all'); const [q, setQ] = useState('');
+  const computed = rows.filter(o => !q.trim() || q.toLowerCase().split(/\s+/).every(w => `${o.styleName} ${o.poNo ?? ''} ${o.category}`.toLowerCase().includes(w))).map(o => {
         const fab = fabricStateOf(o); const fs = o.fabricSupply; const cloth = o.bom.find(l => l.kind === 'fabric');
         const mill = o.fabricNominated ? (db.vendors.find(v => v.id === o.fabricVendorId)?.name ?? 'the mill') : null;
         const trims = (o.materials ?? []).map(m => ({ m, line: o.bom[m.bomIndex] })).filter(x => x.line && x.line.kind !== 'fabric');
@@ -410,6 +409,25 @@ function IncomingTab({ rows, onOpen }: { rows: ProductionOrder[]; onOpen: (id: s
           : (fab.short > 0 || trimsShort > 0) ? { who:'us', what:'tell design it is short' }
           : !fs?.sentToFactoryOn ? { who:'sourcing', what: fab.key === 'with-design' || fab.key === 'add-vendor' || fab.key === 'drafting' ? 'cloth not bought yet' : 'sourcing to send the cloth' }
           : null;
+        return { o, fab, fs, cloth, mill, trims, trimsIn, trimsShort, clothLine, clothTone, status, next };
+      });
+  const isUs = (r: typeof computed[number]) => r.next?.who === 'us';
+  const isRatio = (r: typeof computed[number]) => !!r.fab.cr?.given;   // design has given a new cut ratio or approved a cut-short
+  const shown = computed.filter(r => filter === 'all' || (filter === 'us' ? isUs(r) : isRatio(r)));
+  if (rows.length === 0) return <Card><Empty title="Nothing coming to this floor." body="Cloth and trims show up here against their PO the moment sourcing sends them." /></Card>;
+  return <Card>
+    <div className="px-4 pt-3 pb-2 flex items-center gap-3 flex-wrap">
+      <Seg value={filter} onChange={v => setFilter(v as typeof filter)} options={[
+        { id:'all', label:'Everything', count: computed.length },
+        { id:'us', label:'Waiting on us', count: computed.filter(isUs).length },
+        { id:'ratio', label:'New cut ratio given', count: computed.filter(isRatio).length, hint:'design changed the sizes or approved a cut-short: cut to the new sizes, nothing to count again' },
+      ]} />
+      <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style or PO number" style={{ width: 220 }} aria-label="search POs" />
+      <span className="text-[12.5px]" style={{ color:'var(--ink-soft)' }}>Each line is one PO. Cloth and trims are listed against the PO they are for; open the row to count them in.</span>
+    </div>
+    <table className="t">
+      <thead><tr><th>PO</th><th>Style</th><th className="num">Pcs</th><th>Cloth for this PO</th><th>Trims for this PO</th><th>Status</th><th>Next</th></tr></thead>
+      <tbody>{shown.map(({ o, fab, fs, cloth, mill, trims, trimsIn, trimsShort, clothLine, clothTone, status, next }) => {
         return <tr key={o.id} className="row" onClick={() => onOpen(o.id)}>
           <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo}</td>
           <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={faint}>{o.category} · due {fmtDate(o.targetInhouse)}</div></td>
@@ -420,17 +438,62 @@ function IncomingTab({ rows, onOpen }: { rows: ProductionOrder[]; onOpen: (id: s
           <td className="text-[12.5px]">{next ? <><span style={{ fontWeight: next.who === 'us' ? 600 : 400 }}>{next.what}</span>{next.who === 'us' && <span className="pill role-production ml-1">us</span>}</> : <span style={faint}>nothing to do</span>}</td>
         </tr>; })}</tbody>
     </table>
+    {shown.length === 0 && <div className="px-4 py-3 text-[12.5px]" style={{ color:'var(--ink-faint)' }}>Nothing under this filter.</div>}
   </Card>;
 }
 
 /* the PO in one strip, above a panel on the Fabric in and TNA tabs */
-function PoStrip({ o, onOpen }: { o: ProductionOrder; onOpen: () => void }) {
+/* the TNA stage word for a PO: the first word of the next milestone (PPS · Cutting · Stitching · Finishing · FI · Dispatch · Inhouse), or Done */
+function tnaStageOf(o: ProductionOrder) {
+  const next = o.milestones.find(m => !m.actual);
+  return next ? next.key.split(' ')[0] : 'Done';
+}
+function PoStrip({ o, onOpen, open, onToggle }: { o: ProductionOrder; onOpen: () => void; open?: boolean; onToggle?: () => void }) {
   const r = riskOf(o); const fab = fabricStateOf(o); const asks = (o.cutRatios ?? []);
-  return <div className="px-4 py-3 flex gap-4 flex-wrap items-baseline" style={{ borderBottom:'1px solid var(--line-soft)' }}>
-    <button className="mono font-medium text-[13px] vlink" onClick={onOpen}>{o.poNo}</button>
+  const live = o.milestones; const done = live.filter(m => m.actual).length; const next = live.find(m => !m.actual);
+  const lastDone = [...live].reverse().find(m => m.actual);
+  const kindOf = (k?: string) => k === 'cut-short' ? 'cut-short' : 'cut ratio';
+  return <div className="px-4 py-3 flex gap-4 flex-wrap items-baseline" style={{ borderBottom: open === false ? 'none' : '1px solid var(--line-soft)', cursor: onToggle ? 'pointer' : undefined }} onClick={onToggle}>
+    {onToggle && <span className="text-[11px]" style={{ color:'var(--ink-faint)', width: 10 }} aria-hidden>{open ? '▾' : '▸'}</span>}
+    <button className="mono font-medium text-[13px] vlink" onClick={e => { e.stopPropagation(); onOpen(); }}>{o.poNo}</button>
     <span className="font-medium">{o.styleName}</span>
     <span className="text-[12.5px]" style={{ color:'var(--ink-soft)' }}>{o.orderQty} pcs · due {fmtDate(o.targetInhouse)}{r.bufferDays != null && <span style={{ color: r.bufferDays < 0 ? 'var(--risk)' : undefined }}> · {r.bufferDays < 0 ? `${-r.bufferDays} days late` : `${r.bufferDays} days to spare`}</span>}</span>
-    <span className="ml-auto flex gap-2 items-center"><Pill tone={fab.tone}>{fab.label}</Pill>{asks.length > 0 && <Pill tone={asks.some(c => !c.given) ? 'warn' : 'info'}>{asks.length} cut-short ask{asks.length > 1 ? 's' : ''}{asks.some(c => !c.given) ? ' · with design' : ''}</Pill>}</span>
+    {/* where it is on the TNA: steps done, the last one logged, the next one due */}
+    <span className="text-[12.5px]" style={{ color:'var(--ink)' }}><span className="mono" style={{ color:'var(--ink-faint)' }}>{done}/{live.length}</span> {lastDone ? `${lastDone.key} done` : 'not started'}{next ? <span style={{ color: r.bufferDays != null && r.bufferDays < 0 ? 'var(--risk)' : 'var(--ink-soft)' }}> · next {next.key} by {fmtDate(next.revised ?? next.plan)}</span> : <span style={{ color:'var(--good)' }}> · all logged</span>}</span>
+    <span className="ml-auto flex gap-2 items-center"><Pill tone={fab.tone}>{fab.label}</Pill>{asks.length > 0 && <Pill tone={asks.some(c => !c.given) ? 'warn' : 'info'}>{asks.length} {kindOf(asks[asks.length - 1].kind)} ask{asks.length > 1 ? 's' : ''}{asks.some(c => !c.given) ? ' · with design' : ''}</Pill>}</span>
   </div>;
 }
 
+
+/* The TNA tab: one flow per PO, with a search on style or PO number and a filter for the POs that need a date logged or carry a new cut ratio */
+function TnaTab({ rows, mine, onOpen }: { rows: ProductionOrder[]; mine: boolean; onOpen: (id: string) => void }) {
+  const { db } = useApp();
+  const [q, setQ] = useState(''); const [filter, setFilter] = useState<'all' | 'us' | 'late' | 'ratio'>('all'); const [stage, setStage] = useState('all');
+  /* the first PO open, the rest folded; click a header to open it */
+  const [openIds, setOpenIds] = useState<Set<string>>(() => new Set(rows[0] ? [rows[0].id] : []));
+  const toggle = (id: string) => setOpenIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const STAGES = ['PPS', 'Cutting', 'Stitching', 'Finishing', 'FI', 'Dispatch', 'Inhouse', 'Done'];
+  const stages = STAGES.filter(st => rows.some(o => tnaStageOf(o) === st));
+  const match = (o: ProductionOrder) => !q.trim() || q.toLowerCase().split(/\s+/).every(w => `${o.styleName} ${o.poNo ?? ''} ${o.category}`.toLowerCase().includes(w));
+  const isUs = (o: ProductionOrder) => rtwRowOf(db, o).next?.act === 'merchandiser';
+  const isLate = (o: ProductionOrder) => rtwRowOf(db, o).late;
+  const isRatio = (o: ProductionOrder) => !!fabricStateOf(o).cr?.given;
+  const shown = rows.filter(match).filter(o => filter === 'all' || (filter === 'us' ? isUs(o) : filter === 'late' ? isLate(o) : isRatio(o))).filter(o => stage === 'all' || tnaStageOf(o) === stage);
+  if (rows.length === 0) return <Card><Empty title="No PO on this floor." body="" /></Card>;
+  return <>
+    <div className="flex items-center gap-3 flex-wrap mb-3">
+      <Seg value={filter} onChange={v => setFilter(v as typeof filter)} options={[
+        { id:'all', label:'Everything', count: rows.length },
+        { id:'us', label:'Waiting on us', count: rows.filter(isUs).length },
+        { id:'late', label:'Running late', count: rows.filter(isLate).length },
+        { id:'ratio', label:'New cut ratio given', count: rows.filter(isRatio).length },
+      ]} />
+      <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style or PO number" style={{ width: 220 }} aria-label="search POs" />
+    </div>
+    <div className="flex items-center gap-3 flex-wrap mb-3">
+      <Seg value={stage} onChange={setStage} label="Stage" options={[{ id:'all', label:'Every stage' }, ...stages.map(st => ({ id: st, label: st === 'Inhouse' ? 'In-house ETA' : st === 'FI' ? 'Final inspection' : st, count: rows.filter(o => tnaStageOf(o) === st).length }))]} />
+    </div>
+    {shown.length === 0 ? <Card><Empty title="Nothing under this filter." body="" /></Card>
+      : shown.map(o => { const isOpen = openIds.has(o.id); return <Card key={o.id} className="mb-3"><PoStrip o={o} onOpen={() => onOpen(o.id)} open={isOpen} onToggle={() => toggle(o.id)} />{isOpen && <div className="px-4 pb-3"><MilestoneGrid o={o} editable={mine} bare /></div>}</Card>; })}
+  </>;
+}
