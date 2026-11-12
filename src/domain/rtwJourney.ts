@@ -22,8 +22,8 @@ export const RTW_INTRO: Record<string, string> = {
   cloth: 'Sourcing shops the cloth and trims from the day the sample is approved, beside the bulk order; design uploads the tech pack; the factory counts everything in and approves it. Short cloth comes back to design, whose new cut ratio the factory sees at once.',
   tna: 'Every milestone from fabric PO to finishing. The factory logs its own dates; late steps show in red.',
   qc: 'Final inspection at the factory: pass, rework or reject.',
-  ship: 'AWB generated, courier picked up, shipped, delivered (the GRN on Enigma by size, lot by lot), then closed.',
-  cogs: 'Manufacturing cost from the PO, shipping and other costs from the chain, COGS per piece against the MRP. Nitin and design see it.',
+  ship: 'The factory logs dispatch on the TNA. AWB, courier and logistics stay outside PLM; Shravani does the GRN on Enigma and it lands here by size, lot by lot.',
+  cogs: 'COGS per piece from the costing sheet with the actuals laid over it: fabric at the consumption cutting used, the factory\'s PO price, the sheet\'s trims, transport, freight and overheads, and the PO\'s own logistics and other costs. Against MRP net of discounts and GST. Nitin and design see it.',
   launch: 'Planning puts the style in a drop; design mints the design codes; stickers, display and fit pieces, go-live.',
 };
 
@@ -49,9 +49,9 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
     : lastRound?.outcome === 'remarks' && !lastRound.cadUpdatedOn ? 'design to update the CAD and the design'
     : sc?.approvedOn ? 'approved' : curStage ? `design to send the ${STAGE_LBL[curStage]}` : 'approved';
   const sampleAct: RtwActor = openRound && !openRound.sampledOn ? 'merchandiser' : 'design';
-  const sh = o.shipping; const shipOn = sh?.closedOn ?? (rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : null) ?? (o.status === 'Closed' ? (ms('Inhouse ETA')?.actual ?? dispatched) : null);
-  const shipNow = !sh?.awbOn ? 'factory to generate the AWB' : !sh.pickedOn ? 'courier to pick up' : !sh.shippedOn ? 'factory to ship' : !sh.deliveredOn ? 'GRN on Enigma to come' : !sh.closedOn ? 'Nitin to close it' : 'closed';
-  const shipAct: RtwActor = !sh?.shippedOn ? 'merchandiser' : !sh.deliveredOn ? 'warehouse' : 'production';
+  const shipOn = (rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : null) ?? (o.status === 'Closed' ? (ms('Inhouse ETA')?.actual ?? dispatched) : null);
+  const shipNow = rc.partial ? `${rc.received} of ${rc.base} in` : dispatched ? 'GRN on Enigma to come' : 'after QC and dispatch';
+  const shipAct: RtwActor = 'warehouse';
   const qcLast = (o.qc ?? [])[o.qc?.length ? o.qc.length - 1 : 0]; const qcOn = (o.qc ?? []).find(q => q.result === 'pass')?.inspectedOn ?? fiDone ?? null;
   const cogsOn = o.cogsClosedOn ?? (shipOn && o.status === 'Closed' ? shipOn : null);
   const sourceWho = SOURCE_LABEL[o.source ?? 'design'];
@@ -73,7 +73,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
       now: !o.poNo ? 'after the PO' : nextMs ? `factory to log ${nextMs.key.length <= 3 ? nextMs.key : nextMs.key.toLowerCase()}${late}` : st.stage },
     { key: 'qc', phase: 'make', label: 'QC', who: 'Factory', act: 'merchandiser', on: qcOn, by: qcOn ? 'passed' : null,
       now: !o.poNo ? 'after the PO' : qcLast?.result === 'rework' ? 'factory to rework and inspect again' : qcLast?.result === 'reject' ? 'rejected · Nitin to decide' : 'factory to inspect' },
-    { key: 'ship', phase: 'land', label: 'Shipped · delivered · closed', who: 'Factory · Enigma · Nitin', act: shipAct, on: shipOn, by: shipOn ? (sh?.awbNo ? `AWB ${sh.awbNo}` : rc.lots.length ? `${rc.received} pcs` : 'closed') : null,
+    { key: 'ship', phase: 'land', label: 'Delivered · GRN', who: 'Shravani · Enigma', act: shipAct, on: shipOn, by: shipOn ? (rc.lots.length ? `${rc.received} pcs` : 'closed') : null,
       now: !o.poNo ? 'after the PO' : shipNow },
     { key: 'cogs', phase: 'land', label: 'COGS · profitability', who: 'Nitin · Design', act: 'production', on: cogsOn, by: cogsOn ? 'closed' : null,
       now: !shipOn ? 'after delivery' : 'Nitin to close COGS' },
@@ -105,8 +105,8 @@ export const RTW_STATUSES = [
   { key: 'factory-po', label: 'PO raised', hint: 'tech pack, cloth and trims on their way to the factory' },
   { key: 'cloth', label: 'In production', hint: 'everything received; the TNA is running' },
   { key: 'qc', label: 'QC', hint: 'final inspection' },
-  { key: 'shipping', label: 'Shipping', hint: 'AWB, courier, on the road' },
-  { key: 'received', label: 'Delivered · closed', hint: 'GRN on Enigma, closed, COGS' },
+  { key: 'shipping', label: 'Dispatched', hint: 'on its way; the GRN on Enigma is to come' },
+  { key: 'received', label: 'Delivered', hint: 'GRN on Enigma; COGS' },
   { key: 'launched', label: 'Launched', hint: 'in a drop' },
 ] as const;
 export type RtwStatusKey = typeof RTW_STATUSES[number]['key'];

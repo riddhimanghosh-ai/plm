@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { useApp } from '../store';
 import type { ProductionOrder, SampleStage } from '../domain/types';
-import { fmtDate, daysAgo, receiptOf, fmtMoney } from '../domain/engines';
+import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
 import { Section, Pill, Button, KV, Field, Input, fromDateInput, dateInput } from '../ui';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
@@ -173,24 +173,47 @@ export function ShippingSection({ o, factory, prod }: { o: ProductionOrder; fact
 }
 
 /* ── 6. COGS and profitability ── */
+/* COGS from the costing sheet, per piece, with what actually happened laid over the plan:
+   fabric at the actual consumption once cutting logs it, the factory's PO price (CMT when BSC buys the cloth,
+   the full FOB when the factory does), the sheet's adders, and the PO's own logistics and other costs spread
+   over the pieces received. Against the MRP net of discounts and GST, as the costing sheet reads margin. */
 export function CogsSection({ o, finance }: { o: ProductionOrder; finance: boolean }) {
   const { db, closeCogs } = useApp();
-  const rc = receiptOf(o); const pcs = rc.received || o.orderQty;
-  const piece = o.finalFob ?? o.targetCost ?? 0; const pc = o.poCosts ?? { logistics: null, other: [] };
-  const manufacturing = piece * o.orderQty; const logistics = pc.logistics ?? 0; const other = pc.other.reduce((a, x) => a + x.amount, 0);
-  const shipping = o.shipping?.shippingCost ?? o.costing.shipping * o.orderQty;
-  const total = manufacturing + logistics + other + shipping; const perPiece = pcs ? total / pcs : 0;
-  const opt = db.options.find(x => x.styleName === o.styleName) ?? null; const mrp = opt?.mrp ?? null;
-  const margin = mrp != null && perPiece ? (mrp - perPiece) / mrp : null;
-  const delivered = !!(o.shipping?.deliveredOn ?? (rc.lots.length && !rc.partial));
-  return <Section title="COGS · profitability" collapsible={false} right={<Pill tone={o.cogsClosedOn ? 'good' : delivered ? 'warn' : 'neutral'}>{o.cogsClosedOn ? `closed ${fmtDate(o.cogsClosedOn)}` : delivered ? 'to close' : 'after delivery'}</Pill>}>
-    <KV k="Manufacturing" v={fmtMoney(manufacturing)} note={`${o.orderQty} × ${fmtMoney(piece)} on the PO`} />
-    <KV k="Logistics on the PO" v={fmtMoney(logistics)} />
-    {pc.other.map((x, i) => <KV key={i} k={x.label} v={fmtMoney(x.amount)} />)}
-    <KV k="Shipping" v={fmtMoney(shipping)} note={o.shipping?.shippingCost != null ? 'from the shipping cycle' : 'from the costing sheet until the shipment is closed'} />
-    <KV k="COGS" v={<b>{fmtMoney(total)}</b>} note={`${fmtMoney(perPiece)} per piece over ${pcs} received`} />
-    <KV k="MRP" v={mrp != null ? fmtMoney(mrp) : '—'} note={mrp != null ? 'from the option in Enigma' : 'no option yet'} />
-    <KV k="Margin" v={margin != null ? <b style={{ color: margin < 0.5 ? 'var(--risk)' : 'var(--good)' }}>{Math.round(margin * 100)}%</b> : '—'} note={margin != null ? `${fmtMoney((mrp ?? 0) - perPiece)} per piece` : undefined} />
-    {!o.cogsClosedOn && delivered && (finance ? <div className="pt-2"><Button size="sm" variant="primary" onClick={() => closeCogs(o.id)}>Close COGS</Button></div> : <ActsBy role={['production', 'design']} does="close COGS once the shipment is closed; Nitin and design see it" />)}
+  const c = o.costing; const plan = costingOf(o); const rc = receiptOf(o);
+  const pcs = rc.received || o.cutQty || o.orderQty;
+  const cons = c.actualConsumption ?? c.consumption;
+  const fabric = o.fabricNominated && c.cpm != null && cons != null ? c.cpm * cons : 0;
+  const make = o.finalFob ?? c.cmp ?? 0;                         // what the factory charges per piece on the PO
+  const pc = o.poCosts ?? { logistics: null, other: [] };
+  const poExtra = ((pc.logistics ?? 0) + pc.other.reduce((a, x) => a + x.amount, 0)) / (pcs || 1);
+  const lines: [string, number, string][] = [
+    ['Fabric', fabric, o.fabricNominated ? `${c.cpm != null ? fmtMoney(c.cpm) : '—'}/m × ${cons ?? '—'} m${c.actualConsumption != null ? ' (actual, from cutting)' : ' (planned)'}` : 'the factory buys the cloth'],
+    [o.fabricNominated ? 'Making · CMT' : 'Making · FOB', make, o.finalFob != null ? `the factory's PO price${o.poNo ? ` · ${o.poNo}` : ''}` : 'from the costing sheet'],
+    ['Trims and packaging', c.trimsPackaging, 'costing sheet'],
+    ['Transport', c.transportation, 'costing sheet'],
+    ...(c.hemming ? [['Hemming', c.hemming, 'costing sheet'] as [string, number, string]] : []),
+    ['Freight to BSC', c.shipping, 'costing sheet'],
+    ['Factory overheads', c.factoryOverheads, 'costing sheet'],
+    ...(poExtra ? [['Logistics and other costs on the PO', poExtra, `${fmtMoney((pc.logistics ?? 0) + pc.other.reduce((a, x) => a + x.amount, 0))} over ${pcs} pcs`] as [string, number, string]] : []),
+  ];
+  const cogs = lines.reduce((a, l) => a + l[1], 0);
+  const opt = db.options.find(x => x.styleName === o.styleName) ?? null;
+  const launch = (db.launches ?? []).find(l => l.orderId === o.id);
+  const mrp = launch?.designCodes?.[0]?.mrp ?? opt?.mrp ?? plan.finalMrp ?? null;
+  const net = mrp != null ? netOf(mrp) : null; const margin = net != null && cogs ? (net - cogs) / net : null;
+  const planned = plan.cogs; const diff = planned != null ? cogs - planned : null;
+  const delivered = rc.lots.length > 0 && !rc.partial;
+  const closedOn = o.cogsClosedOn ?? (o.status === 'Closed' ? (rc.lots[rc.lots.length - 1]?.at ?? null) : null);
+  return <Section title="COGS · profitability" collapsible={false} right={<Pill tone={closedOn ? 'good' : delivered ? 'warn' : 'neutral'}>{closedOn ? `closed ${fmtDate(closedOn)}` : delivered ? 'to close' : 'running · closes after delivery'}</Pill>}>
+    <div style={{ overflowX: 'auto' }}><table className="t compact">
+      <thead><tr><th>Per piece</th><th className="num">₹</th><th>From</th></tr></thead>
+      <tbody>{lines.map(([k, v, src]) => <tr key={k}><td>{k}</td><td className="num">{fmtMoney(Math.round(v))}</td><td className="text-[11.5px]" style={soft}>{src}</td></tr>)}
+        <tr><td className="font-semibold">COGS per piece</td><td className="num font-semibold">{fmtMoney(Math.round(cogs))}</td><td className="text-[11.5px]" style={{ color: diff != null && diff > 0 ? 'var(--risk)' : soft.color }}>{planned != null ? `planned ${fmtMoney(Math.round(planned))}${diff ? ` · ${diff > 0 ? '+' : ''}${fmtMoney(Math.round(diff))}` : ''}` : ''}</td></tr>
+      </tbody></table></div>
+    <KV k="COGS for the PO" v={fmtMoney(Math.round(cogs * pcs))} note={`${pcs} pcs ${rc.received ? 'received' : 'ordered'}`} />
+    <KV k="MRP" v={mrp != null ? fmtMoney(mrp) : '—'} note={launch?.designCodes?.[0]?.mrp != null ? 'from the design code' : opt?.mrp != null ? 'from the option in Enigma' : 'from the costing sheet'} />
+    <KV k="Net of discounts and GST" v={net != null ? fmtMoney(Math.round(net)) : '—'} note="what BSC keeps per piece" />
+    <KV k="Intake margin" v={margin != null ? <b style={{ color: margin < 0.55 ? 'var(--risk)' : 'var(--good)' }}>{Math.round(margin * 100)}%</b> : '—'} note={net != null ? `${fmtMoney(Math.round(net - cogs))} per piece` : undefined} />
+    {!closedOn && delivered && (finance ? <div className="pt-2"><Button size="sm" variant="primary" onClick={() => closeCogs(o.id)}>Close COGS</Button></div> : <ActsBy role={['production', 'design']} does="close COGS once the goods are in" />)}
   </Section>;
 }

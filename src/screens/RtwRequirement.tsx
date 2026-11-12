@@ -19,7 +19,7 @@ import { BriefEditor, PutInDrop } from './Requirements';
 import { MilestoneGrid } from './Tracker';
 import { OrderSummary, FactoryDocs, MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
-import { SampleCycleSection, PoCostsSection, ApproveReceivedSection, QcSection, ShippingSection, CogsSection } from './RtwChain';
+import { SampleCycleSection, PoCostsSection, ApproveReceivedSection, QcSection, CogsSection } from './RtwChain';
 import { SOURCE_LABEL } from '../domain/rtwJourney';
 import { LaunchCodes, LaunchStickers } from './Launches';
 import { ActsBy } from './Who';
@@ -183,10 +183,11 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
 
     {at('qc') && (o.poNo ? <QcSection o={o} factory={merchant || prod} /> : <Section title="QC" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>After the PO and finishing.</div></Section>)}
 
-    {at('ship') && (o.poNo ? <>
-      <ShippingSection o={o} factory={merchant} prod={prod} />
-      <div className="pt-3"><ReceiptLots o={o} editable={false} open /></div>
-    </> : <Section title="Shipping cycle" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>After QC: AWB, courier, shipped, delivered, closed.</div></Section>)}
+    {/* 12 Nov 2026: AWB, courier and logistics stay out of PLM; the factory logs dispatch on the TNA and Shravani does the GRN on Enigma */}
+    {at('ship') && (o.poNo ? <div className="rtw-full">
+      <div className="text-[12.5px] pb-2" style={faint}>Dispatch {(() => { const d = o.milestones.find(m => m.key === 'Dispatch'); return d?.actual ? `logged on the TNA ${fmtDate(d.actual)}` : !d || d.skipped ? 'not on this plan' : `due ${fmtDate(d?.revised ?? d?.plan)} on the TNA`; })()}. AWB and courier are not tracked in PLM; Shravani does the GRN on Enigma and it lands here by size.</div>
+      <ReceiptLots o={o} editable={false} open />
+    </div> : <Section title="Delivered · GRN" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>After QC and dispatch. Shravani does the GRN on Enigma; it lands here by size, lot by lot.</div></Section>)}
 
     {at('cogs') && <CogsSection o={o} finance={prod || design} />}
 
