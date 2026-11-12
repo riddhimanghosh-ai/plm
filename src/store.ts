@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview } from './domain/types';
+import type { PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
 import { prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
@@ -69,6 +69,7 @@ export interface AppState {
   createLaunch(input: Pick<Launch, 'optionId' | 'styleName' | 'dropMonth' | 'orderId' | 'expectedAtHo' | 'launchOn' | 'hero' | 'keyPointers'>): string;
   updateLaunch(id: string, patch: Partial<Pick<Launch, 'receivedAtHo' | 'marketingName' | 'marketingBriefOn' | 'launchOn' | 'launchedOn' | 'hero' | 'keyPointers' | 'expectedAtHo'>>): void;
   allocateLaunch(id: string, pieces: LaunchPiece[] | 'default'): void;
+  launchDesk(id: string, step: LaunchDeskStep): void;   // the desk after the codes, ticked step by step
   mintLaunchDesignCode(id: string, label?: string): void;   // design, once the goods are received; call again for every further code the style sells under
   dispatchLaunch(id: string, storeId: string | 'all'): void;
   receiveLaunch(id: string, storeId: string): void;
@@ -501,6 +502,12 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       const id = `ln-${Date.now().toString(36)}`;
       touch(db => { db.launches = db.launches ?? []; db.launches.unshift({ ...input, id, receivedAtHo: null, pieces: [], marketingName: null, marketingBriefOn: null, launchedOn: null }); }, 'Added to the drop. Gates start ticking from here.');
       return id;
+    },
+    launchDesk(id, step) {
+      const WHAT: Record<LaunchDeskStep, string> = { handover: 'Handed to Yusuf with the design codes.', sticker: 'Stickers printed, one per design code.', photos: 'Photos shared for the website and the stores.', storesTold: 'Stores told: the style, its codes and the launch date.' };
+      touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (!l || !l.designCode || l.desk?.[step]) return;
+        l.desk = { ...(l.desk ?? {}), [step]: { on: now(), by: who() } };
+        const o = db.orders.find(x => x.id === l.orderId); if (o) log(o, WHAT[step]); }, WHAT[step]);
     },
     mintLaunchDesignCode(id, label) {
       touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (!l || !l.receivedAtHo) return;

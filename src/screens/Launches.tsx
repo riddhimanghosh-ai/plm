@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
-import type { Launch } from '../domain/types';
+import type { Launch, LaunchDeskStep } from '../domain/types';
 import { launchOf, fmtDate, daysAgo, costingOf, TODAY, addDays, iso, type LaunchStage } from '../domain/engines';
 import { STORES, MARKETING_LEAD_DAYS } from '../domain/reference';
 import { Page, Card, Pill, Button, Drawer, KV, Section, Note, Tabs, Empty, Field, Input, Select, Seg, dateInput, fromDateInput, useExamples, type Tone } from '../ui';
@@ -90,7 +90,7 @@ export function Launches() {
 }
 
 function LaunchDetail({ l, editable }: { l: Launch; editable: boolean }) {
-  const { db, role, updateLaunch, allocateLaunch, dispatchLaunch, receiveLaunch, mintLaunchDesignCode } = useApp();
+  const { db, role, updateLaunch, allocateLaunch, dispatchLaunch, receiveLaunch, launchDesk, mintLaunchDesignCode } = useApp();
   const isDesign = role === 'design' || role === 'owner';
   const s = launchOf(l);
   const order = db.orders.find(o => o.id === l.orderId);
@@ -110,6 +110,8 @@ function LaunchDetail({ l, editable }: { l: Launch; editable: boolean }) {
         <Button size="sm" variant="primary" onClick={() => { mintLaunchDesignCode(l.id, codeLabel); setCodeLabel(''); }}>{l.designCode ? '+ Another design code' : 'Mint the design code'}</Button>
       </div>}
     </Section>}
+    {/* after the codes: the same desk a new MTM fabric goes through — Yusuf, stickers, photos, stores told */}
+    {l.designCode && <LaunchDesk l={l} canTick={isDesign && !l.launchedOn} onTick={st => launchDesk(l.id, st)} />}
     <Section title="Readiness" right={<Pill tone={s.blockers ? 'warn' : 'good'}>{s.blockers ? `${s.blockers} gate${s.blockers === 1 ? '' : 's'} open` : 'all gates green'}</Pill>}>
       {s.gates.map(g => <div key={g.key} className="kv"><span className="k flex items-center gap-2"><span className="dot" style={{ background: g.ok ? 'var(--good)' : 'var(--line)' }} />{g.label}</span><span className="v" style={{ color: g.ok ? undefined : 'var(--ink-faint)' }}>{g.note}</span></div>)}
       {editable && !l.launchedOn && <div className="flex gap-2 pt-3 flex-wrap">
@@ -185,4 +187,42 @@ function NewLaunch({ onDone }: { onDone: (id: string) => void }) {
       <Button variant="primary" size="sm" disabled={!optionId} onClick={() => onDone(createLaunch({ optionId, styleName: opt!.styleName, dropMonth: drop, orderId: order?.id ?? null, expectedAtHo: fromDateInput(expected) ?? iso(TODAY), launchOn: fromDateInput(launchOn), hero: false, keyPointers: pointers.trim() }))}>Add to drop</Button>
     </Section>
   );
+}
+
+/* After the design codes, the launch goes through the swatch desk's steps, in the same order as an MTM fabric:
+   handed to Yusuf, stickers printed (one per code), photos shared, dispatched to the stores, stores told.
+   There is no warehouse screen, so design ticks Yusuf's steps on his word; dispatch reads off the pieces. */
+const DESK: { key: LaunchDeskStep | 'dispatched'; label: string; who: string }[] = [
+  { key:'handover',   label:'Handed to Yusuf',           who:'Yusuf' },
+  { key:'sticker',    label:'Stickers printed',          who:'Yusuf' },
+  { key:'photos',     label:'Photos shared',             who:'Yusuf' },
+  { key:'dispatched', label:'Display & fit dispatched',  who:'Shravani' },
+  { key:'storesTold', label:'Stores told',               who:'Design' },
+];
+function LaunchDesk({ l, canTick, onTick }: { l: Launch; canTick: boolean; onTick: (s: LaunchDeskStep) => void }) {
+  const { db } = useApp();
+  const codes = l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', on: l.designCodeOn ?? '', by: l.designCodeBy ?? '' }] : []);
+  const opt = db.options.find(o => o.id === l.optionId);
+  const dispatched = l.pieces.length > 0 && l.pieces.every(p => p.dispatchedOn);
+  const dispatchedOn = dispatched ? [...l.pieces].map(p => p.dispatchedOn!).sort().slice(-1)[0] : null;
+  const done = DESK.filter(st => st.key === 'dispatched' ? dispatched : !!l.desk?.[st.key]).length;
+  const name = l.marketingName ?? l.styleName;
+  /* one sticker per design code, three across on A4, the five lines the MTM sticker has */
+  const printStickers = () => {
+    const w = window.open('', '_blank', 'width=760,height=980'); if (!w) return;
+    const labels = codes.map(c => `<div class="b"><div class="c">${c.code}</div><div class="n">${name}</div><div class="k">${c.label.toUpperCase()} · ${l.dropMonth.toUpperCase()}</div><div class="p">${opt?.mrp != null ? `MRP ${opt.mrp.toLocaleString('en-IN')}` : 'MRP —'}</div><div class="s">Incl. of all taxes</div></div>`).join('');
+    w.document.write(`<!doctype html><title>Stickers · ${name}</title><style>body { margin:0; font-family: Calibri, -apple-system, Helvetica, Arial, sans-serif; color:#222; } @page { size: A4; margin: 10mm; } .grid { display:grid; grid-template-columns: repeat(3, 63mm); } .b { width: 63mm; height: 36mm; border:1px solid #333; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; } .c { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color:#555; } .n { font-size: 14px; font-weight: 700; margin: 2px 0; } .k { font-size: 10px; letter-spacing:.04em; } .p { font-size: 13px; margin-top: 2px; } .s { font-size: 9px; color:#666; }</style><div class="grid">${labels}</div>`);
+    w.document.close();
+    if (canTick && !l.desk?.sticker) onTick('sticker');
+  };
+  return <Section title="After the codes · the desk" collapsible={false} right={<Pill tone={done === DESK.length ? 'good' : done ? 'warn' : 'neutral'}>{done} of {DESK.length}</Pill>}>
+    <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>The same steps a new MTM fabric goes through once it has its code. Yusuf has no PLM screen, so design ticks his steps on his word.</div>
+    {DESK.map(st => { const d = st.key === 'dispatched' ? (dispatchedOn ? { on: dispatchedOn, by: 'Shravani' } : undefined) : l.desk?.[st.key];
+      return <div key={st.key} className="kv"><span className="k flex items-center gap-2"><span className="dot" style={{ background: d ? 'var(--good)' : 'var(--line)' }} />{st.label}<span className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{st.who}</span></span>
+        <span className="v flex items-center gap-2 justify-end">{d ? <span className="text-[12px]" style={{ color:'var(--ink-soft)' }}>{fmtDate(d.on)}{d.by ? ` · ${d.by}` : ''}</span>
+          : st.key === 'dispatched' ? <span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{l.pieces.length ? `${l.pieces.filter(p => p.dispatchedOn).length} of ${l.pieces.length} out` : 'after allocation'}</span>
+          : st.key === 'sticker' ? <Button size="sm" variant="primary" onClick={printStickers}>Print {codes.length} sticker{codes.length === 1 ? '' : 's'}{canTick ? ' & mark' : ''}</Button>
+          : canTick ? <Button size="sm" onClick={() => onTick(st.key as LaunchDeskStep)}>Done</Button> : <span className="text-[12px]" style={{ color:'var(--ink-faint)' }}>not yet</span>}</span>
+      </div>; })}
+  </Section>;
 }

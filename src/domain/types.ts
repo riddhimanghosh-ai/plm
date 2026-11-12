@@ -749,7 +749,10 @@ export interface Launch {
   designCode?: string | null; designCodeOn?: string | null; designCodeBy?: string | null;
   /* an RTW style sells under several design codes (one per variant the catalogue needs); the first one also sits in designCode */
   designCodes?: { code: string; label: string; on: string; by: string }[];
+  /* after the codes, the same desk as an MTM fabric: handed to Yusuf, stickers printed, photos shared, stores told */
+  desk?: Partial<Record<LaunchDeskStep, { on: string; by: string }>>;
 }
+export type LaunchDeskStep = 'handover' | 'sticker' | 'photos' | 'storesTold';
 
 /* ---------- concepts — one record from the idea to the day it is sellable ----
    Today the same concept lives in a design meeting nobody minutes, the fabric
