@@ -69,7 +69,7 @@ export interface AppState {
   createLaunch(input: Pick<Launch, 'optionId' | 'styleName' | 'dropMonth' | 'orderId' | 'expectedAtHo' | 'launchOn' | 'hero' | 'keyPointers'>): string;
   updateLaunch(id: string, patch: Partial<Pick<Launch, 'receivedAtHo' | 'marketingName' | 'marketingBriefOn' | 'launchOn' | 'launchedOn' | 'hero' | 'keyPointers' | 'expectedAtHo'>>): void;
   allocateLaunch(id: string, pieces: LaunchPiece[] | 'default'): void;
-  mintLaunchDesignCode(id: string): void;   // design, once the goods are received
+  mintLaunchDesignCode(id: string, label?: string): void;   // design, once the goods are received; call again for every further code the style sells under
   dispatchLaunch(id: string, storeId: string | 'all'): void;
   receiveLaunch(id: string, storeId: string): void;
   decideOption(optionId: string, decision: 'promote-to-core' | 'liquidate' | 'reorder' | 'reintroduce' | 'make-inactive', note: string, qty?: number): void;
@@ -502,15 +502,18 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { db.launches = db.launches ?? []; db.launches.unshift({ ...input, id, receivedAtHo: null, pieces: [], marketingName: null, marketingBriefOn: null, launchedOn: null }); }, 'Added to the drop. Gates start ticking from here.');
       return id;
     },
-    mintLaunchDesignCode(id) {
-      touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (!l || l.designCode || !l.receivedAtHo) return;
+    mintLaunchDesignCode(id, label) {
+      touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (!l || !l.receivedAtHo) return;
         const o = db.orders.find(x => x.id === l.orderId);
         const cat = (o?.category ?? l.styleName).toLowerCase();
         const fam = cat.includes('knit') && cat.includes('t-shirt') ? 'TEE' : cat.includes('jean') ? 'JEA' : cat.includes('kurta') ? 'KUR' : cat.includes('bottom') ? 'BOT' : 'SHI';
-        const seq = 5600 + (db.launches ?? []).filter(x => x.designCode).length;
-        l.designCode = `BOM-${fam}-RW-${seq}`; l.designCodeOn = now(); l.designCodeBy = who();
-        if (o) log(o, `Design code ${l.designCode} minted`);
-      }, 'Design code minted — the style can be set up to sell.');
+        const seq = 5600 + (db.launches ?? []).reduce((a, x) => a + Math.max(x.designCodes?.length ?? 0, x.designCode ? 1 : 0), 0);
+        const code = `BOM-${fam}-RW-${seq}`; const t = now();
+        /* one style, several codes: each one is a row of its own; the first also fills the old single field */
+        l.designCodes = [...(l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', on: l.designCodeOn ?? t, by: l.designCodeBy ?? who() }] : [])), { code, label: (label ?? '').trim() || (l.designCodes?.length ? `variant ${(l.designCodes?.length ?? 0) + 1}` : 'base'), on: t, by: who() }];
+        if (!l.designCode) { l.designCode = code; l.designCodeOn = t; l.designCodeBy = who(); }
+        if (o) log(o, `Design code ${code} minted${label ? ` · ${label}` : ''}`);
+      }, 'Design code minted. Add another for every variant the style sells under.');
     },
     updateLaunch(id, patch) { touch(db => { const l = (db.launches ?? []).find(x => x.id === id); if (!l) return;
         if (patch.marketingName !== undefined && l.marketingName && patch.marketingName && patch.marketingName !== l.marketingName) l.nameHistory = [...(l.nameHistory ?? []), { name: l.marketingName, until: now(), by: who(), note: 'renamed' }];

@@ -97,10 +97,19 @@ function LaunchDetail({ l, editable }: { l: Launch; editable: boolean }) {
   const cogs = order ? costingOf(order).cogs : null;
   const [name, setName] = useState(l.marketingName ?? '');
   const [launchOn, setLaunchOn] = useState(dateInput(l.launchOn));
-  const [pointers, setPointers] = useState(l.keyPointers);
+  const [pointers, setPointers] = useState(l.keyPointers); const [codeLabel, setCodeLabel] = useState('');
   const storeName = (id: string) => STORES.find(x => x.id === id)?.name ?? id;
   const byStore = [...new Set(l.pieces.map(p => p.storeId))].map(id => ({ id, pieces: l.pieces.filter(p => p.storeId === id) }));
   return <>
+    {/* every design code the style sells under: the base one, then one per variant design adds */}
+    {l.receivedAtHo && <Section title="Design codes" collapsible={false} right={<Pill tone={l.designCode ? 'good' : 'neutral'}>{l.designCode ? `${Math.max(l.designCodes?.length ?? 0, 1)} code${(l.designCodes?.length ?? 1) > 1 ? 's' : ''}` : 'none yet'}</Pill>}>
+      {(l.designCodes ?? (l.designCode ? [{ code: l.designCode, label: 'base', on: l.designCodeOn ?? '', by: l.designCodeBy ?? '' }] : [])).map(c => <div key={c.code} className="kv"><span className="k mono">{c.code}</span><span className="v">{c.label}<span className="text-[11px] ml-2" style={{ color:'var(--ink-faint)' }}>{c.on ? fmtDate(c.on) : ''}{c.by ? ` · ${c.by}` : ''}</span></span></div>)}
+      {!l.designCode && <div className="text-[12.5px] py-1" style={{ color:'var(--ink-faint)' }}>Goods are in; design mints the first code.</div>}
+      {isDesign && !l.launchedOn && <div className="flex gap-2 items-end pt-2 flex-wrap">
+        <div style={{ flex:'1 1 220px', maxWidth: 320 }}><Field label={l.designCode ? 'What this code is for' : 'Label (optional)'}><Input value={codeLabel} onChange={e => setCodeLabel(e.target.value)} placeholder={l.designCode ? 'e.g. navy · online only · slim fit' : 'base'} /></Field></div>
+        <Button size="sm" variant="primary" onClick={() => { mintLaunchDesignCode(l.id, codeLabel); setCodeLabel(''); }}>{l.designCode ? '+ Another design code' : 'Mint the design code'}</Button>
+      </div>}
+    </Section>}
     <Section title="Readiness" right={<Pill tone={s.blockers ? 'warn' : 'good'}>{s.blockers ? `${s.blockers} gate${s.blockers === 1 ? '' : 's'} open` : 'all gates green'}</Pill>}>
       {s.gates.map(g => <div key={g.key} className="kv"><span className="k flex items-center gap-2"><span className="dot" style={{ background: g.ok ? 'var(--good)' : 'var(--line)' }} />{g.label}</span><span className="v" style={{ color: g.ok ? undefined : 'var(--ink-faint)' }}>{g.note}</span></div>)}
       {editable && !l.launchedOn && <div className="flex gap-2 pt-3 flex-wrap">

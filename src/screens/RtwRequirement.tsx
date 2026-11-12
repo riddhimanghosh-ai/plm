@@ -183,6 +183,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         <KV k="Drop" v={launch.dropMonth} note={launch.launchedOn ? `launched ${fmtDate(launch.launchedOn)}` : launch.launchOn ? `launch ${fmtDate(launch.launchOn)}` : 'no date yet'} />
         <KV k="At head office" v={launch.receivedAtHo ? fmtDate(launch.receivedAtHo) : `expected ${fmtDate(launch.expectedAtHo)}`} />
         {launch.marketingName && <KV k="Marketing name" v={launch.marketingName} />}
+        {launch.designCode && <KV k={`Design code${(launch.designCodes?.length ?? 0) > 1 ? 's' : ''}`} v={<span className="flex flex-col gap-0.5">{(launch.designCodes ?? [{ code: launch.designCode, label: 'base' }]).map(c => <span key={c.code}><span className="mono">{c.code}</span> <span style={{ color:'var(--ink-faint)' }}>· {c.label}</span></span>)}</span>} />}
         <div className="pt-1"><a className="cta" href={`#/launches?open=${launch.id}`}>the launch · gates, stores, marketing →</a></div>
       </> : <>{planning ? null : <div className="text-[12.5px] py-1" style={faint}>Planning puts it in a drop once it is in production; design mints the design code when the goods land.</div>}<PutInDrop o={o} /></>}
     </Section>}

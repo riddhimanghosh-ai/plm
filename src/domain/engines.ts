@@ -452,7 +452,7 @@ export function launchOf(l: Launch) {
   const briefLate = !!briefDue && !l.marketingBriefOn && daysAgo(briefDue) > 0;
   const gates = [
     { key:'ho', label:'Goods received at HO', ok: !!l.receivedAtHo, note: l.receivedAtHo ? fmtDate(l.receivedAtHo) : `expected ${fmtDate(l.expectedAtHo)}${daysAgo(l.expectedAtHo) > 0 ? ` · ${daysAgo(l.expectedAtHo)}d late` : ''}` },
-    { key:'code', label:'Design code minted by design', ok: !!l.designCode, note: l.designCode ? `${l.designCode} · ${fmtDate(l.designCodeOn)}${l.designCodeBy ? ` · ${l.designCodeBy}` : ''}` : l.receivedAtHo ? 'goods are in — design mints the code' : 'after the goods are received' },
+    { key:'code', label:'Design codes minted by design', ok: !!l.designCode, note: l.designCode ? ((l.designCodes?.length ?? 0) > 1 ? `${l.designCodes!.length} codes · ${l.designCodes!.map(c => c.code).join(', ')}` : `${l.designCode} · ${fmtDate(l.designCodeOn)}${l.designCodeBy ? ` · ${l.designCodeBy}` : ''}`) : l.receivedAtHo ? 'goods are in — design mints the codes' : 'after the goods are received' },
     { key:'alloc', label:'Display & fit allocated to stores', ok: allocated, note: allocated ? `${pieces.length} pieces to ${new Set(pieces.map(p => p.storeId)).size} stores` : 'no plan yet' },
     { key:'disp', label:'Pieces dispatched', ok: allDispatched, note: allocated ? `${dispatched} of ${pieces.length}` : '—' },
     { key:'recv', label:'Stores confirmed receipt', ok: allReceived, note: allocated ? `${received} of ${pieces.length}` : '—' },
