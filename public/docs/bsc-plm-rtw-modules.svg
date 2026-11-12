@@ -127,8 +127,8 @@
 <rect x="1518.0" y="460" width="256" height="52" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.3"/>
 <text x="1646.0" y="490.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Factory approves all received</text>
 <rect x="78.0" y="676" width="256" height="52" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.3"/>
-<text x="206.0" y="699.5" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">TNA updates · 22 milestones</text>
-<text x="206.0" y="712.5" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">not-needed steps skipped</text>
+<text x="206.0" y="699.5" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">TNA updates · 22 steps</text>
+<text x="206.0" y="712.5" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">planned · revised · actual on each</text>
 <rect x="78.0" y="742" width="256" height="52" rx="6" fill="#fffbe6" stroke="#8a7a3a" stroke-width="1.3"/>
 <text x="206.0" y="772.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Tracker · OTIF · late in red</text>
 <rect x="78.0" y="808" width="256" height="52" rx="26" fill="#e7ebe0" stroke="#3c4a30" stroke-width="1.3"/>
@@ -163,4 +163,5 @@
 <rect x="1158.0" y="808" width="256" height="52" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.3"/>
 <text x="1286.0" y="831.5" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1a1a13">Design rows + variants</text>
 <text x="1286.0" y="844.5" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1a1a13">created in Enigma</text>
+<rect x="89.4" y="880" width="233.2" height="22" rx="11" fill="#fde2e2" stroke="#e5a3a3"/><text x="206.0" y="895" text-anchor="middle" font-size="11.5" font-weight="600" fill="#9b2c2c">⚠ heaviest manual and tedious work</text>
 </svg>

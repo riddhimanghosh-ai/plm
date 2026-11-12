@@ -25,7 +25,7 @@ N = [
  ('d9','design',12,'Cloth short: new cut ratio\nfactory sees it at once','step'),
  ('s3','sourcing',12,'Trims short:\nsend the balance','step'),
  ('f4','factory',13,'Approve all received','step'),
- ('f5','factory',14,'Make · log the TNA\n22 milestones','step'),
+ ('f5','factory',14,'Make · log the TNA\n22 × planned · revised · actual','step'),
  ('n3','nitin',14,'Tracker · OTIF\nescalations','step'),
  ('f6','factory',15,'QC passed?\nor rework','decision'),
  ('f7','factory',16,'AWB · courier · shipped\nnot in PLM yet','outside'),
@@ -59,10 +59,11 @@ def esc(s): return html.escape(s)
 svg = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" font-family="Inter, Helvetica, Arial, sans-serif">',
  '<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#555"/></marker></defs>',
  f'<rect width="{width}" height="{height}" fill="#fff"/>']
-PHASE_BG=[]
-for name,c0,c1,fill,line_c in PHASES:
+PHASE_BG=[]; NOTE = 'heaviest manual and tedious work'
+for gi,(name,c0,c1,fill,line_c) in enumerate(PHASES):
     x=X0+c0*GX-20; w=(c1-c0)*GX
     svg.append(f'<rect x="{x}" y="22" width="{w-10}" height="26" rx="6" fill="{fill}" stroke="{line_c}"/><text x="{x+14}" y="40" font-size="13" font-weight="700" fill="#3c4a30">{esc(name.upper())}</text>')
+    if gi==1: svg.append(f'<text x="{x+14}" y="64" font-size="11.5" font-weight="600" fill="#9b2c2c">⚠ {NOTE}</text>')
     PHASE_BG.append(f'<rect x="{x}" y="{Y0}" width="{w-10}" height="{len(LANES)*LANE_H}" rx="10" fill="{fill}" fill-opacity=".55" stroke="{line_c}" stroke-opacity=".7"/>')
 for i,(k,label) in enumerate(LANES):
     y=lane_y[k]

@@ -29,7 +29,7 @@ M = [
    ('t3b','No · trims short: sourcing sends\nthe balance · count again','step'),
    ('t4','Factory approves all received','step')]),
  ('mfg','6 · Manufacturing and QC','Factory · Nitin',[
-   ('m1','TNA updates · 22 milestones\nnot-needed steps skipped','step'),
+   ('m1','TNA updates · 22 steps\nplanned · revised · actual on each','step'),
    ('m2','Tracker · OTIF · late in red','step'),
    ('q2','QC passed?\nrework goes back to the TNA','decision')]),
  ('ship','7 · Shipping cycle','Factory · Shravani · Nitin',[
@@ -53,6 +53,8 @@ LOOPS=[('s3','s1','yes · sample again')]
 COLS=5; MW=300; NW=256; NH=52; GAP=14; PAD=14; HEAD=40; MX=56; MY=76; GX=MW+60; SRC_W=76
 # three background bands behind the chart: conceptualization and pre-production, production, post-production
 BANDS = [('Conceptualization · Pre-production', '#eef3e8', '#a3b58f'), ('Production', '#fdf3df', '#d6b26a'), ('Post-production', '#e8eef8', '#8fa6cf')]
+NOTE = 'heaviest manual and tedious work'
+LATE = []
 MGROUP = {'req':0,'smp':0,'po':0,'shop':0,'rcv':0,'mfg':1,'ship':2,'cogs':2,'lau':2}
 FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','source':'#fde7c9','sourcesys':'#dbeafe','outside':'#f4f3ef'}
 STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8','source':'#b45309','sourcesys':'#1d4ed8','outside':'#a9a391'}
@@ -78,6 +80,9 @@ for gi,(gname,gfill,gline) in enumerate(BANDS):
     bx0=min(mpos[k][0] for k in ks)-20; by0=min(mpos[k][1] for k in ks)-44; bx1=max(mpos[k][0]+mpos[k][2] for k in ks)+20; by1=max(mpos[k][1]+mpos[k][3] for k in ks)+18
     svg.append(f'<rect x="{bx0}" y="{by0}" width="{bx1-bx0}" height="{by1-by0}" rx="16" fill="{gfill}" stroke="{gline}" stroke-width="1.2"/>')
     svg.append(f'<text x="{bx0+16}" y="{by0+26}" font-size="14" font-weight="700" fill="#3c4a30" letter-spacing=".02em">{esc(gname.upper())}</text>')
+    if gi==1:
+        tw=len(NOTE)*6.6+22; px=bx0+(bx1-bx0-tw)/2; py=by1-78
+        LATE.append(f'<rect x="{px}" y="{py}" width="{tw}" height="22" rx="11" fill="#fde2e2" stroke="#e5a3a3"/><text x="{px+tw/2}" y="{py+15}" text-anchor="middle" font-size="11.5" font-weight="600" fill="#9b2c2c">⚠ {NOTE}</text>')
 for k,t,w,nodes in M:
     x,y0,mw,mh=mpos[k]
     svg.append(f'<rect x="{x}" y="{y0}" width="{mw}" height="{mh}" rx="10" fill="#fbfaf6" stroke="#c9c1a8" stroke-width="1.2"/>')
@@ -117,7 +122,7 @@ for nid,(x,y0,w,h,kind,label) in pos.items():
     lines=label.split('\n')
     svg.append(f'<rect x="{x}" y="{y0}" width="{w}" height="{h}" rx="{26 if kind=="decision" else 6}" fill="{FILL[kind]}" stroke="{STROKE[kind]}" stroke-width="1.3"{DASHED if kind=="outside" else ""}/>')
     for j,t in enumerate(lines): svg.append(f'<text x="{x+w/2}" y="{y0+h/2+4+(j-(len(lines)-1)/2)*13}" text-anchor="middle" font-size="{11.5 if j==0 else 10.5}" font-weight="{600 if j==0 else 400}" fill="#1a1a13">{esc(t)}</text>')
-svg.append('</svg>'); svg_text='\n'.join(svg); open(out_svg,'w').write(svg_text)
+svg.extend(LATE); svg.append('</svg>'); svg_text='\n'.join(svg); open(out_svg,'w').write(svg_text)
 legend='<div class="legend"><span><i style="background:#fde7c9;border-color:#b45309;border-radius:8px"></i> how a requirement starts</span><span><i style="background:#fffbe6;border-color:#8a7a3a"></i> step in PLM</span><span><i style="background:#e7ebe0;border-color:#3c4a30;border-radius:10px"></i> decision</span><span><i style="background:#dbeafe;border-color:#1d4ed8"></i> on Enigma</span><span><i style="background:#f4f3ef;border:1.4px dashed #a9a391"></i> outside PLM for now</span></div>'
 page=f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RTW modules v2</title>
 <style>body{{margin:0;background:#fff;color:#1a1a13;font-family:Inter,system-ui,sans-serif;padding:24px}}h1{{font-size:22px;margin:0 0 4px}}p{{margin:0 0 14px;color:#6b6759;font-size:13.5px}}.legend{{display:flex;gap:16px;font-size:12px;color:#6b6759;margin-bottom:10px;flex-wrap:wrap}}.legend i{{display:inline-block;width:14px;height:10px;border:1.4px solid;border-radius:3px;vertical-align:middle;margin-right:4px}}.wrap{{overflow:auto;border:1px solid #e3ddcd;border-radius:8px}}svg{{display:block}}</style></head>

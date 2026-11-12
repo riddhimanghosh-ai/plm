@@ -15,7 +15,7 @@ SPINE = [
  ('f3','factory','Count cloth and trims in\nagainst the PO','step'),
  ('f3b','factory','All in, as ordered?','decision'),
  ('f4','factory','Approve all received','step'),
- ('f5','factory','Make · log the TNA\n22 milestones','step'),
+ ('f5','factory','Make · log the TNA\n22 × planned · revised · actual','step'),
  ('f6','factory','QC passed?','decision'),
  ('f7','factory','AWB · courier · shipped\nnot in PLM yet','outside'),
  ('e4','enigma','Delivered · GRN\nShravani on Enigma, as today','outside'),
@@ -41,6 +41,7 @@ LOOPS = [('d4','f1','no · remarks → update CAD and design · next round'),('d
 COLS=6; W,H=186,58; GX=226; SUB=H+26; X0,Y0=56,70
 # three background bands behind the chart: conceptualization and pre-production, production, post-production
 BANDS = [('Conceptualization · Pre-production', '#eef3e8', '#a3b58f'), ('Production', '#fdf3df', '#d6b26a'), ('Post-production', '#e8eef8', '#8fa6cf')]
+NOTE = 'heaviest manual and tedious work'
 GROUP = {**{k: 0 for k in ['r1','e0','r2','r3','f1','d4','n1','s1','e1','s2','d6','f2','e2','d7','f3','t9','f3b','d9','f4']}, **{k: 1 for k in ['f5','n3','f6']}, **{k: 2 for k in ['f7','e4','n4','cg','p3','d8','e5']}}
 FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','outside':'#f4f3ef'}; STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8','outside':'#a9a391'}
 DASHED=' stroke-dasharray="5 4"'
@@ -86,6 +87,9 @@ for gi,(gname,gfill,gline) in enumerate(BANDS):
     bx0=min(pos[k][0] for k in ids)-14; by0=min(pos[k][1] for k in ids)-40; bx1=max(pos[k][0] for k in ids)+W+14; by1=max(pos[k][1] for k in ids)+H+20
     svg.append(f'<rect x="{bx0}" y="{by0}" width="{bx1-bx0}" height="{by1-by0}" rx="14" fill="{gfill}" stroke="{gline}" stroke-width="1.2"/>')
     svg.append(f'<text x="{bx0+14}" y="{by0+22}" font-size="13" font-weight="700" fill="#3c4a30" letter-spacing=".02em">{esc(gname.upper())}</text>')
+    if gi==1:
+        tw=len(NOTE)*6.6+22; px=bx1-tw-14; py=by1-36
+        svg.append(f'<rect x="{px}" y="{py}" width="{tw}" height="22" rx="11" fill="#fde2e2" stroke="#e5a3a3"/><text x="{px+tw/2}" y="{py+15}" text-anchor="middle" font-size="11.5" font-weight="600" fill="#9b2c2c">⚠ {NOTE}</text>')
 # spine arrows (snake)
 for i in range(len(SPINE)-1):
     a,b=SPINE[i][0],SPINE[i+1][0]; (ax,ay),(bx,by)=pos[a],pos[b]
