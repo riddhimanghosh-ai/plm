@@ -17,10 +17,9 @@ SPINE = [
  ('f4','factory','Approve all received','step'),
  ('f5','factory','Make · log the TNA\n22 × planned · revised · actual','step'),
  ('f6','factory','QC passed?','decision'),
- ('f7','factory','AWB · courier · shipped\nnot in PLM yet','outside'),
- ('e4','enigma','Delivered · GRN\nShravani on Enigma, as today','outside'),
- ('n4','nitin','Close the shipment\nshipping cost','step'),
- ('cg','nd','COGS vs MRP\nmargin per style','step'),
+ ('e4','enigma','Dispatched · GRN\nShravani on Enigma, as today','outside'),
+ ('n4','nitin','Close the PO\ngoods in by size','step'),
+ ('cg','nd','COGS vs net MRP\nsheet + actuals · margin','step'),
  ('p3','dp','Add to a drop\nname · date','step'),
  ('d8','design','Mint design codes\nname · cloth · MRP · sizes','step'),
 ]
@@ -37,14 +36,14 @@ SIDE = [
  ('d8','e5','enigma','Design rows + variants\ncreated in Enigma','system',''),
 ]
 # back-loops and joins: from, to, label
-LOOPS = [('d4','f1','no · remarks → update CAD and design · next round'),('d6','n1','send back'),('f6','f5','rework'),('d9','f4','then'),('t9','f3','count again'),('f3b','f4','yes'),('f6','f7','yes'),('s2','f3','cloth and trims in')]
+LOOPS = [('d4','f1','no · remarks → update CAD and design · next round'),('d6','n1','send back'),('f6','f5','rework'),('d9','f4','then'),('t9','f3','count again'),('f3b','f4','yes'),('f6','e4','yes'),('s2','f3','cloth and trims in')]
 COLS=8; W,H=186,58; GX=226; SUB=H+26; X0,Y0=56,70
-ROWS=[['r1','r2','r3','f1','d4'],['n1','d6','f2','d7','f3','f3b','f4'],['f5','f6','f7','e4','n4','cg','p3','d8']]
+ROWS=[['r1','r2','r3','f1','d4'],['n1','d6','f2','d7','f3','f3b','f4'],['f5','f6','e4','n4','cg','p3','d8']]
 WRAP_LABEL={'d4':'yes · bulk order, and sourcing in parallel','f4':'all received'}
 # three background bands behind the chart: conceptualization and pre-production, production, post-production
 BANDS = [('Conceptualization · design and sampling', '#f3efe2', '#c9b98a'), ('Production', '#fdf3df', '#d6b26a'), ('Post-production', '#e8eef8', '#8fa6cf'), ('Pre-production · bulk order, PO and sourcing', '#eef3e8', '#a3b58f')]
 NOTE = 'heaviest manual and tedious work'
-GROUP = {**{k: 0 for k in ['r1','e0','r2','r3','f1','d4']}, **{k: 3 for k in ['n1','s1','e1','s2','d6','f2','e2','d7','f3','t9','f3b','d9','f4']}, **{k: 1 for k in ['f5','n3','f6']}, **{k: 2 for k in ['f7','e4','n4','cg','p3','d8','e5']}}
+GROUP = {**{k: 0 for k in ['r1','e0','r2','r3','f1','d4']}, **{k: 3 for k in ['n1','s1','e1','s2','d6','f2','e2','d7','f3','t9','f3b','d9','f4']}, **{k: 1 for k in ['f5','n3','f6']}, **{k: 2 for k in ['e4','n4','cg','p3','d8','e5']}}
 FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe','outside':'#f4f3ef'}; STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8','outside':'#a9a391'}
 DASHED=' stroke-dasharray="5 4"'
 node={}

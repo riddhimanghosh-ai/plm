@@ -2,7 +2,7 @@ import sys, html
 out_html, out_drawio, out_svg = sys.argv[1], sys.argv[2], sys.argv[3]
 
 LANES = [('design','Design · Planning'),('sourcing','Sourcing'),('nitin','Nitin · production'),('factory','Factory'),('enigma','Enigma')]
-PHASES = [('Conceptualization · Pre-production',0,14,'#eef3e8','#a3b58f'),('Production',14,16,'#fdf3df','#d6b26a'),('Post-production',16,22,'#e8eef8','#8fa6cf')]
+PHASES = [('Conceptualization · Pre-production',0,14,'#eef3e8','#a3b58f'),('Production',14,16,'#fdf3df','#d6b26a'),('Post-production',16,21,'#e8eef8','#8fa6cf')]
 # id, lane, col, label, kind(step|decision|system)
 N = [
  ('p1','design',0,'Planning review\nreorder: stock · ROS · cover','step'),
@@ -28,13 +28,12 @@ N = [
  ('f5','factory',14,'Make · log the TNA\n22 × planned · revised · actual','step'),
  ('n3','nitin',14,'Tracker · OTIF\nescalations','step'),
  ('f6','factory',15,'QC passed?\nor rework','decision'),
- ('f7','factory',16,'AWB · courier · shipped\nnot in PLM yet','outside'),
- ('e4','enigma',17,'Delivered · GRN\nShravani on Enigma, as today','outside'),
- ('n4','nitin',18,'Close the shipment\nshipping cost','step'),
- ('cg','nitin',19,'COGS vs MRP\nNitin and design see it','step'),
- ('p3','design',20,'Add to a drop\nmarketing name · date','step'),
- ('d8','design',21,'Mint design codes\nname · cloth · MRP · sizes','step'),
- ('e5','enigma',21,'Design rows + variants\nin Enigma','system'),
+ ('e4','enigma',16,'Dispatched · GRN\nShravani on Enigma, as today','outside'),
+ ('n4','nitin',17,'Close the PO\ngoods in by size','step'),
+ ('cg','nitin',18,'COGS vs net MRP\nNitin and design see it','step'),
+ ('p3','design',19,'Add to a drop\nmarketing name · date','step'),
+ ('d8','design',20,'Mint design codes\nname · cloth · MRP · sizes','step'),
+ ('e5','enigma',20,'Design rows + variants\nin Enigma','system'),
 ]
 E = [
  ('p1','d1','reorder'),('e0','d1','auto-PO'),('d1','d2',''),('d2','d3',''),('d3','f1',''),('f1','d4',''),
@@ -42,8 +41,8 @@ E = [
  ('n1','d6',''),('d6','n1','send back'),('d6','e2','raise'),('e2','f2',''),('f2','d7',''),
  ('s1','e1',''),('e1','s2',''),('s2','f3','cloth and trims'),('d7','f3','tech pack'),
  ('f3','f3b',''),('f3b','f4','yes'),('f3b','d9','cloth short'),('d9','f4','factory sees it'),('f3b','s3','trims short'),('s3','f3','count again'),
- ('f4','f5',''),('f5','n3','dates'),('f5','f6',''),('f6','f5','rework'),('f6','f7','pass'),
- ('f7','e4',''),('e4','n4',''),('n4','cg',''),('e4','p3','goods at HO'),('p3','d8',''),('d8','e5',''),
+ ('f4','f5',''),('f5','n3','dates'),('f5','f6',''),('f6','f5','rework'),('f6','e4','pass'),
+('e4','n4',''),('n4','cg',''),('e4','p3','goods at HO'),('p3','d8',''),('d8','e5',''),
 ]
 W,H = 190,56; GX,GY = 230,110; X0,Y0 = 150,70; LANE_H = GY
 cols = max(n[2] for n in N)+1

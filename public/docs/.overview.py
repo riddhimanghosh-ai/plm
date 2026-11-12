@@ -25,10 +25,10 @@ MODS = {
    [('Design uploads the tech pack', 0), ('Factory counts cloth and trims in', 0), ('Cloth short → design gives a new', 0), ('cut ratio; factory sees it at once', 0), ('Trims short → sourcing sends the rest', 0), ('Factory approves all received', 0)]),
  'mfg': (1180, 640, '6', 'Manufacturing', 'Factory · Nitin',
    [('TNA: 22 steps', 0), ('planned · revised · actual on each', 0), ('Not-needed steps skipped', 0), ('Tracker · OTIF · late in red', 0)]),
- 'shp': (720, 640, '7', 'Shipping cycle', 'Factory · Shravani · Nitin',
-   [('AWB · courier · shipped', 1), ('not in PLM yet', 1), ('Delivered · GRN by Shravani', 1), ('on Enigma, as today', 1), ('Shipment closed · shipping cost', 0)]),
+ 'shp': (720, 640, '7', 'Delivery', 'Factory · Shravani',
+   [('Factory logs dispatch on the TNA', 0), ('GRN by Shravani on Enigma,', 1), ('as today; shows on the record', 1), ('AWB, courier, logistics: not in PLM', 1)]),
  'cog': (430, 640, '8', 'COGS and profitability', 'Nitin · Design see it',
-   [('Manufacturing cost from the PO', 0), ('Logistics, shipping, other costs', 0), ('COGS per piece vs MRP', 0), ('Margin per style', 0)]),
+   [('Costing sheet + actuals per piece:', 0), ('fabric, CMT, trims, freight, overheads', 0), ('PO logistics and other costs', 0), ('vs MRP net of discounts and GST', 0), ('Intake margin per style', 0)]),
  'cod': (130, 640, '9', 'Design codes', 'Design · Planning · Enigma',
    [('Add to a drop · name · date', 0), ('Mint design codes', 0), ('name · cloth · MRP · sizes', 0), ('Rows and variants in Enigma', 0)]),
 }
@@ -91,8 +91,9 @@ mx, my = bottom('mfg')
 arrow(f'M{D2[0]} {D2[1]+52}L{D2[0]} {my+30}L{mx} {my+30}L{mx} {my}', 'no · rework', (D2[0]+mx)/2, my+24)
 # QC yes → shipping → COGS → codes → end
 arrow(f'M{D2[0]-52} {D2[1]}L{right("shp")[0]} {D2[1]}', 'yes', (D2[0]-52+right('shp')[0])/2, D2[1]-10)
-arrow(f'M{left("shp")[0]} {mid("cog")[1]}L{right("cog")[0]} {mid("cog")[1]}')
-arrow(f'M{left("cog")[0]} {mid("cog")[1]}L{right("cod")[0]} {mid("cod")[1]}')
+ly = min(mid('shp')[1], mid('cog')[1], mid('cod')[1])   # one level for the post-production arrows
+arrow(f'M{left("shp")[0]} {ly}L{right("cog")[0]} {ly}')
+arrow(f'M{left("cog")[0]} {ly}L{right("cod")[0]} {ly}')
 arrow(f'M{left("cod")[0]} {END[1]}L{END[0]+38} {END[1]}')
 
 # ---- boxes ----
@@ -111,7 +112,7 @@ for k, (x, y, num, title, owners, items) in MODS.items():
         ital = ' font-style="italic"' if muted else ''
         add(f'<text x="{x+30}" y="{ty}" font-size="12.5" fill="{FAINT if muted else INK}"{ital}>{esc(t)}</text>')
     if k == 'shp':
-        add(f'<rect x="{x+8}" y="{y+66}" width="{w-16}" height="{4*19+2}" rx="8" fill="none" stroke="#a9a391" stroke-dasharray="5 4"/>')
+        add(f'<rect x="{x+8}" y="{y+85}" width="{w-16}" height="{3*19+2}" rx="8" fill="none" stroke="#a9a391" stroke-dasharray="5 4"/>')
 
 # ---- decisions ----
 def diamond(cx, cy, a, b):
@@ -135,6 +136,6 @@ page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 .legend .c{{width:12px;height:12px;border-radius:50%;background:#3c4a30}}.legend .b{{width:16px;height:11px;border-radius:3px;border:1.4px solid #8a7a3a;background:#fffdf6}}
 .legend .d{{width:10px;height:10px;transform:rotate(45deg);border:1.4px solid #3c4a30;background:#e7ebe0}}.legend .o{{width:16px;height:11px;border-radius:3px;border:1.4px dashed #a9a391}}
 .wrap{{overflow:auto;border:1px solid #e3ddcd;border-radius:10px}}svg{{display:block;width:100%;height:auto;min-width:1100px}}</style></head>
-<body><h1>RTW in PLM · at a glance</h1><p>Nine modules, each with what happens in it, in four phases: conceptualization (the ask, design and the sample cycle), pre-production (the bulk order and PO with sourcing in parallel, through everything received at the factory), production (the TNA and QC), and post-production (shipping, COGS and the design codes). Diamonds are the two decisions that loop back. Shipping and the GRN stay outside PLM for now.</p>{legend}<div class="wrap">{svg_text}</div></body></html>'''
+<body><h1>RTW in PLM · at a glance</h1><p>Nine modules, each with what happens in it, in four phases: conceptualization (the ask, design and the sample cycle), pre-production (the bulk order and PO with sourcing in parallel, through everything received at the factory), production (the TNA and QC), and post-production (shipping, COGS and the design codes). Diamonds are the two decisions that loop back. AWB, courier and logistics are not in PLM; the GRN stays with Shravani on Enigma.</p>{legend}<div class="wrap">{svg_text}</div></body></html>'''
 open(out_html, 'w').write(page)
 print('ok')

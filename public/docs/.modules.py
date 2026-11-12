@@ -32,15 +32,14 @@ M = [
    ('m1','TNA updates · 22 steps\nplanned · revised · actual on each','step'),
    ('m2','Tracker · OTIF · late in red','step'),
    ('q2','QC passed?\nrework goes back to the TNA','decision')]),
- ('ship','7 · Shipping cycle','Factory · Shravani · Nitin',[
-   ('x1','AWB generated · courier picked up\nnot in PLM yet','outside'),
-   ('x2','Shipped\nnot in PLM yet','outside'),
+ ('ship','7 · Delivery','Factory · Shravani',[
+   ('x1','Factory logs dispatch on the TNA\nAWB, courier, logistics: not in PLM','step'),
    ('x3','Delivered · GRN at BSC\nShravani on Enigma, as today','outside'),
-   ('x4','Done · everything closed','step')]),
+   ('x4','PO closed · goods in by size','step')]),
  ('cogs','8 · COGS and profitability','Nitin · Design see it',[
    ('c1','Manufacturing cost\nfrom the PO','step'),
-   ('c2','Shipping and other costs\nfrom the shipping cycle','step'),
-   ('c3','COGS per piece vs MRP\nprofitability per style','step')]),
+   ('c2','Sheet adders: trims, freight, overheads\n+ PO logistics and other costs','step'),
+   ('c3','COGS per piece vs net MRP\nintake margin per style','step')]),
  ('lau','9 · Design codes','Design · Planning · Enigma',[
    ('l1','After delivery: add to a drop\nname · date','step'),
    ('l2','Mint design codes\nname · cloth · MRP · sizes','step'),

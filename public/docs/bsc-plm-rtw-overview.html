@@ -4,7 +4,7 @@
 .legend .c{width:12px;height:12px;border-radius:50%;background:#3c4a30}.legend .b{width:16px;height:11px;border-radius:3px;border:1.4px solid #8a7a3a;background:#fffdf6}
 .legend .d{width:10px;height:10px;transform:rotate(45deg);border:1.4px solid #3c4a30;background:#e7ebe0}.legend .o{width:16px;height:11px;border-radius:3px;border:1.4px dashed #a9a391}
 .wrap{overflow:auto;border:1px solid #e3ddcd;border-radius:10px}svg{display:block;width:100%;height:auto;min-width:1100px}</style></head>
-<body><h1>RTW in PLM · at a glance</h1><p>Nine modules, each with what happens in it, in four phases: conceptualization (the ask, design and the sample cycle), pre-production (the bulk order and PO with sourcing in parallel, through everything received at the factory), production (the TNA and QC), and post-production (shipping, COGS and the design codes). Diamonds are the two decisions that loop back. Shipping and the GRN stay outside PLM for now.</p><div class="legend"><span><i class="c"></i> start · end</span><span><i class="b"></i> module</span><span><i class="d"></i> decision</span><span><i class="o"></i> outside PLM for now</span></div><div class="wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 960" font-family="Inter, Helvetica, Arial, sans-serif"><defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#4a4a40"/></marker></defs><rect width="1500" height="960" fill="#fff"/><rect x="16" y="14" width="808" height="534" rx="18" fill="#f3efe2" stroke="#c9b98a" stroke-width="1.3"/>
+<body><h1>RTW in PLM · at a glance</h1><p>Nine modules, each with what happens in it, in four phases: conceptualization (the ask, design and the sample cycle), pre-production (the bulk order and PO with sourcing in parallel, through everything received at the factory), production (the TNA and QC), and post-production (shipping, COGS and the design codes). Diamonds are the two decisions that loop back. AWB, courier and logistics are not in PLM; the GRN stays with Shravani on Enigma.</p><div class="legend"><span><i class="c"></i> start · end</span><span><i class="b"></i> module</span><span><i class="d"></i> decision</span><span><i class="o"></i> outside PLM for now</span></div><div class="wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 960" font-family="Inter, Helvetica, Arial, sans-serif"><defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#4a4a40"/></marker></defs><rect width="1500" height="960" fill="#fff"/><rect x="16" y="14" width="808" height="534" rx="18" fill="#f3efe2" stroke="#c9b98a" stroke-width="1.3"/>
 <text x="34" y="42" font-size="14" font-weight="700" letter-spacing=".04em" fill="#3c4a30">CONCEPTUALIZATION · DESIGN AND SAMPLING</text>
 <rect x="840" y="14" width="644" height="534" rx="18" fill="#eef3e8" stroke="#a3b58f" stroke-width="1.3"/>
 <text x="858" y="42" font-size="14" font-weight="700" letter-spacing=".04em" fill="#3c4a30">PRE-PRODUCTION · BULK ORDER, PO AND SOURCING</text>
@@ -118,33 +118,32 @@
 <text x="1210" y="760" font-size="12.5" fill="#1a1a13">Not-needed steps skipped</text>
 <circle cx="1199" cy="775" r="2.6" fill="#8a7a3a"/>
 <text x="1210" y="779" font-size="12.5" fill="#1a1a13">Tracker · OTIF · late in red</text>
-<rect x="720" y="640" width="250" height="165" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
+<rect x="720" y="640" width="250" height="146" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
 <rect x="720" y="640" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="720" y="670" width="250" height="12" fill="#3c4a30"/>
 <circle cx="742" cy="661" r="12" fill="#fff"/><text x="742" y="665.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">7</text>
-<text x="762" y="666" font-size="14.5" font-weight="700" fill="#fff">Shipping cycle</text>
-<text x="734" y="700" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">FACTORY · SHRAVANI · NITIN</text>
-<circle cx="739" cy="718" r="2.6" fill="#a9a391"/>
-<text x="750" y="722" font-size="12.5" fill="#8a8676" font-style="italic">AWB · courier · shipped</text>
-<text x="750" y="741" font-size="12.5" fill="#8a8676" font-style="italic">not in PLM yet</text>
-<circle cx="739" cy="756" r="2.6" fill="#a9a391"/>
-<text x="750" y="760" font-size="12.5" fill="#8a8676" font-style="italic">Delivered · GRN by Shravani</text>
-<text x="750" y="779" font-size="12.5" fill="#8a8676" font-style="italic">on Enigma, as today</text>
-<circle cx="739" cy="794" r="2.6" fill="#8a7a3a"/>
-<text x="750" y="798" font-size="12.5" fill="#1a1a13">Shipment closed · shipping cost</text>
-<rect x="728" y="706" width="234" height="78" rx="8" fill="none" stroke="#a9a391" stroke-dasharray="5 4"/>
-<rect x="430" y="640" width="250" height="146" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
+<text x="762" y="666" font-size="14.5" font-weight="700" fill="#fff">Delivery</text>
+<text x="734" y="700" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">FACTORY · SHRAVANI</text>
+<circle cx="739" cy="718" r="2.6" fill="#8a7a3a"/>
+<text x="750" y="722" font-size="12.5" fill="#1a1a13">Factory logs dispatch on the TNA</text>
+<circle cx="739" cy="737" r="2.6" fill="#a9a391"/>
+<text x="750" y="741" font-size="12.5" fill="#8a8676" font-style="italic">GRN by Shravani on Enigma,</text>
+<text x="750" y="760" font-size="12.5" fill="#8a8676" font-style="italic">as today; shows on the record</text>
+<circle cx="739" cy="775" r="2.6" fill="#a9a391"/>
+<text x="750" y="779" font-size="12.5" fill="#8a8676" font-style="italic">AWB, courier, logistics: not in PLM</text>
+<rect x="728" y="725" width="234" height="59" rx="8" fill="none" stroke="#a9a391" stroke-dasharray="5 4"/>
+<rect x="430" y="640" width="250" height="165" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
 <rect x="430" y="640" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="430" y="670" width="250" height="12" fill="#3c4a30"/>
 <circle cx="452" cy="661" r="12" fill="#fff"/><text x="452" y="665.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">8</text>
 <text x="472" y="666" font-size="14.5" font-weight="700" fill="#fff">COGS and profitability</text>
 <text x="444" y="700" font-size="11" font-weight="600" letter-spacing=".04em" fill="#8a8676">NITIN · DESIGN SEE IT</text>
 <circle cx="449" cy="718" r="2.6" fill="#8a7a3a"/>
-<text x="460" y="722" font-size="12.5" fill="#1a1a13">Manufacturing cost from the PO</text>
-<circle cx="449" cy="737" r="2.6" fill="#8a7a3a"/>
-<text x="460" y="741" font-size="12.5" fill="#1a1a13">Logistics, shipping, other costs</text>
+<text x="460" y="722" font-size="12.5" fill="#1a1a13">Costing sheet + actuals per piece:</text>
+<text x="460" y="741" font-size="12.5" fill="#1a1a13">fabric, CMT, trims, freight, overheads</text>
 <circle cx="449" cy="756" r="2.6" fill="#8a7a3a"/>
-<text x="460" y="760" font-size="12.5" fill="#1a1a13">COGS per piece vs MRP</text>
-<circle cx="449" cy="775" r="2.6" fill="#8a7a3a"/>
-<text x="460" y="779" font-size="12.5" fill="#1a1a13">Margin per style</text>
+<text x="460" y="760" font-size="12.5" fill="#1a1a13">PO logistics and other costs</text>
+<text x="460" y="779" font-size="12.5" fill="#1a1a13">vs MRP net of discounts and GST</text>
+<circle cx="449" cy="794" r="2.6" fill="#8a7a3a"/>
+<text x="460" y="798" font-size="12.5" fill="#1a1a13">Intake margin per style</text>
 <rect x="130" y="640" width="250" height="146" rx="12" fill="#fffdf6" stroke="#8a7a3a" stroke-width="1.5"/>
 <rect x="130" y="640" width="250" height="42" rx="12" fill="#3c4a30"/><rect x="130" y="670" width="250" height="12" fill="#3c4a30"/>
 <circle cx="152" cy="661" r="12" fill="#fff"/><text x="152" y="665.5" text-anchor="middle" font-size="13" font-weight="700" fill="#3c4a30">9</text>
