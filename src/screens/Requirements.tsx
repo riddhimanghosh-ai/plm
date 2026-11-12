@@ -273,10 +273,10 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const tabIndex = PARTS.findIndex(x => x.k === tab);
   return <>
     <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-      {view === 'tabs' ? <div className="seg" role="tablist">{PARTS.map((p, i) => <button type="button" key={p.k} role="tab" aria-selected={tab === p.k} className={tab === p.k ? 'on' : ''} onClick={() => setTab(p.k)}>{i + 1} · {p.label}{p.ok ? ' ✓' : ''}</button>)}</div> : <span />}
+      {view === 'tabs' ? <div className="form-tabs" role="tablist">{PARTS.map((p, i) => <button type="button" key={p.k} role="tab" aria-selected={tab === p.k} className={tab === p.k ? 'on' : p.ok ? 'done' : ''} onClick={() => setTab(p.k)}><span className="n">{p.ok && tab !== p.k ? '✓' : i + 1}</span>{p.label}</button>)}</div> : <span />}
       <div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'tabs' ? 'on' : ''} onClick={() => pickView('tabs')}>Tabs</button><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div>
     </div>
-    <div className={view === 'blocks' ? 'rtw-blocks' : undefined}>
+    <div className={`rtw-form${view === 'blocks' ? ' rtw-blocks' : ''}`}>
     {show('what') && <Section title="What" collapsible={false}>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'1fr 1fr' }}>
         <Field label="Category (decides the milestone template)"><Select value={category} onChange={v => { setCategory(v as GarmentCategory); setSub(SUB_CATEGORIES[v as GarmentCategory][0]); }} options={GARMENT_CATEGORIES.map(c => ({ value:c, label:c }))} /></Field>
