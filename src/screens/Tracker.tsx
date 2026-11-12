@@ -123,7 +123,7 @@ export function Tracker() {
                 <td className="mono text-[12.5px]" style={{ whiteSpace:'nowrap' }}>{o.poNo ?? <span className="text-[12px]" style={{ ...faint, fontFamily:'var(--body)' }}>no PO yet</span>}</td>
                 <td><div className="font-medium">{o.styleName}</div><div className="text-[11.5px]" style={faint}>{o.category}{o.merchant ? ` · ${o.merchant}` : ''}</div></td>
                 <td className="num">{o.orderQty}</td>
-                <td className="text-[12.5px]">{o.vendorId ? <VendorLink id={o.vendorId}>{vendorName(o.vendorId)}</VendorLink> : (() => { const f = factoryStateOf(o); return f.last ? <span style={faint}>{vendorName(f.last.vendorId)} · proposed</span> : <span style={faint}>—</span>; })()}</td>
+                <td className="text-[12.5px]">{o.vendorId ? <VendorLink id={o.vendorId}>{vendorName(o.vendorId)}</VendorLink> : (() => { const f = factoryStateOf(o); return f.accepted ? <span style={faint}>{vendorName(f.accepted.vendorId)} · PO to raise</span> : <span style={faint}>—</span>; })()}</td>
                 <td><Pill tone={j.tone}>{st.label}</Pill></td>
                 <td className="text-[12.5px]">{j.where}</td>
                 <td className="text-[12.5px]">{j.next ? <>{j.next.now}{j.next.act === 'production' && <span className="pill role-production ml-1">you</span>}</> : <span style={faint}>done</span>}</td>
