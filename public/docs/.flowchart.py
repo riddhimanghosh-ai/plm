@@ -1,48 +1,48 @@
 import sys, html
 out_html, out_drawio, out_svg = sys.argv[1], sys.argv[2], sys.argv[3]
-ROLE = {'plan':'Planning','design':'Design','sourcing':'Sourcing','nitin':'Nitin','factory':'Factory','enigma':'Enigma','stores':'Stores'}
+ROLE = {'plan':'Planning','design':'Design','sourcing':'Sourcing','nitin':'Nitin','factory':'Factory','enigma':'Enigma','stores':'Stores','finance':'Finance'}
 # the spine, in order: id, role, label, kind
 SPINE = [
- ('p1','plan','Review the option\nstock · ROS · cover','step'),
- ('p2','plan','Reorder or new style ask','step'),
- ('d1','design','Raise the requirement\nqty by size · date · cost','step'),
- ('d2','design','Prototype rounds\nor "none needed"','step'),
- ('d3','design','Cloth brief · BOM\n· tech pack','step'),
- ('d4','design','Send to sourcing\nand production','step'),
- ('s1','sourcing','Put a vendor against\nthe brief · price · hold','step'),
- ('d5','design','Push the fabric PO?\nor send back','decision'),
+ ('r1','design','Requirement raised\ndesign ask · reorder · auto-PO','step'),
+ ('r2','design','Design the style\nbrief · BOM · CAD','step'),
+ ('r3','design','Send for sampling\nsample due date','step'),
+ ('f1','factory','Factory makes the sample\nby the due date','step'),
+ ('d4','design','Trial · sample right?','decision'),
  ('n1','nitin','Propose a factory\ncost · date','step'),
- ('d6','design','Accept the factory?\nraise the PO','decision'),
+ ('d6','design','Bulk order · raise the PO?\nqty by size','decision'),
+ ('f2','factory','Acknowledge the PO','step'),
+ ('d7','design','Upload the tech pack','step'),
+ ('s1','sourcing','Shop cloth and trims\nvendor · fabric PO','step'),
  ('s2','sourcing','Send cloth and trims\nto the factory','step'),
- ('f1','factory','Count cloth and trims\nin against the PO','step'),
- ('f2','factory','Cloth short?','decision'),
- ('f4','factory','First sample\nfrom bulk cloth','step'),
- ('n3','nitin','Sample OK?\nPP go-ahead','decision'),
+ ('f3','factory','Count in · cloth short?','decision'),
+ ('f4','factory','Approve all received','step'),
  ('f5','factory','Make · log the TNA\n22 milestones','step'),
- ('f6','factory','Dispatch to BSC','step'),
- ('e4','enigma','GRN at BSC\nby size, lot by lot','system'),
+ ('f6','factory','QC passed?','decision'),
+ ('f7','factory','AWB · courier · shipped','step'),
+ ('e4','enigma','Delivered · GRN\nby size, lot by lot','system'),
+ ('n4','nitin','Close the shipment\nshipping cost','step'),
+ ('fi','finance','COGS vs MRP\nmargin per style','step'),
  ('p3','plan','Add to a drop\nname · date','step'),
  ('d8','design','Mint design codes\nname · cloth · MRP · sizes','step'),
- ('d9','design','Stickers · Yusuf\nphotos · stores told','step'),
  ('p4','plan','Display & fit plan\nper store','step'),
  ('st1','stores','Pieces received\n(RetailOS)','step'),
  ('p5','plan','Make live','step'),
 ]
 # boxes hanging under a spine box: parent, id, role, label, kind, edge label
 SIDE = [
- ('d5','e1','enigma','Fabric PO to the mill\nDRAFT → Open','system','push'),
- ('d6','e2','enigma','Factory PO\nTNA generated','system','accept'),
- ('s2','e3','enigma','"Fabric issued for RTW"\nstock adjustment','system',''),
- ('f2','d7','design','Give the cut ratio\nor approve cut-short','step','yes · ask design'),
- ('d7','n2','nitin','Send the new ratio\nto the factory','step',''),
- ('n2','f3','factory','Cut to the new sizes\ncloth count stays final','step',''),
- ('f5','n4','nitin','Tracker · OTIF\nescalations','step','dates'),
+ ('r1','e0','enigma','or: Enigma auto-PO\ncore style below threshold','system','or'),
+ ('d4','d5','design','Remarks → update\nCAD and design','step','remarks'),
+ ('d6','e2','enigma','Factory PO + logistics\nand other costs · TNA','system','raise'),
+ ('s1','e1','enigma','Fabric PO to the mill\nDRAFT → Open','system',''),
+ ('f3','d9','design','Give the cut ratio\nor approve cut-short','step','yes · ask design'),
+ ('d9','n2','nitin','Send the new ratio\nto the factory','step',''),
+ ('f5','n3','nitin','Tracker · OTIF\nescalations','step','dates'),
  ('d8','e5','enigma','Design rows + variants\ncreated in Enigma','system',''),
  ('p4','e6','enigma','STO to stores','system',''),
  ('p5','e7','enigma','Live · Shopify sync','system',''),
 ]
 # back-loops and joins: from, to, label
-LOOPS = [('d5','s1','send back · extend'),('d6','n1','send back'),('n3','f4','resubmit'),('f3','f4','then'),('f2','f4','no · all in'),('n3','f5','yes')]
+LOOPS = [('d5','f1','next round'),('d6','n1','send back'),('f6','f5','rework'),('n2','f4','then'),('f3','f4','no · all in'),('d4','n1','yes'),('f6','f7','yes')]
 COLS=6; W,H=186,58; GX=226; SUB=H+26; X0,Y0=40,40
 FILL={'step':'#fffbe6','decision':'#e7ebe0','system':'#dbeafe'}; STROKE={'step':'#8a7a3a','decision':'#3c4a30','system':'#1d4ed8'}
 node={}
@@ -69,9 +69,10 @@ for ri,row in enumerate(rows):
     for ci,n in enumerate(row):
         c=(COLS-1-ci) if rev else ci
         pos[n[0]]=(X0+c*GX, row_y[ri])
+rows_bottom=y
 for i,(r,d) in sub_of.items():
-    x,y=pos[r]; pos[i]=(x,y+d*SUB)
-width=X0+COLS*GX; height=y+20
+    px,py=pos[r]; pos[i]=(px,py+d*SUB)
+width=X0+COLS*GX; height=max(rows_bottom, max(v[1] for v in pos.values())+H+20)
 def esc(s): return html.escape(s)
 svg=[f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" font-family="Inter, Helvetica, Arial, sans-serif">',
  '<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#555"/></marker></defs>',
@@ -104,7 +105,10 @@ for a,b,lab in LOOPS:
     else:
         # from a side box back up to the spine: elbow to the right of the column
         x1,y1=ax+W,ay+H/2; x2,y2=bx+W/2,by+H
-        if bx>ax: line(f'M{x1} {y1}L{x2} {y1}L{x2} {y2}', lab, (x1+x2)/2, y1-6)
+        if abs(bx-ax)<1:   # straight above or below: run the loop up the right-hand side so it does not sit on the main arrow
+            top,bot=(ay,by+H) if ay>by else (ay+H,by); xr=ax+W-24
+            line(f'M{xr} {top}L{xr} {bot}', lab, xr+30, (top+bot)/2)
+        elif bx>ax: line(f'M{x1} {y1}L{x2} {y1}L{x2} {y2}', lab, (x1+x2)/2, y1-6)
         else: line(f'M{ax} {ay+H/2}L{x2} {ay+H/2}L{x2} {y2}', lab, (ax+x2)/2, ay+H/2-6)
 # label the spine edges that carry a word
 for a,b,lab in LOOPS:
@@ -123,7 +127,7 @@ open(out_svg,'w').write(svg_text)
 legend='<div class="legend"><span><i style="background:#fffbe6;border-color:#8a7a3a"></i> step in PLM</span><span><i style="background:#e7ebe0;border-color:#3c4a30;border-radius:10px"></i> decision</span><span><i style="background:#dbeafe;border-color:#1d4ed8"></i> on Enigma</span><span>reads left to right, then down and back</span></div>'
 page=f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RTW flowchart</title>
 <style>body{{margin:0;background:#fff;color:#1a1a13;font-family:Inter,system-ui,sans-serif;padding:24px}}h1{{font-size:22px;margin:0 0 4px}}p{{margin:0 0 14px;color:#6b6759;font-size:13.5px}}.legend{{display:flex;gap:16px;font-size:12px;color:#6b6759;margin-bottom:10px}}.legend i{{display:inline-block;width:14px;height:10px;border:1.4px solid;border-radius:3px;vertical-align:middle;margin-right:4px}}.wrap{{overflow:auto;border:1px solid #e3ddcd;border-radius:8px}}svg{{display:block}}</style></head>
-<body><h1>RTW in PLM · the flow, box by box</h1><p>The main line snakes left to right, then down and back. Boxes hanging below a step are what it triggers: on Enigma (blue) or the cut-ratio loop. Also as <a href="bsc-plm-rtw-flowchart.drawio" download>a draw.io file</a>, <a href="bsc-plm-rtw-flowchart.svg" download>SVG</a>, and <a href="bsc-plm-rtw-swimlane.html">the same flow as a swimlane</a>.</p>{legend}<div class="wrap">{svg_text.replace(f'width="{width}" height="{height}"', 'style="width:100%;height:auto;min-width:1100px"',1)}</div></body></html>'''
+<body><h1>RTW in PLM · the flow, box by box (v2, after the 12 Nov meeting)</h1><p>The main line snakes left to right, then down and back. Boxes hanging below a step are what it triggers: on Enigma (blue) or the cut-ratio loop. Also as <a href="bsc-plm-rtw-flowchart.drawio" download>a draw.io file</a>, <a href="bsc-plm-rtw-flowchart.svg" download>SVG</a>, and <a href="bsc-plm-rtw-swimlane.html">the same flow as a swimlane</a>.</p>{legend}<div class="wrap">{svg_text.replace(f'width="{width}" height="{height}"', 'style="width:100%;height:auto;min-width:1100px"',1)}</div></body></html>'''
 open(out_html,'w').write(page)
 STY={'step':'rounded=0;whiteSpace=wrap;html=1;fillColor=#fffbe6;strokeColor=#8a7a3a;fontSize=11;','decision':'rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#e7ebe0;strokeColor=#3c4a30;fontSize=11;','system':'rounded=0;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;'}
 cells=['<mxCell id="0"/>','<mxCell id="1" parent="0"/>']
