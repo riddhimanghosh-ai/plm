@@ -30,7 +30,7 @@ export function Qc() {
   const active = db.orders.find(o => o.id === params.get('open')) ?? null;
   const points = [...new Set(rows.map(r => r.pt.key))];
   const faint = { color: 'var(--ink-faint)' } as const;
-  return <Page title="QC · samples and inspections" lede="Every PO waiting on QC: the PP sample and size set the factory submitted, and the line inspections due. Pass or fail each with remarks; the merchandiser sees them."
+  return <Page title="QC · samples and inspections" lede="Your worklist: every point waiting on you, oldest first. Open a row, tick the checklist, pass or fail with remarks. A pass logs the TNA block; a fail goes to the factory and the merchandiser."
     replaces="the QC remarks on WhatsApp and the inspection report photographed into the group">
     {!mine && <div className="mb-2"><ActsBy role="qc" does="passes or fails each point against the tech pack and the sizes" inline /></div>}
     <Stats items={[
@@ -45,7 +45,7 @@ export function Qc() {
       <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style or PO" style={{ width: 180 }} />
     </div></Card>
     {shown.length === 0 ? <Card><Empty title={filter === 'open' ? 'Nothing waiting on QC.' : 'Nothing here.'} body="" /></Card> : <Card><table className="t">
-      <thead><tr><th>PO</th><th>Style</th><th>Factory</th><th>Point</th><th>Status</th><th>Last remarks</th><th>Due in-house</th></tr></thead>
+      <thead><tr><th>PO</th><th>Style</th><th>Factory</th><th>Point</th><th>Status</th><th>Last remarks</th><th>Due in-house</th><th></th></tr></thead>
       <tbody>{shown.map(({ o, pt }) => { const r = riskOf(o);
         return <tr key={`${o.id}-${pt.key}`} className="row" onClick={() => set('open', o.id)}>
           <td className="mono text-[12.5px]" style={{ whiteSpace: 'nowrap' }}>{o.poNo}</td>
@@ -55,6 +55,7 @@ export function Qc() {
           <td><Pill tone={pt.state === 'failed' ? 'risk' : pt.state === 'due' ? (pt.sinceDays && pt.sinceDays > 2 ? 'risk' : 'warn') : 'good'}>{pt.state === 'failed' ? `failed ${fmtDate(pt.last?.on)}` : pt.state === 'due' ? `to check · since ${fmtDate(pt.due)}${pt.sinceDays ? ` · ${pt.sinceDays}d` : ''}` : `passed ${fmtDate(pt.last?.on)}`}</Pill></td>
           <td className="text-[12px]" style={{ whiteSpace: 'normal', maxWidth: 280, color: pt.last?.result === 'fail' ? 'var(--risk)' : undefined }}>{pt.last?.remarks || <span style={faint}>—</span>}</td>
           <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(o.targetInhouse)}{r.bufferDays != null && <div className="text-[11px]" style={{ color: r.bufferDays < 0 ? 'var(--risk)' : 'var(--ink-faint)' }}>{r.bufferDays < 0 ? `${-r.bufferDays}d late` : `${r.bufferDays}d to spare`}</div>}</td>
+          <td style={{ whiteSpace: 'nowrap' }}>{pt.state !== 'passed' && mine && <span className="cta">{pt.state === 'failed' ? 'check again →' : 'check now →'}</span>}</td>
         </tr>; })}</tbody>
     </table></Card>}
     <Drawer open={!!active} onClose={() => set('open', null)} title={active?.poNo ?? ''} subtitle={active && <span>{active.styleName} · {db.vendors.find(v => v.id === active.vendorId)?.name ?? ''} · {active.orderQty} pcs</span>}>

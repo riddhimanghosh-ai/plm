@@ -16,13 +16,13 @@ import { PutInDrop } from './Requirements';
 import { MilestoneGrid } from './Tracker';
 import { MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
-import { PackSection, CostQuerySection, PoSection, PoCostsSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, CogsSection } from './RtwChain';
+import { PackSection, CostQuerySection, PoSection, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, CogsSection } from './RtwChain';
 import { SOURCE_LABEL } from '../domain/rtwJourney';
 import { LaunchCodes, LaunchStickers } from './Launches';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
 const MINE: Record<string, string[]> = {
-  design: ['raised', 'pack', 'cloth', 'tna', 'cogs', 'launch'],
+  design: ['raised', 'pack', 'query', 'cloth', 'tna', 'cogs', 'launch'],
   planning: ['raised', 'cogs', 'launch'],
   sourcing: ['pack', 'cloth'],
   production: ['raised', 'pack', 'query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'cogs'],
@@ -122,13 +122,15 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
 
     {at('pack') && <div className="rtw-full"><PackSection o={o} design={design} sourcing={sourcing} /></div>}
 
-    {at('query') && <div className="rtw-full"><CostQuerySection o={o} prod={prod} merchant={merchant} /></div>}
+    {at('query') && <div className="rtw-full"><CostQuerySection o={o} prod={prod} merchant={merchant} design={design} /></div>}
 
     {at('po') && <PoSection o={o} />}
     {at('po') && o.poNo && <div className="pt-3"><PoCostsSection o={o} design={prod} factory={merchant} /></div>}
+    {at('po') && o.poNo && <div className="pt-3 rtw-full"><PoInvoicesSection o={o} prod={prod} /></div>}
 
     {at('plan') && <div className="rtw-full"><TnaPlanSection o={o} merchant={merchant} /></div>}
 
+    {at('tna') && o.poNo && role === 'qc' && <div className="rtw-full"><QcChecksSection o={o} qc={qc} /></div>}
     {at('tna') && <Section title="The TNA" collapsible={false} right={<Pill tone={o.status === 'Closed' ? 'neutral' : r.risk === 'on-track' ? 'good' : r.risk === 'delayed' || r.risk === 'critical' ? 'risk' : 'warn'}>{o.poNo ? (o.status === 'Closed' ? 'delivered' : `${st.stage}${r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : ''}`) : 'after the PO'}</Pill>}>
       {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Generated from the PO; the factory returns its planned dates on the TNA form, then logs each step as it happens. The merchandiser follows up.</div>
         : <>
@@ -137,14 +139,18 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
           {!onTracker && <div className="pt-2"><a className="cta" href={`#/tracker?open=${o.id}`}>Open on the RTW production tracker →</a></div>}
         </>}
     </Section>}
-    {at('tna') && o.poNo && <div className="pt-3"><QcChecksSection o={o} qc={qc} /></div>}
-    {at('cloth') && <div className="rtw-full"><Section title="Cloth at the factory" collapsible={false} right={<Pill tone={o.poNo ? fab.tone : 'neutral'}>{o.poNo ? fab.label : 'after the PO'}</Pill>}>
-      {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Once the PO is out: sourcing sends the cloth to the factory, the factory counts it in; short cloth comes back to category for a cut ratio.</div>
-        : !o.fabricNominated ? <div className="text-[12.5px] py-1" style={faint}>The factory sources its own cloth; its fabric PO and receipt are steps on the TNA.</div>
+    {at('tna') && o.poNo && role !== 'qc' && <div className="pt-3"><QcChecksSection o={o} qc={qc} /></div>}
+    {at('cloth') && <div className="rtw-full"><Section title={!o.poNo || o.fabricNominated ? "Cloth at the factory" : "Cloth and trims at the factory"} collapsible={false} right={<Pill tone={o.poNo ? (o.fabricNominated ? fab.tone : (o.factoryCloth?.receivedOn ? 'good' : 'info')) : 'neutral'}>{o.poNo ? (o.fabricNominated ? fab.label : (o.factoryCloth?.receivedOn ? 'cloth in at the factory' : 'factory buying the cloth')) : 'after the PO'}</Pill>}>
+      {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Decided on the factory's reply: BSC sends the cloth (sourcing ships it, the factory counts it in), or the factory buys it — from BSC's vendor on the details in the PO, or its own — and gives back its fabric PO and receipt. Less or more than the PO needs comes back to category for a new cut ratio.</div>
+        : !o.fabricNominated ? <FactoryClothSection o={o} merchant={merchant} />
         : (merchant && !design && !prod) || (role === 'owner' && location.hash.startsWith('#/factory')) ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" />}
-    </Section></div>}
+    </Section>
+    {o.poNo && !o.fabricNominated && <div className="pt-3"><Section title="Trims and the cut ratio" collapsible={false} right={<Pill tone={fab.cr && !fab.cr.given ? 'risk' : fab.cr?.given ? 'info' : 'neutral'}>{fab.cr && !fab.cr.given ? 'new cut ratio with category' : fab.cr?.given ? 'new cut ratio given' : 'on the PO sizes'}</Pill>}>
+      {(merchant && !design && !prod) || (role === 'owner' && location.hash.startsWith('#/factory')) ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" />}
+    </Section></div>}</div>}
 
     {at('dispatch') && <div className="rtw-full"><InvoiceSection o={o} merchant={merchant} /></div>}
+    {at('dispatch') && o.poNo && <div className="pt-3 rtw-full"><PoInvoicesSection o={o} prod={prod} /></div>}
 
     {at('received') && <div className="rtw-full"><ReceivedSection o={o} /></div>}
 

@@ -90,7 +90,11 @@ export function MaterialsPanel({ o, mine }: { o: ProductionOrder; mine: boolean 
   const cloth = o.bom.find(l => l.kind === 'fabric');
   const openAsk = fab.cr && !fab.cr.given;
   const closed = o.status === 'Closed';
-  const askShort = (why: string, bk: { size: string; qty: number }[]) => { askCutRatio(o.id, why, 'cut-short', bk); setShortOpen(false); setShortWhy(''); };
+  const askShort = (why: string, bk: { size: string; qty: number }[]) => { askCutRatio(o.id, why, 'cut-short', bk, fab.key === 'short' ? 'fabric-short' : 'trim-short'); setShortOpen(false); setShortWhy(''); };
+  /* 15 Nov 2026: more than the PO needs landed — cloth or a trim; category decides whether to cut more, and gives a new ratio */
+  const extraM = fab.key !== 'vendor-sources' && fs?.receipt && fab.need ? Math.max(0, fs.receipt.metresOk - fab.need) : 0;
+  const trimsExtra = trims.filter(x => x.m.receivedOn && x.m.receivedQty != null && x.m.receivedQty > x.m.requiredQty);
+  const [extraWhy, setExtraWhy] = useState('');
   return <div className="px-4 py-3">
     <div className="mp-parts">
     {/* the new sizes first: it is what the factory came to see */}
@@ -126,7 +130,8 @@ export function MaterialsPanel({ o, mine }: { o: ProductionOrder; mine: boolean 
         <div className="font-medium text-[13px]">Not enough to make {o.orderQty} pcs</div>
         <div className="text-[12.5px] pt-0.5" style={{ color:'var(--ink-soft)' }}>{fab.key === 'short' ? `Cloth is ${fab.short} m short of the ${fab.need} m needed. ` : ''}{trimsShort.length ? `${trimsShort.map(x => `${x.line.item} ${x.m.receivedQty}/${x.m.requiredQty} ${x.line.unit}`).join(', ')} short. ` : ''}Tell design: either they change the sizes, or you cut fewer pieces with what is here.</div>
         {mine && !shortOpen && <div className="flex gap-2 pt-2 flex-wrap">
-          {fab.key === 'short' && <Button size="sm" variant="primary" onClick={() => askCutRatio(o.id, `cloth short by ${fab.short} m`, 'ratio')}>Ask design to change the sizes</Button>}
+          {fab.key === 'short' && <Button size="sm" variant="primary" onClick={() => askCutRatio(o.id, `cloth short by ${fab.short} m`, 'ratio', null, 'fabric-short')}>Ask category for a new cut ratio</Button>}
+          {fab.key !== 'short' && trimsShort.length > 0 && <Button size="sm" variant="primary" onClick={() => askCutRatio(o.id, `${trimsShort.map(x => `${x.line.item} ${x.m.receivedQty}/${x.m.requiredQty}`).join(', ')} short`, 'ratio', null, 'trim-short')}>Ask category for a new cut ratio</Button>}
           <Button size="sm" variant={fab.key === 'short' ? undefined : 'primary'} onClick={() => { const f = Math.min(clothFactor, shortFactor); setShortQty(Object.fromEntries(breakup.map(x => [x.size, String(Math.floor(x.qty * f))]))); setShortOpen(true); }}>Propose to cut fewer…</Button>
         </div>}
         {mine && shortOpen && <div className="pt-2">
@@ -136,6 +141,13 @@ export function MaterialsPanel({ o, mine }: { o: ProductionOrder; mine: boolean 
             <Button size="sm" variant="primary" onClick={() => { const bk = breakup.map(x => ({ size: x.size, qty: Number(shortQty[x.size] ?? 0) || 0 })); askShort(shortWhy.trim() || `cut ${bk.reduce((a, x) => a + x.qty, 0)} of ${o.orderQty}: ${fab.key === 'short' ? `cloth short ${fab.short} m` : ''}${trimsShort.map(x => ` ${x.line.item} ${x.m.receivedQty}/${x.m.requiredQty}`).join(',')}`, bk); }}>Send to design</Button>
             <Button size="sm" variant="ghost" onClick={() => setShortOpen(false)}>Cancel</Button></div>
         </div>}
+      </div>}
+      {/* extra → category decides: cut more pieces on a new ratio, or hold the balance */}
+      {(extraM > 0 || trimsExtra.length > 0) && fab.key !== 'short' && !trimsShort.length && !openAsk && !closed && <div className="mt-3 p-3 rounded-[6px]" style={{ background:'color-mix(in srgb, var(--warn) 8%, #fff)', border:'1px solid var(--warn)' }}>
+        <div className="font-medium text-[13px]">More than the PO needs</div>
+        <div className="text-[12.5px] pt-0.5" style={{ color:'var(--ink-soft)' }}>{extraM > 0 ? `Cloth is ${extraM} m over the ${fab.need} m needed. ` : ''}{trimsExtra.length ? `${trimsExtra.map(x => `${x.line.item} ${x.m.receivedQty}/${x.m.requiredQty}`).join(', ')} over. ` : ''}Category decides whether to cut more on a new ratio or hold the balance.</div>
+        {mine && <div className="flex gap-2 items-end flex-wrap pt-2"><div style={{ flex:'1 1 220px' }}><Field label="Note"><Input value={extraWhy} onChange={e => setExtraWhy(e.target.value)} placeholder="what came extra" /></Field></div>
+          <Button size="sm" variant="primary" onClick={() => { askCutRatio(o.id, `${extraM > 0 ? `cloth ${extraM} m over` : ''}${extraM > 0 && trimsExtra.length ? '; ' : ''}${trimsExtra.map(x => `${x.line.item} ${(x.m.receivedQty ?? 0) - x.m.requiredQty} over`).join(', ')}${extraWhy.trim() ? ` — ${extraWhy.trim()}` : ''}`, 'ratio', null, extraM > 0 ? 'fabric-extra' : 'trim-extra'); setExtraWhy(''); }}>Ask category for a new cut ratio</Button></div>}
       </div>}
     </div>
       {(o.cutRatios ?? []).length > 0 && <div className="mp-part pt-3 mt-3" style={{ borderTop:'1px solid var(--line-soft)' }}>

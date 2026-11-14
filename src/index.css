@@ -562,3 +562,27 @@ h1::after { background: var(--accent); }
 .fac-pick { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; background: var(--surface); font-size: 12.5px; }
 .fac-pick.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
 .fac-pick input { margin-top: 3px; }
+
+/* 15 Nov 2026: QC's five points as a stepper, the one card QC works in, and QC blocks on the TNA flow */
+.qc-steps { list-style: none; margin: 0 0 10px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.qc-step { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); min-width: 0; }
+.qc-step .qc-n { flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: var(--surface-2); color: var(--ink-faint); }
+.qc-step .qc-label { font-size: 12.5px; font-weight: 600; }
+.qc-step .qc-sub { font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
+.qc-step .qc-remark { font-size: 11px; margin-top: 3px; line-height: 1.3; }
+.qc-step.passed { border-color: color-mix(in srgb, var(--good) 40%, var(--line)); background: color-mix(in srgb, var(--good) 5%, var(--surface)); }
+.qc-step.passed .qc-n { background: var(--good); color: #fff; }
+.qc-step.failed { border-color: var(--risk); background: color-mix(in srgb, var(--risk) 6%, var(--surface)); }
+.qc-step.failed .qc-n { background: var(--risk); color: #fff; }
+.qc-step.due { border: 2px solid var(--role-qc); background: var(--role-qc-soft); }
+.qc-step.due .qc-n { background: var(--role-qc); color: #fff; }
+.qc-step.na { opacity: .5; }
+.qc-now { border: 2px solid var(--role-qc); border-radius: 10px; padding: 12px 14px; background: color-mix(in srgb, var(--role-qc) 4%, var(--surface)); }
+.qc-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px; margin: 10px 0; }
+.qc-item { display: flex; gap: 8px; align-items: flex-start; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 12.5px; cursor: pointer; }
+.qc-item.on { border-color: var(--good); background: color-mix(in srgb, var(--good) 6%, var(--surface)); }
+.qc-item input { margin-top: 2px; }
+.tna-qc { border: 2px dashed var(--role-qc) !important; background: color-mix(in srgb, var(--role-qc) 4%, #fff) !important; border-radius: 14px !important; }
+.tna-qc[data-qc="pass"] { border-style: solid !important; border-color: var(--good) !important; background: color-mix(in srgb, var(--good) 6%, #fff) !important; }
+.tna-qc[data-qc="fail"] { border-style: solid !important; border-color: var(--risk) !important; background: color-mix(in srgb, var(--risk) 7%, #fff) !important; }
+.tna-qc[data-qc="due"] { background: var(--role-qc-soft) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--role-qc) 20%, transparent); }

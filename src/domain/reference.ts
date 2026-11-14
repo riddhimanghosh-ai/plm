@@ -96,6 +96,7 @@ export const TECH_PACK_ITEMS = [
   { key:'tagImage', label:'Tag image' }, { key:'barcoding', label:'Barcoding info' }, { key:'packaging', label:'Packaging' },
 ] as const;
 /* where the factory delivers: nothing to hem → the 3PL warehouse; hemming or semi-stitching → the in-house unit at Vasai (logic to confirm with BSC) */
+export const FABRIC_BY_LABEL = { bsc: 'BSC sends the cloth', 'bsc-vendor': "factory buys it from BSC's vendor", factory: "factory's own cloth" } as const;
 export const DELIVERY_LOCATIONS = { plain: '3PL warehouse', hem: 'Vasai · in-house' } as const;
 export const PRE_PRODUCTION = new Set(['Yarn PO', 'Fabric PO', 'Yarn ETA', 'Fabric ETA', 'Trims ETA', 'PPS Submission', 'PPS Approval', 'Size Set Sub', 'Size Set Appvl']);
 export const QC_MILESTONES = new Set(['PPS Approval', 'Size Set Appvl', 'Initial Inspection', 'Mid-line Inspection', 'FI']);

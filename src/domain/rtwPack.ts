@@ -2,9 +2,9 @@
    is the five-part requirement complete; which factories to recommend for a cost query; where the
    goods are delivered; which QC point is open on a PO; and the mails PLM composes (the cost query,
    the PO, the invoice to the warehouse). */
-import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor } from './types';
+import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply } from './types';
 import { TECH_PACK_ITEMS, QC_POINTS, DELIVERY_LOCATIONS, PEOPLE } from './reference';
-import { fmtDate, daysAgo } from './engines';
+import { fmtDate, daysAgo, addDays, iso, daysBetween } from './engines';
 
 export const EMPTY_PACK: RequirementPack = { techPack: {}, fabric: { description: null, content: null, image: null, swatchAnalyser: null, cpm: null, widthIn: null, vendorId: null, vendorFabricCode: null, blockedMetres: null, readiness: null, readyOn: null }, trimCard: null, sentOn: null, sentBy: null };
 export const packOf = (o: ProductionOrder): RequirementPack => o.pack ?? EMPTY_PACK;
@@ -57,6 +57,20 @@ export function qcPointsOf(o: ProductionOrder): QcPointState[] {
 }
 export const openQcOf = (o: ProductionOrder) => qcPointsOf(o).filter(x => x.state === 'due' || x.state === 'failed');
 
+/* a factory's reply against the targets: cost over the target cost, or lead time landing past the target in-house date */
+export function replyFlagsOf(o: ProductionOrder, r: CostReply): { costOver: number; inhouseOn: string; lateDays: number; flagged: boolean } {
+  const costOver = Math.max(0, r.cost - o.targetCost);
+  const inhouseOn = iso(addDays(r.repliedOn, r.leadDays));
+  const lateDays = Math.max(0, daysBetween(o.targetInhouse, inhouseOn));
+  return { costOver, inhouseOn, lateDays, flagged: costOver > 0 || lateDays > 0 };
+}
+/* every reply over target and no PO yet: category has to revise the target date or cost (or Nitin picks a reply that fits) */
+export function targetReviseOpenOf(o: ProductionOrder): { open: boolean; flagged: CostReply[]; fits: CostReply[] } {
+  const rs = o.costQuery?.replies ?? [];
+  const flagged = rs.filter(r => replyFlagsOf(o, r).flagged); const fits = rs.filter(r => !replyFlagsOf(o, r).flagged);
+  return { open: !o.poNo && rs.length > 0 && fits.length === 0, flagged, fits };
+}
+
 /* ---- the mails PLM composes; nobody types them ---- */
 export type Mail = { to: string[]; cc: string[]; subject: string; body: string; attachments: string[] };
 const merch = (db: Db, o: ProductionOrder) => { const m = o.merchant ?? 'Nitin Singh'; const p = PEOPLE.find(x => x.name === m); return `${(p?.id ?? m.toLowerCase().replace(/\s+/g, '.'))}@merchandiser.in`; };
@@ -66,14 +80,15 @@ export function costQueryMail(db: Db, o: ProductionOrder, factoryIds: string[], 
   const p = packOf(o);
   return {
     to: factoryIds.map(id => vendorMail(db.vendors.find(v => v.id === id))), cc: [merch(db, o)],
-    subject: `Cost query · ${o.styleName} · ${o.orderQty} pcs · reply by ${fmtDate(deadline)}`,
+    subject: `Factory counter sourcing · ${o.styleName} · ${o.orderQty} pcs · reply by ${fmtDate(deadline)}`,
     body: `Please quote for ${o.orderQty} pcs of ${o.styleName} (${o.category} · ${o.subCategory}) by ${fmtDate(deadline)}. Target in-house ${fmtDate(o.targetInhouse)}.\nFabric: ${p.fabric.description ?? '—'}${p.fabric.content ? ` · ${p.fabric.content}` : ''}${p.fabric.widthIn ? ` · ${p.fabric.widthIn}"` : ''}. Say whether you source the cloth or BSC's vendor supplies it.\nReply on the form linked: cost per piece, lead time, who sources the fabric.`,
     attachments: ['Tech pack', 'Fabric info', 'Trim card', 'Size break-up', 'BOM', 'Cost reply form'],
   };
 }
 export function poMailOf(db: Db, o: ProductionOrder): Mail {
   const v = db.vendors.find(x => x.id === o.vendorId); const pm = o.poMail; const p = packOf(o);
-  const cloth = pm?.fabricBy === 'bsc' ? `Cloth from BSC's vendor ${db.vendors.find(x => x.id === p.fabric.vendorId)?.name ?? '—'}${p.fabric.vendorFabricCode ? ` · ${p.fabric.vendorFabricCode}` : ''}${p.fabric.blockedMetres != null ? ` · ${p.fabric.blockedMetres} m blocked` : ''}; raise your fabric PO on them.` : 'You source the cloth; your fabric PO and its receipt are on the TNA.';
+  const vd = `${db.vendors.find(x => x.id === p.fabric.vendorId)?.name ?? '—'}${p.fabric.vendorFabricCode ? ` · ${p.fabric.vendorFabricCode}` : ''}${p.fabric.blockedMetres != null ? ` · ${p.fabric.blockedMetres} m blocked` : ''}`;
+  const cloth = pm?.fabricBy === 'bsc' ? `BSC sends the cloth: ${vd}; sourcing ships it to you, count it in on arrival.` : pm?.fabricBy === 'bsc-vendor' ? `Buy the cloth from BSC's vendor ${vd}; raise your fabric PO on them and give us the PO and receipt details. Your fabric PO and its receipt are on the TNA.` : 'You source the cloth; give us your fabric PO and receipt details. They are on the TNA.';
   return {
     to: [vendorMail(v)], cc: [merch(db, o)],
     subject: `${o.poNo ?? 'PO'} · ${o.styleName} · ${o.orderQty} pcs · deliver to ${pm?.deliveryLocation ?? '—'}`,

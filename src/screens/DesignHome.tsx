@@ -43,7 +43,7 @@ const STAGE_HINT: Record<Stage, string> = MTM_ONLY ? {
 };
 
 /* the order the Pending dropdown lists things in: the journey's order, the cut ratio first because it is urgent */
-const PENDING_ORDER = ['Cut ratio pending', 'Send for sampling pending', 'Sample at the factory pending', 'Sample review pending', 'CAD and design update pending', 'Bulk order · PO pending', 'PO acknowledgement pending', 'Fabric PO pending', 'Vendor pending', 'Extension pending', 'Cloth at the factory pending', 'Factory sign-off pending', 'Being made · TNA pending', 'QC pending', 'Shipping pending', 'COGS pending', 'Swatches pending', 'Launch pending', 'Launched', 'Live'];
+const PENDING_ORDER = ['New cut ratio pending', 'Revise target date / cost pending', 'Send for sampling pending', 'Sample at the factory pending', 'Sample review pending', 'CAD and design update pending', 'Bulk order · PO pending', 'PO acknowledgement pending', 'Fabric PO pending', 'Vendor pending', 'Extension pending', 'Cloth at the factory pending', 'Factory sign-off pending', 'Being made · TNA pending', 'QC pending', 'Shipping pending', 'COGS pending', 'Swatches pending', 'Launch pending', 'Launched', 'Live'];
 interface Row { id: string; kind: Kind; name: string; brief: string; raisedBy: string; raisedOn: string; stage: Stage; owner: RoleId | null; next: string; sourcing: string | null; href: string; where?: string; urgent?: boolean; pending: string }
 
 export function DesignHome() {
@@ -89,9 +89,9 @@ export function DesignHome() {
       /* the same Where it is · Next every RTW list shows; a cut-ratio ask is design's move and shows red */
       const j = rtwRowOf(db, o); const fab = fabricStateOf(o);
       const blocker = (j.next?.now ?? '').toLowerCase();
-      const pend = fab.key === 'ratio-asked' || fab.key === 'ratio-given' ? 'Cut ratio' : !j.next ? 'Launched'
+      const pend = fab.key === 'ratio-asked' || fab.key === 'ratio-given' ? 'New cut ratio' : !j.next ? 'Launched'
         : j.next.key === 'pack' ? (blocker.includes('sourcing to add') ? 'Cloth vendor (sourcing)' : blocker.includes('send it') ? 'Send to Production RTW' : 'Requirement parts')
-        : j.next.key === 'query' ? (blocker.includes('pick') ? 'Cost query' : 'Factory replies')
+        : j.next.key === 'query' ? (blocker.includes('revise') ? 'Revise target date / cost' : blocker.includes('pick') ? 'Counter sourcing' : 'Factory replies')
         : j.next.key === 'po' ? 'PO' : j.next.key === 'plan' ? 'TNA planned dates' : j.next.key === 'cloth' ? 'Cloth at the factory'
         : j.next.key === 'tna' ? (blocker.includes('qc') ? 'QC' : 'Being made · TNA') : j.next.key === 'dispatch' ? 'Invoice & packing list' : j.next.key === 'received' ? 'Receipt on Enigma' : j.next.key === 'cogs' ? 'COGS' : 'Launch';
       out.push({ where: j.where, urgent: fab.key === 'ratio-asked', pending: pend === 'Launched' ? 'Launched' : `${pend} pending`, id: o.id, kind: mode === 'fob-nominated' ? 'FOB' : 'RTW', name: o.styleName, brief: o.fabricBrief?.look ? `${o.fabricBrief.look}${o.fabricBrief.colour ? ` · ${o.fabricBrief.colour}` : ''} · ${o.orderQty} pcs` : `${o.category} · ${o.orderQty} pcs`,

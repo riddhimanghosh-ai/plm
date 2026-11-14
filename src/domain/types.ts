@@ -218,11 +218,19 @@ export interface RequirementPack {
   trimCard: string | null;
   sentOn: string | null; sentBy: string | null;   // sent to Production RTW once the five parts are complete
 }
-export interface CostReply { vendorId: string; cost: number; fabricBy: 'bsc' | 'factory'; leadDays: number; repliedOn: string; note: string | null }
+/* how the cloth reaches the factory: BSC sends it; the factory buys it from BSC's vendor on the details BSC gives; or the factory's own cloth */
+export type FabricBy = 'bsc' | 'bsc-vendor' | 'factory';
+export interface CostReply { vendorId: string; cost: number; fabricBy: FabricBy; leadDays: number; repliedOn: string; note: string | null }
 export interface CostQuery { sentOn: string; by: string; deadline: string; to: string[]; cc: string[]; factoryIds: string[]; replies: CostReply[] }
 export type QcPoint = 'pps' | 'size-set' | 'initial' | 'midline' | 'final';
 export interface QcCheck { point: QcPoint; on: string; by: string; result: 'pass' | 'fail'; remarks: string }
 export type DeliveryLocation = '3PL warehouse' | 'Vasai · in-house';
+/* what set off a cut-ratio ask: less or more cloth or trim than the PO needs (15 Nov 2026) */
+export type CutRatioTrigger = 'fabric-short' | 'fabric-extra' | 'trim-short' | 'trim-extra' | 'other';
+/* a factory's reply over the target cost or past the target in-house date: category revises the target, and the record keeps was → now */
+export interface TargetRevision { on: string; by: string; field: 'targetInhouse' | 'targetCost'; from: string | number; to: string | number; why: string }
+/* every invoice on a PO, both ways, so accounts can reconcile: the factory's, and BSC's for material it supplied that the factory would otherwise have bought */
+export interface PoInvoice { id: string; direction: 'bsc-to-factory' | 'factory-to-bsc'; kind: 'fabric' | 'trim' | 'service' | 'other'; no: string; amount: number; what: string; file: string | null; on: string; by: string; note: string | null }
 
 export type SampleStage = 'prototype' | 'sample' | 'trial';   // prototype · sampling cycle · trial cycle
 export interface SampleCycleRound { n: number; kind: SampleStage; sentOn: string | null; dueOn: string | null; sampledOn: string | null; trialOn: string | null; outcome: 'approved' | 'remarks' | null; remarks: string | null; cadUpdatedOn: string | null }
@@ -266,7 +274,7 @@ export interface ProductionOrder {
     receipt: { on: string; by: string; metresOk: number; metresDamaged: number; note: string } | null } | null;
   /* short or damaged cloth: production or the factory itself asks design either for a
      modified ratio (design decides the sizes) or to cut short (a reduced breakup is proposed) */
-  cutRatios?: { askedOn: string; by: string; askedByRole?: 'production' | 'merchandiser'; kind?: 'ratio' | 'cut-short'; reason: string; originalBreakup: { size: string; qty: number }[];
+  cutRatios?: { askedOn: string; by: string; askedByRole?: 'production' | 'merchandiser'; kind?: 'ratio' | 'cut-short'; trigger?: CutRatioTrigger; reason: string; originalBreakup: { size: string; qty: number }[];
     proposedBreakup?: { size: string; qty: number }[] | null;
     given: { on: string; by: string; breakup: { size: string; qty: number }[] } | null; sentToFactoryOn: string | null }[];
   /* after the fabric PO, sourcing walks the trim and packaging lines against
@@ -303,9 +311,13 @@ export interface ProductionOrder {
   /* 14 Nov 2026 */
   pack?: RequirementPack | null;
   costQuery?: CostQuery | null;
-  poMail?: { on: string; to: string[]; cc: string[]; deliveryLocation: DeliveryLocation; needsHemming: boolean; fabricBy: 'bsc' | 'factory'; clothVendorSent: boolean } | null;
+  poMail?: { on: string; to: string[]; cc: string[]; deliveryLocation: DeliveryLocation; needsHemming: boolean; fabricBy: FabricBy; clothVendorSent: boolean } | null;
+  /* when the factory buys the cloth itself (from BSC's vendor or its own): the details it gives back */
+  factoryCloth?: { vendor: string | null; poNo: string | null; poOn: string | null; metres: number | null; receivedOn: string | null; metresReceived: number | null; note: string | null } | null;
   tnaPlan?: { sentOn: string; submittedOn: string | null; by: string | null } | null;   // the TNA form: planned dates from the factory, via the merchandiser
   qcChecks?: QcCheck[] | null;
+  targetRevisions?: TargetRevision[] | null;
+  poInvoices?: PoInvoice[] | null;
   invoice?: { no: string; amount: number; uploadedOn: string; by: string; file: string | null; packingList: { size: string; qty: number }[]; mailedOn: string | null; mailedTo: string[] } | null;
   costingClosure: { plan: string | null; revised: string | null; actual: string | null };   // target · revised plan · actual, as the sheet has it
 
