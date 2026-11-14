@@ -84,12 +84,12 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         {RTW_PHASES.map(ph => <div key={ph.key} className="rtw-phase">
           <div className="cap">{ph.label}</div>
           {journey.map((x, i) => x.phase === ph.key && (() => { const done = !!x.on; const now = i === current;
-            if (!isMine(x.key)) return <div key={x.key} className={`rtw-step flat${done ? ' done' : now ? ' now' : ''}`} title={x.who}>
+            if (!isMine(x.key)) return <div key={x.key} className={`rtw-step flat${done ? ' done' : now ? ' now' : ''}${x.tone ? ` ${x.tone}` : ''}`} title={x.who}>
               <span className="cl-box" aria-hidden>{done ? '✓' : i + 1}</span>
               <span className="rtw-step-main"><span className="rtw-step-label">{x.label}</span>
                 <span className="rtw-step-sub">{done ? `${fmtDate(x.on!)}${x.by ? ` · ${x.by}` : ''}` : now ? (x.now ?? 'now') : x.who}</span></span>
             </div>;
-            return <button type="button" key={x.key} onClick={() => panel(x.key)} aria-current={at(x.key) ? 'step' : undefined} className={`rtw-step${done ? ' done' : now ? ' now' : ''}`} title={x.who}>
+            return <button type="button" key={x.key} onClick={() => panel(x.key)} aria-current={at(x.key) ? 'step' : undefined} className={`rtw-step${done ? ' done' : now ? ' now' : ''}${x.tone ? ` ${x.tone}` : ''}`} title={x.who}>
               <span className="cl-box" aria-hidden>{done ? '✓' : i + 1}</span>
               <span className="rtw-step-main"><span className="rtw-step-label">{x.label}</span>
                 <span className="rtw-step-sub">{done ? `${fmtDate(x.on!)}${x.by ? ` · ${x.by}` : ''}` : now ? (x.now ?? 'now') : x.who}</span></span>

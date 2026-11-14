@@ -331,13 +331,11 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       <SizeGrid breakup={curve} edit onChange={(sz, n) => setTyped(t => { const base = t ?? Object.fromEntries(spread.map(x => [x.size, x.qty])); return { ...base, [sz]: n }; })} />
       <div className="mt-3 p-3 rounded-[8px]" style={{ background:'var(--surface-2)', border:'1px dashed var(--line)' }}>
         <div className="flex items-center gap-2 flex-wrap"><b className="text-[13px]">Design brief</b><span className="pill">phase 2 · AI</span></div>
-        <div className="text-[12px] py-1" style={{ color:'var(--ink-soft)' }}>Write what you have in mind — the look, construction, trims, packaging. In a later phase PLM drafts the tech pack items, trim card and BOM from this and the files you attach; for now it stays on the record as notes.</div>
         <textarea className="input" rows={3} value={brief} onChange={e => setBrief(e.target.value)} placeholder="Relaxed oxford shirt, button-down collar, single chest pocket, mother-of-pearl buttons, box-pleat back, folded in a kraft box…" style={{ fontFamily:'inherit', fontSize:12.5, lineHeight:1.4, width:'100%' }} />
         <div className="pt-1"><Button size="sm" disabled>Draft tech pack, trim card and BOM from this →</Button><span className="text-[11px] ml-2" style={faint}>phase 2</span></div>
       </div>
     </Section>}
     {show('fabric') && <Section title="Fabric information" collapsible={false}>
-      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Your part of the fabric: what it is, a photo of the physical cloth (not the CAD), the rate and width. Sourcing adds the vendor, the vendor's fabric code, the blocked quantity and readiness on the record before it can go to Production RTW.</div>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <Field label="Fabric description"><Input value={fab.description} onChange={e => setFab(x => ({ ...x, description: e.target.value }))} placeholder="Oxford, 2-ply poplin, brushed twill" /></Field>
         <Field label="Fabric content"><Input value={fab.content} onChange={e => setFab(x => ({ ...x, content: e.target.value }))} placeholder="100% cotton" /></Field>
@@ -351,13 +349,11 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       <div className="text-[12px]" style={faint}>Cloth vendor · vendor fabric code · blocked quantity with the vendor · readiness (available now, or under manufacture with a supply date) · trim vendor · yarn vendor for knits</div>
     </Section>}
     {show('tech') && <Section title="Tech pack" collapsible={false} right={<span className="text-[11.5px]" style={faint}>{tpDone} of {TECH_PACK_ITEMS.length} · pdf, doc or image per item</span>}>
-      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Final styling and construction instructions. Attach a file against each item, or a note where a file is not needed. One file can cover several items — attach it to each.</div>
       <div className="grid gap-x-4 gap-y-2" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))' }}>
         {TECH_PACK_ITEMS.map(it => <Field key={it.key} label={it.label}><div className="flex gap-1.5 items-center">{fileBtn('Attach', tpFiles[it.key], f => setTpFiles(x => ({ ...x, [it.key]: f ?? undefined }))) }<Input value={tp[it.key] ?? ''} onChange={e => setTp(x => ({ ...x, [it.key]: e.target.value }))} placeholder="or a note" style={{ flex:1 }} /></div></Field>)}
       </div>
     </Section>}
     {show('trim') && <Section title="Trim card" collapsible={false}>
-      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Colour-wise trim references with digital swatches: buttons, zippers, contrast fabric, main labels, tags. Where a nominated supplier's trim is used, give the supplier's item code and a reference image so the factory sources the right item.</div>
       <div className="flex gap-2 items-center flex-wrap pb-2">{fileBtn('Attach the trim card (pdf, doc or image)', trimFile, setTrimFile)}<span className="text-[12px]" style={faint}>or</span><Input value={trimName} onChange={e => setTrimName(e.target.value)} placeholder="file name / note" style={{ width: 220 }} /></div>
       {trimLines.length > 0 && <table className="t compact mb-2"><thead><tr><th>Colour</th><th>Trim</th><th>Supplier item code</th><th>Reference image</th><th></th></tr></thead>
         <tbody>{trimLines.map((x, i) => <tr key={i}><td>{x.colour}</td><td>{x.item}</td><td className="mono text-[12px]">{x.supplierCode || '—'}</td><td className="text-[12px]">{x.image || '—'}</td><td><button type="button" className="vlink text-[11.5px]" onClick={() => setTrimLines(l => l.filter((_, k) => k !== i))}>remove</button></td></tr>)}</tbody></table>}
@@ -370,16 +366,13 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       </div>
     </Section>}
     {show('bom') && <Section title="BOM / consumption" collapsible={false}>
-      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Materials and trims per piece, from the trims master so names match stock, the trim card and the COGS sheet. Each line shows whether the unit holds enough for {pcs} pieces; what is short is what sourcing buys. <span style={faint}>Size-dependent consumption × pieces per size: phase 2, once BSC shares the template.</span></div>
       <BomEditor lines={bom} onChange={setBom} orderQty={pcs} />
     </Section>}
     {show('delivery') && <Section title="Delivery instruction" collapsible={false}>
       <label className="flex items-center gap-2 text-[12.5px] py-1"><input type="checkbox" checked={semi} onChange={e => setSemi(e.target.checked)} /> <b>Needs hemming or semi-stitching</b></label>
-      <div className="text-[12.5px]" style={{ color:'var(--ink-soft)' }}>The PO carries the destination from this: ordinary RTW delivers to the <b>3PL warehouse</b>; products that need hemming or semi-stitching deliver to <b>Vasai</b>. <span style={faint}>Rule as discussed; still to be validated by BSC.</span></div>
       <div className="text-[12.5px] pt-2" style={{ color:'var(--ink-soft)' }}>Delivers to: <b>{semi ? 'Vasai · in-house' : '3PL warehouse'}</b></div>
     </Section>}
     {view === 'tabs' && <div className="flex gap-2 pt-2">{tabIndex > 0 && <Button size="sm" variant="ghost" onClick={() => setTab(PARTS[tabIndex - 1].k)}>← {PARTS[tabIndex - 1].label}</Button>}{tabIndex < PARTS.length - 1 && <Button size="sm" onClick={() => setTab(PARTS[tabIndex + 1].k)}>{PARTS[tabIndex + 1].label} →</Button>}</div>}
-    <Note>Creating starts the lead-time clock; the category picks the TNA template. Anything left empty can be filled on the record; nothing goes to Production RTW until every part, including sourcing's, is in.</Note>
     </div>
     <div className="flex gap-2 pt-3 items-center"><Button variant="primary" disabled={!style.trim() || !Number(qty)} onClick={() => void create()}>Create requirement</Button><span className="text-[11.5px]" style={faint}>{PARTS.filter(p => p.ok).length} of {PARTS.length} parts filled</span></div>
   </>;

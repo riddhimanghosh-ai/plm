@@ -592,3 +592,11 @@ h1::after { background: var(--accent); }
 .file-btn input { display: none; }
 .file-btn .file-on { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
 .file-btn:hover { border-color: var(--accent); color: var(--ink); }
+
+/* a step that went wrong stays red (short cloth, a failed colour) even once it is done; amber when it was fixed with a new ratio or a hold */
+.rtw-step.risk { border-color: var(--risk) !important; background: color-mix(in srgb, var(--risk) 6%, var(--surface)) !important; }
+.rtw-step.risk .cl-box { background: var(--risk) !important; border-color: var(--risk) !important; color: #fff !important; }
+.rtw-step.risk .rtw-step-sub { color: var(--risk); font-weight: 500; }
+.rtw-step.warn { border-color: var(--warn) !important; background: color-mix(in srgb, var(--warn) 7%, var(--surface)) !important; }
+.rtw-step.warn .cl-box { background: var(--warn) !important; border-color: var(--warn) !important; color: #fff !important; }
+.rtw-step.warn .rtw-step-sub { color: var(--warn); font-weight: 500; }

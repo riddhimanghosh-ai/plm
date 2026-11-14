@@ -66,7 +66,6 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
   return <Section title="Requirement · five parts" collapsible={false} right={<Pill tone={sent ? 'good' : rd.ready ? 'good' : 'warn'}>{sent ? `sent to Production RTW ${fmtDate(p.sentOn ?? o.styleHandover)}` : rd.ready ? 'complete · ready to send' : `${rd.missing.length} item${rd.missing.length > 1 ? 's' : ''} to fill`}</Pill>}>
     <div className="form-tabs pb-3" role="tablist">{rd.parts.map((x, i) => <button type="button" key={x.key} role="tab" aria-selected={tab === x.key} className={tab === x.key ? 'on' : x.missing.length === 0 ? 'done' : ''} onClick={() => setTab(x.key)} title={x.missing.length ? `missing: ${x.missing.join(', ')}` : 'complete'}><span className="n">{x.missing.length === 0 && tab !== x.key ? '✓' : i + 1}</span>{x.label}<span className="text-[11px]" style={{ opacity: .7 }}>{x.done}/{x.total}</span></button>)}</div>
     {tab === 'techPack' && <div>
-      <div className="text-[12.5px] pb-2" style={soft}>Twelve items from category: a file (pdf, doc or image) or a note against each. Files ride on the record under Files · Tech pack.</div>
       {p.brief && <div className="text-[12px] mb-2 p-2 rounded-[6px]" style={{ background: 'var(--surface-2)' }}><b>Design brief</b> <span className="pill">phase 2 · AI drafts from this</span><div className="pt-1" style={soft}>{p.brief}</div></div>}
       <div className="grid gap-x-4 gap-y-1.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
         {TECH_PACK_ITEMS.map(it => <Field key={it.key} label={it.label}>{canDesign ? <div className="flex gap-1.5 items-center">{pick('Tech pack', it.label, n => { setTp(x => ({ ...x, [it.key]: n })); updatePack(o.id, { techPack: { [it.key]: n } }); })}<Input value={tp[it.key] ?? ''} onChange={e => setTp(x => ({ ...x, [it.key]: e.target.value }))} placeholder="or a note" style={{ flex: 1 }} /></div> : <div className="text-[12.5px] py-1">{p.techPack[it.key] ? <span>✓ {p.techPack[it.key]}</span> : <span style={{ color: 'var(--warn)' }}>missing</span>}</div>}</Field>)}
@@ -74,7 +73,6 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
       {canDesign && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updatePack(o.id, { techPack: tp })}>Save tech pack</Button></div>}
     </div>}
     {tab === 'fabric' && <div>
-      <div className="text-[12.5px] pb-2" style={soft}>Category describes the cloth; sourcing adds the vendor it chose, the vendor's fabric code, what is blocked with the vendor and when the cloth is ready — and the trim vendor (and yarn vendor for knits). When BSC sends the cloth and trims rather than the factory buying them, sourcing does the sending.</div>
       <div className="cap">Category</div>
       <div className="grid gap-x-4 gap-y-1.5 pb-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <Field label="Fabric description">{canDesign ? <Input value={fab.description ?? ''} onChange={e => setFab(x => ({ ...x, description: e.target.value || null }))} /> : <div className="text-[12.5px] py-1">{p.fabric.description ?? <span style={{ color: 'var(--warn)' }}>missing</span>}</div>}</Field>
@@ -98,7 +96,6 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
       {(canDesign || canSourcing) && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updatePack(o.id, { fabric: canSourcing && !canDesign ? { vendorId: fab.vendorId, vendorFabricCode: fab.vendorFabricCode, blockedMetres: fab.blockedMetres, readiness: fab.readiness, readyOn: fab.readyOn, trimVendorId: fab.trimVendorId ?? null, yarnVendorId: fab.yarnVendorId ?? null } : fab })}>Save fabric info</Button></div>}
     </div>}
     {tab === 'trimCard' && <div>
-      <div className="text-[12.5px] pb-2" style={soft}>The trim card as a file: every trim with its reference, matched to the BOM lines.</div>
       {canDesign ? <div className="flex gap-2 items-end flex-wrap">{pick('Trim card', null, n => { setTrim(n); updatePack(o.id, { trimCard: n }); })}<div style={{ flex: '1 1 220px' }}><Field label="Trim card file / note"><Input value={trim} onChange={e => setTrim(e.target.value)} placeholder="trim-card.pdf" /></Field></div><Button size="sm" variant="primary" onClick={() => updatePack(o.id, { trimCard: trim.trim() || null })}>Save</Button></div>
         : <div className="text-[12.5px] py-1">{p.trimCard ? `✓ ${p.trimCard}` : <span style={{ color: 'var(--warn)' }}>missing</span>}</div>}
       {(p.trimLines ?? []).length > 0 && <table className="t compact mt-2"><thead><tr><th>Colour</th><th>Trim</th><th>Supplier item code</th><th>Reference image</th></tr></thead><tbody>{p.trimLines!.map((x, i) => <tr key={i}><td>{x.colour}</td><td>{x.item}</td><td className="mono text-[12px]">{x.supplierCode ?? '—'}</td><td className="text-[12px]">{x.image ?? '—'}</td></tr>)}</tbody></table>}
@@ -135,7 +132,6 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
   const nameOf = (id: string) => db.vendors.find(v => v.id === id)?.name ?? id;
   if (!sent) return <Section title="Factory counter sourcing" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>After the requirement is complete and sent.</div></Section>;
   if (!cq) return <Section title="Factory counter sourcing" collapsible={false} right={<span className="pill role-production">Nitin</span>}>
-    <div className="text-[12.5px] pb-2" style={soft}>The factory database recommends by category and region. Pick one or more, or add any other; set the reply deadline. PLM mails the requirement and a cost form to each factory, copying the merchandiser.</div>
     {prod ? <>
       <div className="cap">Recommended for {o.category}</div>
       <div className="grid gap-1.5 pb-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))' }}>
@@ -214,7 +210,6 @@ export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boole
   const [no, setNo] = useState(''); const [amt, setAmt] = useState(''); const [what, setWhat] = useState(''); const [file, setFile] = useState(''); const [note, setNote] = useState('');
   const toFactory = rows.filter(r => r.direction === 'bsc-to-factory').reduce((a, r) => a + r.amount, 0); const fromFactory = rows.filter(r => r.direction === 'factory-to-bsc').reduce((a, r) => a + r.amount, 0);
   return <Section title="Invoices on this PO · reconciliation" collapsible={false} right={<Pill tone={rows.length ? 'info' : 'neutral'}>{rows.length ? `${rows.length} · BSC → factory ${fmtMoney(toFactory)} · factory → BSC ${fmtMoney(fromFactory)}` : 'none logged'}</Pill>}>
-    <div className="text-[12.5px] pb-2" style={soft}>The factory buys from its vendors and invoices BSC for the lot. When BSC supplies a fabric or trim the factory would otherwise have bought, BSC invoices the factory for it. Every invoice either way is logged here with its document, so accounts can net them off later.</div>
     {rows.length > 0 && <div style={{ overflowX: 'auto' }}><table className="t compact">
       <thead><tr><th>Direction</th><th>Invoice</th><th>What</th><th className="num">₹</th><th>Document</th><th>Logged</th><th></th></tr></thead>
       <tbody>{rows.map(r => <tr key={r.id}>
@@ -506,7 +501,6 @@ export function PoFabricsSection({ o, factory, prod }: { o: ProductionOrder; fac
   const [metres, setMetres] = useState<Record<string, string>>({}); const [note, setNote] = useState<Record<string, string>>({}); const [by, setBy] = useState<Record<string, string>>({});
   if (!o.poNo || !pf.all.length) return null;
   return <Section title={`Fabrics on this PO · ${pf.all.length} colour${pf.all.length === 1 ? '' : 's'}`} collapsible={false} right={<Pill tone={pf.tone}>{pf.line}</Pill>}>
-    <div className="text-[12.5px] pb-2" style={soft}>Each colour is counted in and checked by the factory on its own. A colour that fails is held while the vendor replaces the cloth and then continues under this PO, or is dropped from the run; the other colours carry on. An alternative for a dropped colour comes as a separate PO.</div>
     <div style={{ overflowX: 'auto' }}><table className="t compact">
       <thead><tr><th>Colour</th><th className="num">Pcs</th><th>Vendor</th><th>Cloth</th><th>Factory check</th><th>Then</th></tr></thead>
       <tbody>{pf.all.map(f => { const dropped = f.decision?.kind === 'drop'; const held = f.qc === 'failed' && f.decision?.kind === 'hold' && !f.resumedOn;

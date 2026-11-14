@@ -343,7 +343,8 @@ export function MilestoneGrid({ o, editable, bare, dense }: { o: ProductionOrder
   /* every block the sheet has, in its order: the ones the category's plan leaves out are greyed, and so are the ones marked not needed */
   const steps = allSteps(o); const live = steps; const na = steps.filter(m => m.na);
   const nextKey = live.find(m => !m.actual && !m.na)?.key ?? null;
-  const COLS = dense ? 6 : 4; const rows: typeof live[] = [];   // dense (in the drawer, 15 Nov 2026): six across, so the flow needs less scrolling for (let i = 0; i < live.length; i += COLS) rows.push(live.slice(i, i + COLS));
+  /* dense (in the drawer, 15 Nov 2026): six across, so the flow needs less scrolling */
+  const COLS = dense ? 6 : 4; const rows: typeof live[] = []; for (let i = 0; i < live.length; i += COLS) rows.push(live.slice(i, i + COLS));
   const faint = { color: 'var(--ink-faint)' } as const;
   const editing = open ? live.find(m => m.key === open) ?? null : null;
 
