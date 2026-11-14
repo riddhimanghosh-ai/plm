@@ -1507,6 +1507,7 @@ orders.forEach((o, i) => {
     /* a third of the POs: the factory buys the cloth itself (from BSC's vendor, or its own) and gives the details back */
     if (i % 3 === 1 && !(o.cutRatios ?? []).length) { o.fabricNominated = false; o.sourcingMode = 'vendor-sources'; o.fabricSupply = null; }
     o.poMail = { on: o.poDate!, to: [`${o.vendorId}@factory.in`], cc: ['nitin.singh@merchandiser.in'], deliveryLocation: hem ? 'Vasai · in-house' : '3PL warehouse', needsHemming: hem, fabricBy: o.fabricNominated ? 'bsc' : (i % 2 ? 'bsc-vendor' : 'factory'), clothVendorSent: !o.fabricNominated ? i % 2 === 1 : true };
+    if (o.fabricNominated) o.milestones.forEach(m => { if ((m.key === 'Fabric PO' || m.key === 'Yarn PO') && !m.skipped) { m.skipped = { on: o.poDate!, by: 'Nitin Singh' }; m.actual = m.actual ?? m.plan; } });
     if (!o.fabricNominated) { const fpo = o.milestones.find(m => m.key === 'Fabric PO'); const feta = o.milestones.find(m => m.key === 'Fabric ETA');
       o.factoryCloth = { vendor: i % 2 ? (VENDORS.find(v => v.id === (o.pack?.fabric.vendorId ?? 'sutra'))?.name ?? 'Sutra') : ['Arvind Mills', 'Raymond', 'Nahar'][i % 3], poNo: fpo?.actual ? `FPO-${700 + i}` : null, poOn: fpo?.actual ?? null, metres: fpo?.actual ? Math.ceil(o.orderQty * 1.7) : null, receivedOn: feta?.actual ?? null, metresReceived: feta?.actual ? Math.ceil(o.orderQty * 1.7) - (i % 3) * 4 : null, note: null }; }
     /* the TNA form: back on most, still owed on a fresh PO */

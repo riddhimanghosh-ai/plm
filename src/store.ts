@@ -1397,6 +1397,8 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         const needsHemming = !!o.semiStitched;
         o.poMail = { on: now(), to: [], cc: [], deliveryLocation: deliveryLocationOf(needsHemming), needsHemming, fabricBy: rp.fabricBy, clothVendorSent: rp.fabricBy !== 'factory' };
         const m = poMailOf(db, o); o.poMail.to = m.to; o.poMail.cc = m.cc;
+        /* BSC supplies the cloth: the factory raises no fabric PO, so that block is not needed on this TNA; it still logs the cloth received (Fabric ETA) */
+        if (rp.fabricBy === 'bsc') o.milestones.forEach(m => { if (m.key === 'Fabric PO' || m.key === 'Yarn PO') { m.skipped = { on: now(), by: who() }; m.actual = m.plan; } });
         o.tnaPlan = { sentOn: now(), submittedOn: null, by: null }; o.poAckOn = null;
         o.factoryPo = { raisedOn: now(), by: who(), docsSent: ['Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form'], docsMissing: [] };
         o.fabricSupply = o.fabricSupply ?? { boughtOn: null, sentToFactoryOn: null, metresSent: null, receipt: null };
