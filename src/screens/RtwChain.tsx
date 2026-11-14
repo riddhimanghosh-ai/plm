@@ -110,7 +110,7 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
     {tab === 'bom' && <BomSection o={o} editable={canDesign} open />}
     {tab === 'vendors' && <div>
       <div className="cap">Who supplies the cloth <span className="pill role-design">Category</span></div>
-      <div className="flex gap-2 flex-wrap py-1">{(Object.keys(FABRIC_BY_LABEL) as FabricBy[]).map(k => <button key={k} type="button" disabled={!canDesign} className={`dest-opt${p.clothBy === k ? ' on' : ''}`} onClick={() => updatePack(o.id, { clothBy: k })}><span className="dest-dot" />{k === 'bsc' ? 'We send it' : k === 'bsc-vendor' ? 'We give the vendor' : 'Factory-held'}</button>)}</div>
+      <div className="flex gap-2 flex-wrap py-1">{(Object.keys(FABRIC_BY_LABEL) as FabricBy[]).map(k => <button key={k} type="button" disabled={!canDesign} className={`dest-opt${p.clothBy === k ? ' on' : ''}`} onClick={() => updatePack(o.id, { clothBy: k })}><span className="dest-dot" />{k === 'bsc' ? 'We send it' : k === 'bsc-vendor' ? 'We add vendors' : 'Factory-held'}</button>)}</div>
       {p.clothBy === 'factory' ? <div className="text-[12.5px] py-2" style={faint}>Factory-held cloth: nothing for sourcing here.</div> : p.clothBy ? <>
       <div className="cap flex items-center gap-2">Sourcing <span className="pill role-sourcing">Sreekanth</span></div>
       <div className="grid gap-x-4 gap-y-1.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>

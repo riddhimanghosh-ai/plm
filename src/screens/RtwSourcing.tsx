@@ -13,7 +13,7 @@ import { VendorLink } from './Vendors';
 import { RtwRequirement } from './RtwRequirement';
 import { VendorDb } from './VendorDb';
 
-const CLOTH_LABEL = { bsc: 'We send it', 'bsc-vendor': 'We give the vendor', factory: 'Factory-held' } as const;
+const CLOTH_LABEL = { bsc: 'We send it', 'bsc-vendor': 'We add vendors', factory: 'Factory-held' } as const;
 
 export function RtwSourcing() {
   const { db } = useApp();

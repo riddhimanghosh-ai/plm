@@ -333,7 +333,7 @@ let seq = 0;
    Writes advance from there in real time, so an edit reads "just now", not "in 1d". */
 const BOOT = Date.now();
 /* bump to reseed the demo data in every browser */
-const SEED_VERSION = 152;
+const SEED_VERSION = 153;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 export const useAppStore = create<AppState>()(persist((set, get) => {

@@ -349,7 +349,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
     </Section>}
     {show('fabric') && <Section title="Fabric information" collapsible={false}>
       <div className="cap">Who supplies the cloth</div>
-      <div className="flex gap-2 flex-wrap pb-3">{([['bsc', 'We send it'], ['bsc-vendor', 'We give the vendor'], ['factory', 'Factory-held']] as const).map(([k, l]) => <button key={k} type="button" className={`dest-opt${clothBy === k ? ' on' : ''}`} onClick={() => setClothBy(k)}><span className="dest-dot" />{l}</button>)}</div>
+      <div className="flex gap-2 flex-wrap pb-3">{([['bsc', 'We send it'], ['bsc-vendor', 'We add vendors'], ['factory', 'Factory-held']] as const).map(([k, l]) => <button key={k} type="button" className={`dest-opt${clothBy === k ? ' on' : ''}`} onClick={() => setClothBy(k)}><span className="dest-dot" />{l}</button>)}</div>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <Field label="Fabric description"><Input value={fab.description} onChange={e => setFab(x => ({ ...x, description: e.target.value }))} placeholder="Oxford, 2-ply poplin, brushed twill" /></Field>
         <Field label="Fabric content"><Input value={fab.content} onChange={e => setFab(x => ({ ...x, content: e.target.value }))} placeholder="100% cotton" /></Field>

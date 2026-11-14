@@ -1480,7 +1480,7 @@ const fullPack = (o: ProductionOrder, sentOn: string | null, sourcingDone = true
   trimCard: 'trim-card.pdf', sentOn, sentBy: sentOn ? 'Kunal' : null,
 });
 /* who supplies the cloth, chosen by category on the requirement */
-const clothFor = (o: ProductionOrder, i: number): 'bsc' | 'bsc-vendor' | 'factory' => o.fabricNominated ? 'bsc' : (i % 2 ? 'bsc-vendor' : 'factory');
+const clothFor = (o: ProductionOrder, i: number): 'bsc' | 'bsc-vendor' | 'factory' => o.status === 'Requirement' || o.status === 'Quoting' || o.status === 'Allocated' ? (['bsc', 'bsc-vendor', 'factory'] as const)[i % 3] : o.fabricNominated ? 'bsc' : (i % 2 ? 'bsc-vendor' : 'factory');
 let qcFails = 0; let extraAsked = false;
 const FACTORY_IDS = VENDORS.filter(v => v.kind === 'CMT factory').map(v => v.id);
 const factoriesFor = (o: ProductionOrder, n: number) => { const fit = FACTORY_IDS.filter(id => (SPECIALISING[id] ?? []).includes(o.category)); const pool = fit.length >= n ? fit : [...fit, ...FACTORY_IDS.filter(id => !fit.includes(id))]; const out = o.vendorId && pool.includes(o.vendorId) ? [o.vendorId] : []; for (const id of pool) { if (out.length >= n) break; if (!out.includes(id)) out.push(id); } return out; };
