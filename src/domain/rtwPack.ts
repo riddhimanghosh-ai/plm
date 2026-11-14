@@ -10,24 +10,29 @@ export const EMPTY_PACK: RequirementPack = { techPack: {}, fabric: { description
 export const packOf = (o: ProductionOrder): RequirementPack => o.pack ?? EMPTY_PACK;
 
 /* the five parts and what each still needs; the requirement goes to Production RTW only when every list is empty */
-export type PackPart = { key: 'techPack' | 'fabric' | 'trimCard' | 'sizes' | 'bom'; label: string; who: 'design' | 'design · sourcing'; missing: string[]; total: number; done: number };
+export type PackPart = { key: 'techPack' | 'fabric' | 'trimCard' | 'sizes' | 'bom' | 'vendors'; label: string; who: 'design' | 'sourcing'; missing: string[]; total: number; done: number; na?: boolean };
 export function packReadyOf(o: ProductionOrder): { ready: boolean; parts: PackPart[]; missing: string[]; sourcingMissing: string[] } {
   const p = packOf(o);
   const tp = TECH_PACK_ITEMS.filter(x => !p.techPack[x.key]?.trim()).map(x => x.label);
   const f = p.fabric;
   const designFab: [string, boolean][] = [['fabric description', !!f.description], ['fabric content', !!f.content], ['photo of the physical fabric', !!f.image], ['option / phase · swatch analyser', !!f.swatchAnalyser], ['CPM', f.cpm != null], ['fabric width', f.widthIn != null]];
-  const sourcingFab: [string, boolean][] = [['vendor (sourcing)', !!f.vendorId], ['vendor fabric code (sourcing)', !!f.vendorFabricCode], ['blocked quantity with the vendor (sourcing)', f.blockedMetres != null], ['fabric readiness (sourcing)', f.readiness === 'available' || (f.readiness === 'date' && !!f.readyOn)]];
-  const fabMissing = [...designFab, ...sourcingFab].filter(x => !x[1]).map(x => x[0]);
+  const sourcingFab: [string, boolean][] = [['cloth vendor', !!f.vendorId], ['vendor fabric code', !!f.vendorFabricCode], ['blocked quantity with the vendor', f.blockedMetres != null], ['fabric readiness', f.readiness === 'available' || (f.readiness === 'date' && !!f.readyOn)], ['trim vendor', !!f.trimVendorId]];
+  const clothBy = p.clothBy ?? null;
+  const fabMissing = designFab.filter(x => !x[1]).map(x => x[0]);
+  /* sourcing's part is needed only when BSC is involved in the cloth: BSC sends it, or hands the factory its vendor */
+  const vendorsNeeded = clothBy !== 'factory';
+  const srcMissing = !clothBy ? ['who supplies the cloth (category)'] : vendorsNeeded ? sourcingFab.filter(x => !x[1]).map(x => x[0]) : [];
   const sizesOk = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) > 0;
   const parts: PackPart[] = [
     { key: 'techPack', label: 'Tech pack', who: 'design', missing: tp, total: TECH_PACK_ITEMS.length, done: TECH_PACK_ITEMS.length - tp.length },
-    { key: 'fabric', label: 'Fabric info', who: 'design · sourcing', missing: fabMissing, total: designFab.length + sourcingFab.length, done: designFab.length + sourcingFab.length - fabMissing.length },
+    { key: 'fabric', label: 'Fabric info', who: 'design', missing: fabMissing, total: designFab.length, done: designFab.length - fabMissing.length },
     { key: 'trimCard', label: 'Trim card', who: 'design', missing: p.trimCard?.trim() ? [] : ['trim card'], total: 1, done: p.trimCard?.trim() ? 1 : 0 },
     { key: 'sizes', label: 'Size · qty break-up', who: 'design', missing: sizesOk ? [] : ['size-wise quantities (the cut ratio)'], total: 1, done: sizesOk ? 1 : 0 },
     { key: 'bom', label: 'BOM', who: 'design', missing: o.bom.length ? [] : ['at least one BOM line'], total: 1, done: o.bom.length ? 1 : 0 },
+    { key: 'vendors', label: 'Cloth · vendors', who: 'sourcing', missing: srcMissing, total: vendorsNeeded ? sourcingFab.length : 1, done: vendorsNeeded ? sourcingFab.length - srcMissing.length : (clothBy ? 1 : 0), na: clothBy === 'factory' },
   ];
   const missing = parts.flatMap(x => x.missing);
-  return { ready: missing.length === 0, parts, missing, sourcingMissing: sourcingFab.filter(x => !x[1]).map(x => x[0]) };
+  return { ready: missing.length === 0, parts, missing, sourcingMissing: clothBy && vendorsNeeded ? sourcingFab.filter(x => !x[1]).map(x => x[0]) : [] };
 }
 
 /* the factory database: factories that specialise in this category first, then the rest, by region */

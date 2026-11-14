@@ -5,7 +5,7 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useApp } from '../store';
 import { PEOPLE, ROLE_LABEL, STORES } from '../domain/reference';
-import { MTM_ONLY, RTW_ONLY, EDITION_LABEL, inEdition, RTW_HIDDEN_NAV_GROUPS } from '../domain/edition';
+import { MTM_ONLY, RTW_ONLY, EDITION_LABEL, inEdition, RTW_HIDDEN_NAV_GROUPS, RTW_HIDDEN_PATHS } from '../domain/edition';
 import type { RoleId } from '../domain/types';
 import { Toasts, Select, Button } from '../ui';
 import { VendorDrawer } from '../screens/Vendors';
@@ -32,6 +32,8 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
 
   /* buying */
   { path:'/sourcing',     label:'Fabric sourcing',            hint:'vendor quotes, then a factory with capacity',    group:'Sourcing', roles:['owner','sourcing'] },
+  { path:'/rtw-sourcing', label:'RTW sourcing · vendors and sending', hint:'vendor details on requirements; cloth and trims BSC sends to factories', group:'Sourcing', roles:['owner','sourcing'] },
+  { path:'/cloth-vendors', label:'Cloth vendor database',     hint:'every cloth and trim vendor and what it supplies',  group:'Sourcing', roles:['owner','sourcing','design'], hideFor:['design'] },
   { path:'/mills',        label:'Fabric vendors · mills',     hint:'lead times and block windows, by vendor',        group:'Sourcing', roles:['owner','sourcing'] },
 
   /* making */
@@ -41,6 +43,7 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   { path:'/cutting',      label:'Cutting desk',               hint:'cut the cloth to the CAD, attach the print',    group:'Production · MTM', roles:['owner','production','warehouse','cutting'] },
   { path:'/fusing',       label:'Fusing desk',                hint:'fuse collar, cuff and placket interlining',     group:'Production · MTM', roles:['owner','production','warehouse','fusing'] },
   { path:'/compiling',    label:'Compiling desk',             hint:'check the bundle, approve contrast fabric',     group:'Production · MTM', roles:['owner','production','warehouse','compiling'] },
+  { path:'/factory-db',   label:'Factory database',           hint:'factory, location, what it specialises in — counter sourcing recommends from it', group:'Production · RTW', roles:['owner','production'] },
   { path:'/dashboard',    label:'RTW production dashboard',   hint:'OTIF, late POs, what is waiting on whom, by factory',  group:'Production · RTW', roles:['owner','production','planning'] , hideFor:['planning']},
   { path:'/tracker',      label:'RTW production tracker',     hint:'every bulk PO, date by date',                    group:'Production · RTW', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
   /* Production · RTW in PLM is the tracker alone; analytics read off it sit with planning, and materials go from sourcing straight to the factory */
@@ -109,7 +112,7 @@ export function Shell() {
   /* design and planning work from the one Design requirements screen; the per-record lists stay reachable by link and drawer */
   /* Walkthrough mode is a super admin: every screen, whoever you are signed in
      as. Off, each team sees only the screens it works in. */
-  const items = (demoAll ? NAV : NAV.filter(n => n.roles.includes(role) && !(n.hideFor ?? []).includes(myRole))).filter(n => inEdition(n.path) && !(RTW_ONLY && RTW_HIDDEN_NAV_GROUPS.includes(n.group ?? ''))).map(n => RTW_ONLY && n.group === 'Production · MTM' ? { ...n, group: 'Production · RTW' } : RTW_ONLY && n.group === 'Design' ? { ...n, group: 'Category' } : n);
+  const items = (demoAll ? NAV : NAV.filter(n => n.roles.includes(role) && !(n.hideFor ?? []).includes(myRole))).filter(n => inEdition(n.path) && !(RTW_ONLY && RTW_HIDDEN_NAV_GROUPS.includes(n.group ?? '')) && !(RTW_ONLY && RTW_HIDDEN_PATHS.includes(n.path))).map(n => RTW_ONLY && n.path === '/sourcing' ? { ...n, label: 'Sourcing · vendors and sending', hint: 'vendor details on requirements; cloth and trims BSC sends' } : n).map(n => RTW_ONLY && n.group === 'Production · MTM' ? { ...n, group: 'Production · RTW' } : RTW_ONLY && n.group === 'Design' ? { ...n, group: 'Category' } : n);
   const allowedItems = NAV.filter(n => n.roles.includes(role));
   /* a path that is not a screen at all (the old /concepts, /requests, /requirements redirects) passes through to the router untouched — with its query intact */
   const allowed = loc.pathname === '/' || !NAV.some(n => loc.pathname.startsWith(n.path)) || allowedItems.some(n => loc.pathname.startsWith(n.path));

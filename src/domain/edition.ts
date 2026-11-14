@@ -9,6 +9,7 @@ export const MTM_ONLY = import.meta.env.VITE_EDITION === 'mtm';
 export const RTW_ONLY = import.meta.env.VITE_EDITION === 'rtw';
 export const EDITION_LABEL = MTM_ONLY ? 'MTM' : RTW_ONLY ? 'RTW' : null;
 /* screens that do not exist in the RTW edition */
+export const RTW_HIDDEN_PATHS = ['/mills', '/rtw-sourcing', '/cloth-vendors'];
 export const MTM_PATHS = ['/swatches', '/fabrics', '/designs', '/vendors', '/mtm', '/cad', '/cutting', '/fusing', '/compiling', '/stores'];
 /* an alert or search hit that points at an MTM screen or record is dropped in the RTW edition */
 export const isMtmHref = (h: string | undefined | null) => !!h && (MTM_PATHS.some(p => h.startsWith(`#${p}`)) || h.includes('side=mtm') || /open=(cn|c|req|cust|co)-/.test(h));
@@ -18,7 +19,7 @@ export const inEdition = (path: string) => !(MTM_ONLY && RTW_PATHS.includes(path
 /* 20 Oct 2026: the warehouse portal is out of the MTM edition too — receiving lives on the fabric PO and the fabric record */
 /* 12 Nov 2026: the RTW site hides planning from its nav for now; the routes still open from links (a launch's design codes) */
 export const RTW_HIDDEN_NAV_GROUPS = ['Planning'];
-export const RTW_PATHS = ['/qc', '/dashboard', '/planning', '/analyse', '/sheet', '/health', '/insights', '/launches', '/tracker', '/otif', '/requirements'];
+export const RTW_PATHS = ['/qc', '/dashboard', '/rtw-sourcing', '/factory-db', '/cloth-vendors', '/planning', '/analyse', '/sheet', '/health', '/insights', '/launches', '/tracker', '/otif', '/requirements'];
 /* an alert or search hit that points at an RTW screen or record is dropped in the MTM edition */
 export const isRtwHref = (h: string | undefined | null) => !!h && (RTW_PATHS.some(p => h.startsWith(`#${p}`)) || h.includes('side=rtw') || h.includes('tab=rtw') || h.includes('tab=shelves') || h.includes('tab=rtw-orders') || h.includes('tab=launches'));
 

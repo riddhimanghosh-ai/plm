@@ -1469,14 +1469,18 @@ const SPECIALISING: Record<string, GarmentCategory[]> = {
   strand: ['Bottoms / Knitwear / Jackets', 'Jeans'], goodwill: ['Bottoms / Knitwear / Jackets', 'Jeans'], spintech: ['Flat Knits (T-shirts)', 'Flat Knits (Shirts)'], topnotch: ['RTW CMT shirts'],
   gseams: ['Bottoms / Knitwear / Jackets'], united: ['Jeans', 'Bottoms / Knitwear / Jackets'], clayroots: ['Kurta', 'RTW CMT shirts'], axceller: ['Flat Knits (T-shirts)'], rashvi: ['RTW CMT shirts'], brio: ['Bottoms / Knitwear / Jackets'], dazzle: ['Kurta'],
 };
+const SUPPLIES: Record<string, string[]> = { sutra: ['oxford', 'poplin', 'twill'], parekh: ['linen', 'cotton linen'], mpb: ['corduroy', 'flannel'], nihal: ['denim', 'chambray'], athena: ['twill', 'chino', 'cotton stretch'], taurus: ['dobby', 'jacquard'], nandlal: ['seersucker', 'checks'], infitex: ['knit', 'jersey', 'pique'], dharmaji: ['stripes', 'checks', 'poplin'], bhagvan: ['satin', 'viscose'], rsk: ['crochet', 'print'], rishab: ['dobby', 'oxford', 'herringbone'], dees: ['linen', 'lyocell'], ramvijay: ['wool', 'blend'], soktas: ['poplin', 'twill', 'oxford'], fusion: ['print', 'viscose'], lulin: ['knit', 'jersey'], leggiuno: ['twill', 'herringbone'], albini: ['oxford', 'poplin', 'linen'], tmason: ['oxford', 'twill', 'end-on-end'], fabriano: ['flannel', 'wool'], trimco: ['buttons', 'labels', 'zips'], packwell: ['packaging', 'tags'] };
+VENDORS.forEach(v => { if (SUPPLIES[v.id]) { v.supplies = SUPPLIES[v.id]; v.email = v.email ?? `${v.id}@vendor.in`; } });
 VENDORS.forEach(v => { if (v.kind === 'CMT factory' || v.kind === 'MTM factory') { v.specialising = SPECIALISING[v.id] ?? ['RTW CMT shirts']; v.email = `${v.id}@factory.in`; } });
 const TP_NOTE: Record<string, string> = { sketch: 'sketch-front-back.pdf', styling: 'styling-detail.pdf', stitching: 'stitch-dimensions.pdf', fabricColours: 'colourways.pdf', specSheet: 'spec-sheet.xlsx', howToMeasure: 'how-to-measure.pdf', folding: 'folding-method.pdf', trimCard: 'trim-card.pdf', labelImage: 'label.png', tagImage: 'hang-tag.png', barcoding: 'barcode-info.xlsx', packaging: 'packaging.pdf' };
 const fullPack = (o: ProductionOrder, sentOn: string | null, sourcingDone = true): RequirementPack => ({
   techPack: Object.fromEntries(Object.entries(TP_NOTE).map(([k, v]) => [k, `${o.styleName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 18)}-${v}`])),
   fabric: { description: o.fabricBrief ? `${o.fabricBrief.look}${o.fabricBrief.colour ? ` · ${o.fabricBrief.colour}` : ''}` : o.styleName, content: o.fabricBrief?.composition ?? '100% cotton', image: 'fabric-swatch.jpg', swatchAnalyser: `Option ${1 + (ordSeq % 3)} · phase ${1 + (ordSeq % 2)}`, cpm: o.costing.cpm ?? 240, widthIn: 58,
-    vendorId: sourcingDone ? (o.fabricVendorId ?? 'sutra') : null, vendorFabricCode: sourcingDone ? (o.vendorFabricCode ?? `SOK#${24000 + ordSeq}`) : null, blockedMetres: sourcingDone ? (o.fabricBlocked ?? Math.ceil(o.orderQty * 1.7)) : null, readiness: sourcingDone ? (ordSeq % 2 ? 'available' : 'date') : null, readyOn: sourcingDone && !(ordSeq % 2) ? iso(addDays(TODAY, 6)) : null },
+    vendorId: sourcingDone ? (o.fabricVendorId ?? 'sutra') : null, trimVendorId: sourcingDone ? 'trimco' : null, vendorFabricCode: sourcingDone ? (o.vendorFabricCode ?? `SOK#${24000 + ordSeq}`) : null, blockedMetres: sourcingDone ? (o.fabricBlocked ?? Math.ceil(o.orderQty * 1.7)) : null, readiness: sourcingDone ? (ordSeq % 2 ? 'available' : 'date') : null, readyOn: sourcingDone && !(ordSeq % 2) ? iso(addDays(TODAY, 6)) : null },
   trimCard: 'trim-card.pdf', sentOn, sentBy: sentOn ? 'Kunal' : null,
 });
+/* who supplies the cloth, chosen by category on the requirement */
+const clothFor = (o: ProductionOrder, i: number): 'bsc' | 'bsc-vendor' | 'factory' => o.fabricNominated ? 'bsc' : (i % 2 ? 'bsc-vendor' : 'factory');
 let qcFails = 0; let extraAsked = false;
 const FACTORY_IDS = VENDORS.filter(v => v.kind === 'CMT factory').map(v => v.id);
 const factoriesFor = (o: ProductionOrder, n: number) => { const fit = FACTORY_IDS.filter(id => (SPECIALISING[id] ?? []).includes(o.category)); const pool = fit.length >= n ? fit : [...fit, ...FACTORY_IDS.filter(id => !fit.includes(id))]; const out = o.vendorId && pool.includes(o.vendorId) ? [o.vendorId] : []; for (const id of pool) { if (out.length >= n) break; if (!out.includes(id)) out.push(id); } return out; };
@@ -1489,7 +1493,7 @@ orders.forEach((o, i) => {
   if (o.status === 'Requirement') {
     /* still with category: some parts in, sourcing's four fields in on every other one */
     const p = fullPack(o, null, i % 2 === 0); const drop = ['sketch', 'specSheet', 'barcoding', 'packaging', 'howToMeasure'].slice(0, 1 + (i % 4)); drop.forEach(k => delete (p.techPack as Record<string, string>)[k]);
-    if (i % 3 === 0) p.trimCard = null; o.pack = p;
+    if (i % 3 === 0) p.trimCard = null; p.clothBy = i % 6 === 5 ? null : clothFor(o, i); o.pack = p;
   } else if (o.status === 'Quoting' || o.status === 'Allocated') {
     o.pack = fullPack(o, sentOn);
     const ids = factoriesFor(o, 2 + (i % 2)); const deadline = iso(addDays(sentOn, 5));
@@ -1520,6 +1524,7 @@ orders.forEach((o, i) => {
     /* invoices on the PO, both ways, for reconciliation */
     if (i % 5 === 1) o.poInvoices = [
       { id: `pinv-${i}-a`, direction: 'bsc-to-factory', kind: 'fabric', no: `BSC/INV/${400 + i}`, amount: Math.round((o.fabricMetres ?? 300) * (o.costing.cpm ?? 240) * 0.35), what: `${Math.round((o.fabricMetres ?? 300) * 0.35)} m cloth supplied by BSC`, file: `bsc-inv-${400 + i}.pdf`, on: iso(addDays(o.poDate!, 6)), by: 'Nitin Singh', note: 'to be netted off the factory invoice' },
+      { id: `pinv-${i}-c`, doc: 'debit-note', direction: 'bsc-to-factory', kind: 'other', no: `DN/${110 + i}`, amount: 3200, what: 'rework on 16 pcs after final inspection', file: `dn-${110 + i}.pdf`, on: iso(addDays(o.poDate!, 30)), by: 'Nitin Singh', note: 'deduct from the factory invoice' },
       { id: `pinv-${i}-b`, direction: 'bsc-to-factory', kind: 'trim', no: `BSC/INV/${401 + i}`, amount: 4800, what: 'buttons and labels from BSC stock', file: null, on: iso(addDays(o.poDate!, 9)), by: 'Nitin Singh', note: null },
     ];
     /* a trim landed over what the PO needs: the factory asks category for a new cut ratio */
@@ -1551,6 +1556,8 @@ orders.forEach((o, i) => {
       o.invoice = { no: `INV-${2600 + i}`, amount: Math.round(pcs * (o.finalFob ?? o.targetCost)), uploadedOn: iso(addDays(disp, 1)), by: o.merchant ?? 'Nitin Singh', file: `invoice-${2600 + i}.pdf`, packingList: o.sizeBreakup.map(x => ({ size: x.size, qty: Math.round(x.qty * pcs / tot) })), mailedOn: iso(addDays(disp, 1)), mailedTo: ['prince@bombayshirts.com'] }; }
   }
 });
+/* category's cloth choice follows what the PO did */
+orders.forEach((o, i) => { if (o.pack && o.pack.clothBy === undefined) o.pack.clothBy = o.poMail?.fabricBy ?? clothFor(o, i); if (o.pack && o.pack.clothBy === 'factory') { o.pack.fabric.vendorId = null; o.pack.fabric.vendorFabricCode = null; o.pack.fabric.blockedMetres = null; o.pack.fabric.readiness = null; o.pack.fabric.trimVendorId = null; } });
 orders.forEach(o => { const m = Object.entries({ 'Nitin Singh': ['ayaan', 'camellia', 'topnotch'], 'Abhin M': ['gseams', 'goodwill', 'richman'], 'Bhupendra': ['united', 'strand', 'zen'] }).find(([, fs]) => o.vendorId && fs.includes(o.vendorId))?.[0]; if (m) o.merchant = m; });
 export const SEED: Db = {
   lostSales,

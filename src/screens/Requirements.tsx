@@ -258,6 +258,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   /* fabric information — category's part; sourcing adds the vendor, code, blocked quantity and readiness on the record */
   const [fab, setFab] = useState({ description: '', content: '100% cotton', swatchAnalyser: '', cpm: '', rate: '', widthIn: '58' });
   const [fabPhoto, setFabPhoto] = useState<File | null>(null);
+  const [clothBy, setClothBy] = useState<'bsc' | 'bsc-vendor' | 'factory' | null>(null);   // who supplies the cloth: we send it, we give the vendor, or factory-held
   /* tech pack — a file (pdf, doc or image) or a note per item */
   const [tp, setTp] = useState<Partial<Record<TechPackKey, string>>>({});
   const [tpFiles, setTpFiles] = useState<Partial<Record<TechPackKey, File>>>({});
@@ -278,7 +279,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const tpDone = TECH_PACK_ITEMS.filter(it => (tp[it.key] ?? '').trim() || tpFiles[it.key]).length;
   const PARTS = [
     { k:'ask', label:'Style and production ask', ok: !!style.trim() && !!Number(qty) },
-    { k:'fabric', label:'Fabric information', ok: !!fab.description.trim() && !!fab.cpm && !!(fabPhoto || fab.swatchAnalyser) },
+    { k:'fabric', label:'Fabric information', ok: !!clothBy && !!fab.description.trim() && !!fab.cpm && !!(fabPhoto || fab.swatchAnalyser) },
     { k:'tech', label:'Tech pack', ok: tpDone === TECH_PACK_ITEMS.length, n: `${tpDone}/${TECH_PACK_ITEMS.length}` },
     { k:'trim', label:'Trim card', ok: !!(trimFile || trimName.trim()) },
     { k:'bom', label:'BOM / consumption', ok: bom.length > 0 },
@@ -299,7 +300,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
     });
     const techPack: Partial<Record<TechPackKey, string>> = {}; TECH_PACK_ITEMS.forEach(it => { const f = tpFiles[it.key]; const v = f ? f.name : (tp[it.key] ?? '').trim(); if (v) techPack[it.key] = v; });
     updatePack(id, { techPack, fabric: { description: fab.description.trim() || null, content: fab.content.trim() || null, image: fabPhoto?.name ?? null, swatchAnalyser: fab.swatchAnalyser.trim() || null, cpm: fab.cpm === '' ? null : Number(fab.cpm), rate: fab.rate === '' ? null : Number(fab.rate), widthIn: fab.widthIn === '' ? null : Number(fab.widthIn) },
-      trimCard: trimFile?.name ?? (trimName.trim() || null), trimLines: trimLines.map(x => ({ colour: x.colour, item: x.item, supplierCode: x.supplierCode || null, image: x.image || null })), colours: colours.split(/[,;]/).map(x => x.trim()).filter(Boolean), brief: brief.trim() || null });
+      trimCard: trimFile?.name ?? (trimName.trim() || null), trimLines: trimLines.map(x => ({ colour: x.colour, item: x.item, supplierCode: x.supplierCode || null, image: x.image || null })), colours: colours.split(/[,;]/).map(x => x.trim()).filter(Boolean), brief: brief.trim() || null, clothBy });
     /* the files ride on the record under the label of the part they belong to */
     const jobs: Promise<void>[] = [];
     TECH_PACK_ITEMS.forEach(it => { const f = tpFiles[it.key]; if (f) jobs.push(attachFiles('order', id, 'Tech pack', it.label, [f])); });
@@ -307,7 +308,6 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
     if (trimFile) jobs.push(attachFiles('order', id, 'Trim card', null, [trimFile]));
     if (askFiles.length) jobs.push(attachFiles('order', id, 'Style sheet', 'Style and production ask', askFiles));
     await Promise.all(jobs);
-    if (mode !== 'bsc-buys') setSourcingMode(id, mode, null, undefined);
     onDone(id);
   };
 
@@ -348,6 +348,8 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       </div>
     </Section>}
     {show('fabric') && <Section title="Fabric information" collapsible={false}>
+      <div className="cap">Who supplies the cloth</div>
+      <div className="flex gap-2 flex-wrap pb-3">{([['bsc', 'We send it'], ['bsc-vendor', 'We give the vendor'], ['factory', 'Factory-held']] as const).map(([k, l]) => <button key={k} type="button" className={`dest-opt${clothBy === k ? ' on' : ''}`} onClick={() => setClothBy(k)}><span className="dest-dot" />{l}</button>)}</div>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <Field label="Fabric description"><Input value={fab.description} onChange={e => setFab(x => ({ ...x, description: e.target.value }))} placeholder="Oxford, 2-ply poplin, brushed twill" /></Field>
         <Field label="Fabric content"><Input value={fab.content} onChange={e => setFab(x => ({ ...x, content: e.target.value }))} placeholder="100% cotton" /></Field>

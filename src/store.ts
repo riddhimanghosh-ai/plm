@@ -224,7 +224,7 @@ export interface AppState {
   shipStep(orderId: string, step: 'awb' | 'picked' | 'shipped' | 'delivered' | 'closed', value?: { awbNo?: string; courier?: string; shippingCost?: number | null }): void;
   closeCogs(orderId: string): void;   // not needed for this PO, or needed after all
   /* 14 Nov 2026: the chain as BSC set it */
-  updatePack(orderId: string, patch: { techPack?: Partial<Record<TechPackKey, string>>; fabric?: Partial<RequirementPack['fabric']>; trimCard?: string | null; trimLines?: RequirementPack['trimLines']; colours?: string[]; brief?: string | null }): void;   // category, and sourcing for its four fabric fields
+  updatePack(orderId: string, patch: { techPack?: Partial<Record<TechPackKey, string>>; fabric?: Partial<RequirementPack['fabric']>; trimCard?: string | null; trimLines?: RequirementPack['trimLines']; colours?: string[]; brief?: string | null; clothBy?: FabricBy | null }): void;   // category, and sourcing for its four fabric fields
   sendPack(orderId: string): void;                                   // category: to Production RTW, only when the five parts are complete
   sendCostQuery(orderId: string, factoryIds: string[], deadline: string, mail?: MailDraft | null): void;   // Nitin: mails the factories, copies the merchandiser; the mail as edited before sending
   replyCostQuery(orderId: string, vendorId: string, reply: Omit<CostReply, 'vendorId' | 'repliedOn'>): void;   // the factory's reply on the form (logged here in the prototype)
@@ -302,6 +302,7 @@ export interface AppState {
   receiveRound(factoryId: string, round: { received: string[]; short: string[]; rejected: { id: string; reason: string }[]; vehicle: string; note: string }): void;
   closePlan(planId: string): void;
   addVendor(v: { name: string; kind: VendorKind; location: string; region: string; leadDays: number; moq: number; enigma: NonNullable<Vendor['enigma']> }): string;   // sourcing: a vendor as Enigma's Add Vendor form takes it
+  saveDbVendor(id: string | null, f: { name: string; kind: VendorKind; location: string; region: string; email: string | null; leadDays: number; moq: number; specialising?: GarmentCategory[]; supplies?: string[] }): string;   // the factory and cloth-vendor databases (15 Nov 2026)
   updateVendor(id: string, patch: Partial<Pick<Vendor, 'tailors' | 'distanceKm' | 'leadDays' | 'moq' | 'dailyTarget' | 'corporate' | 'urgentReserve' | 'mtm' | 'location' | 'region' | 'blockWindowDays' | 'enigma' | 'name' | 'kind'>>): void;
   raiseExtraFabric(input: Pick<ExtraFabricRequest, 'orderId' | 'metres' | 'reason' | 'panel' | 'note'> & Partial<Pick<ExtraFabricRequest, 'material' | 'trimId' | 'qty'>>): void;   // one piece of a bundle, never the whole bundle
   decideExtraFabric(id: string, status: 'approved' | 'declined' | 'sent', reason?: string): void;
@@ -331,6 +332,8 @@ let seq = 0;
 /* The prototype's clock is fixed at TODAY so the seeded history is coherent.
    Writes advance from there in real time, so an edit reads "just now", not "in 1d". */
 const BOOT = Date.now();
+/* bump to reseed the demo data in every browser */
+const SEED_VERSION = 152;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 export const useAppStore = create<AppState>()(persist((set, get) => {
@@ -1368,6 +1371,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; const p = o.pack ?? JSON.parse(JSON.stringify(EMPTY_PACK)) as RequirementPack;
         if (patch.techPack) p.techPack = { ...p.techPack, ...patch.techPack }; if (patch.fabric) p.fabric = { ...p.fabric, ...patch.fabric }; if (patch.trimCard !== undefined) p.trimCard = patch.trimCard;
         if (patch.trimLines) p.trimLines = patch.trimLines; if (patch.colours) p.colours = patch.colours; if (patch.brief !== undefined) p.brief = patch.brief;
+        if (patch.clothBy !== undefined) { p.clothBy = patch.clothBy; o.fabricNominated = patch.clothBy === 'bsc'; o.sourcingMode = patch.clothBy === 'bsc' ? 'bsc-buys' : 'vendor-sources'; }
         if (patch.fabric?.vendorId !== undefined) o.fabricVendorId = patch.fabric.vendorId; if (patch.fabric?.vendorFabricCode !== undefined) o.vendorFabricCode = patch.fabric.vendorFabricCode;
         if (patch.fabric?.blockedMetres !== undefined) o.fabricBlocked = patch.fabric.blockedMetres; if (patch.fabric?.cpm !== undefined) o.costing.cpm = patch.fabric.cpm;
         o.pack = p; });
@@ -1435,7 +1439,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     },
     addPoInvoice(orderId, inv) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.poInvoices = [...(o.poInvoices ?? []), { ...inv, id: `inv-${Date.now().toString(36)}`, on: now(), by: who() }];
-        log(o, `Invoice logged on the PO · ${inv.direction === 'bsc-to-factory' ? 'BSC → factory' : 'factory → BSC'} · ${inv.no} · ₹${inv.amount} · ${inv.what}`); }, 'Invoice logged against the PO for reconciliation.');
+        log(o, `${inv.doc === 'debit-note' ? 'Debit note' : inv.doc === 'credit-note' ? 'Credit note' : 'Invoice'} logged on the PO · ${inv.direction === 'bsc-to-factory' ? 'BSC → factory' : 'factory → BSC'} · ${inv.no} · ₹${inv.amount} · ${inv.what}`); }, 'Invoice logged against the PO for reconciliation.');
     },
     removePoInvoice(orderId, id) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.poInvoices = (o.poInvoices ?? []).filter(x => x.id !== id); }); },
     logFactoryCloth(orderId, patch) {
@@ -1756,6 +1760,13 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { db.vendors.push({ id, name: v.name, kind: v.kind, location: v.location, region: v.region, leadDays: v.leadDays, onTimeRate: 1, moq: v.moq, blockWindowDays: 45, enigma: v.enigma }); }, `${v.name} added — the same fields Enigma's Add Vendor form takes.`);
       return id;
     },
+    saveDbVendor(id, f) {
+      const vid = id ?? `v-${Date.now().toString(36)}`;
+      touch(db => { const v = db.vendors.find(x => x.id === vid);
+        if (v) Object.assign(v, f); else db.vendors.push({ id: vid, onTimeRate: 1, blockWindowDays: f.kind.endsWith('mill') ? 45 : 0, ...f }); },
+        id ? `${f.name} saved.` : `${f.name} added to the database.`);
+      return vid;
+    },
     updateVendor(id, patch) {
       touch(db => { const v = db.vendors.find(x => x.id === id); if (!v) return;
         if (patch.corporate) db.vendors.forEach(x => { if (x.id !== id) x.corporate = false; });
@@ -1953,7 +1964,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 149,
+  version: SEED_VERSION,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -1965,7 +1976,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
-      ...(version < 136 ? { db: structuredClone(SEED) } : {}) } as AppState;
+      ...(version < SEED_VERSION ? { db: structuredClone(SEED) } : {}) } as AppState;   // any bump of the version reseeds the demo data
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
   partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),

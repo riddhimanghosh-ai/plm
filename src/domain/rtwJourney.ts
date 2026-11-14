@@ -27,6 +27,7 @@ export const RTW_INTRO: Record<string, string> = {
   dispatch: 'After the dispatch actual the merchandiser uploads the factory\'s invoice and packing list. PLM mails both to Prince at the warehouse, who receives against the packing list on Enigma.',
   received: 'What Enigma received, by size, against the packing list: did everything reach?',
   cogs: 'COGS per piece from the costing sheet with the actuals laid over it: fabric at the consumption cutting used, the factory\'s PO price, the sheet\'s trims, transport, freight and overheads. Against MRP net of discounts and GST. Nitin and category see it.',
+  invoices: 'Every invoice, debit note and credit note on this PO, both ways, with its document — logged here for reconciliation.',
   launch: 'Planning puts the style in a drop; category mints the design codes; stickers, display and fit pieces, go-live.',
 };
 
@@ -55,7 +56,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
 
   const steps: RtwStep[] = [
     { key: 'raised', phase: 'design', label: 'Raised', who: sourceWho, on: raised?.at ?? o.styleHandover, by: raised?.who ?? sourceWho },
-    { key: 'pack', phase: 'design', label: 'Requirement · five parts', who: 'Category · Sourcing', act: pack.ready || pack.sourcingMissing.length < pack.missing.length ? 'design' : 'sourcing', on: packOn, by: packOn ? (o.pack?.sentBy ?? 'sent to Production RTW') : null, now: packNow },
+    { key: 'pack', phase: 'design', label: 'Requirement · six parts', who: 'Category · Sourcing', act: pack.ready || pack.sourcingMissing.length < pack.missing.length ? 'design' : 'sourcing', on: packOn, by: packOn ? (o.pack?.sentBy ?? 'sent to Production RTW') : null, now: packNow },
     { key: 'query', phase: 'buy', label: 'Factory counter sourcing', who: 'Nitin · Factories · Category', act: tr.open && replies >= asked ? 'design' : cq && replies < asked ? 'merchandiser' : 'production', on: cq ? ((replies >= asked && !tr.open) || o.poNo ? (cq.replies[cq.replies.length - 1]?.repliedOn ?? cq.sentOn) : null) : null, by: cq ? `${replies} of ${asked} replied` : null,
       now: !sent ? 'after the requirement' : !cq ? 'Nitin to pick factories and send the counter-sourcing query' : tr.open && replies >= asked ? `every reply over target · category to revise the target ${tr.flagged.some(r => r.cost > o.targetCost) ? 'cost' : ''}${tr.flagged.some(r => r.cost > o.targetCost) && tr.flagged.some(r => r.leadDays > 0) ? ' or ' : ''}${tr.flagged.some(r => r.leadDays > 0) ? 'in-house date' : ''}`.replace(/target $/, 'target') : `${asked - replies} repl${asked - replies === 1 ? 'y' : 'ies'} due by ${fmtDate(cq.deadline)}${qDeadlineLate ? ` · ${daysAgo(cq.deadline)}d past` : ''}${tr.open ? ' · replies so far over target' : ''}` },
     { key: 'po', phase: 'buy', label: 'PO raised · mailed', who: 'Nitin', act: 'production', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}${o.poMail ? ` · to ${o.poMail.deliveryLocation}${o.poMail.sentOn ? '' : ' · mail to send'}` : ''}` : null,
@@ -76,10 +77,12 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
       now: !receivedOn ? 'after receipt' : 'Nitin to close COGS' },
     { key: 'launch', phase: 'land', label: 'Launched', who: 'Category · Planning', act: 'planning', on: launch?.launchedOn, by: launch?.dropMonth,
       now: launch ? `${launch.dropMonth} drop${launch.launchOn ? ` · ${fmtDate(launch.launchOn)}` : ''}` : 'planning puts it in a drop' },
+    /* a log, not a gate: every invoice, debit note and credit note on the PO, for reconciliation; it never holds the record up */
+    { key: 'invoices', phase: 'land', label: 'Invoices · debit and credit notes', who: 'Nitin · Accounts', act: 'production', on: o.poNo ? (o.poInvoices?.length ? o.poInvoices[o.poInvoices.length - 1].on : o.poDate) : null, by: o.poNo ? `${o.poInvoices?.length ?? 0} logged` : null, now: 'after the PO' },
   ];
   /* an open cut-ratio ask pulls the record back to the TNA until it is answered */
   const ratioOpen = o.status === 'Open' && (fab.key === 'ratio-asked' || pf.failedOpen.length > 0);
-  const current = ratioOpen ? steps.findIndex(x => x.key === 'cloth') : steps.findIndex(x => !x.on);
+  const current = ratioOpen ? steps.findIndex(x => x.key === 'cloth') : steps.findIndex(x => !x.on && x.key !== 'invoices');
   const next = current >= 0 ? steps[current] : null;
   /* "where it is" for a list: the step name, or the TNA stage while it is being made */
   const where = ratioOpen ? (pf.failedOpen.length ? `${pf.failedOpen.map(f => f.colour).join(', ')} cloth failed · hold or drop` : `cut ratio with category · short ${fab.short} m`) : !next ? `launched ${fmtDate(launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? (qcFail ? `QC failed · ${qcFail.label.toLowerCase()}` : qcDue ? `QC · ${qcDue.label.toLowerCase()}` : `${st.stage}${late}`) : next.key === 'pack' ? (pack.ready ? 'requirement complete' : `requirement · ${pack.missing.length} to fill`) : next.key === 'query' && cq ? (tr.open && replies >= asked ? 'replies over target · category to revise' : `counter sourcing · ${replies} of ${asked} replied`) : next.label;

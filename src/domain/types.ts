@@ -28,6 +28,7 @@ export interface Vendor {
   /* 14 Nov 2026: the factory database Nitin picks from — what each factory specialises in, and where the cost query goes */
   specialising?: GarmentCategory[];
   email?: string | null;
+  supplies?: string[];          // cloth vendors: what they supply (oxford, poplin, linen, knit, buttons…) — drives the recommendation
   /* Enigma's Vendor Information block on the fabric master, kept once per mill (20 Oct 2026) */
   enigma?: { vendorCode: string | null; country: string | null; description: string | null; currency: 'INR' | 'USD' | 'EUR'; tatHours: number | null;
     /* Enigma's vendor master (its /vendor list): type, address, office phone and email, active, categories */
@@ -219,6 +220,7 @@ export interface RequirementPack {
   trimCard: string | null;                                   // the trim card file
   trimLines?: { colour: string; item: string; supplierCode: string | null; image: string | null }[];   // colour-wise trim references; a nominated supplier's item code and reference image
   colours?: string[];                                        // the colour options the style is asked in
+  clothBy?: FabricBy | null;                                 // category's choice on the requirement: BSC sends the cloth, the factory buys from BSC's vendor, or factory-held; Nitin confirms before the PO
   brief?: string | null;                                     // what category has in mind, in its own words — phase 2: the tech pack, trim card and BOM drafted from it
   sentOn: string | null; sentBy: string | null;   // sent to Production RTW once the five parts are complete
 }
@@ -243,7 +245,7 @@ export interface PoFabric { id: string; colour: string; vendorId: string | null;
   qc: 'pending' | 'passed' | 'failed'; qcOn: string | null; qcNote: string | null;
   decision: { kind: 'hold'; replacementBy: string | null; by: string; on: string } | { kind: 'drop'; newRequirementId: string | null; by: string; on: string } | null;
   resumedOn: string | null }   // hold: replacement received, the colour continues
-export interface PoInvoice { id: string; direction: 'bsc-to-factory' | 'factory-to-bsc'; kind: 'fabric' | 'trim' | 'service' | 'other'; no: string; amount: number; what: string; file: string | null; on: string; by: string; note: string | null }
+export interface PoInvoice { id: string; doc?: 'invoice' | 'debit-note' | 'credit-note' | 'other'; direction: 'bsc-to-factory' | 'factory-to-bsc'; kind: 'fabric' | 'trim' | 'service' | 'other'; no: string; amount: number; what: string; file: string | null; on: string; by: string; note: string | null }
 
 export type SampleStage = 'prototype' | 'sample' | 'trial';   // prototype · sampling cycle · trial cycle
 export interface SampleCycleRound { n: number; kind: SampleStage; sentOn: string | null; dueOn: string | null; sampledOn: string | null; trialOn: string | null; outcome: 'approved' | 'remarks' | null; remarks: string | null; cadUpdatedOn: string | null }

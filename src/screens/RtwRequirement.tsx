@@ -25,9 +25,9 @@ import { LaunchCodes, LaunchStickers } from './Launches';
 const MINE: Record<string, string[]> = {
   design: ['raised', 'pack', 'query', 'cloth', 'tna', 'cogs', 'launch'],
   planning: ['raised', 'cogs', 'launch'],
-  sourcing: ['pack', 'cloth'],
-  production: ['raised', 'pack', 'query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'cogs'],
-  merchandiser: ['query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received'],
+  sourcing: ['pack', 'cloth', 'invoices'],
+  production: ['raised', 'pack', 'query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'cogs', 'invoices'],
+  merchandiser: ['query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'invoices'],
   qc: ['po', 'tna'],
   warehouse: ['dispatch', 'received'],
 };
@@ -130,7 +130,6 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
 
     {at('po') && <PoSection o={o} />}
     {at('po') && o.poNo && <div className="pt-3"><PoCostsSection o={o} design={prod} factory={merchant} /></div>}
-    {at('po') && o.poNo && <div className="pt-3 rtw-full"><PoInvoicesSection o={o} prod={prod} /></div>}
 
     {at('plan') && <div className="rtw-full"><TnaPlanSection o={o} merchant={merchant} /></div>}
 
@@ -154,7 +153,6 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
     </Section></div>}</div>}
 
     {at('dispatch') && <div className="rtw-full"><InvoiceSection o={o} merchant={merchant} /></div>}
-    {at('dispatch') && o.poNo && <div className="pt-3 rtw-full"><PoInvoicesSection o={o} prod={prod} /></div>}
 
     {at('received') && <div className="rtw-full"><ReceivedSection o={o} /></div>}
 
@@ -168,6 +166,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         <div className="pt-1"><a className="cta" href={`#/launches?open=${launch.id}`}>the launch · gates, stores, marketing →</a></div>
       </> : <>{planning ? null : <div className="text-[12.5px] py-1" style={faint}>Planning puts it in a drop once it is in production; category mints the design code when the goods land.</div>}<PutInDrop o={o} /></>}
     </Section>}
+    {at('invoices') && <div className="rtw-full">{o.poNo ? <PoInvoicesSection o={o} prod={prod || merchant || sourcing} /> : <Section title="Invoices · debit and credit notes" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>After the PO.</div></Section>}</div>}
     {/* design codes and the desk after them, on the record itself */}
     {at('launch') && launch && <div className="pt-3"><LaunchCodes l={launch} isDesign={design} /></div>}
     {at('launch') && launch?.designCode && <div className="pt-3"><LaunchStickers l={launch} canMark={design} /></div>}

@@ -32,6 +32,8 @@ import { Fabrics, FabricPage } from './screens/Fabrics';
 import { PrepDesk } from './screens/Preprod';
 import { Qc } from './screens/Qc';
 import { RtwDashboard } from './screens/RtwDashboard';
+import { RtwSourcing } from './screens/RtwSourcing';
+import { VendorDb } from './screens/VendorDb';
 import { MTM_ONLY, RTW_ONLY, OPTIONS_OFF } from './domain/edition';
 
 /* No Today screen: each role lands on the first screen it works in. */
@@ -48,7 +50,10 @@ export default function App() {
           <Route index element={<Landing />} />
           <Route path="/requests" element={OPTIONS_OFF ? <Navigate to="/design" replace /> : <ToDesign kind="Options" form="options" />} />
           <Route path="/requirements" element={MTM_ONLY ? <Navigate to="/design" replace /> : <ToDesign kind="RTW" form="rtw" />} />
-          <Route path="/sourcing" element={<Sourcing />} />
+          <Route path="/sourcing" element={RTW_ONLY ? <RtwSourcing /> : <Sourcing />} />
+          <Route path="/rtw-sourcing" element={MTM_ONLY ? <Navigate to="/" replace /> : <RtwSourcing />} />
+          <Route path="/factory-db" element={MTM_ONLY ? <Navigate to="/" replace /> : <VendorDb kind="factory" />} />
+          <Route path="/cloth-vendors" element={MTM_ONLY ? <Navigate to="/" replace /> : <VendorDb kind="cloth" />} />
           <Route path="/tracker" element={MTM_ONLY ? <Navigate to="/" replace /> : <Tracker />} />
           <Route path="/factory" element={<Factory />} />
           <Route path="/qc" element={MTM_ONLY ? <Navigate to="/" replace /> : <Qc />} />
