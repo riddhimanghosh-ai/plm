@@ -13,13 +13,11 @@ import { rtwJourneyOf, RTW_PHASES, RTW_INTRO, RTW_ACTOR_LABEL } from '../domain/
 import { FILE_LABELS, ORDER_STEPS } from '../domain/reference';
 import { Section, Pill, Button, KV, Field, Input, fromDateInput, dateInput, DrawerSlot } from '../ui';
 import { SizeGrid, FabricFinalisationSection } from './RtwGates';
-import { PutInDrop } from './Requirements';
 import { MilestoneGrid } from './Tracker';
 import { MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
-import { PackSection, CostQuerySection, PoSection, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, CogsSection, RemarksLog, remarksCountOf, PoFabricsSection } from './RtwChain';
+import { PackSection, CostQuerySection, PoSection, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, CogsSection, RemarksLog, remarksCountOf, PoFabricsSection, EnigmaSection } from './RtwChain';
 import { SOURCE_LABEL } from '../domain/rtwJourney';
-import { LaunchCodes, LaunchStickers } from './Launches';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
 const MINE: Record<string, string[]> = {
@@ -35,7 +33,7 @@ const MINE: Record<string, string[]> = {
 export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: string }) {
   const { db, role, updateRequirement } = useApp();
   const design = role === 'design' || role === 'owner';
-  const planning = role === 'planning' || role === 'owner';
+
   const prod = role === 'production' || role === 'owner';
   const merchant = role === 'merchandiser' || role === 'owner';
   const sourcing = role === 'sourcing' || role === 'owner';
@@ -158,18 +156,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
 
     {at('cogs') && <CogsSection o={o} finance={prod || design} />}
 
-    {at('launch') && <Section title="Launch" collapsible={false} right={<Pill tone={launch?.launchedOn ? 'good' : launch ? 'info' : 'neutral'}>{launch?.launchedOn ? `launched ${fmtDate(launch.launchedOn)}` : launch ? `${launch.dropMonth} drop` : 'not in a drop yet'}</Pill>}>
-      {launch ? <>
-        <KV k="Drop" v={launch.dropMonth} note={launch.launchedOn ? `launched ${fmtDate(launch.launchedOn)}` : launch.launchOn ? `launch ${fmtDate(launch.launchOn)}` : 'no date yet'} />
-        <KV k="At head office" v={launch.receivedAtHo ? fmtDate(launch.receivedAtHo) : `expected ${fmtDate(launch.expectedAtHo)}`} />
-        {launch.marketingName && <KV k="Marketing name" v={launch.marketingName} />}
-        <div className="pt-1"><a className="cta" href={`#/launches?open=${launch.id}`}>the launch · gates, stores, marketing →</a></div>
-      </> : <>{planning ? null : <div className="text-[12.5px] py-1" style={faint}>Planning puts it in a drop once it is in production; category mints the design code when the goods land.</div>}<PutInDrop o={o} /></>}
-    </Section>}
-    {at('invoices') && <div className="rtw-full">{o.poNo ? <PoInvoicesSection o={o} prod={prod || merchant || sourcing} /> : <Section title="Invoices · debit and credit notes" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>After the PO.</div></Section>}</div>}
-    {/* design codes and the desk after them, on the record itself */}
-    {at('launch') && launch && <div className="pt-3"><LaunchCodes l={launch} isDesign={design} /></div>}
-    {at('launch') && launch?.designCode && <div className="pt-3"><LaunchStickers l={launch} canMark={design} /></div>}
+    {at('launch') && <div className="rtw-full"><EnigmaSection o={o} design={design} /></div>}
         </div>
       </div>
     </div></div>

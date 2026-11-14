@@ -240,6 +240,7 @@ export interface AppState {
   decidePoFabric(orderId: string, fabricId: string, kind: 'hold' | 'drop', replacementBy?: string | null): void;   // Nitin: hold the colour for a replacement, or drop it (alternative as a separate PO)
   resumePoFabric(orderId: string, fabricId: string, metres: number): void;                                   // replacement received: the colour continues under the same PO
   raiseAlternativeFor(orderId: string, fabricId: string): string | null;                                     // a separate requirement for the dropped colour's alternative
+  addToEnigma(orderId: string, p: { code: string; name: string; mrp: number; category: string; fit: string | null; colour: string | null; description: string | null; skus: { size: string; sku: string; qty: number }[] }): void;   // category: the style and every size into Enigma, ready to sell
   uploadInvoice(orderId: string, inv: { no: string; amount: number; file: string | null; packingList: { size: string; qty: number }[] }): void;   // merchandiser: uploads the factory's invoice and packing list
   mailInvoice(orderId: string, mail?: MailDraft | null): void;   // merchandiser: one click, PLM mails both to Prince at the warehouse
   sendPoMail(orderId: string, mail?: MailDraft | null): void;   // Nitin: the PO mail to the factory and the merchandiser, edited if needed
@@ -333,7 +334,7 @@ let seq = 0;
    Writes advance from there in real time, so an edit reads "just now", not "in 1d". */
 const BOOT = Date.now();
 /* bump to reseed the demo data in every browser */
-const SEED_VERSION = 153;
+const SEED_VERSION = 154;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 export const useAppStore = create<AppState>()(persist((set, get) => {
@@ -1478,6 +1479,10 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         fabricBrief: o.fabricBrief ? { ...o.fabricBrief, colour: null, notes: `alternative to ${f.colour} on ${o.poNo}; cloth failed the factory's check` } : null, source: 'design' } as Parameters<AppState['createRequirement']>[0]);
       touch(db => { const o2 = db.orders.find(x => x.id === orderId); const f2 = o2?.poFabrics?.find(x => x.id === fabricId); if (f2?.decision?.kind === 'drop') f2.decision.newRequirementId = id; if (o2) log(o2, `Separate requirement raised for ${f.colour}'s alternative`); });
       return id;
+    },
+    addToEnigma(orderId, p) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.enigmaProduct = { ...p, addedOn: now(), by: who() };
+        log(o, `Added to Enigma · ${p.code} · ${p.name} · ₹${p.mrp} · ${p.skus.length} sizes`); }, 'Added to Enigma with every size.');
     },
     uploadInvoice(orderId, inv) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return;

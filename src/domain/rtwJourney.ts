@@ -28,7 +28,7 @@ export const RTW_INTRO: Record<string, string> = {
   received: 'What Enigma received, by size, against the packing list: did everything reach?',
   cogs: 'COGS per piece from the costing sheet with the actuals laid over it: fabric at the consumption cutting used, the factory\'s PO price, the sheet\'s trims, transport, freight and overheads. Against MRP net of discounts and GST. Nitin and category see it.',
   invoices: 'Every invoice, debit note and credit note on this PO, both ways, with its document — logged here for reconciliation.',
-  launch: 'Planning puts the style in a drop; category mints the design codes; stickers, display and fit pieces, go-live.',
+  launch: 'The style into Enigma with every size: code, name, MRP and one SKU per size.',
 };
 
 export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; current: number; next: RtwStep | null; where: string } {
@@ -75,8 +75,8 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
       now: !inv ? 'after the invoice' : rc.partial ? `${rc.received} of ${rc.base} in` : 'Prince to receive against the packing list on Enigma' },
     { key: 'cogs', phase: 'land', label: 'COGS · profitability', who: 'Nitin · Category', act: 'production', on: cogsOn, by: cogsOn ? 'closed' : null,
       now: !receivedOn ? 'after receipt' : 'Nitin to close COGS' },
-    { key: 'launch', phase: 'land', label: 'Launched', who: 'Category · Planning', act: 'planning', on: launch?.launchedOn, by: launch?.dropMonth,
-      now: launch ? `${launch.dropMonth} drop${launch.launchOn ? ` · ${fmtDate(launch.launchOn)}` : ''}` : 'planning puts it in a drop' },
+    { key: 'launch', phase: 'land', label: 'Added to Enigma', who: 'Category', act: 'design', on: o.enigmaProduct?.addedOn ?? launch?.launchedOn, by: o.enigmaProduct ? `${o.enigmaProduct.code} · ${o.enigmaProduct.skus.length} sizes` : launch?.dropMonth,
+      now: 'category to add it to Enigma with every size' },
     /* a log, not a gate: every invoice, debit note and credit note on the PO, for reconciliation; it never holds the record up */
     { key: 'invoices', phase: 'land', label: 'Invoices · debit and credit notes', who: 'Nitin · Accounts', act: 'production', on: o.poNo ? (o.poInvoices?.length ? o.poInvoices[o.poInvoices.length - 1].on : o.poDate) : null, by: o.poNo ? `${o.poInvoices?.length ?? 0} logged` : null, now: 'after the PO' },
   ];
@@ -85,7 +85,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
   const current = ratioOpen ? steps.findIndex(x => x.key === 'cloth') : steps.findIndex(x => !x.on && x.key !== 'invoices');
   const next = current >= 0 ? steps[current] : null;
   /* "where it is" for a list: the step name, or the TNA stage while it is being made */
-  const where = ratioOpen ? (pf.failedOpen.length ? `${pf.failedOpen.map(f => f.colour).join(', ')} cloth failed · hold or drop` : `cut ratio with category · short ${fab.short} m`) : !next ? `launched ${fmtDate(launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? (qcFail ? `QC failed · ${qcFail.label.toLowerCase()}` : qcDue ? `QC · ${qcDue.label.toLowerCase()}` : `${st.stage}${late}`) : next.key === 'pack' ? (pack.ready ? 'requirement complete' : `requirement · ${pack.missing.length} to fill`) : next.key === 'query' && cq ? (tr.open && replies >= asked ? 'replies over target · category to revise' : `counter sourcing · ${replies} of ${asked} replied`) : next.label;
+  const where = ratioOpen ? (pf.failedOpen.length ? `${pf.failedOpen.map(f => f.colour).join(', ')} cloth failed · hold or drop` : `cut ratio with category · short ${fab.short} m`) : !next ? `in Enigma ${fmtDate(o.enigmaProduct?.addedOn ?? launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? (qcFail ? `QC failed · ${qcFail.label.toLowerCase()}` : qcDue ? `QC · ${qcDue.label.toLowerCase()}` : `${st.stage}${late}`) : next.key === 'pack' ? (pack.ready ? 'requirement complete' : `requirement · ${pack.missing.length} to fill`) : next.key === 'query' && cq ? (tr.open && replies >= asked ? 'replies over target · category to revise' : `counter sourcing · ${replies} of ${asked} replied`) : next.label;
   return { steps, current, next, where };
 }
 
@@ -106,7 +106,7 @@ export const RTW_STATUSES = [
   { key: 'making', label: 'In production', hint: 'the TNA is running; QC at five points' },
   { key: 'dispatched', label: 'Dispatched', hint: 'invoice and packing list with the warehouse' },
   { key: 'received', label: 'Received', hint: 'on Enigma; COGS' },
-  { key: 'launched', label: 'Launched', hint: 'in a drop' },
+  { key: 'launched', label: 'In Enigma', hint: 'added with every size' },
 ] as const;
 export type RtwStatusKey = typeof RTW_STATUSES[number]['key'];
 export function rtwStatusOf(db: Db, o: ProductionOrder): { key: RtwStatusKey; label: string; i: number } {

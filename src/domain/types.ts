@@ -334,6 +334,8 @@ export interface ProductionOrder {
   tnaPlan?: { sentOn: string; submittedOn: string | null; by: string | null } | null;   // the TNA form: planned dates from the factory, via the merchandiser
   qcChecks?: QcCheck[] | null;
   poFabrics?: PoFabric[] | null;
+  /* 15 Nov 2026: the style goes live by being added to Enigma with every size — one step instead of the drop, desk and stickers */
+  enigmaProduct?: { code: string; name: string; mrp: number; category: string; fit: string | null; colour: string | null; description: string | null; skus: { size: string; sku: string; qty: number }[]; addedOn: string; by: string } | null;
   targetRevisions?: TargetRevision[] | null;
   poInvoices?: PoInvoice[] | null;
   invoice?: { no: string; amount: number; uploadedOn: string; by: string; file: string | null; packingList: { size: string; qty: number }[]; mailedOn: string | null; mailedTo: string[]; mail?: MailDraft | null } | null;

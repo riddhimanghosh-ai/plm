@@ -545,3 +545,33 @@ export function PoFabricsSection({ o, factory, prod }: { o: ProductionOrder; fac
     {(pf.held.length > 0 || pf.dropped.length > 0) && <div className="text-[12.5px] pt-2" style={soft}>{pf.running.length} colour{pf.running.length === 1 ? '' : 's'} · {pf.running.reduce((a, f) => a + f.qty, 0)} pcs in production{pf.held.length ? ` · ${pf.heldPcs} pcs on hold` : ''}{pf.dropped.length ? ` · ${pf.dropped.reduce((a, f) => a + f.qty, 0)} pcs dropped (category gives the cut ratio for the rest)` : ''}.</div>}
   </Section>;
 }
+
+/* ── the last step: the style into Enigma with every size, ready to sell ── */
+export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boolean }) {
+  const { addToEnigma } = useApp();
+  const ep = o.enigmaProduct; const p = packOf(o);
+  const base = `BSC-${o.category.includes('hirt') ? 'SH' : o.category.includes('Bottom') ? 'BT' : o.category.includes('Knit') ? 'KN' : 'RT'}-${o.id.replace(/\D/g, '').slice(-4).padStart(4, '0')}`;
+  const sizes = (o.cutRatios ?? []).filter(c => c.given).slice(-1)[0]?.given?.breakup ?? o.sizeBreakup;
+  const [f, setF] = useState({ code: base, name: o.styleName, mrp: String(Math.round((o.finalFob ?? o.targetCost) * 3.2 / 10) * 10 - 1), fit: o.fit ?? '', colour: (p.colours ?? [])[0] ?? o.fabricBrief?.colour ?? '', description: p.fabric.description ? `${p.fabric.description}${p.fabric.content ? `, ${p.fabric.content}` : ''}` : '' });
+  const skus = sizes.filter(x => x.qty > 0).map(x => ({ size: x.size, sku: `${f.code}-${x.size}`, qty: x.qty }));
+  if (ep) return <Section title="In Enigma" collapsible={false} right={<Pill tone="good">added {fmtDate(ep.addedOn)} · {ep.by}</Pill>}>
+    <div className="grid gap-x-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+      <KV k="Code" v={<span className="mono">{ep.code}</span>} /><KV k="Name" v={ep.name} /><KV k="MRP" v={fmtMoney(ep.mrp)} /><KV k="Category" v={ep.category} note={[ep.fit, ep.colour].filter(Boolean).join(' · ') || undefined} />
+    </div>
+    {ep.description && <div className="text-[12.5px] pt-1" style={soft}>{ep.description}</div>}
+    <table className="t compact mt-2"><thead><tr><th>Size</th><th>SKU</th><th className="num">Pcs</th></tr></thead><tbody>{ep.skus.map(x => <tr key={x.size}><td>{x.size}</td><td className="mono text-[12px]">{x.sku}</td><td className="num">{x.qty}</td></tr>)}</tbody></table>
+  </Section>;
+  return <Section title="Add to Enigma" collapsible={false} right={<span className="pill role-design">Category</span>}>
+    <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+      <Field label="Design code"><Input value={f.code} onChange={e => setF(x => ({ ...x, code: e.target.value }))} disabled={!design} /></Field>
+      <Field label="Name it sells as"><Input value={f.name} onChange={e => setF(x => ({ ...x, name: e.target.value }))} disabled={!design} /></Field>
+      <Field label="MRP (₹)"><Input type="number" value={f.mrp} onChange={e => setF(x => ({ ...x, mrp: e.target.value }))} disabled={!design} /></Field>
+      <Field label="Fit"><Input value={f.fit} onChange={e => setF(x => ({ ...x, fit: e.target.value }))} disabled={!design} /></Field>
+      <Field label="Colour"><Input value={f.colour} onChange={e => setF(x => ({ ...x, colour: e.target.value }))} disabled={!design} /></Field>
+      <div style={{ gridColumn: '1 / -1' }}><Field label="Description"><Input value={f.description} onChange={e => setF(x => ({ ...x, description: e.target.value }))} disabled={!design} /></Field></div>
+    </div>
+    <div className="cap pt-3">Every size · {skus.reduce((a, x) => a + x.qty, 0)} pcs</div>
+    <table className="t compact"><thead><tr><th>Size</th><th>SKU</th><th className="num">Pcs</th></tr></thead><tbody>{skus.map(x => <tr key={x.size}><td>{x.size}</td><td className="mono text-[12px]">{x.sku}</td><td className="num">{x.qty}</td></tr>)}</tbody></table>
+    <div className="pt-3">{design ? <Button variant="primary" disabled={!f.code.trim() || !f.name.trim() || !Number(f.mrp)} onClick={() => addToEnigma(o.id, { code: f.code.trim(), name: f.name.trim(), mrp: Number(f.mrp), category: o.category, fit: f.fit.trim() || null, colour: f.colour.trim() || null, description: f.description.trim() || null, skus })}>Add to Enigma · {skus.length} sizes →</Button> : <ActsBy role="design" does="adds the style to Enigma with every size" />}</div>
+  </Section>;
+}
