@@ -41,6 +41,7 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   { path:'/cutting',      label:'Cutting desk',               hint:'cut the cloth to the CAD, attach the print',    group:'Production · MTM', roles:['owner','production','warehouse','cutting'] },
   { path:'/fusing',       label:'Fusing desk',                hint:'fuse collar, cuff and placket interlining',     group:'Production · MTM', roles:['owner','production','warehouse','fusing'] },
   { path:'/compiling',    label:'Compiling desk',             hint:'check the bundle, approve contrast fabric',     group:'Production · MTM', roles:['owner','production','warehouse','compiling'] },
+  { path:'/dashboard',    label:'RTW production dashboard',   hint:'OTIF, late POs, what is waiting on whom, by factory',  group:'Production · RTW', roles:['owner','production','planning'] , hideFor:['planning']},
   { path:'/tracker',      label:'RTW production tracker',     hint:'every bulk PO, date by date',                    group:'Production · RTW', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
   /* Production · RTW in PLM is the tracker alone; analytics read off it sit with planning, and materials go from sourcing straight to the factory */
   { path:'/otif',         label:'RTW production analytics',   hint:'OTIF, daily monitor, escalations, merchandiser alerts — read off the tracker', group:'Planning', roles:['owner','planning'] },

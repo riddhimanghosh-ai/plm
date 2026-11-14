@@ -224,7 +224,7 @@ export type FabricBy = 'bsc' | 'bsc-vendor' | 'factory';
 export interface CostReply { vendorId: string; cost: number; fabricBy: FabricBy; leadDays: number; repliedOn: string; note: string | null }
 export interface CostQuery { sentOn: string; by: string; deadline: string; to: string[]; cc: string[]; factoryIds: string[]; replies: CostReply[] }
 export type QcPoint = 'pps' | 'size-set' | 'initial' | 'midline' | 'final';
-export interface QcCheck { point: QcPoint; on: string; by: string; result: 'pass' | 'fail'; remarks: string }
+export interface QcCheck { point: QcPoint; on: string; by: string; result: 'pass' | 'fail'; remarks: string; aesthetic?: string | null }   // aesthetic: look, hand, finish — beside the technical remarks (samples)
 export type DeliveryLocation = '3PL warehouse' | 'Vasai · in-house';
 /* what set off a cut-ratio ask: less or more cloth or trim than the PO needs (15 Nov 2026) */
 export type CutRatioTrigger = 'fabric-short' | 'fabric-extra' | 'trim-short' | 'trim-extra' | 'other';

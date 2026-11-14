@@ -25,6 +25,7 @@ import { ActsBy } from './Who';
 import { MTM_ONLY, RTW_ONLY } from '../domain/edition';
 import { MerchandiserDesk, merchandiserItemsOf } from './MerchandiserDesk';
 import { poFabricsOf } from '../domain/rtwPack';
+import { QcLog, qcLogOf } from './QcLog';
 
 const STAGE_TONE: Record<string, Tone> = { 'in-transit':'info', 'in-factory':'info', 'out-factory':'good', rts:'good' };
 const stageLabel = (id: string) => MTM_STAGES.find(s => s.id === id)?.label ?? id;
@@ -47,7 +48,7 @@ export function Factory() {
   /* 15 Nov 2026: the merchandiser looks after several factories, so the RTW side spans all of them; "Factory" narrows it */
   const fac = params.get('fac') ?? 'all';
   const rtw = db.orders.filter(o => o.status === 'Open' && o.vendorId && (fac === 'all' || o.vendorId === fac)).sort((a, b) => a.targetInhouse.localeCompare(b.targetInhouse));
-  const rtwTab = tab === 'in' || tab === 'fabric' ? 'in' : tab === 'tna' ? 'tna' : tab === 'po' || tab === 'rtw-done' ? 'po' : 'desk';
+  const rtwTab = tab === 'in' || tab === 'fabric' ? 'in' : tab === 'tna' ? 'tna' : tab === 'qc' ? 'qc' : tab === 'po' || tab === 'rtw-done' ? 'po' : 'desk';
   /* the merchandiser is a regional head over several factories: the follow-ups span every PO and cost query on their floors */
   const regional = db.orders.filter(o => o.status !== 'Cancelled' && o.status !== 'Closed');
   const owed = merchandiserItemsOf(regional).filter(i => i.tone !== 'good').length;
@@ -87,6 +88,7 @@ export function Factory() {
           { id:'po', label:'POs for us', count: rtw.length, hint:'every PO design has raised to this factory, with what was ordered' },
           { id:'in', label:'Cloth & trims intake', count: rtw.filter(o => fabricStateOf(o).key === 'short' || (o.cutRatios ?? []).some(c => !c.given) || poFabricsOf(o).failedOpen.length > 0 || poFabricsOf(o).held.length > 0).length || undefined, hint:'what landed against each PO, colour by colour; anything short or failed is flagged with the new cut ratio pending' },
           { id:'tna', label:'In the factory · TNA', count: rtw.reduce((a, o) => a + o.milestones.filter(m => !m.actual && new Date(m.revised ?? m.plan) < new Date()).length, 0) || undefined, hint:'log each step as it happens' },
+          { id:'qc', label:'QC · samples and inspections', count: qcLogOf(rtw).filter(r => r.c.result === 'fail' && qcLogOf([r.o]).filter(x => x.c.point === r.c.point)[0] === r).length || undefined, hint:'PP sample and size set passed or not, inspection remarks, across your factories' },
         ]} />
         {rtwTab === 'po' && <>
           {tab === 'rtw-done' ? <RtwTab rows={rtwDone} onOpen={id => set('open', id)} done /> : <RtwTab rows={rtw} onOpen={id => set('open', id)} />}
@@ -95,6 +97,7 @@ export function Factory() {
         {rtwTab === 'desk' && <MerchandiserDesk orders={regional} factoryName={id => db.vendors.find(v => v.id === id)?.name ?? '—'} onOpen={(id, step) => { const n = new URLSearchParams(params); n.set('open', id); n.set('step', step); setParams(n, { replace:true }); }} />}
         {rtwTab === 'in' && <IncomingTab rows={rtw} onOpen={id => set('open', id)} />}
         {rtwTab === 'tna' && <TnaTab rows={rtw} mine={mine} onOpen={id => set('open', id)} />}
+        {rtwTab === 'qc' && <QcLog orders={[...rtw, ...rtwDone]} onOpen={id => { const n = new URLSearchParams(params); n.set('open', id); n.set('step', 'tna'); setParams(n, { replace:true }); }} factoryName={id => db.vendors.find(v => v.id === id)?.name ?? '—'} />}
       </>}
 
       <Drawer open={!!openOrder} onClose={() => set('open', null)} title={openOrder?.orderNo ?? ''} subtitle={openOrder && <><Pill tone={STAGE_TONE[openOrder.stage] ?? 'neutral'}>{stageLabel(openOrder.stage)}</Pill><span>{openOrder.customer} · {store(openOrder.storeId)}</span></>}>

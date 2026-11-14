@@ -332,7 +332,7 @@ function flowStateOf(m: Milestone, isNext: boolean): { state: FlowState; late: n
 const FLOW_COLOR: Record<FlowState, string> = { done: 'var(--good)', late: 'var(--risk)', overdue: 'var(--warn)', now: 'var(--accent)', pending: 'var(--line)' };
 const FLOW_LABEL: Record<FlowState, string> = { done: 'done', late: 'done late', overdue: 'past plan, nothing logged', now: 'next up', pending: 'planned' };
 
-export function MilestoneGrid({ o, editable, bare }: { o: ProductionOrder; editable: boolean; bare?: boolean }) {
+export function MilestoneGrid({ o, editable, bare, dense }: { o: ProductionOrder; editable: boolean; bare?: boolean; dense?: boolean }) {
   const { setMilestone, skipMilestone } = useApp();
   const [view, setView] = useState<'flow' | 'table'>('flow');
   const [open, setOpen] = useState<string | null>(null);
@@ -343,7 +343,7 @@ export function MilestoneGrid({ o, editable, bare }: { o: ProductionOrder; edita
   /* every block the sheet has, in its order: the ones the category's plan leaves out are greyed, and so are the ones marked not needed */
   const steps = allSteps(o); const live = steps; const na = steps.filter(m => m.na);
   const nextKey = live.find(m => !m.actual && !m.na)?.key ?? null;
-  const COLS = 4; const rows: typeof live[] = []; for (let i = 0; i < live.length; i += COLS) rows.push(live.slice(i, i + COLS));
+  const COLS = dense ? 6 : 4; const rows: typeof live[] = [];   // dense (in the drawer, 15 Nov 2026): six across, so the flow needs less scrolling for (let i = 0; i < live.length; i += COLS) rows.push(live.slice(i, i + COLS));
   const faint = { color: 'var(--ink-faint)' } as const;
   const editing = open ? live.find(m => m.key === open) ?? null : null;
 
@@ -367,14 +367,14 @@ export function MilestoneGrid({ o, editable, bare }: { o: ProductionOrder; edita
       {na.length > 0 && <span className="ml-auto">{na.length} greyed: not in this category's plan · click one to add it</span>}
       <span className={na.length ? '' : 'ml-auto'}><Seg options={[{ id: 'flow', label: 'Flow' }, { id: 'table', label: 'Table' }]} value={view} onChange={setView} /></span>
     </div>
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, columnGap: 28, rowGap: 26 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, columnGap: dense ? 22 : 28, rowGap: dense ? 20 : 26 }}>
       {rows.flatMap((row, ri) => { const rev = ri % 2 === 1; const cells = rev ? [...row].reverse() : row; const pad = COLS - row.length;
         const items = cells.map((m, ci) => { const idx = ri * COLS + (rev ? row.length - 1 - ci : ci); const { state, late } = flowStateOf(m, m.key === nextKey); const isLastInRow = rev ? ci === 0 : ci === row.length - 1; const hasNext = idx < live.length - 1; const col = FLOW_COLOR[state];
           const hArrow = hasNext && !isLastInRow; const vArrow = hasNext && isLastInRow; const selected = open === m.key;
           /* a QC block looks different from the factory's: QC's colour, a dashed edge, the last check and its remarks on the block */
           const isQc = m.owner === 'qc'; const qpt = isQc ? QC_POINTS.find(p => p.closes === m.key) : null; const qcHist = qpt ? (o.qcChecks ?? []).filter(c => c.point === qpt.key) : []; const qcLast = qcHist[qcHist.length - 1] ?? null;
           return <div key={m.key} style={{ position: 'relative', gridColumn: rev ? ci + 1 + pad : undefined }}>
-            <button onClick={() => setOpen(selected ? null : m.key)} className={`text-left w-full${isQc ? ' tna-qc' : ''}`} data-qc={isQc ? (qcLast?.result ?? (state === 'now' || state === 'overdue' ? 'due' : 'later')) : undefined} style={{ opacity: m.na || m.skipped ? .5 : 1, border: isQc ? undefined : `1.5px solid ${state === 'pending' || m.skipped ? 'var(--line)' : col}`, boxShadow: selected ? `0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent)` : undefined, borderRadius: 8, padding: '8px 10px', background: state === 'now' ? 'color-mix(in srgb, var(--accent) 7%, #fff)' : state === 'done' ? 'color-mix(in srgb, var(--good) 6%, #fff)' : '#fff', minHeight: 78, cursor: 'pointer' }}>
+            <button onClick={() => setOpen(selected ? null : m.key)} className={`text-left w-full${isQc ? ' tna-qc' : ''}`} data-qc={isQc ? (qcLast?.result ?? (state === 'now' || state === 'overdue' ? 'due' : 'later')) : undefined} style={{ opacity: m.na || m.skipped ? .5 : 1, border: isQc ? undefined : `1.5px solid ${state === 'pending' || m.skipped ? 'var(--line)' : col}`, boxShadow: selected ? `0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent)` : undefined, borderRadius: 8, padding: dense ? '6px 8px' : '8px 10px', background: state === 'now' ? 'color-mix(in srgb, var(--accent) 7%, #fff)' : state === 'done' ? 'color-mix(in srgb, var(--good) 6%, #fff)' : '#fff', minHeight: dense ? 62 : 78, cursor: 'pointer' }}>
               <div className="flex items-center gap-2"><span className="mono text-[10px]" style={{ color: state === 'pending' ? 'var(--ink-faint)' : col, fontWeight: 700 }}>{String(idx + 1).padStart(2, '0')}</span><span className="font-medium text-[12.5px] truncate">{m.key}</span>{late > 0 && <span className="pill risk ml-auto" style={{ fontSize: 10 }}>+{late}d</span>}{state === 'now' && <span className="pill accent ml-auto" style={{ fontSize: 10 }}>next</span>}{state === 'overdue' && <span className="pill warn ml-auto" style={{ fontSize: 10 }}>overdue</span>}</div>
               <div className="text-[10.5px] mt-0.5 flex items-center gap-1" style={faint}>{isQc ? <span className="pill role-qc" style={{ fontSize: 9.5, padding: '0 6px' }}>QC</span> : ROLE_LABEL[m.owner]}{isQc && qpt && <span>{qpt.label}</span>}</div>
               <div className="mono text-[11px] mt-1 flex gap-2 flex-wrap">
@@ -386,8 +386,8 @@ export function MilestoneGrid({ o, editable, bare }: { o: ProductionOrder; edita
               {isQc && qcLast && <div className="text-[10.5px] mt-1" style={{ color: qcLast.result === 'fail' ? 'var(--risk)' : 'var(--role-qc)', fontWeight: 600 }} title={qcLast.remarks}>{qcLast.result === 'fail' ? '✗ failed' : '✓ passed'}{qcLast.remarks ? <span style={{ fontWeight: 400, color: 'var(--ink-faint)' }}> · click for remarks</span> : ''}</div>}
               {isQc && !qcLast && (state === 'now' || state === 'overdue') && <div className="text-[10.5px] mt-1" style={{ color: 'var(--role-qc)', fontWeight: 600 }}>waiting on QC</div>}
             </button>
-            {hArrow && <span style={{ position: 'absolute', top: '50%', [rev ? 'left' : 'right']: -28, width: 28, height: 0, borderTop: `2px solid ${col}`, transform: 'translateY(-1px)' }}><span style={{ position: 'absolute', top: -5, [rev ? 'left' : 'right']: -1, borderTop: '4.5px solid transparent', borderBottom: '4.5px solid transparent', [rev ? 'borderRight' : 'borderLeft']: `7px solid ${col}` }} /></span>}
-            {vArrow && <span style={{ position: 'absolute', left: '50%', bottom: -26, height: 26, width: 0, borderLeft: `2px solid ${col}`, transform: 'translateX(-1px)' }}><span style={{ position: 'absolute', bottom: -1, left: -5, borderLeft: '4.5px solid transparent', borderRight: '4.5px solid transparent', borderTop: `7px solid ${col}` }} /></span>}
+            {hArrow && <span style={{ position: 'absolute', top: '50%', [rev ? 'left' : 'right']: dense ? -22 : -28, width: dense ? 22 : 28, height: 0, borderTop: `2px solid ${col}`, transform: 'translateY(-1px)' }}><span style={{ position: 'absolute', top: -5, [rev ? 'left' : 'right']: -1, borderTop: '4.5px solid transparent', borderBottom: '4.5px solid transparent', [rev ? 'borderRight' : 'borderLeft']: `7px solid ${col}` }} /></span>}
+            {vArrow && <span style={{ position: 'absolute', left: '50%', bottom: dense ? -20 : -26, height: dense ? 20 : 26, width: 0, borderLeft: `2px solid ${col}`, transform: 'translateX(-1px)' }}><span style={{ position: 'absolute', bottom: -1, left: -5, borderLeft: '4.5px solid transparent', borderRight: '4.5px solid transparent', borderTop: `7px solid ${col}` }} /></span>}
           </div>; });
         return items; })}
     </div>

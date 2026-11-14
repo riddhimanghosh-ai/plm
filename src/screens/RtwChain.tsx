@@ -296,7 +296,7 @@ const QC_CHECKLIST: Record<QcPoint, string[]> = {
 export function QcChecksSection({ o, qc, compact }: { o: ProductionOrder; qc: boolean; compact?: boolean }) {
   const { recordQcCheck } = useApp();
   const pts = qcPointsOf(o); const [remarks, setRemarks] = useState('');
-  const [ticks, setTicks] = useState<Record<string, boolean>>({});
+  const [ticks, setTicks] = useState<Record<string, boolean>>({}); const [aes, setAes] = useState('');
   const open = pts.find(x => x.state === 'due' || x.state === 'failed') ?? null;
   const passed = pts.filter(x => x.state === 'passed').length; const live = pts.filter(x => x.state !== 'na').length;
   if (!o.poNo) return <Section title="QC" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>PP sample, size set, then three line inspections.</div></Section>;
@@ -309,17 +309,18 @@ export function QcChecksSection({ o, qc, compact }: { o: ProductionOrder; qc: bo
         <div className="qc-body">
           <div className="qc-label">{x.label}{x.state === 'due' && <span className="pill warn ml-1" style={{ fontSize: 10 }}>now{x.sinceDays ? ` · ${x.sinceDays}d` : ''}</span>}{x.state === 'failed' && <span className="pill risk ml-1" style={{ fontSize: 10 }}>failed</span>}</div>
           <div className="qc-sub">{x.state === 'passed' ? `passed ${fmtDate(last?.on ?? x.due)}${last?.by ? ` · ${last.by}` : ''}` : x.state === 'failed' ? `failed ${fmtDate(last!.on)} · ${last!.by}` : x.state === 'due' ? `since ${fmtDate(x.due)}` : x.state === 'na' ? 'not on this plan' : x.hint}</div>
-          {!compact && hist.filter(c => c.remarks).map((c, k) => <div key={k} className="qc-remark" style={{ color: c.result === 'fail' ? 'var(--risk)' : 'var(--ink-soft)' }}>{c.result === 'fail' ? '✗' : '✓'} {c.remarks}</div>)}
+          {!compact && hist.filter(c => c.remarks || c.aesthetic).map((c, k) => <div key={k} className="qc-remark" style={{ color: c.result === 'fail' ? 'var(--risk)' : 'var(--ink-soft)' }}>{c.result === 'fail' ? '✗' : '✓'} {c.remarks}{c.aesthetic ? <span style={{ fontStyle: 'italic' }}> · {c.aesthetic}</span> : null}</div>)}
         </div>
       </li>; })}</ol>
     {/* the one card QC works in */}
     {open && (qc ? <div className="qc-now">
       <div className="flex items-center gap-2 flex-wrap"><span className="pill role-qc">QC</span><b>{open.label}</b><span className="text-[12px]" style={soft}>· {open.hint}</span>{open.state === 'failed' && <span className="text-[12px] ml-auto" style={{ color: 'var(--risk)' }}>second check after the factory's correction</span>}</div>
       <div className="qc-list">{list.map(item => <label key={item} className={`qc-item${ticks[item] ? ' on' : ''}`}><input type="checkbox" checked={!!ticks[item]} onChange={e => setTicks(t => ({ ...t, [item]: e.target.checked }))} /><span>{item}</span></label>)}</div>
-      <Field label="Remarks · what was measured, what was found"><Input value={remarks} onChange={e => setRemarks(e.target.value)} placeholder={open.state === 'failed' ? 'what the factory corrected, what is still off' : 'e.g. chest within tolerance; placket 2.5 cm against 3 cm on the tech pack'} /></Field>
+      <Field label="Technical remarks · what was measured, what was found"><Input value={remarks} onChange={e => setRemarks(e.target.value)} placeholder={open.state === 'failed' ? 'what the factory corrected, what is still off' : 'e.g. chest within tolerance; placket 2.5 cm against 3 cm on the tech pack'} /></Field>
+      {(open.key === 'pps' || open.key === 'size-set') && <Field label="Aesthetic remarks · look, hand, finish"><Input value={aes} onChange={e => setAes(e.target.value)} placeholder="e.g. collar roll clean; colour a touch brighter than the swatch" /></Field>}
       <div className="flex gap-2 items-center flex-wrap pt-2">
-        <Button variant="primary" disabled={!allTicked} onClick={() => { recordQcCheck(o.id, open.key as QcPoint, 'pass', remarks.trim()); setRemarks(''); setTicks({}); }}>Pass {open.label.toLowerCase()}</Button>
-        <Button variant="danger" disabled={!remarks.trim()} onClick={() => { recordQcCheck(o.id, open.key as QcPoint, 'fail', remarks.trim()); setRemarks(''); setTicks({}); }}>Fail · send remarks</Button>
+        <Button variant="primary" disabled={!allTicked} onClick={() => { recordQcCheck(o.id, open.key as QcPoint, 'pass', remarks.trim(), aes.trim() || null); setRemarks(''); setAes(''); setTicks({}); }}>Pass {open.label.toLowerCase()}</Button>
+        <Button variant="danger" disabled={!remarks.trim()} onClick={() => { recordQcCheck(o.id, open.key as QcPoint, 'fail', remarks.trim(), aes.trim() || null); setRemarks(''); setAes(''); setTicks({}); }}>Fail · send remarks</Button>
         <span className="text-[11.5px]" style={faint}>{!allTicked ? 'tick every line to pass · a fail needs remarks' : 'a pass logs the TNA block; a fail goes to the factory and the merchandiser'}</span>
       </div>
     </div> : <div className="pt-2"><ActsBy role="qc" does={open.state === 'failed' ? `checks the ${open.label.toLowerCase()} again once the factory resubmits` : `passes or fails the ${open.label.toLowerCase()}; the merchandiser sees the remarks`} /></div>)}
@@ -460,7 +461,7 @@ export function CogsSection({ o, finance }: { o: ProductionOrder; finance: boole
 /* ── every remark on the record in one place: QC's, the cut-ratio asks, sample rounds, target revisions ── */
 export function RemarksLog({ o }: { o: ProductionOrder }) {
   const rows: { on: string; who: string; kind: string; text: string; tone: 'risk' | 'good' | 'warn' | 'neutral' }[] = [];
-  (o.qcChecks ?? []).forEach(c => rows.push({ on: c.on, who: c.by, kind: `QC · ${QC_POINT_LABEL[c.point]}`, text: `${c.result === 'fail' ? 'Failed' : 'Passed'}${c.remarks ? ` · ${c.remarks}` : ''}`, tone: c.result === 'fail' ? 'risk' : 'good' }));
+  (o.qcChecks ?? []).forEach(c => rows.push({ on: c.on, who: c.by, kind: `QC · ${QC_POINT_LABEL[c.point]}`, text: `${c.result === 'fail' ? 'Failed' : 'Passed'}${c.remarks ? ` · ${c.remarks}` : ''}${c.aesthetic ? ` · aesthetic: ${c.aesthetic}` : ''}`, tone: c.result === 'fail' ? 'risk' : 'good' }));
   (o.cutRatios ?? []).forEach(cr => { rows.push({ on: cr.askedOn, who: cr.by, kind: `Cut ratio ask${cr.trigger ? ` · ${cr.trigger.replace('-', ' ')}` : ''}`, text: cr.reason, tone: 'warn' }); if (cr.given) rows.push({ on: cr.given.on, who: cr.given.by, kind: 'Cut ratio given', text: `${cr.given.breakup.reduce((a, x) => a + x.qty, 0)} pcs on the new sizes`, tone: 'neutral' }); });
   (o.sampleCycle?.rounds ?? []).forEach(r => { if (r.remarks) rows.push({ on: r.trialOn ?? r.sampledOn ?? r.sentOn ?? '', who: 'Category', kind: `${r.kind} round ${r.n}`, text: r.remarks, tone: 'warn' }); });
   (o.targetRevisions ?? []).forEach(rv => rows.push({ on: rv.on, who: rv.by, kind: rv.field === 'targetInhouse' ? 'Target in-house revised' : 'Target cost revised', text: `${rv.field === 'targetInhouse' ? `${fmtDate(String(rv.from))} → ${fmtDate(String(rv.to))}` : `${fmtMoney(Number(rv.from))} → ${fmtMoney(Number(rv.to))}`} · ${rv.why}`, tone: 'neutral' }));

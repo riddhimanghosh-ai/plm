@@ -135,7 +135,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
       {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Generated from the PO; the factory returns its planned dates on the TNA form, then logs each step as it happens. The merchandiser follows up.</div>
         : <>
           <div className="text-[12.5px] pb-2" style={{ color: 'var(--ink-soft)' }}>Due in-house {fmtDate(o.targetInhouse)}{r.bufferDays != null && o.status !== 'Closed' ? ` · ${r.bufferDays < 0 ? `${-r.bufferDays} days late` : `${r.bufferDays} days to spare`}` : ''}. Planned · revised · actual on every step; the five QC blocks close when QC passes them.</div>
-          <MilestoneGrid o={o} editable={(prod || merchant) && o.status !== 'Closed'} bare />
+          <MilestoneGrid o={o} editable={(prod || merchant) && o.status !== 'Closed'} bare dense />
           {!onTracker && <div className="pt-2"><a className="cta" href={`#/tracker?open=${o.id}`}>Open on the RTW production tracker →</a></div>}
         </>}
     </Section>}

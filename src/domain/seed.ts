@@ -1528,10 +1528,10 @@ orders.forEach((o, i) => {
     const ms = (k: string) => o.milestones.find(m => m.key === k);
     o.qcChecks = [];
     ([['pps', 'PPS Approval', 'measurements within tolerance; collar as per tech pack'], ['size-set', 'Size Set Appvl', 'all sizes graded right'], ['initial', 'Initial Inspection', 'seam allowance ok on the first bundles'], ['midline', 'Mid-line Inspection', 'pressing fine; two buttonholes re-done'], ['final', 'FI', 'AQL 2.5 passed']] as const)
-      .forEach(([pt, key, rem]) => { const m = ms(key); if (m?.actual && !m.skipped) o.qcChecks!.push({ point: pt, on: m.actual, by: 'Rohit', result: 'pass', remarks: rem }); });
+      .forEach(([pt, key, rem]) => { const m = ms(key); if (m?.actual && !m.skipped) o.qcChecks!.push({ point: pt, on: m.actual, by: 'Rohit', result: 'pass', remarks: rem, aesthetic: pt === 'pps' ? ['hand and drape as the swatch; collar roll clean', 'colour a touch brighter than the swatch, acceptable', 'good finish; buttons sit flat'][i % 3] : pt === 'size-set' ? 'grading reads right on the form' : null }); });
     /* two QC fails for the demo, deterministic: the first open PO past PPS submission fails its PP sample; the second past finishing start fails mid-line */
     if (o.status === 'Open' && qcFails === 0 && ms('PPS Submission')?.actual && !ms('Cutting Start')?.actual) { qcFails = 1; const a = ms('PPS Approval'); if (a) a.actual = null; o.qcChecks = o.qcChecks.filter(c => c.point !== 'pps');
-      o.qcChecks.push({ point: 'pps', on: iso(addDays(ms('PPS Submission')!.actual!, 1)), by: 'Rohit', result: 'fail', remarks: 'chest 1.5 cm under spec on M and L; placket width 2.5 cm against 3 cm on the tech pack' }); }
+      o.qcChecks.push({ point: 'pps', on: iso(addDays(ms('PPS Submission')!.actual!, 1)), by: 'Rohit', result: 'fail', remarks: 'chest 1.5 cm under spec on M and L; placket width 2.5 cm against 3 cm on the tech pack', aesthetic: 'placket puckers after wash; collar points curl' }); }
     else if (o.status === 'Open' && qcFails === 1 && ms('Finishing Start')?.actual && !ms('Finishing End')?.actual) { qcFails = 2; const a = ms('Mid-line Inspection'); if (a) a.actual = null; o.qcChecks = o.qcChecks.filter(c => c.point !== 'midline');
       o.qcChecks.push({ point: 'midline', on: iso(addDays(ms('Finishing Start')!.actual!, 1)), by: 'Rohit', result: 'fail', remarks: 'pressing marks on 6 of 20 checked; hang tag on the wrong side' }); }
     /* the fabrics on the PO, one per colour: most POs one or two, some four; one has a colour on hold, one a colour dropped */

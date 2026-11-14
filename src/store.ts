@@ -230,7 +230,7 @@ export interface AppState {
   replyCostQuery(orderId: string, vendorId: string, reply: Omit<CostReply, 'vendorId' | 'repliedOn'>): void;   // the factory's reply on the form (logged here in the prototype)
   raisePoOnReply(orderId: string, vendorId: string, needsHemming: boolean): void;   // Nitin: the PO on one reply, mailed with the delivery location and the TNA form
   submitTnaPlan(orderId: string, plans?: Record<string, string>): void;    // merchandiser: the planned dates back from the factory
-  recordQcCheck(orderId: string, point: QcPoint, result: 'pass' | 'fail', remarks: string): void;   // QC: a pass closes the TNA block
+  recordQcCheck(orderId: string, point: QcPoint, result: 'pass' | 'fail', remarks: string, aesthetic?: string | null): void;   // QC: a pass closes the TNA block
   reviseTarget(orderId: string, field: 'targetInhouse' | 'targetCost', to: string | number, why: string): void;   // category, when every factory reply is over target; was → now stays on the record
   addPoInvoice(orderId: string, inv: Omit<PoInvoice, 'id' | 'on' | 'by'>): void;   // Nitin: every invoice on the PO, both ways, for reconciliation
   removePoInvoice(orderId: string, id: string): void;
@@ -1409,9 +1409,9 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, `TNA form back from the factory · planned dates for ${o.milestones.filter(m => !m.skipped).length} steps`); },
         'Planned dates on the TNA. The merchandiser follows them up from here.');
     },
-    recordQcCheck(orderId, point, result, remarks) {
+    recordQcCheck(orderId, point, result, remarks, aesthetic = null) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; const pt = QC_POINTS.find(p => p.key === point); if (!pt) return;
-        o.qcChecks = o.qcChecks ?? []; o.qcChecks.push({ point, on: now(), by: who(), result, remarks });
+        o.qcChecks = o.qcChecks ?? []; o.qcChecks.push({ point, on: now(), by: who(), result, remarks, aesthetic: aesthetic || null });
         if (result === 'pass') { const m = o.milestones.find(x => x.key === pt.closes); if (m && !m.actual) m.actual = now(); }
         log(o, `QC · ${pt.label} ${result === 'pass' ? 'passed' : 'failed'}${remarks ? ` · ${remarks}` : ''}`); },
         result === 'pass' ? 'Passed. The TNA block is logged; the merchandiser sees it.' : 'Failed with remarks. The factory corrects and resubmits; the merchandiser sees the remarks.');
@@ -1939,7 +1939,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 142,
+  version: 143,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
