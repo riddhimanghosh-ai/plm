@@ -118,7 +118,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
       <KV k="Came from" v={<Pill tone={o.source === 'auto-po' ? 'info' : o.source === 'planning' ? 'warn' : 'neutral'}>{SOURCE_LABEL[o.source ?? 'design']}</Pill>} note={o.source === 'auto-po' ? 'a core style fell below its threshold in Enigma; nobody raised it by hand' : o.source === 'planning' ? 'a reorder from the planning review' : undefined} />
       <KV k="Raised" v={fmtDate(raised?.at ?? o.styleHandover)} note={raised?.who ?? undefined} />
       {editable ? <div className="kv"><span className="k">Semi-stitched?</span><span className="v"><label className="flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={semi} onChange={e => setSemi(e.target.checked)} /> hemming in-house → delivers to Vasai; else the 3PL warehouse</label></span></div>
-        : <KV k="Delivers to" v={o.semiStitched ? 'Vasai · in-house' : '3PL warehouse'} note={o.semiStitched ? 'semi-stitched product · hemming in-house' : 'not semi-stitched'} />}
+        : <KV k="Delivers to" v={o.deliverTo ?? (o.semiStitched ? 'Vasai · in-house' : '3PL warehouse')} note={o.semiStitched ? 'semi-stitched product · hemming in-house' : 'not semi-stitched'} />}
       {editable && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updateRequirement(o.id, { orderQty: Number(qty), targetInhouse: fromDateInput(target) ?? o.targetInhouse, targetCost: Number(cost), semiStitched: semi })}>Save</Button></div>}
       <div className="cap pt-3">Size · qty break-up · {total} pcs</div>
       <SizeGrid breakup={o.sizeBreakup} />

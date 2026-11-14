@@ -250,7 +250,8 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const [colours, setColours] = useState('');
   const [qty, setQty] = useState('300');
   const [target, setTarget] = useState(dateInput(iso(addDays(TODAY, 60))));
-  const [cost, setCost] = useState('450'); const [semi, setSemi] = useState(false);
+  const [cost, setCost] = useState('450'); const [semi, setSemi] = useState(false); const [deliverTo, setDeliverTo] = useState<'3PL warehouse' | 'Vasai · in-house' | null>(null);
+  const dest = deliverTo ?? (semi ? 'Vasai · in-house' : '3PL warehouse');
   const [brief, setBrief] = useState('');
   const nominated = mode === 'bsc-buys';
   /* fabric information — category's part; sourcing adds the vendor, code, blocked quantity and readiness on the record */
@@ -291,7 +292,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const create = async () => {
     const id = createRequirement({
       category, subCategory: sub, styleName: style.trim(), program: null, launchMonth: null, fit: category.includes('hirt') ? 'Tailored Fit' : null,
-      orderQty: pcs, sizeBreakup: curve, targetInhouse: fromDateInput(target)!, targetCost: Number(cost), styleHandover: iso(TODAY), fabricNominated: nominated, remarks: '', semiStitched: semi,
+      orderQty: pcs, sizeBreakup: curve, targetInhouse: fromDateInput(target)!, targetCost: Number(cost), styleHandover: iso(TODAY), fabricNominated: nominated, remarks: '', semiStitched: semi, deliverTo: dest,
       fabricBrief: { look: fab.description.trim() || style.trim(), composition: fab.content.trim() || null, colour: colours.split(/[,;]/)[0]?.trim() || null, weightGsm: null, referenceFabricId: null, notes: brief.trim() },
       bom: bom.map(l => l.kind === 'fabric' ? { ...l, item: (fab.description.trim() || style.trim()) } : l).filter(l => l.item.trim()),
     });
@@ -370,7 +371,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       <BomEditor lines={bom} onChange={setBom} orderQty={pcs} />
     </Section>}
     {show('delivery') && <Section title="Delivery instruction" collapsible={false}>
-      <div className="text-[15px] font-semibold py-1">{semi ? 'Vasai · in-house' : '3PL warehouse'}</div>
+      <div className="flex gap-2 py-1">{(['3PL warehouse', 'Vasai · in-house'] as const).map(l => <button key={l} type="button" className={`dest-opt${dest === l ? ' on' : ''}`} onClick={() => setDeliverTo(l)}><span className="dest-dot" />{l}</button>)}</div>
     </Section>}
     {view === 'tabs' && <div className="flex gap-2 pt-2">{tabIndex > 0 && <Button size="sm" variant="ghost" onClick={() => setTab(PARTS[tabIndex - 1].k)}>← {PARTS[tabIndex - 1].label}</Button>}{tabIndex < PARTS.length - 1 && <Button size="sm" onClick={() => setTab(PARTS[tabIndex + 1].k)}>{PARTS[tabIndex + 1].label} →</Button>}</div>}
     </div>

@@ -58,7 +58,7 @@ export interface AppState {
 
   /* planning & design */
   createRequirement(input: Omit<ProductionOrder, 'id' | 'poNo' | 'quotes' | 'vendorId' | 'poDate' | 'finalFob' | 'costingClosure' | 'merchant' | 'jobCardNo' | 'fabricReady' | 'trimsReady' | 'milestones' | 'cutQty' | 'deliveredQty' | 'rejectedQty' | 'receipts' | 'split' | 'status' | 'activity' | 'bom' | 'costing' | 'sampleVendorId' | 'samples' | 'materials' | 'qcAudits' | 'shipheroName' | 'vendorFabricCode' | 'enigmaCode' | 'fabricBlocked' | 'fabricQuotes' | 'fabricVendorId' | 'fabricMetres' | 'sourcing'> & { bom?: BomLine[] }): string;
-  updateRequirement(id: string, patch: Partial<Pick<ProductionOrder, 'orderQty' | 'sizeBreakup' | 'targetInhouse' | 'targetCost' | 'fabricNominated' | 'remarks' | 'fabricBrief' | 'semiStitched'>>): void;
+  updateRequirement(id: string, patch: Partial<Pick<ProductionOrder, 'orderQty' | 'sizeBreakup' | 'targetInhouse' | 'targetCost' | 'fabricNominated' | 'remarks' | 'fabricBrief' | 'semiStitched' | 'deliverTo'>>): void;
   handToSourcing(id: string): void;
   updateBom(id: string, bom: BomLine[]): void;
   /* RTW before sourcing: the prototype on a stand-in cloth, the shortlist, the tech pack */
@@ -1398,7 +1398,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         o.milestones = buildMilestones(o.category as GarmentCategory, o.poDate);
         if (!o.materials?.length) o.materials = defaultMaterials(o); if (!o.sampleVendorId) o.sampleVendorId = vendorId;
         const needsHemming = !!o.semiStitched;
-        o.poMail = { on: now(), to: [], cc: [], deliveryLocation: deliveryLocationOf(needsHemming), needsHemming, fabricBy, clothVendorSent: fabricBy !== 'factory' };
+        o.poMail = { on: now(), to: [], cc: [], deliveryLocation: o.deliverTo ?? deliveryLocationOf(needsHemming), needsHemming, fabricBy, clothVendorSent: fabricBy !== 'factory' };
         const m = poMailOf(db, o); o.poMail.to = m.to; o.poMail.cc = m.cc; o.poMail.sentOn = null;
         /* BSC supplies the cloth: the factory raises no fabric PO, so that block is not needed on this TNA; it still logs the cloth received (Fabric ETA) */
         if (fabricBy === 'bsc') o.milestones.forEach(m => { if (m.key === 'Fabric PO' || m.key === 'Yarn PO') { m.skipped = { on: now(), by: who() }; m.actual = m.plan; } });
