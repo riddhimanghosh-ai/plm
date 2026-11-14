@@ -1482,7 +1482,7 @@ const FACTORY_IDS = VENDORS.filter(v => v.kind === 'CMT factory').map(v => v.id)
 const factoriesFor = (o: ProductionOrder, n: number) => { const fit = FACTORY_IDS.filter(id => (SPECIALISING[id] ?? []).includes(o.category)); const pool = fit.length >= n ? fit : [...fit, ...FACTORY_IDS.filter(id => !fit.includes(id))]; const out = o.vendorId && pool.includes(o.vendorId) ? [o.vendorId] : []; for (const id of pool) { if (out.length >= n) break; if (!out.includes(id)) out.push(id); } return out; };
 orders.forEach((o, i) => {
   ordSeq = i + 1;
-  o.source = /core/i.test(o.program ?? '') || i % 9 === 4 ? 'auto-po' : i % 5 === 2 ? 'planning' : 'design';
+  o.source = i % 5 === 2 ? 'planning' : 'design';   // 15 Nov 2026: no Enigma auto-PO on the RTW side; it is MTM fabric only
   o.sampleCycle = null; o.proto = null; o.samples = [];
   o.semiStitched = /trouser|chino|jean|bottom|pant/i.test(`${o.category} ${o.subCategory}`) || i % 9 === 2;
   const sentOn = o.activity?.find(a => /^Sent to production/i.test(a.what))?.at ?? o.styleHandover;
@@ -1551,6 +1551,7 @@ orders.forEach((o, i) => {
       o.invoice = { no: `INV-${2600 + i}`, amount: Math.round(pcs * (o.finalFob ?? o.targetCost)), uploadedOn: iso(addDays(disp, 1)), by: o.merchant ?? 'Nitin Singh', file: `invoice-${2600 + i}.pdf`, packingList: o.sizeBreakup.map(x => ({ size: x.size, qty: Math.round(x.qty * pcs / tot) })), mailedOn: iso(addDays(disp, 1)), mailedTo: ['prince@bombayshirts.com'] }; }
   }
 });
+orders.forEach(o => { const m = Object.entries({ 'Nitin Singh': ['ayaan', 'camellia', 'topnotch'], 'Abhin M': ['gseams', 'goodwill', 'richman'], 'Bhupendra': ['united', 'strand', 'zen'] }).find(([, fs]) => o.vendorId && fs.includes(o.vendorId))?.[0]; if (m) o.merchant = m; });
 export const SEED: Db = {
   lostSales,
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,

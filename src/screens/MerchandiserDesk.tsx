@@ -7,7 +7,7 @@ import { useApp } from '../store';
 import type { ProductionOrder } from '../domain/types';
 import { fmtDate, daysAgo } from '../domain/engines';
 import { qcPointsOf } from '../domain/rtwPack';
-import { Card, Pill, Empty, Seg, Stats, Input } from '../ui';
+import { Card, Pill, Empty, Stats, Input, MultiFilter, passes } from '../ui';
 import { VendorLink } from './Vendors';
 
 type Kind = 'cost' | 'form' | 'late' | 'qc';
@@ -31,12 +31,14 @@ export function merchandiserItemsOf(orders: ProductionOrder[]): Item[] {
   return out.sort((a, b) => (a.tone === 'good' ? 1 : 0) - (b.tone === 'good' ? 1 : 0) || b.days - a.days);
 }
 
-export function MerchandiserDesk({ orders, onOpen, factoryName }: { orders: ProductionOrder[]; onOpen: (id: string, step: string) => void; factoryName: (id: string | null) => string }) {
+export function MerchandiserDesk({ orders, onOpen, factoryName, facs }: { orders: ProductionOrder[]; onOpen: (id: string, step: string) => void; factoryName: (id: string | null) => string; facs?: string[] }) {
   const { db } = useApp();
-  const items = merchandiserItemsOf(orders);
-  const [kind, setKind] = useState<'all' | Kind>('all'); const [fac, setFac] = useState('all'); const [q, setQ] = useState('');
+  const items = merchandiserItemsOf(orders).filter(i => !facs || (i.vendorId != null && facs.includes(i.vendorId)));
+  const [kind, setKind] = useState<string[]>([]); const [fac, setFac] = useState<string[]>([]); const [q, setQ] = useState('');
   const factories = [...new Set(items.map(i => i.vendorId).filter(Boolean))] as string[];
-  const shown = items.filter(i => kind === 'all' || i.kind === kind).filter(i => fac === 'all' || i.vendorId === fac).filter(i => !q.trim() || `${i.o.styleName} ${i.o.poNo ?? ''} ${factoryName(i.vendorId)}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const shown = items.filter(i => passes(kind, i.kind)).filter(i => passes(fac, i.vendorId)).filter(i => !q.trim() || `${i.o.styleName} ${i.o.poNo ?? ''} ${factoryName(i.vendorId)}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const [showAll, setShowAll] = useState(false);
+  const rowsShown = showAll ? shown : (() => { const seen = new Set<string>(); return shown.filter(i => { const k = `${i.kind}·${i.tone}`; if (seen.has(k)) return false; seen.add(k); return true; }); })();
   const n = (k: Kind) => items.filter(i => i.kind === k && i.tone !== 'good').length;
   const faint = { color: 'var(--ink-faint)' } as const;
   return <>
@@ -46,14 +48,14 @@ export function MerchandiserDesk({ orders, onOpen, factoryName }: { orders: Prod
       { label: 'TNA steps late', value: n('late'), tone: n('late') ? 'risk' : undefined },
       { label: 'QC fails to resubmit', value: n('qc'), tone: n('qc') ? 'risk' : undefined },
     ]} />
-    <Card className="mb-3"><div className="px-3 py-2.5 flex items-center gap-2 flex-wrap">
-      <Seg value={kind} onChange={v => setKind(v as 'all' | Kind)} options={[{ id: 'all', label: 'Everything', count: items.length }, ...(['cost', 'form', 'late', 'qc'] as Kind[]).map(k => ({ id: k, label: KIND_LABEL[k], count: items.filter(i => i.kind === k).length }))]} />
-      <Seg value={fac} onChange={setFac} label="Factory" options={[{ id: 'all', label: 'All my factories' }, ...factories.map(id => ({ id, label: factoryName(id), count: items.filter(i => i.vendorId === id && i.tone !== 'good').length }))]} />
+    <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
+      <MultiFilter value={kind} onChange={setKind} label="Owed" options={[{ id: 'all', label: 'Everything', count: items.length }, ...(['cost', 'form', 'late', 'qc'] as Kind[]).map(k => ({ id: k, label: KIND_LABEL[k], count: items.filter(i => i.kind === k).length }))]} />
+      <MultiFilter value={fac} onChange={setFac} label="Factory" options={[{ id: 'all', label: 'All my factories' }, ...factories.map(id => ({ id, label: factoryName(id), count: items.filter(i => i.vendorId === id && i.tone !== 'good').length }))]} />
       <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style, PO or factory" style={{ width: 200 }} />
     </div></Card>
     {shown.length === 0 ? <Card><Empty title="Nothing owed by the factories right now." body="" /></Card> : <Card><table className="t">
       <thead><tr><th>Owed</th><th>Factory</th><th>PO · style</th><th>What</th><th>Since</th><th>Remarks</th></tr></thead>
-      <tbody>{shown.map((i, k) => <tr key={k} className="row" onClick={() => onOpen(i.o.id, i.step)}>
+      <tbody>{rowsShown.map((i, k) => <tr key={k} className="row" onClick={() => onOpen(i.o.id, i.step)}>
         <td><Pill tone={i.tone}>{i.tone === 'good' ? 'passed' : KIND_LABEL[i.kind]}</Pill></td>
         <td className="text-[12.5px]"><VendorLink id={i.vendorId} /><div className="text-[11px]" style={faint}>{db.vendors.find(v => v.id === i.vendorId)?.region}</div></td>
         <td><div className="mono text-[12px]">{i.o.poNo ?? 'no PO yet'}</div><div className="font-medium text-[12.5px]">{i.o.styleName}</div></td>
@@ -62,5 +64,6 @@ export function MerchandiserDesk({ orders, onOpen, factoryName }: { orders: Prod
         <td className="text-[12px]" style={{ whiteSpace: 'normal', maxWidth: 260, color: i.tone === 'risk' && i.kind === 'qc' ? 'var(--risk)' : 'var(--ink-soft)' }}>{i.remarks ?? <span style={faint}>—</span>}</td>
       </tr>)}</tbody>
     </table></Card>}
+    {shown.length > rowsShown.length || showAll ? <div className="text-[12px] pt-2" style={faint}>{showAll ? `${shown.length} shown · ` : `${rowsShown.length} of ${shown.length} shown, one of each kind · `}<button type="button" className="vlink" onClick={() => setShowAll(v => !v)}>{showAll ? 'show one of each' : `show all ${shown.length}`}</button></div> : null}
   </>;
 }

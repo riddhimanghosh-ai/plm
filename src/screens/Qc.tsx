@@ -7,7 +7,7 @@ import { useApp } from '../store';
 import type { ProductionOrder, QcPoint } from '../domain/types';
 import { fmtDate, riskOf, daysAgo } from '../domain/engines';
 import { qcPointsOf, type QcPointState } from '../domain/rtwPack';
-import { Page, Card, Pill, Drawer, Empty, Seg, Input, Stats, Tabs } from '../ui';
+import { Page, Card, Pill, Drawer, Empty, Input, Stats, Tabs, Filter, MultiFilter, passes } from '../ui';
 import { VendorLink } from './Vendors';
 import { RtwRequirement } from './RtwRequirement';
 import { ActsBy } from './Who';
@@ -22,20 +22,25 @@ export function Qc() {
   const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); v ? n.set(k, v) : n.delete(k); setParams(n, { replace: true }); };
   const tab = params.get('tab') ?? 'inspections';
   const mine = role === 'qc' || role === 'owner';
-  const [within, setWithin] = useState('7'); const [point, setPoint] = useState('all'); const [fac, setFac] = useState('all'); const [q, setQ] = useState('');
+  const [within, setWithin] = useState('7'); const [point, setPoint] = useState<string[]>([]); const [fac, setFac] = useState<string[]>([]); const [q, setQ] = useState('');
   const [sampleFilter, setSampleFilter] = useState<'open' | 'all'>('open');
   const open = db.orders.filter(o => o.status === 'Open' && o.poNo);
   const factoryName = (id: string | null) => db.vendors.find(v => v.id === id)?.name ?? '—';
   /* every point on every open PO, with the planned date of the block it closes, so an inspection shows before it is due */
   const rows: Row[] = open.flatMap(o => qcPointsOf(o).filter(pt => pt.state !== 'na').map(pt => { const m = o.milestones.find(x => x.key === pt.closes); const plannedOn = m ? (m.revised ?? m.plan) : null; return { o, pt, plannedOn, inDays: plannedOn ? -daysAgo(plannedOn) : null }; }));
-  const match = (r: Row) => (fac === 'all' || r.o.vendorId === fac) && (!q.trim() || `${r.o.styleName} ${r.o.poNo ?? ''} ${factoryName(r.o.vendorId)}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const match = (r: Row) => passes(fac, r.o.vendorId) && (!q.trim() || `${r.o.styleName} ${r.o.poNo ?? ''} ${factoryName(r.o.vendorId)}`.toLowerCase().includes(q.trim().toLowerCase()));
   const factories = [...new Set(rows.map(r => r.o.vendorId).filter(Boolean))] as string[];
   /* 1. inspections: due now, failed, or planned within N days */
   const insp = rows.filter(r => INSPECTIONS.includes(r.pt.key as QcPoint) && r.pt.state !== 'passed').filter(r => r.pt.state === 'due' || r.pt.state === 'failed' || (within === 'all' || (r.inDays != null && r.inDays <= Number(within))))
-    .filter(r => point === 'all' || r.pt.key === point).filter(match).sort((a, b) => { const k = (r: Row) => r.pt.state === 'failed' ? -2 : r.pt.state === 'due' ? -1 : Math.max(0, r.inDays ?? 99); return k(a) - k(b); });
+    .filter(r => passes(point, r.pt.key)).filter(match).sort((a, b) => { const k = (r: Row) => r.pt.state === 'failed' ? -2 : r.pt.state === 'due' ? -1 : Math.max(0, r.inDays ?? 99); return k(a) - k(b); });
   /* 2 / 3. samples received: the factory has submitted; QC passes or not */
   const samples = (key: QcPoint) => rows.filter(r => r.pt.key === key && r.pt.due).filter(r => sampleFilter === 'all' || r.pt.state !== 'passed').filter(match).sort((a, b) => (a.pt.state === 'passed' ? 1 : 0) - (b.pt.state === 'passed' ? 1 : 0) || (b.pt.sinceDays ?? 0) - (a.pt.sinceDays ?? 0));
   const pps = samples('pps'); const sizeSet = samples('size-set');
+  /* the prototype shows one example of each kind; show all is one click */
+  const showAll = params.get('all') === '1';
+  const onePer = <T,>(list: T[], k: (r: T) => string) => { if (showAll) return list; const seen = new Set<string>(); return list.filter(r => { const key = k(r); if (seen.has(key)) return false; seen.add(key); return true; }); };
+  const inspShown = onePer(insp, r => `${r.pt.key}·${r.pt.state}`); const ppsShown = onePer(pps, r => r.pt.state); const sizeShown = onePer(sizeSet, r => r.pt.state);
+  const moreLink = (shown: number, total: number) => total > shown || showAll ? <div className="text-[12px] pt-2" style={{ color: 'var(--ink-faint)' }}>{showAll ? `${total} shown · ` : `${shown} of ${total} shown, one of each kind · `}<button type="button" className="vlink" onClick={() => set('all', showAll ? null : '1')}>{showAll ? 'show one of each' : `show all ${total}`}</button></div> : null;
   const due = rows.filter(r => r.pt.state === 'due'); const failed = rows.filter(r => r.pt.state === 'failed');
   const active = db.orders.find(o => o.id === params.get('open')) ?? null;
   const faint = { color: 'var(--ink-faint)' } as const;
@@ -73,15 +78,15 @@ export function Qc() {
       { id: 'log', label: 'Every result', hint: 'the log of passes and fails with remarks' },
     ]} />
     {tab === 'inspections' && <>
-      <Card className="mb-3"><div className="px-3 py-2.5 flex items-center gap-2 flex-wrap">
-        <Seg value={within} onChange={setWithin} label="Coming up" options={[{ id: '3', label: 'Within 3 days' }, { id: '7', label: '7 days' }, { id: '14', label: '14 days' }, { id: 'all', label: 'Everything planned' }]} />
-        <Seg value={point} onChange={setPoint} label="Point" options={[{ id: 'all', label: 'All three' }, { id: 'initial', label: 'Initial', count: insp.filter(r => r.pt.key === 'initial').length }, { id: 'midline', label: 'Mid-line', count: insp.filter(r => r.pt.key === 'midline').length }, { id: 'final', label: 'Final', count: insp.filter(r => r.pt.key === 'final').length }]} />
-        {factories.length > 1 && <Seg value={fac} onChange={setFac} label="Factory" options={[{ id: 'all', label: 'All' }, ...factories.map(id => ({ id, label: factoryName(id), count: insp.filter(r => r.o.vendorId === id).length }))]} />}
+      <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
+        <Filter value={within} onChange={setWithin} label="Coming up" options={[{ id: '3', label: 'Within 3 days' }, { id: '7', label: '7 days' }, { id: '14', label: '14 days' }, { id: 'all', label: 'Everything planned' }]} />
+        <MultiFilter value={point} onChange={setPoint} label="Point" options={[{ id: 'all', label: 'All three' }, { id: 'initial', label: 'Initial', count: insp.filter(r => r.pt.key === 'initial').length }, { id: 'midline', label: 'Mid-line', count: insp.filter(r => r.pt.key === 'midline').length }, { id: 'final', label: 'Final', count: insp.filter(r => r.pt.key === 'final').length }]} />
+        {factories.length > 1 && <MultiFilter value={fac} onChange={setFac} label="Factory" options={[{ id: 'all', label: 'All' }, ...factories.map(id => ({ id, label: factoryName(id), count: insp.filter(r => r.o.vendorId === id).length }))]} />}
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style, PO or factory" style={{ width: 190 }} />
       </div></Card>
       {insp.length === 0 ? <Card><Empty title="No inspection coming up in that window." body="Widen the window, or check the samples tabs." /></Card> : <Card><table className="t">
         <thead><tr><th>PO · style</th><th>Factory</th><th>Inspection</th><th>When</th><th>Last remarks</th><th>Due in-house</th><th></th></tr></thead>
-        <tbody>{insp.map(r => <tr key={`${r.o.id}-${r.pt.key}`} className="row" onClick={() => set('open', r.o.id)} style={{ background: r.pt.state === 'failed' ? 'color-mix(in srgb, var(--risk) 4%, transparent)' : r.pt.state === 'due' ? 'color-mix(in srgb, var(--role-qc) 5%, transparent)' : undefined }}>
+        <tbody>{inspShown.map(r => <tr key={`${r.o.id}-${r.pt.key}`} className="row" onClick={() => set('open', r.o.id)} style={{ background: r.pt.state === 'failed' ? 'color-mix(in srgb, var(--risk) 4%, transparent)' : r.pt.state === 'due' ? 'color-mix(in srgb, var(--role-qc) 5%, transparent)' : undefined }}>
           <td><div className="mono text-[12px]">{r.o.poNo}</div><div className="font-medium text-[12.5px]">{r.o.styleName}</div><div className="text-[11px]" style={faint}>{r.o.category} · {r.o.orderQty} pcs</div></td>
           <td className="text-[12.5px]"><VendorLink id={r.o.vendorId} /><div className="text-[11px]" style={faint}>{db.vendors.find(v => v.id === r.o.vendorId)?.location}</div></td>
           <td><div className="font-medium">{r.pt.label}</div><div className="text-[11px]" style={faint}>{r.pt.hint}</div></td>
@@ -90,14 +95,16 @@ export function Qc() {
           {dueCell(r.o)}{action(r)}
         </tr>)}</tbody>
       </table></Card>}
+      {moreLink(inspShown.length, insp.length)}
     </>}
     {(tab === 'pps' || tab === 'sizeset') && <>
-      <Card className="mb-3"><div className="px-3 py-2.5 flex items-center gap-2 flex-wrap">
-        <Seg value={sampleFilter} onChange={v => setSampleFilter(v as 'open' | 'all')} options={[{ id: 'open', label: 'Waiting on QC', count: (tab === 'pps' ? pps : sizeSet).filter(r => r.pt.state !== 'passed').length }, { id: 'all', label: 'All received' }]} />
-        {factories.length > 1 && <Seg value={fac} onChange={setFac} label="Factory" options={[{ id: 'all', label: 'All' }, ...factories.map(id => ({ id, label: factoryName(id) }))]} />}
+      <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
+        <Filter value={sampleFilter} onChange={v => setSampleFilter(v as 'open' | 'all')} label="Show" options={[{ id: 'open', label: 'Waiting on QC', count: (tab === 'pps' ? pps : sizeSet).filter(r => r.pt.state !== 'passed').length }, { id: 'all', label: 'All received' }]} />
+        {factories.length > 1 && <MultiFilter value={fac} onChange={setFac} label="Factory" options={[{ id: 'all', label: 'All' }, ...factories.map(id => ({ id, label: factoryName(id) }))]} />}
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style, PO or factory" style={{ width: 190 }} />
       </div></Card>
-      {tab === 'pps' ? sampleTable(pps, 'PP samples') : sampleTable(sizeSet, 'size sets')}
+      {tab === 'pps' ? sampleTable(ppsShown, 'PP samples') : sampleTable(sizeShown, 'size sets')}
+      {tab === 'pps' ? moreLink(ppsShown.length, pps.length) : moreLink(sizeShown.length, sizeSet.length)}
     </>}
     {tab === 'log' && <QcLog orders={db.orders.filter(o => o.poNo)} onOpen={id => set('open', id)} factoryName={factoryName} />}
     <Drawer open={!!active} onClose={() => set('open', null)} title={active?.poNo ?? ''} subtitle={active && <span>{active.styleName} · {factoryName(active.vendorId)} · {active.orderQty} pcs</span>}>

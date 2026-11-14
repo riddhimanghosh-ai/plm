@@ -217,6 +217,35 @@ export function Seg<T extends string>({ options, value, onChange, label }: { opt
   </span>;
 }
 
+/** The same choices as Seg, as a labelled dropdown — for filters with more than a handful of options, so the bar stays one tidy row (15 Nov 2026). */
+export function Filter<T extends string>({ options, value, onChange, label, width = 190 }: { options: { id: T; label: string; hint?: string; count?: number }[]; value: T; onChange: (id: T) => void; label: string; width?: number }) {
+  return <label className="filter">
+    <span className="label" style={{ margin: 0 }}>{label}</span>
+    <select className="input" value={value} onChange={e => onChange(e.target.value as T)} style={{ width }}>{options.map(o => <option key={o.id} value={o.id} title={o.hint}>{o.label}{o.count != null && o.count > 0 ? ` · ${o.count}` : ''}</option>)}</select>
+  </label>;
+}
+
+/** Multi-select dropdown filter (15 Nov 2026): tick any number of options; none ticked means everything.
+    The options list may carry an 'all' entry — it becomes the "clear" line at the top. */
+export function MultiFilter({ options, value, onChange, label, width = 200 }: { options: { id: string; label: string; hint?: string; count?: number }[]; value: string[]; onChange: (v: string[]) => void; label: string; width?: number }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (!open) return; const off = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }; document.addEventListener('mousedown', off); return () => document.removeEventListener('mousedown', off); }, [open]);
+  const allOpt = options.find(o => o.id === 'all'); const opts = options.filter(o => o.id !== 'all');
+  const summary = value.length === 0 ? (allOpt?.label ?? 'All') : value.length === 1 ? (opts.find(o => o.id === value[0])?.label ?? value[0]) : `${value.length} selected`;
+  const toggle = (id: string) => onChange(value.includes(id) ? value.filter(x => x !== id) : [...value, id]);
+  return <div className="filter" ref={ref} style={{ position: 'relative' }}>
+    <span className="label" style={{ margin: 0 }}>{label}</span>
+    <button type="button" className={`input mf-btn${value.length ? ' on' : ''}`} style={{ width }} onClick={() => setOpen(v => !v)} aria-expanded={open}><span className="mf-sum">{summary}</span><span aria-hidden>▾</span></button>
+    {open && <div className="mf-pop" style={{ minWidth: width }}>
+      <button type="button" className="mf-row mf-all" onClick={() => onChange([])}><input type="checkbox" readOnly checked={value.length === 0} />{allOpt?.label ?? 'All'}{allOpt?.count ? <span className="mf-n">{allOpt.count}</span> : null}</button>
+      {opts.map(o => <label key={o.id} className="mf-row" title={o.hint}><input type="checkbox" checked={value.includes(o.id)} onChange={() => toggle(o.id)} />{o.label}{o.count ? <span className="mf-n">{o.count}</span> : null}</label>)}
+    </div>}
+  </div>;
+}
+/** tiny helper: does a multi-select pass this value (nothing ticked = everything passes) */
+export const passes = (sel: string[], v: string | null | undefined) => sel.length === 0 || (v != null && sel.includes(v));
+
 /** A record open beside the list. Long ones (the concept record runs twelve
     sections) grow an index across the top: the section you came for is rarely
     the first. Sections register themselves, so no screen had to be rewritten. */

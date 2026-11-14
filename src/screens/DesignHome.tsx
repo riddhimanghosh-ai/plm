@@ -95,7 +95,7 @@ export function DesignHome() {
         : j.next.key === 'po' ? 'PO' : j.next.key === 'plan' ? 'TNA planned dates' : j.next.key === 'cloth' ? 'Cloth at the factory'
         : j.next.key === 'tna' ? (blocker.includes('qc') ? 'QC' : 'Being made · TNA') : j.next.key === 'dispatch' ? 'Invoice & packing list' : j.next.key === 'received' ? 'Receipt on Enigma' : j.next.key === 'cogs' ? 'COGS' : 'Launch';
       out.push({ where: j.where, urgent: fab.key === 'ratio-asked', pending: pend === 'Launched' ? 'Launched' : `${pend} pending`, id: o.id, kind: mode === 'fob-nominated' ? 'FOB' : 'RTW', name: o.styleName, brief: o.fabricBrief?.look ? `${o.fabricBrief.look}${o.fabricBrief.colour ? ` · ${o.fabricBrief.colour}` : ''} · ${o.orderQty} pcs` : `${o.category} · ${o.orderQty} pcs`,
-        raisedBy: o.source === 'auto-po' ? 'Enigma auto-PO' : o.source === 'planning' ? 'Planning' : 'Design', raisedOn: o.styleHandover, stage: st, owner: j.next?.act === 'design' ? 'design' : f.now.state === 'done' ? null : f.now.owner, next: j.next ? j.next.now ?? j.next.label : 'launched',
+        raisedBy: o.source === 'planning' ? 'Planning' : 'Category', raisedOn: o.styleHandover, stage: st, owner: j.next?.act === 'design' ? 'design' : f.now.state === 'done' ? null : f.now.owner, next: j.next ? j.next.now ?? j.next.label : 'launched',
         sourcing: mode === 'vendor-sources' ? null : mode === 'fob-nominated' ? (o.fobNomination?.emailedOn ? 'finalised' : 'design to name the supplier') : poDone ? 'finalised' : o.status === 'Requirement' ? null : ss.label,
         href: o.id });
     });

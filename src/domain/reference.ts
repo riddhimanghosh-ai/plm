@@ -41,6 +41,9 @@ export const ROLE_LABEL: Record<RoleId, string> = {
 };
 
 export const MERCHANDISERS = ['Nitin Singh', 'Abhin M', 'Bhupendra'];
+/* 15 Nov 2026: each merchandiser looks after three factories; their screen spans those three */
+export const MERCH_FACTORIES: Record<string, string[]> = { 'Nitin Singh': ['ayaan', 'camellia', 'topnotch'], 'Abhin M': ['gseams', 'goodwill', 'richman'], 'Bhupendra': ['united', 'strand', 'zen'] };
+export const merchandiserOf = (factoryId: string | null | undefined) => Object.entries(MERCH_FACTORIES).find(([, fs]) => factoryId && fs.includes(factoryId))?.[0] ?? null;
 
 /* ---------- the seven milestone templates ----------------------------
    Production Tracker Final V2.xlsx → Config sheet. Day offsets from PO date;

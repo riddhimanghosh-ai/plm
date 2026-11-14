@@ -14,8 +14,8 @@ import { MaterialsPanel } from './FactoryRtw';
 import { rtwRowOf } from '../domain/rtwJourney';
 import { fabricStateOf, otifOf, riskOf, rtwDocsOf, factoryStateOf, fmtMoney } from '../domain/engines';
 import { factoryLoadOf, needsReprint, sheetRev, sheetVersion, fmtDate, fmtRel, daysAgo, iso, TODAY } from '../domain/engines';
-import { EXTRA_FABRIC_PANELS, EXTRA_FABRIC_REASONS, TRIM_ASK_REASONS, PANEL_METRES, AGING_DAYS, MTM_STAGES, STORES } from '../domain/reference';
-import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, Field, Input, Select, useExamples, Seg, Section, KV, type Tone } from '../ui';
+import { PEOPLE, MERCH_FACTORIES, EXTRA_FABRIC_PANELS, EXTRA_FABRIC_REASONS, TRIM_ASK_REASONS, PANEL_METRES, AGING_DAYS, MTM_STAGES, STORES } from '../domain/reference';
+import { Page, Card, Pill, Button, Note, Tabs, Empty, Drawer, Field, Input, Select, useExamples, Seg, Section, KV, type Tone, Filter } from '../ui';
 import { RecordTail } from './RecordTail';
 import { FILE_LABELS, ORDER_STEPS } from '../domain/reference';
 import { ThreadPanel } from './Thread';
@@ -32,7 +32,7 @@ const stageLabel = (id: string) => MTM_STAGES.find(s => s.id === id)?.label ?? i
 const store = (id: string) => STORES.find(s => s.id === id)?.name ?? id;
 
 export function Factory() {
-  const { db, role, factoryId, setFactory } = useApp();
+  const { db, role, factoryId, setFactory, personId } = useApp();
   const [params, setParams] = useSearchParams();
   const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); v ? n.set(k, v) : n.delete(k); setParams(n, { replace:true }); };
   const tab = params.get('tab') ?? 'today';
@@ -47,12 +47,15 @@ export function Factory() {
   const openOrder = (db.customerOrders ?? []).find(o => o.id === params.get('open')) ?? null;
   /* 15 Nov 2026: the merchandiser looks after several factories, so the RTW side spans all of them; "Factory" narrows it */
   const fac = params.get('fac') ?? 'all';
-  const rtw = db.orders.filter(o => o.status === 'Open' && o.vendorId && (fac === 'all' || o.vendorId === fac)).sort((a, b) => a.targetInhouse.localeCompare(b.targetInhouse));
+  /* the merchandiser signed in, or Nitin when the owner walks through; their three factories */
+  const me = PEOPLE.find(p => p.id === personId)?.name; const merchName = me && MERCH_FACTORIES[me] ? me : (params.get('merch') ?? 'Nitin Singh');
+  const myFacs = MERCH_FACTORIES[merchName] ?? [];
+  const rtw = db.orders.filter(o => o.status === 'Open' && o.vendorId && myFacs.includes(o.vendorId) && (fac === 'all' || o.vendorId === fac)).sort((a, b) => a.targetInhouse.localeCompare(b.targetInhouse));
   const rtwTab = tab === 'in' || tab === 'fabric' ? 'in' : tab === 'tna' ? 'tna' : tab === 'qc' ? 'qc' : tab === 'po' || tab === 'rtw-done' ? 'po' : 'desk';
   /* the merchandiser is a regional head over several factories: the follow-ups span every PO and cost query on their floors */
-  const regional = db.orders.filter(o => o.status !== 'Cancelled' && o.status !== 'Closed');
-  const owed = merchandiserItemsOf(regional).filter(i => i.tone !== 'good').length;
-  const rtwDone = db.orders.filter(o => o.status === 'Closed' && o.vendorId && (fac === 'all' || o.vendorId === fac)).sort((a, b) => (b.poDate ?? '').localeCompare(a.poDate ?? ''));
+  const regional = db.orders.filter(o => o.status !== 'Cancelled' && o.status !== 'Closed' && (o.vendorId ? myFacs.includes(o.vendorId) : (o.costQuery?.factoryIds ?? []).some(id => myFacs.includes(id))));
+  const owed = merchandiserItemsOf(regional).filter(i => i.tone !== 'good' && i.vendorId != null && myFacs.includes(i.vendorId)).length;
+  const rtwDone = db.orders.filter(o => o.status === 'Closed' && o.vendorId && myFacs.includes(o.vendorId) && (fac === 'all' || o.vendorId === fac)).sort((a, b) => (b.poDate ?? '').localeCompare(a.poDate ?? ''));
   /* two different jobs on one floor: customer shirts by the piece, and bulk POs by the hundred */
   const side: 'mtm' | 'rtw' = MTM_ONLY ? 'mtm' : RTW_ONLY ? 'rtw' : ((sideParam as 'mtm' | 'rtw' | null) ?? (v.mtm ? 'mtm' : 'rtw'));
   const setSide = (k: string) => { const n = new URLSearchParams(params); n.set('side', k); n.delete('tab'); n.delete('open'); setParams(n, { replace:true }); };
@@ -60,9 +63,9 @@ export function Factory() {
   const keyed = (db.factoryOutputs ?? []).filter(f => f.factoryId === v.id).sort((a, b) => b.date.localeCompare(a.date));
 
   return (
-    <Page title={side === 'rtw' ? (fac === 'all' ? 'My factories · merchandiser' : `My factories · ${db.vendors.find(x => x.id === fac)?.name ?? ''}`) : `My factory · ${v.name}`} lede={side === 'rtw' ? 'Every PO on the floors you look after: what each factory owes BSC, the cloth and trims intake, and the TNA of every PO.' : 'Everything this floor owes the production unit and everything it is owed.'}
+    <Page title={side === 'rtw' ? (fac === 'all' ? `My factories · ${merchName}` : `My factories · ${db.vendors.find(x => x.id === fac)?.name ?? ''}`) : `My factory · ${v.name}`} lede={side === 'rtw' ? 'Every PO on the floors you look after: what each factory owes BSC, the cloth and trims intake, and the TNA of every PO.' : 'Everything this floor owes the production unit and everything it is owed.'}
       replaces="the WhatsApp output photo, the call about a power cut, the extra-material email"
-      actions={<div style={{ width: 240 }}><Field label="Factory">{side === 'rtw' ? <Select value={fac} onChange={x => set('fac', x === 'all' ? null : x)} options={[{ value:'all', label:`All my factories · ${db.orders.filter(o => o.status === 'Open' && o.vendorId).length} POs` }, ...factories.filter(f => db.orders.some(o => o.vendorId === f.id && o.status === 'Open')).map(f => ({ value:f.id, label:`${f.name} · ${db.orders.filter(o => o.vendorId === f.id && o.status === 'Open').length}` }))]} /> : <Select value={v.id} onChange={setFactory} options={factories.map(f => ({ value:f.id, label:f.name }))} />}</Field></div>}>
+      actions={<div style={{ width: 240 }}><Field label="Factory">{side === 'rtw' ? <Select value={fac} onChange={x => set('fac', x === 'all' ? null : x)} options={[{ value:'all', label:`My 3 factories · ${db.orders.filter(o => o.status === 'Open' && o.vendorId && myFacs.includes(o.vendorId)).length} POs` }, ...factories.filter(f => myFacs.includes(f.id)).map(f => ({ value:f.id, label:`${f.name} · ${db.orders.filter(o => o.vendorId === f.id && o.status === 'Open').length}` }))]} /> : <Select value={v.id} onChange={setFactory} options={factories.map(f => ({ value:f.id, label:f.name }))} />}</Field></div>}>
       {!mine && <div className="mb-2"><ActsBy role="merchandiser" does="runs this floor — keys in the day's output and asks for cloth" inline /></div>}
 
       {!MTM_ONLY && !RTW_ONLY && <div className="mb-3"><Seg value={side} onChange={setSide} options={[
@@ -94,7 +97,7 @@ export function Factory() {
           {tab === 'rtw-done' ? <RtwTab rows={rtwDone} onOpen={id => set('open', id)} done /> : <RtwTab rows={rtw} onOpen={id => set('open', id)} />}
           <div className="pt-2 text-[12.5px]"><button className="vlink" onClick={() => set('tab', tab === 'rtw-done' ? 'po' : 'rtw-done')}>{tab === 'rtw-done' ? `← back to the ${rtw.length} open PO${rtw.length === 1 ? '' : 's'}` : `Delivered POs · ${rtwDone.length} →`}</button></div>
         </>}
-        {rtwTab === 'desk' && <MerchandiserDesk orders={regional} factoryName={id => db.vendors.find(v => v.id === id)?.name ?? '—'} onOpen={(id, step) => { const n = new URLSearchParams(params); n.set('open', id); n.set('step', step); setParams(n, { replace:true }); }} />}
+        {rtwTab === 'desk' && <MerchandiserDesk orders={regional} facs={myFacs} factoryName={id => db.vendors.find(v => v.id === id)?.name ?? '—'} onOpen={(id, step) => { const n = new URLSearchParams(params); n.set('open', id); n.set('step', step); setParams(n, { replace:true }); }} />}
         {rtwTab === 'in' && <IncomingTab rows={rtw} onOpen={id => set('open', id)} />}
         {rtwTab === 'tna' && <TnaTab rows={rtw} mine={mine} onOpen={id => set('open', id)} />}
         {rtwTab === 'qc' && <QcLog orders={[...rtw, ...rtwDone]} onOpen={id => { const n = new URLSearchParams(params); n.set('open', id); n.set('step', 'tna'); setParams(n, { replace:true }); }} factoryName={id => db.vendors.find(v => v.id === id)?.name ?? '—'} />}
@@ -432,7 +435,7 @@ function IncomingTab({ rows, onOpen }: { rows: ProductionOrder[]; onOpen: (id: s
   if (rows.length === 0) return <Card><Empty title="Nothing coming to this floor." body="Cloth and trims show up here against their PO the moment sourcing sends them." /></Card>;
   return <Card>
     <div className="px-4 pt-3 pb-2 flex items-center gap-3 flex-wrap">
-      <Seg value={filter} onChange={v => setFilter(v as typeof filter)} options={[
+      <Filter value={filter} onChange={v => setFilter(v as typeof filter)} label="Show" options={[
         { id:'all', label:'Everything', count: computed.length },
         { id:'us', label:'Waiting on us', count: computed.filter(isUs).length },
         { id:'short', label:'Short or failed · new ratio pending', count: computed.filter(isShort).length, hint:'less cloth or trim than the PO needs, or a colour that failed the check: category owes a new cut ratio' },
@@ -503,17 +506,17 @@ function TnaTab({ rows, mine, onOpen }: { rows: ProductionOrder[]; mine: boolean
   if (rows.length === 0) return <Card><Empty title="No PO on this floor." body="" /></Card>;
   return <>
     <div className="flex items-center gap-3 flex-wrap mb-3">
-      <Seg value={filter} onChange={v => setFilter(v as typeof filter)} options={[
+      <Filter value={filter} onChange={v => setFilter(v as typeof filter)} label="Show" options={[
         { id:'all', label:'Everything', count: rows.length },
         { id:'us', label:'Waiting on us', count: rows.filter(isUs).length },
         { id:'late', label:'Running late', count: rows.filter(isLate).length },
         { id:'ratio', label:'New cut ratio given', count: rows.filter(isRatio).length },
       ]} />
-      <Seg value={within} onChange={setWithin} label="Deadline" options={[{ id:'all', label:'Any' }, { id:'3', label:'Within 3 days', count: rows.filter(o => daysTo(o) <= 3).length }, { id:'7', label:'7 days', count: rows.filter(o => daysTo(o) <= 7).length }, { id:'14', label:'14 days', count: rows.filter(o => daysTo(o) <= 14).length }]} />
+      <Filter value={within} onChange={setWithin} label="Deadline" options={[{ id:'all', label:'Any' }, { id:'3', label:'Within 3 days', count: rows.filter(o => daysTo(o) <= 3).length }, { id:'7', label:'7 days', count: rows.filter(o => daysTo(o) <= 7).length }, { id:'14', label:'14 days', count: rows.filter(o => daysTo(o) <= 14).length }]} />
       <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style or PO number" style={{ width: 220 }} aria-label="search POs" />
     </div>
     <div className="flex items-center gap-3 flex-wrap mb-3">
-      <Seg value={stage} onChange={setStage} label="Stage" options={[{ id:'all', label:'Every stage' }, ...stages.map(st => ({ id: st, label: st === 'Inhouse' ? 'In-house ETA' : st === 'FI' ? 'Final inspection' : st, count: rows.filter(o => tnaStageOf(o) === st).length }))]} />
+      <Filter value={stage} onChange={setStage} label="Stage" options={[{ id:'all', label:'Every stage' }, ...stages.map(st => ({ id: st, label: st === 'Inhouse' ? 'In-house ETA' : st === 'FI' ? 'Final inspection' : st, count: rows.filter(o => tnaStageOf(o) === st).length }))]} />
     </div>
     {shown.length === 0 ? <Card><Empty title="Nothing under this filter." body="" /></Card>
       : shown.map(o => { const isOpen = openIds.has(o.id); return <Card key={o.id} className="mb-3"><PoStrip o={o} onOpen={() => onOpen(o.id)} open={isOpen} onToggle={() => toggle(o.id)} />{isOpen && <div className="px-4 pb-3"><MilestoneGrid o={o} editable={mine} bare /></div>}</Card>; })}
