@@ -7,7 +7,7 @@ import { useApp } from '../store';
 import type { ProductionOrder } from '../domain/types';
 import { fmtMoney, fmtDate } from '../domain/engines';
 import { rtwCogsOf } from '../domain/rtwPack';
-import { Page, Card, Pill, Drawer, Empty, Stats, Input, MultiFilter, passes } from '../ui';
+import { Page, Card, Pill, Drawer, Empty, Stats, Input, MultiFilter, passes, Seg } from '../ui';
 import { VendorLink } from './Vendors';
 import { RtwRequirement } from './RtwRequirement';
 
@@ -18,11 +18,12 @@ export function CogsDashboard() {
   const { db } = useApp();
   const [params, setParams] = useSearchParams();
   const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); v ? n.set(k, v) : n.delete(k); setParams(n, { replace: true }); };
+  const view = (params.get('view') ?? 'cogs') as 'cogs' | 'enigma';
   const [cats, setCats] = useState<string[]>([]); const [status, setStatus] = useState<string[]>([]); const [q, setQ] = useState('');
   const all: Row[] = db.orders.filter(o => o.poNo && o.status !== 'Cancelled').map(o => ({ o, c: rtwCogsOf(db, o) }));
   const stateOf = (r: Row) => r.c.margin != null && r.c.margin < TARGET_MARGIN ? 'below' : !r.o.enigmaProduct ? (r.c.delivered ? 'to-enigma' : 'making') : !r.o.enigmaProduct.copy ? 'to-marketing' : 'live';
   const STATE: Record<string, [string, 'risk' | 'warn' | 'info' | 'good' | 'neutral']> = { below: ['below target margin', 'risk'], 'to-enigma': ['ready for Enigma', 'warn'], making: ['in production', 'neutral'], 'to-marketing': ['marketing details to do', 'info'], live: ['in Enigma · copy done', 'good'] };
-  const rows = all.filter(r => passes(cats, r.o.category)).filter(r => passes(status, stateOf(r))).filter(r => !q.trim() || `${r.o.styleName} ${r.o.poNo}`.toLowerCase().includes(q.trim().toLowerCase()))
+  const rows = all.filter(r => view === 'cogs' || stateOf(r) === 'to-enigma' || stateOf(r) === 'to-marketing' || stateOf(r) === 'live').filter(r => passes(cats, r.o.category)).filter(r => passes(status, stateOf(r))).filter(r => !q.trim() || `${r.o.styleName} ${r.o.poNo}`.toLowerCase().includes(q.trim().toLowerCase()))
     .sort((a, b) => (a.c.margin ?? 1) - (b.c.margin ?? 1));
   const withM = all.filter(r => r.c.margin != null);
   const avgCogs = all.length ? all.reduce((a, r) => a + r.c.cogs, 0) / all.length : 0;
@@ -48,20 +49,24 @@ export function CogsDashboard() {
       { label: 'Over planned COGS', value: over.length, tone: over.length ? 'warn' : 'good' },
       { label: 'COGS on the book', value: fmtMoney(Math.round(book)) },
     ]} />
-    <div className="grid gap-3 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+    <div className="mb-3"><Seg value={view} onChange={v => { set('view', v === 'cogs' ? null : v); setStatus([]); }} options={[
+      { id: 'cogs', label: 'COGS and margin', count: all.length },
+      { id: 'enigma', label: 'Enigma and marketing', count: toEnigma.length + toMkt.length },
+    ]} /></div>
+    {view === 'cogs' && <div className="mb-3">
       <Card><div className="px-4 py-3">
         <div className="cap">Where a piece's cost goes · average</div>
         <div className="cogs-bar my-2">{mix.map((x, i) => <span key={x.k} style={{ width: `${x.v * 100 / mixTotal}%`, background: `var(--cogs-${i})` }} title={`${PART[x.k]} ${fmtMoney(Math.round(x.v))}`} />)}</div>
         {mix.map((x, i) => <div key={x.k} className="kv"><span className="k flex items-center gap-2"><span className="dot" style={{ background: `var(--cogs-${i})` }} />{PART[x.k]}</span><span className="v">{fmtMoney(Math.round(x.v))} <span className="text-[11px]" style={faint}>{Math.round(x.v * 100 / mixTotal)}%</span></span></div>)}
       </div></Card>
+    </div>}
+    {view === 'enigma' && <div className="mb-3" style={{ maxWidth: 640 }}>
       <Card><div className="px-4 py-3">
-        <div className="cap">To do</div>
+        <div className="cap">To do · click a count to list them</div>
         <div className="kv"><span className="k">Ready to add to Enigma<span className="text-[11px] block" style={faint}>received, not yet in Enigma</span></span><span className="v"><button type="button" className="vlink" onClick={() => setStatus(['to-enigma'])}><b>{toEnigma.length}</b></button></span></div>
         <div className="kv"><span className="k">Product and marketing details<span className="text-[11px] block" style={faint}>in Enigma, copy not done</span></span><span className="v"><button type="button" className="vlink" onClick={() => setStatus(['to-marketing'])}><b>{toMkt.length}</b></button></span></div>
-        <div className="kv"><span className="k">Below target margin<span className="text-[11px] block" style={faint}>check the MRP or the cost</span></span><span className="v"><button type="button" className="vlink" onClick={() => setStatus(['below'])}><b style={{ color: below.length ? 'var(--risk)' : undefined }}>{below.length}</b></button></span></div>
-        <div className="kv"><span className="k">Over planned COGS<span className="text-[11px] block" style={faint}>actual above the costing sheet</span></span><span className="v"><b style={{ color: over.length ? 'var(--warn)' : undefined }}>{over.length}</b></span></div>
       </div></Card>
-    </div>
+    </div>}
     <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
       <MultiFilter label="Status" value={status} onChange={setStatus} options={[{ id: 'all', label: 'Every style', count: all.length }, ...Object.entries(STATE).map(([k, [l]]) => ({ id: k, label: l, count: all.filter(r => stateOf(r) === k).length }))]} />
       <MultiFilter label="Category" value={cats} onChange={setCats} width={240} options={[{ id: 'all', label: 'Every category' }, ...cats0.map(c => ({ id: c, label: c, count: all.filter(r => r.o.category === c).length }))]} />
