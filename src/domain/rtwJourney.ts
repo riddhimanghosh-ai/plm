@@ -4,88 +4,79 @@
    "next" from the same words, so design, sourcing, Nitin, the factory and the
    warehouse all see the same thing. */
 import type { Db, ProductionOrder } from './types';
-import { fmtDate, factoryStateOf, sourcingStateOf, sampleStatusOf, protoStatusOf, receiptOf, riskOf, stageOf, fabricStateOf } from './engines';
+import { fmtDate, daysAgo, receiptOf, riskOf, stageOf, fabricStateOf } from './engines';
+import { packReadyOf, openQcOf } from './rtwPack';
 
-export type RtwActor = 'design' | 'sourcing' | 'production' | 'merchandiser' | 'warehouse' | 'planning' | 'finance';
+export type RtwActor = 'design' | 'sourcing' | 'production' | 'merchandiser' | 'qc' | 'warehouse' | 'planning' | 'finance';
 export type RtwPhase = 'design' | 'buy' | 'make' | 'land';
 export type RtwStep = { key: string; label: string; who: string; on: string | null | undefined; by?: string | null; now?: string; act?: RtwActor; phase: RtwPhase };
-export const RTW_PHASES: { key: RtwPhase; label: string }[] = [{ key: 'design', label: 'Design · sample' }, { key: 'buy', label: 'Order · buy' }, { key: 'make', label: 'Make · QC' }, { key: 'land', label: 'Ship · cost · launch' }];
-export const RTW_ACTOR_LABEL: Record<RtwActor, string> = { design: 'Design', sourcing: 'Sourcing', production: 'Nitin', merchandiser: 'Factory', warehouse: 'Enigma', planning: 'Design · Planning', finance: 'Nitin · Design' };
-export const SOURCE_LABEL = { design: 'Design ask', planning: 'Planning reorder', 'auto-po': 'Enigma auto-PO' } as const;
-/* BSC's chain, 12 Nov 2026: design and sampling before the bulk order; the PO with its costs, acknowledged by the factory;
-   tech pack and the shopping of cloth and trims; the TNA; QC; the shipping cycle; COGS; launch */
+export const RTW_PHASES: { key: RtwPhase; label: string }[] = [{ key: 'design', label: 'Requirement' }, { key: 'buy', label: 'Cost query · PO' }, { key: 'make', label: 'Make · QC' }, { key: 'land', label: 'Deliver · cost · launch' }];
+export const RTW_ACTOR_LABEL: Record<RtwActor, string> = { design: 'Category', sourcing: 'Sourcing', production: 'Nitin', merchandiser: 'Merchandiser · Factory', qc: 'QC', warehouse: 'Prince · Enigma', planning: 'Category · Planning', finance: 'Nitin · Category' };
+export const SOURCE_LABEL = { design: 'Category ask', planning: 'Planning reorder', 'auto-po': 'Enigma auto-PO' } as const;
+/* BSC's chain, 14 Nov 2026: a five-part requirement that goes nowhere until complete; a cost query to factories from the
+   factory database; a reply becomes the PO, mailed with the delivery location; the factory returns planned dates; the
+   TNA with QC at five points; dispatch with the invoice and packing list to the warehouse; receipt on Enigma; COGS; launch */
 export const RTW_INTRO: Record<string, string> = {
-  raised: 'Where the ask came from (a design ask, a planning reorder or an Enigma auto-PO) and what it asks for: the style, how many, by when, at what cost.',
-  design: 'Design works the style up: the cloth brief, the BOM, the CAD. One click sends it to the factory for sampling.',
-  sample: 'A checklist of three stages: prototype, sampling cycle, trial cycle. Each goes to the factory with a due date and comes back to be approved or given remarks; remarks mean design updates the CAD and the design and sends it again. A stage the style does not need is marked not needed.',
-  factory: 'The bulk order: quantity and size-wise quantity. Nitin proposes the factory, design accepts and raises the PO with the piece cost, logistics and other costs. The factory acknowledges it. Sourcing is shopping the cloth at the same time.',
-  cloth: 'Sourcing shops the cloth and trims from the day the sample is approved, beside the bulk order; design uploads the tech pack; the factory counts everything in and approves it. Short cloth comes back to design, whose new cut ratio the factory sees at once.',
-  tna: 'Every milestone from fabric PO to finishing. The factory logs its own dates; late steps show in red.',
-  qc: 'Final inspection at the factory: pass, rework or reject.',
-  ship: 'The factory logs dispatch on the TNA. AWB, courier and logistics stay outside PLM; Shravani does the GRN on Enigma and it lands here by size, lot by lot.',
-  cogs: 'COGS per piece from the costing sheet with the actuals laid over it: fabric at the consumption cutting used, the factory\'s PO price, the sheet\'s trims, transport, freight and overheads, and the PO\'s own logistics and other costs. Against MRP net of discounts and GST. Nitin and design see it.',
-  launch: 'Planning puts the style in a drop; design mints the design codes; stickers, display and fit pieces, go-live.',
+  raised: 'Where the ask came from (a category ask, a planning reorder or an Enigma auto-PO) and what it asks for: the style, how many, by when, at what cost.',
+  pack: 'The five parts of the requirement: tech pack, fabric info, trim card, size-wise quantity (the cut ratio) and the BOM. Sourcing adds the cloth vendor, its fabric code, the blocked quantity and when the cloth is ready. Nothing goes to Production RTW until every part is in.',
+  query: 'Nitin picks factories from the factory database (recommended by category and region, or any other), sets a reply deadline and sends the cost query. PLM mails it to the factories with the requirement and a cost form, copying the merchandiser. Replies land here: cost per piece, lead time, and whether the factory or BSC\'s vendor sources the cloth.',
+  po: 'Nitin raises the PO on one reply. PLM mails it to the factory and the merchandiser with the delivery location (3PL warehouse, or Vasai in-house when there is hemming or semi-stitching), the cloth vendor\'s details when BSC\'s vendor supplies it, and the TNA form. There is no PO for the vendor cloth in PLM.',
+  plan: 'The TNA form comes back with the planned date for every step, through the merchandiser. Until it does, the merchandiser sees it as owed.',
+  tna: 'Every step of the TNA — the factory\'s own fabric PO and receipt, PP sample, size set, cutting, stitching, finishing, dispatch — with planned, revised and actual dates. QC passes or fails the PP sample, the size set and three line inspections; its remarks are on the record for the merchandiser.',
+  dispatch: 'After the dispatch actual the merchandiser uploads the factory\'s invoice and packing list. PLM mails both to Prince at the warehouse, who receives against the packing list on Enigma.',
+  received: 'What Enigma received, by size, against the packing list: did everything reach?',
+  cogs: 'COGS per piece from the costing sheet with the actuals laid over it: fabric at the consumption cutting used, the factory\'s PO price, the sheet\'s trims, transport, freight and overheads. Against MRP net of discounts and GST. Nitin and category see it.',
+  launch: 'Planning puts the style in a drop; category mints the design codes; stickers, display and fit pieces, go-live.',
 };
 
 export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; current: number; next: RtwStep | null; where: string } {
-  const proto = protoStatusOf(o); const fst = factoryStateOf(o); const sample = sampleStatusOf(o);
-  const rc = receiptOf(o); const r = riskOf(o); const st = stageOf(o); const fab = fabricStateOf(o); const ss = sourcingStateOf(o);
+  const rc = receiptOf(o); const r = riskOf(o); const st = stageOf(o); const fab = fabricStateOf(o);
   const launch = (db.launches ?? []).find(l => l.orderId === o.id) ?? null;
   const nameOf = (id: string | null | undefined) => db.vendors.find(v => v.id === id)?.name ?? '—';
   const raised = o.activity?.find(a => /created|raised/i.test(a.what)) ?? null;
-  const sentLog = o.activity?.find(a => /^Sent to production/i.test(a.what)) ?? null;
   const sent = o.status !== 'Requirement';
+  const pack = packReadyOf(o); const packOn = o.pack?.sentOn ?? (sent ? (o.activity?.find(a => /^Sent to production/i.test(a.what))?.at ?? o.styleHandover) : null);
   const ms = (k: string) => o.milestones.find(m => m.key === k);
-  const dispatched = ms('Dispatch')?.actual ?? null; const finished = ms('Finishing End')?.actual ?? null; const fiDone = ms('FI')?.actual ?? null;
-  const nextMs = o.milestones.find(m => !m.actual) ?? null;
+  const dispatched = ms('Dispatch')?.actual ?? null; const finished = ms('Finishing End')?.actual ?? null;
+  const nextMs = o.milestones.find(m => !m.actual && !m.skipped) ?? null;
   const late = r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : '';
-  const sc = o.sampleCycle; const openRound = sc?.rounds.find(x => !x.outcome) ?? null; const lastRound = sc?.rounds[sc.rounds.length - 1] ?? null;
-  const sampleOn = sc ? sc.approvedOn : (sent ? (proto.approved?.reviewedOn ?? o.proto?.skipped?.on ?? sample.ppGoAhead ?? (o.poDate ?? null)) : null);
-  const STAGE_LBL = { prototype: 'prototype', sample: 'sampling cycle', trial: 'trial cycle' } as const;
-  const skippedSt = new Set(sc?.skipped ?? []);
-  const curStage = (['prototype', 'sample', 'trial'] as const).find(k => !skippedSt.has(k) && !sc?.rounds.some(x => x.kind === k && x.outcome === 'approved')) ?? null;
-  const sampleNow = !sent ? 'after it is sent for sampling'
-    : openRound ? (!openRound.sampledOn ? `${STAGE_LBL[openRound.kind]} round ${openRound.n} due ${openRound.dueOn ? fmtDate(openRound.dueOn) : 'date not set'}` : `design to approve the ${STAGE_LBL[openRound.kind]} or give remarks`)
-    : lastRound?.outcome === 'remarks' && !lastRound.cadUpdatedOn ? 'design to update the CAD and the design'
-    : sc?.approvedOn ? 'approved' : curStage ? `design to send the ${STAGE_LBL[curStage]}` : 'approved';
-  const sampleAct: RtwActor = openRound && !openRound.sampledOn ? 'merchandiser' : 'design';
-  const shipOn = (rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : null) ?? (o.status === 'Closed' ? (ms('Inhouse ETA')?.actual ?? dispatched) : null);
-  const shipNow = rc.partial ? `${rc.received} of ${rc.base} in` : dispatched ? 'GRN on Enigma to come' : 'after QC and dispatch';
-  const shipAct: RtwActor = 'warehouse';
-  const qcLast = (o.qc ?? [])[o.qc?.length ? o.qc.length - 1 : 0]; const qcOn = (o.qc ?? []).find(q => q.result === 'pass')?.inspectedOn ?? fiDone ?? null;
-  const cogsOn = o.cogsClosedOn ?? (shipOn && o.status === 'Closed' ? shipOn : null);
+  const cq = o.costQuery ?? null; const replies = cq?.replies.length ?? 0; const asked = cq?.factoryIds.length ?? 0;
+  const qDeadlineLate = cq && !o.poNo && daysAgo(cq.deadline) > 0 && replies < asked;
+  const qc = openQcOf(o); const qcFail = qc.find(x => x.state === 'failed'); const qcDue = qc.find(x => x.state === 'due');
+  const tnaNow = !o.tnaPlan?.submittedOn ? 'after the planned dates' : qcFail ? `QC failed the ${qcFail.label.toLowerCase()} · factory to correct and resubmit` : qcDue ? `QC to pass the ${qcDue.label.toLowerCase()}${qcDue.sinceDays ? ` · waiting ${qcDue.sinceDays}d` : ''}` : nextMs ? `factory to log ${nextMs.key.length <= 3 ? nextMs.key : nextMs.key.toLowerCase()}${late}` : st.stage;
+  const tnaAct: RtwActor = qcDue && !qcFail ? 'qc' : 'merchandiser';
+  const inv = o.invoice ?? null;
+  const receivedOn = rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : (o.status === 'Closed' ? (ms('Inhouse ETA')?.actual ?? dispatched) : null);
+  const cogsOn = o.cogsClosedOn ?? (receivedOn && o.status === 'Closed' ? receivedOn : null);
   const sourceWho = SOURCE_LABEL[o.source ?? 'design'];
+  const packNow = pack.ready ? 'category to send it to Production RTW' : pack.sourcingMissing.length === pack.missing.length ? `sourcing to add the cloth vendor${pack.sourcingMissing.length > 1 ? ' details' : ''}` : `category to fill ${pack.missing.length} item${pack.missing.length > 1 ? 's' : ''}${pack.sourcingMissing.length ? ` · sourcing ${pack.sourcingMissing.length}` : ''}`;
 
   const steps: RtwStep[] = [
     { key: 'raised', phase: 'design', label: 'Raised', who: sourceWho, on: raised?.at ?? o.styleHandover, by: raised?.who ?? sourceWho },
-    { key: 'design', phase: 'design', label: 'Designed · sent for sampling', who: 'Design', act: 'design', on: sent ? (sentLog?.at ?? sc?.rounds[0]?.sentOn ?? o.styleHandover) : null, by: sentLog?.who,
-      now: 'design to send it to the factory for sampling' },
-    { key: 'sample', phase: 'design', label: 'Sample cycle', who: 'Factory · Design', act: sampleAct, on: sampleOn, by: sc?.approvedOn ? `round ${lastRound?.n ?? 1}` : proto.approved ? `proto round ${proto.approved.round}` : o.proto?.skipped ? 'none needed' : sample.approved ? `round ${sample.approved.round}` : null,
-      now: sampleNow },
-    { key: 'factory', phase: 'buy', label: 'Bulk order · PO', who: 'Design · Nitin · Factory', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}${o.poAckOn ? ' · acknowledged' : ''}` : null,
-      act: fst.key === 'accepted' || fst.key === 'with-design' ? 'design' : 'production',
-      now: !sent ? 'after the sample' : fst.key === 'accepted' ? 'design to raise the PO' : fst.key === 'with-design' ? 'design to accept or send back' : 'Nitin to propose a factory' },
-    { key: 'cloth', phase: 'buy', label: 'Tech pack · cloth and trims', who: 'Design · Sourcing · Factory', on: o.receivedApprovedOn ?? (!o.fabricNominated ? o.poDate : o.fabricSupply?.receipt?.on), by: o.receivedApprovedOn ? 'all received, approved' : o.fabricSupply?.receipt ? `${o.fabricSupply.receipt.metresOk} m` : null,
-      act: fab.key === 'ratio-asked' ? 'design' : o.fabricSupply?.receipt ? 'merchandiser' : o.fabricSupply?.sentToFactoryOn ? 'merchandiser' : o.sourcing?.fabricPo ? 'sourcing' : (ss.key === 'choose' || ss.key === 'raise-po') ? 'design' : 'sourcing',
-      now: !o.poNo ? (o.sourcing?.fabricPo ? 'cloth bought · waiting for the PO' : 'sourcing shops the cloth beside the PO') : !o.poAckOn && o.poCosts !== undefined ? 'factory to acknowledge the PO' : fab.key === 'ratio-asked' ? (fab.cr?.kind === 'cut-short' ? 'design to approve the cut-short' : 'design to give new sizes')
-        : o.fabricSupply?.receipt ? 'factory to approve all received' : o.fabricSupply?.sentToFactoryOn ? 'factory to count it in' : o.sourcing?.fabricPo ? 'sourcing to send it' : ss.key === 'choose' || ss.key === 'raise-po' ? 'design to push the fabric PO' : 'sourcing to shop the cloth' },
-    { key: 'tna', phase: 'make', label: 'Made · the TNA', who: 'Factory · Nitin', on: finished ?? dispatched, by: finished ? 'finishing done' : dispatched ? 'dispatched' : null, act: 'merchandiser',
-      now: !o.poNo ? 'after the PO' : nextMs ? `factory to log ${nextMs.key.length <= 3 ? nextMs.key : nextMs.key.toLowerCase()}${late}` : st.stage },
-    { key: 'qc', phase: 'make', label: 'QC', who: 'Factory', act: 'merchandiser', on: qcOn, by: qcOn ? 'passed' : null,
-      now: !o.poNo ? 'after the PO' : qcLast?.result === 'rework' ? 'factory to rework and inspect again' : qcLast?.result === 'reject' ? 'rejected · Nitin to decide' : 'factory to inspect' },
-    { key: 'ship', phase: 'land', label: 'Delivered · GRN', who: 'Shravani · Enigma', act: shipAct, on: shipOn, by: shipOn ? (rc.lots.length ? `${rc.received} pcs` : 'closed') : null,
-      now: !o.poNo ? 'after the PO' : shipNow },
-    { key: 'cogs', phase: 'land', label: 'COGS · profitability', who: 'Nitin · Design', act: 'production', on: cogsOn, by: cogsOn ? 'closed' : null,
-      now: !shipOn ? 'after delivery' : 'Nitin to close COGS' },
-    { key: 'launch', phase: 'land', label: 'Launched', who: 'Design · Planning', act: 'planning', on: launch?.launchedOn, by: launch?.dropMonth,
+    { key: 'pack', phase: 'design', label: 'Requirement · five parts', who: 'Category · Sourcing', act: pack.ready || pack.sourcingMissing.length < pack.missing.length ? 'design' : 'sourcing', on: packOn, by: packOn ? (o.pack?.sentBy ?? 'sent to Production RTW') : null, now: packNow },
+    { key: 'query', phase: 'buy', label: 'Cost query · factories', who: 'Nitin · Factories', act: cq && replies < asked ? 'merchandiser' : 'production', on: cq ? (replies >= asked || o.poNo ? (cq.replies[cq.replies.length - 1]?.repliedOn ?? cq.sentOn) : null) : null, by: cq ? `${replies} of ${asked} replied` : null,
+      now: !sent ? 'after the requirement' : !cq ? 'Nitin to pick factories and send the cost query' : `${asked - replies} repl${asked - replies === 1 ? 'y' : 'ies'} due by ${fmtDate(cq.deadline)}${qDeadlineLate ? ` · ${daysAgo(cq.deadline)}d past` : ''}` },
+    { key: 'po', phase: 'buy', label: 'PO raised · mailed', who: 'Nitin', act: 'production', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}${o.poMail ? ` · to ${o.poMail.deliveryLocation}` : ''}` : null,
+      now: !cq ? 'after the cost query' : replies ? 'Nitin to raise the PO on a reply' : 'after a reply' },
+    { key: 'plan', phase: 'buy', label: 'TNA · planned dates', who: 'Factory · Merchandiser', act: 'merchandiser', on: o.tnaPlan?.submittedOn ?? (o.poNo && !o.tnaPlan ? o.poDate : null), by: o.tnaPlan?.submittedOn ? (o.tnaPlan.by ?? 'submitted') : null,
+      now: !o.poNo ? 'after the PO' : `merchandiser to return the TNA form${o.tnaPlan ? ` · sent ${fmtDate(o.tnaPlan.sentOn)}` : ''}` },
+    { key: 'tna', phase: 'make', label: 'Made · TNA with QC', who: 'Factory · QC · Merchandiser', on: finished ?? dispatched, by: finished ? 'finishing done' : dispatched ? 'dispatched' : null, act: tnaAct,
+      now: !o.poNo ? 'after the PO' : tnaNow },
+    { key: 'dispatch', phase: 'land', label: 'Dispatched · invoice to the warehouse', who: 'Factory · Merchandiser', act: 'merchandiser', on: inv?.mailedOn ?? null, by: inv ? `invoice ${inv.no} · ${inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs` : null,
+      now: !o.poNo ? 'after the PO' : !dispatched ? 'after the dispatch actual on the TNA' : 'merchandiser to upload the invoice and packing list' },
+    { key: 'received', phase: 'land', label: 'Received · Enigma', who: 'Prince · Enigma', act: 'warehouse', on: receivedOn, by: receivedOn ? (rc.lots.length ? `${rc.received} pcs` : 'closed') : null,
+      now: !inv ? 'after the invoice' : rc.partial ? `${rc.received} of ${rc.base} in` : 'Prince to receive against the packing list on Enigma' },
+    { key: 'cogs', phase: 'land', label: 'COGS · profitability', who: 'Nitin · Category', act: 'production', on: cogsOn, by: cogsOn ? 'closed' : null,
+      now: !receivedOn ? 'after receipt' : 'Nitin to close COGS' },
+    { key: 'launch', phase: 'land', label: 'Launched', who: 'Category · Planning', act: 'planning', on: launch?.launchedOn, by: launch?.dropMonth,
       now: launch ? `${launch.dropMonth} drop${launch.launchOn ? ` · ${fmtDate(launch.launchOn)}` : ''}` : 'planning puts it in a drop' },
   ];
-  /* an open cut-ratio ask pulls the record back to the cloth step until it is answered and sent, even though the cloth is counted */
+  /* an open cut-ratio ask pulls the record back to the TNA until it is answered */
   const ratioOpen = o.status === 'Open' && fab.key === 'ratio-asked';
-  const current = ratioOpen ? steps.findIndex(x => x.key === 'cloth') : steps.findIndex(x => !x.on);
+  const current = ratioOpen ? steps.findIndex(x => x.key === 'tna') : steps.findIndex(x => !x.on);
   const next = current >= 0 ? steps[current] : null;
   /* "where it is" for a list: the step name, or the TNA stage while it is being made */
-  const where = ratioOpen ? `cut ratio with design · short ${fab.short} m` : !next ? `launched ${fmtDate(launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? `${st.stage}${late}` : next.key === 'sample' && openRound ? `${({ prototype: 'prototype', sample: 'sampling', trial: 'trial' } as const)[openRound.kind]} round ${openRound.n}` : next.label;
+  const where = ratioOpen ? `cut ratio with category · short ${fab.short} m` : !next ? `launched ${fmtDate(launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? (qcFail ? `QC failed · ${qcFail.label.toLowerCase()}` : qcDue ? `QC · ${qcDue.label.toLowerCase()}` : `${st.stage}${late}`) : next.key === 'pack' ? (pack.ready ? 'requirement complete' : `requirement · ${pack.missing.length} to fill`) : next.key === 'query' && cq ? `cost query · ${replies} of ${asked} replied` : next.label;
   return { steps, current, next, where };
 }
 
@@ -99,21 +90,19 @@ export function rtwRowOf(db: Db, o: ProductionOrder) {
 
 /* one status per style, by what has actually happened: the tracker's filter row */
 export const RTW_STATUSES = [
-  { key: 'requested', label: 'With design', hint: 'design is working the style up' },
-  { key: 'sampling', label: 'Sampling', hint: 'rounds with the factory until the sample is right' },
-  { key: 'sample-ok', label: 'Sample approved', hint: 'the bulk order and PO come next' },
-  { key: 'factory-po', label: 'PO raised', hint: 'tech pack, cloth and trims on their way to the factory' },
-  { key: 'cloth', label: 'In production', hint: 'everything received; the TNA is running' },
-  { key: 'qc', label: 'QC', hint: 'final inspection' },
-  { key: 'shipping', label: 'Dispatched', hint: 'on its way; the GRN on Enigma is to come' },
-  { key: 'received', label: 'Delivered', hint: 'GRN on Enigma; COGS' },
+  { key: 'requested', label: 'Requirement', hint: 'category and sourcing are filling the five parts' },
+  { key: 'queried', label: 'Cost query out', hint: 'factories asked; replies due by the deadline' },
+  { key: 'po', label: 'PO raised', hint: 'mailed to the factory; the TNA form is owed' },
+  { key: 'planned', label: 'TNA planned', hint: 'the factory returned its planned dates' },
+  { key: 'making', label: 'In production', hint: 'the TNA is running; QC at five points' },
+  { key: 'dispatched', label: 'Dispatched', hint: 'invoice and packing list with the warehouse' },
+  { key: 'received', label: 'Received', hint: 'on Enigma; COGS' },
   { key: 'launched', label: 'Launched', hint: 'in a drop' },
 ] as const;
 export type RtwStatusKey = typeof RTW_STATUSES[number]['key'];
 export function rtwStatusOf(db: Db, o: ProductionOrder): { key: RtwStatusKey; label: string; i: number } {
   const j = rtwJourneyOf(db, o); const on = (k: string) => !!j.steps.find(s => s.key === k)?.on;
-  const key: RtwStatusKey = on('launch') ? 'launched' : on('ship') ? 'received' : on('qc') ? 'shipping' : on('tna') ? 'qc' : on('cloth') ? 'cloth'
-    : on('factory') ? 'factory-po' : on('sample') ? 'sample-ok' : on('design') ? 'sampling' : 'requested';
+  const key: RtwStatusKey = on('launch') ? 'launched' : on('received') ? 'received' : on('dispatch') ? 'dispatched' : on('plan') ? 'making' : on('po') ? (o.tnaPlan?.submittedOn ? 'planned' : 'po') : on('pack') ? 'queried' : 'requested';
   const i = RTW_STATUSES.findIndex(s => s.key === key);
   return { key, label: RTW_STATUSES[i].label, i };
 }

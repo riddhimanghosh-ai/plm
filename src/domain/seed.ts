@@ -6,7 +6,7 @@
    record, a unit cost the sample left blank) is placed here and says so.
    ========================================================================== */
 
-import type { LostSale, SwatchBookRequest, CreditEntry, OptionRequest, RequestOption, ConceptFabricOption, FabricBrief, ReturnCase, StockWriteOff, FitSample, Grn, Attachment, Concept, Block, Db, Escalation, Fabric, ProductionOrder, RtwOption, Vendor, GarmentCategory, Thread, Comment, RoleId, CustomerOrder, StockRequest, Launch, ProductionPlan, ExtraFabricRequest, FactoryOutput, Scan, SwatchBook, TrimItem, StockTransfer, FabricQuote, FabricPo, SampleRound , PlanningReview, PrepStep, PrepEvent, SwatchDispatch } from './types';
+import type { LostSale, SwatchBookRequest, CreditEntry, OptionRequest, RequestOption, ConceptFabricOption, FabricBrief, ReturnCase, StockWriteOff, FitSample, Grn, Attachment, Concept, Block, Db, Escalation, Fabric, ProductionOrder, RtwOption, Vendor, GarmentCategory, Thread, Comment, RoleId, CustomerOrder, StockRequest, Launch, ProductionPlan, ExtraFabricRequest, FactoryOutput, Scan, SwatchBook, TrimItem, StockTransfer, FabricQuote, FabricPo, SampleRound , PlanningReview, RequirementPack, PrepStep, PrepEvent, SwatchDispatch } from './types';
 import { mainSizesOf, FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, SHEET_OPTIONS, MEASUREMENTS, defaultSpec, defaultPattern, PEOPLE, SIZE_SETS, MERCHANDISERS, DELAY_REASONS, RTW_SUBCATS, RANGES, STORES, isBottoms, BOTTOM_SIZES, SHIRT_SIZES, MTM_FITS, TRIM_MASTER, COLLAR_STYLES, POCKETS, EXTRA_FABRIC_REASONS, EXTRA_FABRIC_PANELS, PANEL_METRES, BOOK_EDITION, BIG_STORES, MTM_SWATCH_BOOKS } from './reference';
 import { REAL_MTM_FABRICS, REAL_BLOCKS, REAL_RTW_SHIRTS, REAL_RTW_BOTTOMS, REAL_MERCH, REAL_DROPS, REAL_STO } from './realdata';
 import { sourcingModeOf, buildMilestones, TODAY, addDays, iso, riskOf, coverageOf, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, daysBetween, consumptionFor, daysAgo, defaultMaterials, mintBespokeCode } from './engines';
@@ -1462,24 +1462,62 @@ concepts.filter(c => c.kind === 'new-fabric' && c.fabricId && !(c.fabricOptions 
 
 /* 12 Nov 2026: a cut ratio design has given is at the factory; nobody sends it on */
 orders.forEach(o => (o.cutRatios ?? []).forEach(cr => { if (cr.given && !cr.sentToFactoryOn) cr.sentToFactoryOn = cr.given.on; }));
-/* 12 Nov 2026: where each ask came from, and the sample cycle on the styles still before their PO.
-   Core reorders come from Enigma's auto-PO run, repeats from the planning review, new styles from design. */
+/* 12 Nov 2026: where each ask came from. 14 Nov 2026: the chain as BSC set it — the five-part requirement, the cost
+   query to factories, the PO mailed with its delivery location, the TNA form, QC at five points, the invoice to Prince. */
+const SPECIALISING: Record<string, GarmentCategory[]> = {
+  camellia: ['RTW CMT shirts', 'Kurta'], mrunali: ['RTW CMT shirts'], ayaan: ['RTW CMT shirts'], kashvi: ['RTW CMT shirts', 'Flat Knits (Shirts)'], zen: ['RTW CMT shirts', 'Bottoms / Knitwear / Jackets'],
+  strand: ['Bottoms / Knitwear / Jackets', 'Jeans'], goodwill: ['Bottoms / Knitwear / Jackets', 'Jeans'], spintech: ['Flat Knits (T-shirts)', 'Flat Knits (Shirts)'], topnotch: ['RTW CMT shirts'],
+  gseams: ['Bottoms / Knitwear / Jackets'], united: ['Jeans', 'Bottoms / Knitwear / Jackets'], clayroots: ['Kurta', 'RTW CMT shirts'], axceller: ['Flat Knits (T-shirts)'], rashvi: ['RTW CMT shirts'], brio: ['Bottoms / Knitwear / Jackets'], dazzle: ['Kurta'],
+};
+VENDORS.forEach(v => { if (v.kind === 'CMT factory' || v.kind === 'MTM factory') { v.specialising = SPECIALISING[v.id] ?? ['RTW CMT shirts']; v.email = `${v.id}@factory.in`; } });
+const TP_NOTE: Record<string, string> = { sketch: 'sketch-front-back.pdf', styling: 'styling-detail.pdf', stitching: 'stitch-dimensions.pdf', fabricColours: 'colourways.pdf', specSheet: 'spec-sheet.xlsx', howToMeasure: 'how-to-measure.pdf', folding: 'folding-method.pdf', trimCard: 'trim-card.pdf', labelImage: 'label.png', tagImage: 'hang-tag.png', barcoding: 'barcode-info.xlsx', packaging: 'packaging.pdf' };
+const fullPack = (o: ProductionOrder, sentOn: string | null, sourcingDone = true): RequirementPack => ({
+  techPack: Object.fromEntries(Object.entries(TP_NOTE).map(([k, v]) => [k, `${o.styleName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 18)}-${v}`])),
+  fabric: { description: o.fabricBrief ? `${o.fabricBrief.look}${o.fabricBrief.colour ? ` · ${o.fabricBrief.colour}` : ''}` : o.styleName, content: o.fabricBrief?.composition ?? '100% cotton', image: 'fabric-swatch.jpg', swatchAnalyser: `Option ${1 + (ordSeq % 3)} · phase ${1 + (ordSeq % 2)}`, cpm: o.costing.cpm ?? 240, widthIn: 58,
+    vendorId: sourcingDone ? (o.fabricVendorId ?? 'sutra') : null, vendorFabricCode: sourcingDone ? (o.vendorFabricCode ?? `SOK#${24000 + ordSeq}`) : null, blockedMetres: sourcingDone ? (o.fabricBlocked ?? Math.ceil(o.orderQty * 1.7)) : null, readiness: sourcingDone ? (ordSeq % 2 ? 'available' : 'date') : null, readyOn: sourcingDone && !(ordSeq % 2) ? iso(addDays(TODAY, 6)) : null },
+  trimCard: 'trim-card.pdf', sentOn, sentBy: sentOn ? 'Kunal' : null,
+});
+let qcFails = 0;
+const FACTORY_IDS = VENDORS.filter(v => v.kind === 'CMT factory').map(v => v.id);
+const factoriesFor = (o: ProductionOrder, n: number) => { const fit = FACTORY_IDS.filter(id => (SPECIALISING[id] ?? []).includes(o.category)); const pool = fit.length >= n ? fit : [...fit, ...FACTORY_IDS.filter(id => !fit.includes(id))]; const out = o.vendorId && pool.includes(o.vendorId) ? [o.vendorId] : []; for (const id of pool) { if (out.length >= n) break; if (!out.includes(id)) out.push(id); } return out; };
 orders.forEach((o, i) => {
+  ordSeq = i + 1;
   o.source = /core/i.test(o.program ?? '') || i % 9 === 4 ? 'auto-po' : i % 5 === 2 ? 'planning' : 'design';
-  if (o.status === 'Quoting' || o.status === 'Allocated') {
-    const sent = o.activity?.find(a => /^Sent to production/i.test(a.what))?.at ?? o.styleHandover;
-    const d = (n: number) => iso(addDays(sent, n));
-    o.sampleCycle = i % 3 === 0
-      ? { rounds: [{ n: 1, kind: 'prototype', sentOn: d(0), dueOn: d(6), sampledOn: d(7), trialOn: d(8), outcome: 'approved', remarks: null, cadUpdatedOn: null },
-                   { n: 1, kind: 'sample', sentOn: d(8), dueOn: d(12), sampledOn: d(13), trialOn: d(13), outcome: 'remarks', remarks: 'collar stand 2 mm higher; placket to match the swatch', cadUpdatedOn: d(14) },
-                   { n: 2, kind: 'sample', sentOn: d(10), dueOn: d(16), sampledOn: null, trialOn: null, outcome: null, remarks: null, cadUpdatedOn: null }], approvedOn: null }
-      : i % 3 === 1
-      ? { rounds: [{ n: 1, kind: 'prototype', sentOn: d(0), dueOn: d(5), sampledOn: d(6), trialOn: null, outcome: null, remarks: null, cadUpdatedOn: null }], approvedOn: null }
-      : { rounds: [{ n: 1, kind: 'prototype', sentOn: d(0), dueOn: d(6), sampledOn: d(6), trialOn: d(7), outcome: 'approved', remarks: null, cadUpdatedOn: null },
-                   { n: 1, kind: 'sample', sentOn: d(7), dueOn: d(12), sampledOn: d(12), trialOn: d(13), outcome: 'approved', remarks: null, cadUpdatedOn: null },
-                   { n: 1, kind: 'trial', sentOn: d(13), dueOn: d(15), sampledOn: d(15), trialOn: d(16), outcome: 'approved', remarks: null, cadUpdatedOn: null }], approvedOn: d(16), approvedBy: 'Kunal' };
+  o.sampleCycle = null;
+  const sentOn = o.activity?.find(a => /^Sent to production/i.test(a.what))?.at ?? o.styleHandover;
+  if (o.status === 'Requirement') {
+    /* still with category: some parts in, sourcing's four fields in on every other one */
+    const p = fullPack(o, null, i % 2 === 0); const drop = ['sketch', 'specSheet', 'barcoding', 'packaging', 'howToMeasure'].slice(0, 1 + (i % 4)); drop.forEach(k => delete (p.techPack as Record<string, string>)[k]);
+    if (i % 3 === 0) p.trimCard = null; o.pack = p;
+  } else if (o.status === 'Quoting' || o.status === 'Allocated') {
+    o.pack = fullPack(o, sentOn);
+    const ids = factoriesFor(o, 2 + (i % 2)); const deadline = iso(addDays(sentOn, 5));
+    const replies = i % 3 === 0 ? [] : ids.slice(0, i % 3 === 1 ? 1 : ids.length).map((id, k) => ({ vendorId: id, cost: Math.round((o.targetCost ?? 450) * (0.92 + k * 0.07)), fabricBy: (k % 2 ? 'factory' : 'bsc') as 'bsc' | 'factory', leadDays: 34 + k * 4, repliedOn: iso(addDays(sentOn, 2 + k)), note: k === 0 ? null : 'can start after the 20th' }));
+    o.costQuery = { sentOn: iso(addDays(sentOn, 1)), by: 'Nitin Singh', deadline, to: ids.map(id => `${id}@factory.in`), cc: ['nitin.singh@merchandiser.in'], factoryIds: ids, replies };
+    o.factoryProposals = []; o.poCosts = null;
+  } else if (o.status === 'Open' || o.status === 'Closed') {
+    o.pack = fullPack(o, sentOn);
+    const ids = factoriesFor(o, 3); const d0 = addDays(o.poDate!, -4);
+    o.costQuery = { sentOn: iso(addDays(d0, -3)), by: 'Nitin Singh', deadline: iso(addDays(d0, 2)), to: ids.map(id => `${id}@factory.in`), cc: ['nitin.singh@merchandiser.in'], factoryIds: ids,
+      replies: ids.map((id, k) => ({ vendorId: id, cost: id === o.vendorId ? (o.finalFob ?? o.targetCost) : Math.round((o.finalFob ?? o.targetCost) * (1.04 + k * 0.05)), fabricBy: id === o.vendorId ? (o.fabricNominated ? 'bsc' : 'factory') : (k % 2 ? 'factory' : 'bsc'), leadDays: 36 + k * 3, repliedOn: iso(addDays(d0, k)), note: null })) };
+    const hem = /trouser|chino|jean|bottom|pant/i.test(`${o.category} ${o.subCategory}`);
+    o.poMail = { on: o.poDate!, to: [`${o.vendorId}@factory.in`], cc: ['nitin.singh@merchandiser.in'], deliveryLocation: hem ? 'Vasai · in-house' : '3PL warehouse', needsHemming: hem, fabricBy: o.fabricNominated ? 'bsc' : 'factory', clothVendorSent: o.fabricNominated };
+    /* the TNA form: back on most, still owed on a fresh PO */
+    const fresh = o.status === 'Open' && !o.milestones.some(m => m.actual);
+    o.tnaPlan = { sentOn: o.poDate!, submittedOn: fresh && i % 2 === 0 ? null : iso(addDays(o.poDate!, 2)), by: fresh && i % 2 === 0 ? null : (o.merchant ?? 'Nitin Singh') };
+    o.poAckOn = o.tnaPlan.submittedOn; o.poCosts = i % 4 === 0 ? { logistics: 6000 + (i % 5) * 1500, other: [] } : null;
+    /* QC: a pass for every QC block already logged; one PO carries a failed PP sample with remarks */
+    const ms = (k: string) => o.milestones.find(m => m.key === k);
+    o.qcChecks = [];
+    ([['pps', 'PPS Approval', 'measurements within tolerance; collar as per tech pack'], ['size-set', 'Size Set Appvl', 'all sizes graded right'], ['initial', 'Initial Inspection', 'seam allowance ok on the first bundles'], ['midline', 'Mid-line Inspection', 'pressing fine; two buttonholes re-done'], ['final', 'FI', 'AQL 2.5 passed']] as const)
+      .forEach(([pt, key, rem]) => { const m = ms(key); if (m?.actual && !m.skipped) o.qcChecks!.push({ point: pt, on: m.actual, by: 'Rohit', result: 'pass', remarks: rem }); });
+    if (o.status === 'Open' && ms('PPS Submission')?.actual && !ms('PPS Approval')?.actual && (qcFails++ % 3 === 0)) o.qcChecks.push({ point: 'pps', on: iso(addDays(ms('PPS Submission')!.actual!, 1)), by: 'Rohit', result: 'fail', remarks: 'chest 1.5 cm under spec on M and L; placket width 2.5 cm against 3 cm on the tech pack' });
+    if (o.status === 'Open' && ms('Finishing Start')?.actual && !ms('Mid-line Inspection')?.actual && (qcFails++ % 4 === 1)) o.qcChecks.push({ point: 'midline', on: iso(addDays(ms('Finishing Start')!.actual!, 1)), by: 'Rohit', result: 'fail', remarks: 'pressing marks on 6 of 20 checked; hang tag on the wrong side' });
+    /* dispatched: the invoice and packing list went to Prince */
+    const disp = ms('Dispatch')?.actual;
+    if (disp) { const pcs = o.cutQty ?? o.orderQty; const tot = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) || 1;
+      o.invoice = { no: `INV-${2600 + i}`, amount: Math.round(pcs * (o.finalFob ?? o.targetCost)), uploadedOn: iso(addDays(disp, 1)), by: o.merchant ?? 'Nitin Singh', file: `invoice-${2600 + i}.pdf`, packingList: o.sizeBreakup.map(x => ({ size: x.size, qty: Math.round(x.qty * pcs / tot) })), mailedOn: iso(addDays(disp, 1)), mailedTo: ['prince@bombayshirts.com'] }; }
   }
-  if (o.status === 'Open' && o.poNo) { o.poAckOn = o.poAckOn ?? o.poDate; if (i % 4 === 0) o.poCosts = { logistics: 6000 + (i % 5) * 1500, other: i % 8 === 0 ? [{ label: 'Testing', amount: 2500 }] : [] }; }
 });
 export const SEED: Db = {
   lostSales,

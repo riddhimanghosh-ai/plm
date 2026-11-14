@@ -30,6 +30,7 @@ import { Analyse } from './screens/Analyse';
 import { Sheet } from './screens/Sheet';
 import { Fabrics, FabricPage } from './screens/Fabrics';
 import { PrepDesk } from './screens/Preprod';
+import { Qc } from './screens/Qc';
 import { MTM_ONLY, RTW_ONLY, OPTIONS_OFF } from './domain/edition';
 
 /* No Today screen: each role lands on the first screen it works in. */
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/sourcing" element={<Sourcing />} />
           <Route path="/tracker" element={MTM_ONLY ? <Navigate to="/" replace /> : <Tracker />} />
           <Route path="/factory" element={<Factory />} />
+          <Route path="/qc" element={MTM_ONLY ? <Navigate to="/" replace /> : <Qc />} />
           <Route path="/mtm" element={RTW_ONLY ? <Navigate to="/" replace /> : <Mtm />} />
           <Route path="/cad" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="cad" step="cad" />} />
           <Route path="/cutting" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="cutting" step="cutting" />} />

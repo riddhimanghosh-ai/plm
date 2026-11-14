@@ -44,6 +44,7 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   { path:'/tracker',      label:'RTW production tracker',     hint:'every bulk PO, date by date',                    group:'Production · RTW', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
   /* Production · RTW in PLM is the tracker alone; analytics read off it sit with planning, and materials go from sourcing straight to the factory */
   { path:'/otif',         label:'RTW production analytics',   hint:'OTIF, daily monitor, escalations, merchandiser alerts — read off the tracker', group:'Planning', roles:['owner','planning'] },
+  { path:'/qc',           label:'QC · samples and inspections', hint:'PP sample, size set, the three line inspections: pass or fail with remarks', group:'QC', roles:['owner','qc'] },
   { path:'/factory',      label:'My factory · merchandiser',   hint:"the floor's own day: output, pieces, cloth",     group:'Merchandiser', roles:['owner','merchandiser','production'] , hideFor:['production']},
 
   /* moving */
@@ -107,7 +108,7 @@ export function Shell() {
   /* design and planning work from the one Design requirements screen; the per-record lists stay reachable by link and drawer */
   /* Walkthrough mode is a super admin: every screen, whoever you are signed in
      as. Off, each team sees only the screens it works in. */
-  const items = (demoAll ? NAV : NAV.filter(n => n.roles.includes(role) && !(n.hideFor ?? []).includes(myRole))).filter(n => inEdition(n.path) && !(RTW_ONLY && RTW_HIDDEN_NAV_GROUPS.includes(n.group ?? ''))).map(n => RTW_ONLY && n.group === 'Production · MTM' ? { ...n, group: 'Production · RTW' } : n);
+  const items = (demoAll ? NAV : NAV.filter(n => n.roles.includes(role) && !(n.hideFor ?? []).includes(myRole))).filter(n => inEdition(n.path) && !(RTW_ONLY && RTW_HIDDEN_NAV_GROUPS.includes(n.group ?? ''))).map(n => RTW_ONLY && n.group === 'Production · MTM' ? { ...n, group: 'Production · RTW' } : RTW_ONLY && n.group === 'Design' ? { ...n, group: 'Category' } : n);
   const allowedItems = NAV.filter(n => n.roles.includes(role));
   /* a path that is not a screen at all (the old /concepts, /requests, /requirements redirects) passes through to the router untouched — with its query intact */
   const allowed = loc.pathname === '/' || !NAV.some(n => loc.pathname.startsWith(n.path)) || allowedItems.some(n => loc.pathname.startsWith(n.path));
@@ -116,7 +117,7 @@ export function Shell() {
   /* a record page sits under the screen that lists it: a fabric's page is part of the MTM fabric master */
   const navPath = loc.pathname.startsWith('/fabric/') ? '/fabrics' : loc.pathname;
   const here = items.find(n => navPath.startsWith(n.path))?.group;
-  const GROUP_ROLE: Record<string, string> = { Design:'design', Sourcing:'sourcing', Planning:'planning', Production:'production', 'Production · MTM':'production', 'Production · RTW':'production', Merchandiser:'merchandiser', Warehouse:'warehouse', Store:'store', Finance:'finance', Owner:'owner', Company:'owner' };
+  const GROUP_ROLE: Record<string, string> = { Design:'design', Category:'design', Sourcing:'sourcing', Planning:'planning', Production:'production', 'Production · MTM':'production', 'Production · RTW':'production', Merchandiser:'merchandiser', QC:'qc', Warehouse:'warehouse', Store:'store', Finance:'finance', Owner:'owner', Company:'owner' };
   const groups = useMemo(() => {
     const out: { name: string; items: typeof items; hasActive: boolean }[] = [];
     items.forEach(n => { const name = n.group ?? '—'; const g = out.find(x => x.name === name) ?? (out.push({ name, items: [], hasActive: false }), out[out.length - 1]); g.items.push(n); });

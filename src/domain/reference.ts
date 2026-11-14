@@ -3,6 +3,7 @@
    Every block names its source so a number can be traced back.
    ========================================================================== */
 
+import { RTW_ONLY } from './edition';
 import type { GarmentCategory, Person, RoleId } from './types';
 
 /* People named across discovery. Planning and Design are one team — the
@@ -19,6 +20,9 @@ export const PEOPLE: Person[] = [
   { id:'yusuf',      name:'Yusuf',       role:'warehouse',  title:'Warehouse — swatch desk: codes, stickers, cuts for every store' },
   { id:'aarav',      name:'Aarav Mehta', role:'store',      title:'Store manager' },
   { id:'nitin',      name:'Nitin Singh', role:'merchandiser', title:'Factory merchandiser · Mahendra' },
+  /* 14 Nov 2026: QC and the warehouse person the factory's invoice and packing list go to */
+  { id:'rohit',      name:'Rohit',       role:'qc',         title:'QC — PP sample, size set, line inspections' },
+  { id:'prince',     name:'Prince',      role:'warehouse',  title:'Warehouse — receives RTW goods against the packing list' },
   { id:'sairam',     name:'Sairam',      role:'owner',      title:'Owner / CEO — sees every screen' },
   /* the four pre-production desks: every person signs in with their own name, so the desk log says who took up
      and finished each order; everyone on a team sees the same desk. Names are placeholders until BSC shares the teams. */
@@ -31,8 +35,8 @@ export const PEOPLE: Person[] = [
 ];
 
 export const ROLE_LABEL: Record<RoleId, string> = {
-  owner:'Owner', design:'Design', planning:'Planning', sourcing:'Sourcing',
-  production:'Production', warehouse:'Warehouse', store:'Store', finance:'Finance', merchandiser:'Factory merchandiser',
+  owner:'Owner', design: RTW_ONLY ? 'Category' : 'Design', planning:'Planning', sourcing:'Sourcing',
+  production:'Production', warehouse:'Warehouse', store:'Store', finance:'Finance', merchandiser:'Factory merchandiser', qc:'QC',
   cad:'CAD team', cutting:'Cutting team', fusing:'Fusing team', compiling:'Compiling team',
 };
 
@@ -52,28 +56,49 @@ export const MILESTONES = [
   'Yarn PO', 'Fabric PO', 'Yarn ETA', 'Fabric ETA', 'Trims ETA',
   'PPS Submission', 'PPS Approval', 'Size Set Sub', 'Size Set Appvl',
   'Knitting Start', 'Knitting End', 'Interlock Start', 'Interlock End',
-  'Cutting Start', 'Cutting End', 'Stitching Start', 'Stitching End',
-  'Finishing Start', 'Finishing End', 'FI', 'Dispatch', 'Inhouse ETA',
+  'Cutting Start', 'Cutting End', 'Stitching Start', 'Initial Inspection', 'Stitching End',
+  'Finishing Start', 'Mid-line Inspection', 'Finishing End', 'FI', 'Dispatch', 'Inhouse ETA',
 ] as const;
+/* 14 Nov 2026: three QC blocks on the TNA — initial inspection after stitching starts, mid-line after finishing starts,
+   final inspection (FI) when finishing is done. QC logs pass or fail with remarks; the merchandiser sees them. */
 
 const N = null;
 export const OFFSETS: Record<GarmentCategory, (number | null)[]> = {
-  'RTW CMT shirts':               [N, N, N, N, N,  7,  9, N,  N,  N,  N,  N,  N, 13, 17, 19, 26, 28, 30, 32, 33, 34],
-  'RTW FOB shirts':               [N, 7, N, 14, 14, 7, 14, N,  N,  N,  N,  N,  N, 18, 22, 26, 33, 35, 39, 41, 42, 47],
-  'Bottoms / Knitwear / Jackets': [N, 7, N, 14, 21, 7, 14, 21, 23, N,  N,  N,  N, 27, 31, 35, 49, 51, 55, 57, 58, 63],
-  'Flat Knits (T-shirts)':        [7, N, 22, N, 12, 3,  5, N,  N, 24, 31, 32, 35, N,  N,  N,  N, 38, 41, 43, 44, 45],
-  'Flat Knits (Shirts)':          [7, N, 22, N, 12, 3,  5, N,  N, 24, 38, 39, 46, N,  N,  N,  N, 49, 52, 54, 56, 57],
-  'Jeans':                        [N, 7, N, 14, 21, 10, 17, 24, 26, N, N,  N,  N, 28, 35, 39, 54, 61, 68, 70, 72, 77],
-  'Kurta':                        [N, N, N, N, N,  7,  9, N,  N,  N,  N,  N,  N, 13, 17, 19, 26, 28, 30, 32, 33, 34],
+  'RTW CMT shirts':               [N, N, N, N, N, 7, 9, N, N, N, N, N, N, 13, 17, 19, 21, 26, 28, 29, 30, 32, 33, 34],
+  'RTW FOB shirts':               [N, 7, N, 14, 14, 7, 14, N, N, N, N, N, N, 18, 22, 26, 28, 33, 35, 36, 39, 41, 42, 47],
+  'Bottoms / Knitwear / Jackets': [N, 7, N, 14, 21, 7, 14, 21, 23, N, N, N, N, 27, 31, 35, 37, 49, 51, 52, 55, 57, 58, 63],
+  'Flat Knits (T-shirts)':        [7, N, 22, N, 12, 3, 5, N, N, 24, 31, 32, 35, N, N, N, N, N, 38, 39, 41, 43, 44, 45],
+  'Flat Knits (Shirts)':          [7, N, 22, N, 12, 3, 5, N, N, 24, 38, 39, 46, N, N, N, N, N, 49, 50, 52, 54, 56, 57],
+  'Jeans':                        [N, 7, N, 14, 21, 10, 17, 24, 26, N, N, N, N, 28, 35, 39, 41, 54, 61, 62, 68, 70, 72, 77],
+  'Kurta':                        [N, N, N, N, N, 7, 9, N, N, N, N, N, N, 13, 17, 19, 21, 26, 28, 29, 30, 32, 33, 34],
 };
 
 /* Who owns each milestone: material is sourcing's, approvals are design's,
    the floor is production's. */
 export const MILESTONE_OWNER: Record<string, RoleId> = {
   'Yarn PO':'sourcing', 'Fabric PO':'sourcing', 'Yarn ETA':'sourcing', 'Fabric ETA':'sourcing', 'Trims ETA':'sourcing',
-  'PPS Submission':'production', 'PPS Approval':'production', 'Size Set Sub':'production', 'Size Set Appvl':'production',   // the production unit approves samples; design is consulted on the thread
+  'PPS Submission':'production', 'PPS Approval':'qc', 'Size Set Sub':'production', 'Size Set Appvl':'qc',   // QC approves the PP sample and the size set against the tech pack (14 Nov 2026)
+  'Initial Inspection':'qc', 'Mid-line Inspection':'qc', 'FI':'qc',
 };
+/* the five points where QC steps in on a PO, and the TNA block each one closes when it passes */
+export const QC_POINTS = [
+  { key:'pps',     label:'PP sample',            after:'PPS Submission', closes:'PPS Approval',     hint:'the pre-production sample against the tech pack and the sizes' },
+  { key:'size-set', label:'Size set',             after:'Size Set Sub',   closes:'Size Set Appvl',   hint:'one of every size, measured' },
+  { key:'initial', label:'Initial inspection',   after:'Stitching Start', closes:'Initial Inspection', hint:'on the line once stitching starts' },
+  { key:'midline', label:'Mid-line inspection',  after:'Finishing Start', closes:'Mid-line Inspection', hint:'once finishing starts' },
+  { key:'final',   label:'Final inspection',     after:'Finishing End',  closes:'FI',               hint:'finished goods before dispatch' },
+] as const;
+/* 14 Nov 2026: the five parts of an RTW requirement; nothing goes to Production RTW until every one is filled */
+export const TECH_PACK_ITEMS = [
+  { key:'sketch', label:'Sketch' }, { key:'styling', label:'Styling detail' }, { key:'stitching', label:'Stitching detail · dimensions' },
+  { key:'fabricColours', label:'Fabric colours' }, { key:'specSheet', label:'Spec sheet' }, { key:'howToMeasure', label:'How to measure' },
+  { key:'folding', label:'Folding method' }, { key:'trimCard', label:'Trim card' }, { key:'labelImage', label:'Label image' },
+  { key:'tagImage', label:'Tag image' }, { key:'barcoding', label:'Barcoding info' }, { key:'packaging', label:'Packaging' },
+] as const;
+/* where the factory delivers: nothing to hem → the 3PL warehouse; hemming or semi-stitching → the in-house unit at Vasai (logic to confirm with BSC) */
+export const DELIVERY_LOCATIONS = { plain: '3PL warehouse', hem: 'Vasai · in-house' } as const;
 export const PRE_PRODUCTION = new Set(['Yarn PO', 'Fabric PO', 'Yarn ETA', 'Fabric ETA', 'Trims ETA', 'PPS Submission', 'PPS Approval', 'Size Set Sub', 'Size Set Appvl']);
+export const QC_MILESTONES = new Set(['PPS Approval', 'Size Set Appvl', 'Initial Inspection', 'Mid-line Inspection', 'FI']);
 
 /* Config sheet → Risk Thresholds. Buffer = days between the currently
    expected inhouse date and the Target Inhouse Date. */

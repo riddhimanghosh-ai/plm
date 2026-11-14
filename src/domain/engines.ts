@@ -42,7 +42,7 @@ export function autoPlanLogicOf(cfg: TrackerConfig = ACTIVE) {
 
 /* ---------- RTW production: build the TNA from the real template -------- */
 export function buildMilestones(category: GarmentCategory, poDate: string | Date): Milestone[] {
-  const off = ACTIVE.offsets[category] ?? OFFSETS[category];
+  const cfg = ACTIVE.offsets[category]; const off = cfg && cfg.length === MILESTONES.length ? cfg : OFFSETS[category];   // a saved config from before the inspection blocks falls back to the template
   return (MILESTONES as readonly string[])
     .map((key, i) => ({ key, offset: off[i] }))
     .filter((m): m is { key: string; offset: number } => m.offset !== null)

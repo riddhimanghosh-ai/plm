@@ -23,6 +23,7 @@ import { SheetView } from './OrderSheet';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
 import { MTM_ONLY, RTW_ONLY } from '../domain/edition';
+import { MerchandiserDesk, merchandiserItemsOf } from './MerchandiserDesk';
 
 const STAGE_TONE: Record<string, Tone> = { 'in-transit':'info', 'in-factory':'info', 'out-factory':'good', rts:'good' };
 const stageLabel = (id: string) => MTM_STAGES.find(s => s.id === id)?.label ?? id;
@@ -43,12 +44,15 @@ export function Factory() {
   const xf = (db.extraFabric ?? []).filter(r => r.factoryId === v.id);
   const openOrder = (db.customerOrders ?? []).find(o => o.id === params.get('open')) ?? null;
   const rtw = db.orders.filter(o => o.vendorId === v.id && o.status === 'Open').sort((a, b) => a.targetInhouse.localeCompare(b.targetInhouse));
-  const rtwTab = tab === 'in' || tab === 'fabric' ? 'in' : tab === 'tna' ? 'tna' : 'po';
+  const rtwTab = tab === 'in' || tab === 'fabric' ? 'in' : tab === 'tna' ? 'tna' : tab === 'po' || tab === 'rtw-done' ? 'po' : 'desk';
+  /* the merchandiser is a regional head over several factories: the follow-ups span every PO and cost query on their floors */
+  const regional = db.orders.filter(o => o.status !== 'Cancelled' && o.status !== 'Closed');
+  const owed = merchandiserItemsOf(regional).filter(i => i.tone !== 'good').length;
   const rtwDone = db.orders.filter(o => o.vendorId === v.id && o.status === 'Closed').sort((a, b) => (b.poDate ?? '').localeCompare(a.poDate ?? ''));
   /* two different jobs on one floor: customer shirts by the piece, and bulk POs by the hundred */
   const side: 'mtm' | 'rtw' = MTM_ONLY ? 'mtm' : RTW_ONLY ? 'rtw' : ((sideParam as 'mtm' | 'rtw' | null) ?? (v.mtm ? 'mtm' : 'rtw'));
   const setSide = (k: string) => { const n = new URLSearchParams(params); n.set('side', k); n.delete('tab'); n.delete('open'); setParams(n, { replace:true }); };
-  const openRtw = [...rtw, ...rtwDone].find(o => o.id === params.get('open')) ?? null;
+  const openRtw = [...rtw, ...rtwDone, ...regional].find(o => o.id === params.get('open')) ?? null;
   const keyed = (db.factoryOutputs ?? []).filter(f => f.factoryId === v.id).sort((a, b) => b.date.localeCompare(a.date));
 
   return (
@@ -76,6 +80,7 @@ export function Factory() {
       {side === 'rtw' && <>
         {/* three tabs, in the order the work arrives: the PO, the cloth and trims, the making */}
         <Tabs active={rtwTab} onChange={t => set('tab', t)} tabs={[
+          { id:'desk', label:'Follow-ups · what the factories owe', count: owed || undefined, hint:'cost replies past their deadline, TNA forms not returned, late steps, QC fails — across every factory you look after' },
           { id:'po', label:'POs for us', count: rtw.length, hint:'every PO design has raised to this factory, with what was ordered' },
           { id:'in', label:'Cloth & material incoming', count: rtw.filter(o => (o.fabricSupply?.sentToFactoryOn && !o.fabricSupply.receipt) || (o.materials ?? []).some(m => !m.receivedOn && o.bom[m.bomIndex]?.kind !== 'fabric') || fabricStateOf(o).key === 'short').length || undefined, hint:'what is on its way, count it in, ask when short' },
           { id:'tna', label:'In the factory · TNA', count: rtw.reduce((a, o) => a + o.milestones.filter(m => !m.actual && new Date(m.revised ?? m.plan) < new Date()).length, 0) || undefined, hint:'log each step as it happens' },
@@ -84,6 +89,7 @@ export function Factory() {
           {tab === 'rtw-done' ? <RtwTab rows={rtwDone} onOpen={id => set('open', id)} done /> : <RtwTab rows={rtw} onOpen={id => set('open', id)} />}
           <div className="pt-2 text-[12.5px]"><button className="vlink" onClick={() => set('tab', tab === 'rtw-done' ? 'po' : 'rtw-done')}>{tab === 'rtw-done' ? `← back to the ${rtw.length} open PO${rtw.length === 1 ? '' : 's'}` : `Delivered POs · ${rtwDone.length} →`}</button></div>
         </>}
+        {rtwTab === 'desk' && <MerchandiserDesk orders={regional} factoryName={id => db.vendors.find(v => v.id === id)?.name ?? '—'} onOpen={(id, step) => { const n = new URLSearchParams(params); n.set('open', id); n.set('step', step); setParams(n, { replace:true }); }} />}
         {rtwTab === 'in' && <IncomingTab rows={rtw} onOpen={id => set('open', id)} />}
         {rtwTab === 'tna' && <TnaTab rows={rtw} mine={mine} onOpen={id => set('open', id)} />}
       </>}
@@ -91,11 +97,11 @@ export function Factory() {
       <Drawer open={!!openOrder} onClose={() => set('open', null)} title={openOrder?.orderNo ?? ''} subtitle={openOrder && <><Pill tone={STAGE_TONE[openOrder.stage] ?? 'neutral'}>{stageLabel(openOrder.stage)}</Pill><span>{openOrder.customer} · {store(openOrder.storeId)}</span></>}>
         {openOrder && <OrderPanel o={openOrder} mine={mine} />}
       </Drawer>
-      <Drawer open={!!openRtw} onClose={() => set('open', null)} title={openRtw?.poNo ?? ''} subtitle={openRtw && (() => { const cr = fabricStateOf(openRtw).cr; const k = cr?.kind === 'cut-short' ? 'cut-short' : 'cut ratio';
+      <Drawer open={!!openRtw} onClose={() => { const n = new URLSearchParams(params); n.delete('open'); n.delete('step'); setParams(n, { replace:true }); }} title={openRtw?.poNo ?? openRtw?.styleName ?? ''} subtitle={openRtw && (() => { const cr = fabricStateOf(openRtw).cr; const k = cr?.kind === 'cut-short' ? 'cut-short' : 'cut ratio';
         return <>{openRtw.styleName} · {openRtw.orderQty} pcs · in-house by {fmtDate(openRtw.targetInhouse)}
           {cr?.given && <span className="ml-2"><Pill tone={cr.sentToFactoryOn ? 'good' : 'warn'}>{cr.sentToFactoryOn ? `${k} changed · cut ${cr.given.breakup.reduce((a, x) => a + x.qty, 0)} pcs` : `new ${k} given · coming`}</Pill></span>}
           {cr && !cr.given && <span className="ml-2"><Pill tone="risk">{k} with design</Pill></span>}</>; })()}>
-        {openRtw && <RtwRequirement key={openRtw.id} o={openRtw} initial={rtwTab === 'in' ? 'cloth' : rtwTab === 'tna' ? 'tna' : undefined /* POs for us: open at the step the order is on */} />}
+        {openRtw && <RtwRequirement key={openRtw.id} o={openRtw} initial={params.get('step') ?? (rtwTab === 'in' ? 'tna' : rtwTab === 'tna' ? 'tna' : undefined) /* POs for us: open at the step the order is on */} />}
       </Drawer>
     </Page>
   );

@@ -8,7 +8,7 @@
    Tracker itself.
    ========================================================================== */
 
-export type RoleId = 'owner' | 'design' | 'planning' | 'sourcing' | 'production' | 'warehouse' | 'store' | 'finance' | 'merchandiser' | 'cad' | 'cutting' | 'fusing' | 'compiling';   // the four pre-production desks: each person signs in, a team shares one desk
+export type RoleId = 'owner' | 'design' | 'planning' | 'sourcing' | 'production' | 'warehouse' | 'store' | 'finance' | 'merchandiser' | 'qc' | 'cad' | 'cutting' | 'fusing' | 'compiling';   // qc (14 Nov 2026): PP sample, size set and the line inspections   // the four pre-production desks: each person signs in, a team shares one desk
 
 export interface Person { id: string; name: string; role: RoleId; title: string }
 
@@ -25,6 +25,9 @@ export interface Vendor {
   onTimeRate: number;            // 0..1
   moq: number;
   blockWindowDays: number;       // how long a mill holds a block (fabric vendors only)
+  /* 14 Nov 2026: the factory database Nitin picks from — what each factory specialises in, and where the cost query goes */
+  specialising?: GarmentCategory[];
+  email?: string | null;
   /* Enigma's Vendor Information block on the fabric master, kept once per mill (20 Oct 2026) */
   enigma?: { vendorCode: string | null; country: string | null; description: string | null; currency: 'INR' | 'USD' | 'EUR'; tatHours: number | null;
     /* Enigma's vendor master (its /vendor list): type, address, office phone and email, active, categories */
@@ -200,6 +203,27 @@ export interface QcAudit {
 export type SourcingMode = 'bsc-buys' | 'fob-nominated' | 'vendor-sources';
 export interface FobNomination { supplierVendorId: string; emailedOn: string | null; by: string | null; note: string }
 
+/* ---------- 14 Nov 2026: the RTW chain as BSC set it ----------------------
+   Category fills a five-part requirement (tech pack, fabric info, trim card, size break-up, BOM) and nothing moves
+   until all five are in. Nitin sends a cost query to factories from the factory database; a reply becomes the PO,
+   mailed with the delivery location; the factory returns the TNA's planned dates; QC passes or fails the PP sample,
+   the size set and three line inspections; after dispatch the merchandiser uploads the invoice and packing list,
+   which go to Prince at the warehouse. */
+export type TechPackKey = 'sketch' | 'styling' | 'stitching' | 'fabricColours' | 'specSheet' | 'howToMeasure' | 'folding' | 'trimCard' | 'labelImage' | 'tagImage' | 'barcoding' | 'packaging';
+export interface RequirementPack {
+  techPack: Partial<Record<TechPackKey, string>>;   // a file name or a note against each item
+  fabric: { description: string | null; content: string | null; image: string | null; swatchAnalyser: string | null; cpm: number | null; widthIn: number | null;
+    /* sourcing's part: the vendor it chose for the cloth, its code, what is blocked, and when it is ready */
+    vendorId: string | null; vendorFabricCode: string | null; blockedMetres: number | null; readiness: 'available' | 'date' | null; readyOn: string | null };
+  trimCard: string | null;
+  sentOn: string | null; sentBy: string | null;   // sent to Production RTW once the five parts are complete
+}
+export interface CostReply { vendorId: string; cost: number; fabricBy: 'bsc' | 'factory'; leadDays: number; repliedOn: string; note: string | null }
+export interface CostQuery { sentOn: string; by: string; deadline: string; to: string[]; cc: string[]; factoryIds: string[]; replies: CostReply[] }
+export type QcPoint = 'pps' | 'size-set' | 'initial' | 'midline' | 'final';
+export interface QcCheck { point: QcPoint; on: string; by: string; result: 'pass' | 'fail'; remarks: string }
+export type DeliveryLocation = '3PL warehouse' | 'Vasai · in-house';
+
 export type SampleStage = 'prototype' | 'sample' | 'trial';   // prototype · sampling cycle · trial cycle
 export interface SampleCycleRound { n: number; kind: SampleStage; sentOn: string | null; dueOn: string | null; sampledOn: string | null; trialOn: string | null; outcome: 'approved' | 'remarks' | null; remarks: string | null; cadUpdatedOn: string | null }
 export interface ProductionOrder {
@@ -276,6 +300,13 @@ export interface ProductionOrder {
   qc?: { inspectedOn: string; result: 'pass' | 'rework' | 'reject'; note: string | null; by: string }[] | null;
   shipping?: { awbNo: string | null; awbOn: string | null; courier: string | null; pickedOn: string | null; shippedOn: string | null; deliveredOn: string | null; closedOn: string | null; shippingCost: number | null } | null;
   cogsClosedOn?: string | null;
+  /* 14 Nov 2026 */
+  pack?: RequirementPack | null;
+  costQuery?: CostQuery | null;
+  poMail?: { on: string; to: string[]; cc: string[]; deliveryLocation: DeliveryLocation; needsHemming: boolean; fabricBy: 'bsc' | 'factory'; clothVendorSent: boolean } | null;
+  tnaPlan?: { sentOn: string; submittedOn: string | null; by: string | null } | null;   // the TNA form: planned dates from the factory, via the merchandiser
+  qcChecks?: QcCheck[] | null;
+  invoice?: { no: string; amount: number; uploadedOn: string; by: string; file: string | null; packingList: { size: string; qty: number }[]; mailedOn: string | null; mailedTo: string[] } | null;
   costingClosure: { plan: string | null; revised: string | null; actual: string | null };   // target · revised plan · actual, as the sheet has it
 
   /* — Production Unit writes these — */
