@@ -100,7 +100,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
       <div className="rtw-panel" id={`rtw-step-${o.id}`}>
         {(() => { const i = journey.findIndex(x => x.key === open); const x = journey[i]; if (!x) return null;
           return <div className="rtw-panel-head"><div className="flex items-start justify-between gap-3 flex-wrap"><div><div className="cap">Step {i + 1} of {journey.length} · {x.who}</div><h2>{x.label}</h2></div>
-            <div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div></div><p>{RTW_INTRO[x.key]}</p></div>; })()}
+            <div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div></div>{x.key !== 'tna' && <p>{RTW_INTRO[x.key]}</p>}</div>; })()}
         <div className={view === 'blocks' ? 'rtw-blocks' : undefined}>
     {at('raised') && <Section title="The ask" collapsible={false} right={<span className="pill role-design">Category</span>}>
       {editable ? <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
@@ -132,7 +132,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
 
     {at('plan') && <div className="rtw-full"><TnaPlanSection o={o} merchant={merchant} /></div>}
 
-    {at('tna') && o.poNo && role === 'qc' && <div className="rtw-full"><QcChecksSection o={o} qc={qc} /></div>}
+    {at('tna') && o.poNo && <div className="rtw-full"><QcChecksSection o={o} qc={qc} /></div>}
     {at('tna') && <Section title="The TNA" collapsible={false} right={<Pill tone={o.status === 'Closed' ? 'neutral' : r.risk === 'on-track' ? 'good' : r.risk === 'delayed' || r.risk === 'critical' ? 'risk' : 'warn'}>{o.poNo ? (o.status === 'Closed' ? 'delivered' : `${st.stage}${r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : ''}`) : 'after the PO'}</Pill>}>
       {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Generated from the PO; the factory returns its planned dates on the TNA form, then logs each step as it happens. The merchandiser follows up.</div>
         : <>
@@ -141,7 +141,6 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
           {!onTracker && <div className="pt-2"><a className="cta" href={`#/tracker?open=${o.id}`}>Open on the RTW production tracker →</a></div>}
         </>}
     </Section>}
-    {at('tna') && o.poNo && role !== 'qc' && <div className="pt-3"><QcChecksSection o={o} qc={qc} /></div>}
     {at('cloth') && o.poNo && <div className="rtw-full"><PoFabricsSection o={o} factory={merchant} prod={prod} /></div>}
     {at('cloth') && <div className="rtw-full"><Section title={!o.poNo || o.fabricNominated ? "Cloth at the factory" : "Cloth and trims at the factory"} collapsible={false} right={<Pill tone={o.poNo ? (o.fabricNominated ? fab.tone : (o.factoryCloth?.receivedOn ? 'good' : 'info')) : 'neutral'}>{o.poNo ? (o.fabricNominated ? fab.label : (o.factoryCloth?.receivedOn ? 'cloth in at the factory' : 'factory buying the cloth')) : 'after the PO'}</Pill>}>
       {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Decided by Nitin before the PO: BSC sends the cloth and trims (sourcing ships them, the factory counts them in), or the factory buys it — from BSC's vendor on the details in the PO, or its own — and gives back its fabric PO and receipt. Less or more than the PO needs comes back to category for a new cut ratio.</div>
