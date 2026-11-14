@@ -586,3 +586,9 @@ h1::after { background: var(--accent); }
 .tna-qc[data-qc="pass"] { border-style: solid !important; border-color: var(--good) !important; background: color-mix(in srgb, var(--good) 6%, #fff) !important; }
 .tna-qc[data-qc="fail"] { border-style: solid !important; border-color: var(--risk) !important; background: color-mix(in srgb, var(--risk) 7%, #fff) !important; }
 .tna-qc[data-qc="due"] { background: var(--role-qc-soft) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--role-qc) 20%, transparent); }
+
+/* 15 Nov 2026: a file picker that reads as a button; the chosen file's name takes its place */
+.file-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px dashed var(--line); border-radius: 8px; background: var(--surface); font-size: 12px; color: var(--ink-soft); cursor: pointer; white-space: nowrap; max-width: 100%; }
+.file-btn input { display: none; }
+.file-btn .file-on { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.file-btn:hover { border-color: var(--accent); color: var(--ink); }

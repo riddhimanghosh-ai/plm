@@ -224,7 +224,7 @@ export interface AppState {
   shipStep(orderId: string, step: 'awb' | 'picked' | 'shipped' | 'delivered' | 'closed', value?: { awbNo?: string; courier?: string; shippingCost?: number | null }): void;
   closeCogs(orderId: string): void;   // not needed for this PO, or needed after all
   /* 14 Nov 2026: the chain as BSC set it */
-  updatePack(orderId: string, patch: { techPack?: Partial<Record<TechPackKey, string>>; fabric?: Partial<RequirementPack['fabric']>; trimCard?: string | null }): void;   // category, and sourcing for its four fabric fields
+  updatePack(orderId: string, patch: { techPack?: Partial<Record<TechPackKey, string>>; fabric?: Partial<RequirementPack['fabric']>; trimCard?: string | null; trimLines?: RequirementPack['trimLines']; colours?: string[]; brief?: string | null }): void;   // category, and sourcing for its four fabric fields
   sendPack(orderId: string): void;                                   // category: to Production RTW, only when the five parts are complete
   sendCostQuery(orderId: string, factoryIds: string[], deadline: string, mail?: MailDraft | null): void;   // Nitin: mails the factories, copies the merchandiser; the mail as edited before sending
   replyCostQuery(orderId: string, vendorId: string, reply: Omit<CostReply, 'vendorId' | 'repliedOn'>): void;   // the factory's reply on the form (logged here in the prototype)
@@ -1367,6 +1367,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     updatePack(orderId, patch) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; const p = o.pack ?? JSON.parse(JSON.stringify(EMPTY_PACK)) as RequirementPack;
         if (patch.techPack) p.techPack = { ...p.techPack, ...patch.techPack }; if (patch.fabric) p.fabric = { ...p.fabric, ...patch.fabric }; if (patch.trimCard !== undefined) p.trimCard = patch.trimCard;
+        if (patch.trimLines) p.trimLines = patch.trimLines; if (patch.colours) p.colours = patch.colours; if (patch.brief !== undefined) p.brief = patch.brief;
         if (patch.fabric?.vendorId !== undefined) o.fabricVendorId = patch.fabric.vendorId; if (patch.fabric?.vendorFabricCode !== undefined) o.vendorFabricCode = patch.fabric.vendorFabricCode;
         if (patch.fabric?.blockedMetres !== undefined) o.fabricBlocked = patch.fabric.blockedMetres; if (patch.fabric?.cpm !== undefined) o.costing.cpm = patch.fabric.cpm;
         o.pack = p; });

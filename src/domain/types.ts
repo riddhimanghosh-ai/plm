@@ -212,11 +212,14 @@ export interface FobNomination { supplierVendorId: string; emailedOn: string | n
 export type TechPackKey = 'sketch' | 'styling' | 'stitching' | 'fabricColours' | 'specSheet' | 'howToMeasure' | 'folding' | 'trimCard' | 'labelImage' | 'tagImage' | 'barcoding' | 'packaging';
 export interface RequirementPack {
   techPack: Partial<Record<TechPackKey, string>>;   // a file name or a note against each item
-  fabric: { description: string | null; content: string | null; image: string | null; swatchAnalyser: string | null; cpm: number | null; widthIn: number | null;
+  fabric: { description: string | null; content: string | null; image: string | null; swatchAnalyser: string | null; cpm: number | null; widthIn: number | null; rate?: number | null;   // image: a photo of the physical cloth, not the CAD; rate: the vendor's fabric rate beside the CPM
     /* sourcing's part: the vendor it chose for the cloth, its code, what is blocked, and when it is ready */
     vendorId: string | null; vendorFabricCode: string | null; blockedMetres: number | null; readiness: 'available' | 'date' | null; readyOn: string | null;
     trimVendorId?: string | null; yarnVendorId?: string | null };   // sourcing also names the trim vendor, and the yarn vendor for knits
-  trimCard: string | null;
+  trimCard: string | null;                                   // the trim card file
+  trimLines?: { colour: string; item: string; supplierCode: string | null; image: string | null }[];   // colour-wise trim references; a nominated supplier's item code and reference image
+  colours?: string[];                                        // the colour options the style is asked in
+  brief?: string | null;                                     // what category has in mind, in its own words — phase 2: the tech pack, trim card and BOM drafted from it
   sentOn: string | null; sentBy: string | null;   // sent to Production RTW once the five parts are complete
 }
 /* how the cloth reaches the factory: BSC sends it; the factory buys it from BSC's vendor on the details BSC gives; or the factory's own cloth */

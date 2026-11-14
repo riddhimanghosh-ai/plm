@@ -4,8 +4,8 @@
 import { useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
-import { GARMENT_CATEGORIES, SUB_CATEGORIES, SIZE_SETS } from '../domain/reference';
-import type { GarmentCategory, ProductionOrder } from '../domain/types';
+import { GARMENT_CATEGORIES, SUB_CATEGORIES, SIZE_SETS, TECH_PACK_ITEMS } from '../domain/reference';
+import type { GarmentCategory, ProductionOrder, TechPackKey } from '../domain/types';
 import { fmtDate, fmtMoney, daysAgo, TODAY, addDays, iso } from '../domain/engines';
 import { Page, Card, Pill, Field, Input, Select, Button, Drawer, KV, Section, Note, Seg, dateInput, fromDateInput, useExamples } from '../ui';
 import { FabricBriefSection } from './Sourcing';
@@ -242,84 +242,146 @@ export function RequirementDetail({ o, editable, editableAlloc }: { o: Productio
 }
 
 export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) => void; initialMode?: SourcingMode | null }) {
-  const { db, createRequirement, setSourcingMode } = useApp();
+  const { db, createRequirement, setSourcingMode, updatePack, attachFiles } = useApp();
   const [category, setCategory] = useState<GarmentCategory>('RTW CMT shirts');
   const [mode, setMode] = useState<SourcingMode>(initialMode ?? 'bsc-buys');
-  const [fobSupplier, setFobSupplier] = useState('');
-  const mills = db.vendors.filter(v => v.kind.endsWith('mill'));
   const [sub, setSub] = useState(SUB_CATEGORIES['RTW CMT shirts'][0]);
   const [style, setStyle] = useState('');
+  const [colours, setColours] = useState('');
   const [qty, setQty] = useState('300');
   const [target, setTarget] = useState(dateInput(iso(addDays(TODAY, 60))));
   const [cost, setCost] = useState('450'); const [semi, setSemi] = useState(false);
+  const [brief, setBrief] = useState('');
   const nominated = mode === 'bsc-buys';
-  const [look, setLook] = useState(''); const [comp, setComp] = useState('100% cotton'); const [colour, setColour] = useState(''); const [refId, setRefId] = useState(''); const [notes, setNotes] = useState('');
+  /* fabric information — category's part; sourcing adds the vendor, code, blocked quantity and readiness on the record */
+  const [fab, setFab] = useState({ description: '', content: '100% cotton', swatchAnalyser: '', cpm: '', rate: '', widthIn: '58' });
+  const [fabPhoto, setFabPhoto] = useState<File | null>(null);
+  /* tech pack — a file (pdf, doc or image) or a note per item */
+  const [tp, setTp] = useState<Partial<Record<TechPackKey, string>>>({});
+  const [tpFiles, setTpFiles] = useState<Partial<Record<TechPackKey, File>>>({});
+  /* trim card — the file, and colour-wise trim references */
+  const [trimFile, setTrimFile] = useState<File | null>(null); const [trimName, setTrimName] = useState('');
+  const [trimLines, setTrimLines] = useState<{ colour: string; item: string; supplierCode: string; image: string }[]>([]);
+  const [tl, setTl] = useState({ colour: '', item: '', supplierCode: '', image: '' });
   const sizes = SIZE_SETS[category];
   const mid = (sizes.length - 1) / 2; const w = sizes.map((_, i) => 1 / (1 + Math.abs(i - mid))); const sum = w.reduce((a, b) => a + b, 0);
   const spread = sizes.map((size, i) => ({ size, qty: Math.max(1, Math.round((w[i] / sum) * Number(qty || 0))) }));
-  /* the curve starts as a spread over the category's usual sizes; any of the sheet's twenty sizes can be typed over it */
   const [typed, setTyped] = useState<Record<string, number> | null>(null);
-  /* the BOM is built here, line by line from the trims master — not attached as a file */
   const [bom, setBom] = useState<BomLine[]>(() => defaultBom('RTW CMT shirts', 'new style', true).map(l => l.kind === 'trim' && l.qtyPerPc == null ? { ...l, qtyPerPc: l.item === 'Button' ? 12 : 1 } : l));
   const curve = typed ? Object.entries(typed).filter(([, n]) => n > 0).map(([size, q]) => ({ size, qty: q })) : spread;
+  const pcs = typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty) || 0;
 
-  /* the form's parts side by side (Blocks) or one under the other (Stacked); Blocks by default, the choice remembered */
   const [view, setView] = useState<'stacked' | 'blocks' | 'tabs'>(() => { try { const v = localStorage.getItem('rtw-new-view'); return v === 'stacked' || v === 'blocks' ? v : 'tabs'; } catch { return 'tabs'; } });
   const pickView = (v: 'stacked' | 'blocks' | 'tabs') => { setView(v); try { localStorage.setItem('rtw-new-view', v); } catch { /* storage off */ } };
-  /* Tabs: one part at a time, a strip across the top; the strip marks what is still empty */
-  const PARTS = [{ k:'what', label:'What', ok: !!style.trim() }, { k:'qty', label:'How many · when · cost', ok: !!Number(qty) }, ...(mode !== 'vendor-sources' ? [{ k:'fabric', label:'Fabric brief', ok: !!look.trim() }] : []), { k:'sizes', label:'Size break-up', ok: true }, { k:'bom', label:'Bill of materials', ok: bom.length > 0 }];
-  const [tab, setTab] = useState('what');
+  const tpDone = TECH_PACK_ITEMS.filter(it => (tp[it.key] ?? '').trim() || tpFiles[it.key]).length;
+  const PARTS = [
+    { k:'ask', label:'Style and production ask', ok: !!style.trim() && !!Number(qty) },
+    { k:'fabric', label:'Fabric information', ok: !!fab.description.trim() && !!fab.cpm && !!(fabPhoto || fab.swatchAnalyser) },
+    { k:'tech', label:'Tech pack', ok: tpDone === TECH_PACK_ITEMS.length, n: `${tpDone}/${TECH_PACK_ITEMS.length}` },
+    { k:'trim', label:'Trim card', ok: !!(trimFile || trimName.trim()) },
+    { k:'bom', label:'BOM / consumption', ok: bom.length > 0 },
+    { k:'delivery', label:'Delivery instruction', ok: true },
+  ];
+  const [tab, setTab] = useState('ask');
   const show = (k: string) => view !== 'tabs' || tab === k;
   const tabIndex = PARTS.findIndex(x => x.k === tab);
+  const fileBtn = (label: string, file: File | null | undefined, onFile: (f: File | null) => void) => <label className="file-btn"><input type="file" accept=".pdf,.doc,.docx,image/*" onChange={e => onFile(e.target.files?.[0] ?? null)} />{file ? <span className="file-on">📎 {file.name}</span> : <span>{label}</span>}</label>;
+  const faint = { color:'var(--ink-faint)' } as const;
+
+  const create = async () => {
+    const id = createRequirement({
+      category, subCategory: sub, styleName: style.trim(), program: null, launchMonth: null, fit: category.includes('hirt') ? 'Tailored Fit' : null,
+      orderQty: pcs, sizeBreakup: curve, targetInhouse: fromDateInput(target)!, targetCost: Number(cost), styleHandover: iso(TODAY), fabricNominated: nominated, remarks: '', semiStitched: semi,
+      fabricBrief: { look: fab.description.trim() || style.trim(), composition: fab.content.trim() || null, colour: colours.split(/[,;]/)[0]?.trim() || null, weightGsm: null, referenceFabricId: null, notes: brief.trim() },
+      bom: bom.map(l => l.kind === 'fabric' ? { ...l, item: (fab.description.trim() || style.trim()) } : l).filter(l => l.item.trim()),
+    });
+    const techPack: Partial<Record<TechPackKey, string>> = {}; TECH_PACK_ITEMS.forEach(it => { const f = tpFiles[it.key]; const v = f ? f.name : (tp[it.key] ?? '').trim(); if (v) techPack[it.key] = v; });
+    updatePack(id, { techPack, fabric: { description: fab.description.trim() || null, content: fab.content.trim() || null, image: fabPhoto?.name ?? null, swatchAnalyser: fab.swatchAnalyser.trim() || null, cpm: fab.cpm === '' ? null : Number(fab.cpm), rate: fab.rate === '' ? null : Number(fab.rate), widthIn: fab.widthIn === '' ? null : Number(fab.widthIn) },
+      trimCard: trimFile?.name ?? (trimName.trim() || null), trimLines: trimLines.map(x => ({ colour: x.colour, item: x.item, supplierCode: x.supplierCode || null, image: x.image || null })), colours: colours.split(/[,;]/).map(x => x.trim()).filter(Boolean), brief: brief.trim() || null });
+    /* the files ride on the record under the label of the part they belong to */
+    const jobs: Promise<void>[] = [];
+    TECH_PACK_ITEMS.forEach(it => { const f = tpFiles[it.key]; if (f) jobs.push(attachFiles('order', id, 'Tech pack', it.label, [f])); });
+    if (fabPhoto) jobs.push(attachFiles('order', id, 'Fabric photo', null, [fabPhoto]));
+    if (trimFile) jobs.push(attachFiles('order', id, 'Trim card', null, [trimFile]));
+    await Promise.all(jobs);
+    if (mode !== 'bsc-buys') setSourcingMode(id, mode, null, undefined);
+    onDone(id);
+  };
+
   return <>
     <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-      {view === 'tabs' ? <div className="form-tabs" role="tablist">{PARTS.map((p, i) => <button type="button" key={p.k} role="tab" aria-selected={tab === p.k} className={tab === p.k ? 'on' : p.ok ? 'done' : ''} onClick={() => setTab(p.k)}><span className="n">{p.ok && tab !== p.k ? '✓' : i + 1}</span>{p.label}</button>)}</div> : <span />}
+      {view === 'tabs' ? <div className="form-tabs" role="tablist">{PARTS.map((p, i) => <button type="button" key={p.k} role="tab" aria-selected={tab === p.k} className={tab === p.k ? 'on' : p.ok ? 'done' : ''} onClick={() => setTab(p.k)}><span className="n">{p.ok && tab !== p.k ? '✓' : i + 1}</span>{p.label}{'n' in p && p.n ? <span className="text-[11px]" style={{ opacity:.7 }}>{p.n}</span> : null}</button>)}</div> : <span />}
       <div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'tabs' ? 'on' : ''} onClick={() => pickView('tabs')}>Tabs</button><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div>
     </div>
     <div className={`rtw-form${view === 'blocks' ? ' rtw-blocks' : ''}`}>
-    {show('what') && <Section title="What" collapsible={false}>
+    {show('ask') && <Section title="Style and production ask" collapsible={false}>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'1fr 1fr' }}>
         <Field label="Category (decides the milestone template)"><Select value={category} onChange={v => { setCategory(v as GarmentCategory); setSub(SUB_CATEGORIES[v as GarmentCategory][0]); }} options={GARMENT_CATEGORIES.map(c => ({ value:c, label:c }))} /></Field>
         <Field label="Sub-category"><Select value={sub} onChange={setSub} options={SUB_CATEGORIES[category].map(s => ({ value:s, label:s }))} /></Field>
-        <div style={{ gridColumn:'1 / -1' }}><Field label="Style / colour"><Input value={style} onChange={e => setStyle(e.target.value)} placeholder="2-Ply Egyptian Cotton White Twill Shirt" /></Field></div>
+        <Field label="Style / design"><Input value={style} onChange={e => setStyle(e.target.value)} placeholder="2-Ply Egyptian Cotton White Twill Shirt" /></Field>
+        <Field label="Colour options" hint="comma-separated; each becomes a fabric line on the PO"><Input value={colours} onChange={e => setColours(e.target.value)} placeholder="White, Navy, Ecru" /></Field>
       </div>
-    </Section>}
-    {show('qty') && <Section title="How many, by when, at what cost" collapsible={false}>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'repeat(3,1fr)' }}>
         <Field label="Order qty"><Input type="number" value={qty} onChange={e => setQty(e.target.value)} /></Field>
-        <Field label="Target inhouse date"><Input type="date" value={target} onChange={e => setTarget(e.target.value)} /></Field>
+        <Field label="Target in-house / delivery date"><Input type="date" value={target} onChange={e => setTarget(e.target.value)} /></Field>
         <Field label="Target cost / pc (₹)"><Input type="number" value={cost} onChange={e => setCost(e.target.value)} /></Field>
       </div>
-      <div className="pt-2"><label className="flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={semi} onChange={e => setSemi(e.target.checked)} /> <b>Semi-stitched product</b> — hemming in-house, so the factory delivers to Vasai; otherwise to the 3PL warehouse</label></div>
-      <div className="pt-3">
-        <div className="text-[12.5px]" style={{ color:'var(--ink-soft)' }}><b>The cloth:</b> BSC buys it for every bulk style. Sourcing puts a vendor against the brief from the day you send it; you push the fabric PO; sourcing sends the cloth straight to the factory.</div>
-      </div>
-    </Section>}
-    {mode !== 'vendor-sources' && show('fabric') && <Section title={mode === 'bsc-buys' ? 'What fabric — the brief sourcing shops against' : 'What fabric — what the vendor must buy'} collapsible={false}>
-      <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'1fr 1fr 1fr' }}>
-        <Field label="Cloth / weave" hint="the word you would say to the mill"><Input value={look} onChange={e => setLook(e.target.value)} placeholder="Oxford, 2-ply poplin, brushed twill" /></Field>
-        <Field label="Composition"><Input value={comp} onChange={e => setComp(e.target.value)} placeholder="100% cotton" /></Field>
-        <Field label="Colour"><Input value={colour} onChange={e => setColour(e.target.value)} placeholder="Ecru" /></Field>
-        <div style={{ gridColumn:'1 / -1' }}><Field label="Close to an MTM fabric we already carry?" hint="gives sourcing a mill and an article to start from"><Select value={refId} onChange={setRefId} options={[{ value:'', label:'No — new cloth' }, ...db.fabrics.filter(f => !look.trim() || `${f.name} ${f.composition ?? ''} ${f.family}`.toLowerCase().includes(look.trim().toLowerCase())).slice(0, 40).map(f => ({ value:f.id, label:`${f.name} · ${db.vendors.find(v => v.id === f.vendorId)?.name ?? ''}` }))]} /></Field></div>
-        <div style={{ gridColumn:'1 / -1' }}><Field label="Notes for sourcing"><Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="handfeel over price; must hold a crease; match last season's shade" /></Field></div>
-      </div>
-    </Section>}
-    {show('sizes') && <Section title="Order qty break-up" collapsible={false} right={typed ? <Button size="sm" variant="ghost" onClick={() => setTyped(null)}>Spread {qty || 0} over the usual sizes again</Button> : <span className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>spread over the usual sizes — type over any of them</span>}>
+      <div className="cap pt-2">Size-wise quantity · cut ratio · {pcs} pcs</div>
+      <div className="flex justify-end pb-1">{typed ? <Button size="sm" variant="ghost" onClick={() => setTyped(null)}>Spread {qty || 0} over the usual sizes again</Button> : <span className="text-[11.5px]" style={faint}>spread over the usual sizes — type over any of them</span>}</div>
       <SizeGrid breakup={curve} edit onChange={(sz, n) => setTyped(t => { const base = t ?? Object.fromEntries(spread.map(x => [x.size, x.qty])); return { ...base, [sz]: n }; })} />
+      <div className="mt-3 p-3 rounded-[8px]" style={{ background:'var(--surface-2)', border:'1px dashed var(--line)' }}>
+        <div className="flex items-center gap-2 flex-wrap"><b className="text-[13px]">Design brief</b><span className="pill">phase 2 · AI</span></div>
+        <div className="text-[12px] py-1" style={{ color:'var(--ink-soft)' }}>Write what you have in mind — the look, construction, trims, packaging. In a later phase PLM drafts the tech pack items, trim card and BOM from this and the files you attach; for now it stays on the record as notes.</div>
+        <textarea className="input" rows={3} value={brief} onChange={e => setBrief(e.target.value)} placeholder="Relaxed oxford shirt, button-down collar, single chest pocket, mother-of-pearl buttons, box-pleat back, folded in a kraft box…" style={{ fontFamily:'inherit', fontSize:12.5, lineHeight:1.4, width:'100%' }} />
+        <div className="pt-1"><Button size="sm" disabled>Draft tech pack, trim card and BOM from this →</Button><span className="text-[11px] ml-2" style={faint}>phase 2</span></div>
+      </div>
     </Section>}
-    {show('bom') && <Section title="Bill of materials — built here, from the trims master" collapsible={false}>
-      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Pick each trim and packaging line from the master so the names match stock, the trim card and the COGS sheet. Each line shows whether the unit holds enough for {typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty) || 0} pieces; what is short is what sourcing buys.</div>
-      <BomEditor lines={bom} onChange={setBom} orderQty={typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty) || 0} />
+    {show('fabric') && <Section title="Fabric information" collapsible={false}>
+      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Your part of the fabric: what it is, a photo of the physical cloth (not the CAD), the rate and width. Sourcing adds the vendor, the vendor's fabric code, the blocked quantity and readiness on the record before it can go to Production RTW.</div>
+      <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))' }}>
+        <Field label="Fabric description"><Input value={fab.description} onChange={e => setFab(x => ({ ...x, description: e.target.value }))} placeholder="Oxford, 2-ply poplin, brushed twill" /></Field>
+        <Field label="Fabric content"><Input value={fab.content} onChange={e => setFab(x => ({ ...x, content: e.target.value }))} placeholder="100% cotton" /></Field>
+        <Field label="Photo of the physical fabric"><div>{fileBtn('Attach photo (image)', fabPhoto, setFabPhoto)}</div></Field>
+        <Field label="Option / phase · swatch analyser"><Input value={fab.swatchAnalyser} onChange={e => setFab(x => ({ ...x, swatchAnalyser: e.target.value }))} placeholder="Option 2 · phase 1" /></Field>
+        <Field label="CPM (₹ / m)"><Input type="number" value={fab.cpm} onChange={e => setFab(x => ({ ...x, cpm: e.target.value }))} /></Field>
+        <Field label="Fabric rate (₹ / m, vendor's)"><Input type="number" value={fab.rate} onChange={e => setFab(x => ({ ...x, rate: e.target.value }))} /></Field>
+        <Field label="Fabric width (in)"><Input type="number" value={fab.widthIn} onChange={e => setFab(x => ({ ...x, widthIn: e.target.value }))} /></Field>
+      </div>
+      <div className="cap pt-2 flex items-center gap-2">Sourcing adds <span className="pill role-sourcing">Sreekanth</span></div>
+      <div className="text-[12px]" style={faint}>Cloth vendor · vendor fabric code · blocked quantity with the vendor · readiness (available now, or under manufacture with a supply date) · trim vendor · yarn vendor for knits</div>
+    </Section>}
+    {show('tech') && <Section title="Tech pack" collapsible={false} right={<span className="text-[11.5px]" style={faint}>{tpDone} of {TECH_PACK_ITEMS.length} · pdf, doc or image per item</span>}>
+      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Final styling and construction instructions. Attach a file against each item, or a note where a file is not needed. One file can cover several items — attach it to each.</div>
+      <div className="grid gap-x-4 gap-y-2" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))' }}>
+        {TECH_PACK_ITEMS.map(it => <Field key={it.key} label={it.label}><div className="flex gap-1.5 items-center">{fileBtn('Attach', tpFiles[it.key], f => setTpFiles(x => ({ ...x, [it.key]: f ?? undefined }))) }<Input value={tp[it.key] ?? ''} onChange={e => setTp(x => ({ ...x, [it.key]: e.target.value }))} placeholder="or a note" style={{ flex:1 }} /></div></Field>)}
+      </div>
+    </Section>}
+    {show('trim') && <Section title="Trim card" collapsible={false}>
+      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Colour-wise trim references with digital swatches: buttons, zippers, contrast fabric, main labels, tags. Where a nominated supplier's trim is used, give the supplier's item code and a reference image so the factory sources the right item.</div>
+      <div className="flex gap-2 items-center flex-wrap pb-2">{fileBtn('Attach the trim card (pdf, doc or image)', trimFile, setTrimFile)}<span className="text-[12px]" style={faint}>or</span><Input value={trimName} onChange={e => setTrimName(e.target.value)} placeholder="file name / note" style={{ width: 220 }} /></div>
+      {trimLines.length > 0 && <table className="t compact mb-2"><thead><tr><th>Colour</th><th>Trim</th><th>Supplier item code</th><th>Reference image</th><th></th></tr></thead>
+        <tbody>{trimLines.map((x, i) => <tr key={i}><td>{x.colour}</td><td>{x.item}</td><td className="mono text-[12px]">{x.supplierCode || '—'}</td><td className="text-[12px]">{x.image || '—'}</td><td><button type="button" className="vlink text-[11.5px]" onClick={() => setTrimLines(l => l.filter((_, k) => k !== i))}>remove</button></td></tr>)}</tbody></table>}
+      <div className="grid gap-2 items-end" style={{ gridTemplateColumns:'1fr 1.4fr 1fr 1fr auto' }}>
+        <Field label="Colour"><Input value={tl.colour} onChange={e => setTl(x => ({ ...x, colour: e.target.value }))} placeholder="White" /></Field>
+        <Field label="Trim"><Input value={tl.item} onChange={e => setTl(x => ({ ...x, item: e.target.value }))} placeholder="MOP button 18L" /></Field>
+        <Field label="Supplier item code"><Input value={tl.supplierCode} onChange={e => setTl(x => ({ ...x, supplierCode: e.target.value }))} placeholder="SB-18L-MOP" /></Field>
+        <Field label="Reference image"><Input value={tl.image} onChange={e => setTl(x => ({ ...x, image: e.target.value }))} placeholder="file name" /></Field>
+        <Button size="sm" disabled={!tl.colour.trim() || !tl.item.trim()} onClick={() => { setTrimLines(l => [...l, { ...tl }]); setTl({ colour:'', item:'', supplierCode:'', image:'' }); }}>Add</Button>
+      </div>
+    </Section>}
+    {show('bom') && <Section title="BOM / consumption" collapsible={false}>
+      <div className="text-[12.5px] pb-2" style={{ color:'var(--ink-soft)' }}>Materials and trims per piece, from the trims master so names match stock, the trim card and the COGS sheet. Each line shows whether the unit holds enough for {pcs} pieces; what is short is what sourcing buys. <span style={faint}>Size-dependent consumption × pieces per size: phase 2, once BSC shares the template.</span></div>
+      <BomEditor lines={bom} onChange={setBom} orderQty={pcs} />
+    </Section>}
+    {show('delivery') && <Section title="Delivery instruction" collapsible={false}>
+      <label className="flex items-center gap-2 text-[12.5px] py-1"><input type="checkbox" checked={semi} onChange={e => setSemi(e.target.checked)} /> <b>Needs hemming or semi-stitching</b></label>
+      <div className="text-[12.5px]" style={{ color:'var(--ink-soft)' }}>The PO carries the destination from this: ordinary RTW delivers to the <b>3PL warehouse</b>; products that need hemming or semi-stitching deliver to <b>Vasai</b>. <span style={faint}>Rule as discussed; still to be validated by BSC.</span></div>
+      <div className="text-[12.5px] pt-2" style={{ color:'var(--ink-soft)' }}>Delivers to: <b>{semi ? 'Vasai · in-house' : '3PL warehouse'}</b></div>
     </Section>}
     {view === 'tabs' && <div className="flex gap-2 pt-2">{tabIndex > 0 && <Button size="sm" variant="ghost" onClick={() => setTab(PARTS[tabIndex - 1].k)}>← {PARTS[tabIndex - 1].label}</Button>}{tabIndex < PARTS.length - 1 && <Button size="sm" onClick={() => setTab(PARTS[tabIndex + 1].k)}>{PARTS[tabIndex + 1].label} →</Button>}</div>}
-    <Note>Handing over starts the lead-time clock; the category picks the TNA milestone template.</Note>
+    <Note>Creating starts the lead-time clock; the category picks the TNA template. Anything left empty can be filled on the record; nothing goes to Production RTW until every part, including sourcing's, is in.</Note>
     </div>
-    <div className="flex gap-2 pt-3"><Button variant="primary" disabled={!style.trim() || !Number(qty)} onClick={() => { const id = createRequirement({
-      category, subCategory: sub, styleName: style.trim(), program: null, launchMonth: null, fit: category.includes('hirt') ? 'Tailored Fit' : null,
-      orderQty: typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty), sizeBreakup: curve, targetInhouse: fromDateInput(target)!, targetCost: Number(cost), styleHandover: iso(TODAY), fabricNominated: nominated, remarks: '', semiStitched: semi,
-      fabricBrief: mode !== 'vendor-sources' ? { look: look.trim() || style.trim(), composition: comp.trim() || null, colour: colour.trim() || null, weightGsm: null, referenceFabricId: refId || null, notes: notes.trim() } : null,
-      bom: bom.map(l => l.kind === 'fabric' ? { ...l, item: (look.trim() || style.trim()) } : l).filter(l => l.item.trim()),
-    }); if (mode !== 'bsc-buys') setSourcingMode(id, mode, null, undefined); onDone(id); }}>Create requirement</Button></div>
+    <div className="flex gap-2 pt-3 items-center"><Button variant="primary" disabled={!style.trim() || !Number(qty)} onClick={() => void create()}>Create requirement</Button><span className="text-[11.5px]" style={faint}>{PARTS.filter(p => p.ok).length} of {PARTS.length} parts filled</span></div>
   </>;
 }
 

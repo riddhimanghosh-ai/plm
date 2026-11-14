@@ -6,7 +6,7 @@ import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, Co
 import { TECH_PACK_ITEMS, QC_POINTS, DELIVERY_LOCATIONS, PEOPLE } from './reference';
 import { fmtDate, daysAgo, addDays, iso, daysBetween } from './engines';
 
-export const EMPTY_PACK: RequirementPack = { techPack: {}, fabric: { description: null, content: null, image: null, swatchAnalyser: null, cpm: null, widthIn: null, vendorId: null, vendorFabricCode: null, blockedMetres: null, readiness: null, readyOn: null }, trimCard: null, sentOn: null, sentBy: null };
+export const EMPTY_PACK: RequirementPack = { techPack: {}, fabric: { description: null, content: null, image: null, swatchAnalyser: null, cpm: null, widthIn: null, vendorId: null, vendorFabricCode: null, blockedMetres: null, readiness: null, readyOn: null }, trimCard: null, trimLines: [], colours: [], brief: null, sentOn: null, sentBy: null };
 export const packOf = (o: ProductionOrder): RequirementPack => o.pack ?? EMPTY_PACK;
 
 /* the five parts and what each still needs; the requirement goes to Production RTW only when every list is empty */
@@ -15,7 +15,7 @@ export function packReadyOf(o: ProductionOrder): { ready: boolean; parts: PackPa
   const p = packOf(o);
   const tp = TECH_PACK_ITEMS.filter(x => !p.techPack[x.key]?.trim()).map(x => x.label);
   const f = p.fabric;
-  const designFab: [string, boolean][] = [['fabric description', !!f.description], ['fabric content', !!f.content], ['fabric image', !!f.image], ['option / phase · swatch analyser', !!f.swatchAnalyser], ['CPM', f.cpm != null], ['fabric width', f.widthIn != null]];
+  const designFab: [string, boolean][] = [['fabric description', !!f.description], ['fabric content', !!f.content], ['photo of the physical fabric', !!f.image], ['option / phase · swatch analyser', !!f.swatchAnalyser], ['CPM', f.cpm != null], ['fabric width', f.widthIn != null]];
   const sourcingFab: [string, boolean][] = [['vendor (sourcing)', !!f.vendorId], ['vendor fabric code (sourcing)', !!f.vendorFabricCode], ['blocked quantity with the vendor (sourcing)', f.blockedMetres != null], ['fabric readiness (sourcing)', f.readiness === 'available' || (f.readiness === 'date' && !!f.readyOn)]];
   const fabMissing = [...designFab, ...sourcingFab].filter(x => !x[1]).map(x => x[0]);
   const sizesOk = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) > 0;
