@@ -318,6 +318,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'1fr 1fr' }}>
         <Field label="Category (decides the milestone template)"><Select value={category} onChange={v => { setCategory(v as GarmentCategory); setSub(SUB_CATEGORIES[v as GarmentCategory][0]); }} options={GARMENT_CATEGORIES.map(c => ({ value:c, label:c }))} /></Field>
         <Field label="Sub-category"><Select value={sub} onChange={setSub} options={SUB_CATEGORIES[category].map(s => ({ value:s, label:s }))} /></Field>
+        <div style={{ gridColumn:'1 / -1' }}><label className="flex items-center gap-2 text-[12.5px]"><input type="checkbox" checked={semi} onChange={e => setSemi(e.target.checked)} /> Semi-stitched product</label></div>
         <Field label="Style / design"><Input value={style} onChange={e => setStyle(e.target.value)} placeholder="2-Ply Egyptian Cotton White Twill Shirt" /></Field>
         <Field label="Colour options" hint="comma-separated; each becomes a fabric line on the PO"><Input value={colours} onChange={e => setColours(e.target.value)} placeholder="White, Navy, Ecru" /></Field>
       </div>
@@ -369,8 +370,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       <BomEditor lines={bom} onChange={setBom} orderQty={pcs} />
     </Section>}
     {show('delivery') && <Section title="Delivery instruction" collapsible={false}>
-      <label className="flex items-center gap-2 text-[12.5px] py-1"><input type="checkbox" checked={semi} onChange={e => setSemi(e.target.checked)} /> <b>Needs hemming or semi-stitching</b></label>
-      <div className="text-[12.5px] pt-2" style={{ color:'var(--ink-soft)' }}>Delivers to: <b>{semi ? 'Vasai · in-house' : '3PL warehouse'}</b></div>
+      <div className="text-[15px] font-semibold py-1">{semi ? 'Vasai · in-house' : '3PL warehouse'}</div>
     </Section>}
     {view === 'tabs' && <div className="flex gap-2 pt-2">{tabIndex > 0 && <Button size="sm" variant="ghost" onClick={() => setTab(PARTS[tabIndex - 1].k)}>← {PARTS[tabIndex - 1].label}</Button>}{tabIndex < PARTS.length - 1 && <Button size="sm" onClick={() => setTab(PARTS[tabIndex + 1].k)}>{PARTS[tabIndex + 1].label} →</Button>}</div>}
     </div>
