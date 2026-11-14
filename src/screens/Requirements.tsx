@@ -251,7 +251,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const [style, setStyle] = useState('');
   const [qty, setQty] = useState('300');
   const [target, setTarget] = useState(dateInput(iso(addDays(TODAY, 60))));
-  const [cost, setCost] = useState('450');
+  const [cost, setCost] = useState('450'); const [semi, setSemi] = useState(false);
   const nominated = mode === 'bsc-buys';
   const [look, setLook] = useState(''); const [comp, setComp] = useState('100% cotton'); const [colour, setColour] = useState(''); const [refId, setRefId] = useState(''); const [notes, setNotes] = useState('');
   const sizes = SIZE_SETS[category];
@@ -290,6 +290,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
         <Field label="Target inhouse date"><Input type="date" value={target} onChange={e => setTarget(e.target.value)} /></Field>
         <Field label="Target cost / pc (₹)"><Input type="number" value={cost} onChange={e => setCost(e.target.value)} /></Field>
       </div>
+      <div className="pt-2"><label className="flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={semi} onChange={e => setSemi(e.target.checked)} /> <b>Semi-stitched product</b> — hemming in-house, so the factory delivers to Vasai; otherwise to the 3PL warehouse</label></div>
       <div className="pt-3">
         <div className="text-[12.5px]" style={{ color:'var(--ink-soft)' }}><b>The cloth:</b> BSC buys it for every bulk style. Sourcing puts a vendor against the brief from the day you send it; you push the fabric PO; sourcing sends the cloth straight to the factory.</div>
       </div>
@@ -315,7 +316,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
     </div>
     <div className="flex gap-2 pt-3"><Button variant="primary" disabled={!style.trim() || !Number(qty)} onClick={() => { const id = createRequirement({
       category, subCategory: sub, styleName: style.trim(), program: null, launchMonth: null, fit: category.includes('hirt') ? 'Tailored Fit' : null,
-      orderQty: typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty), sizeBreakup: curve, targetInhouse: fromDateInput(target)!, targetCost: Number(cost), styleHandover: iso(TODAY), fabricNominated: nominated, remarks: '',
+      orderQty: typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty), sizeBreakup: curve, targetInhouse: fromDateInput(target)!, targetCost: Number(cost), styleHandover: iso(TODAY), fabricNominated: nominated, remarks: '', semiStitched: semi,
       fabricBrief: mode !== 'vendor-sources' ? { look: look.trim() || style.trim(), composition: comp.trim() || null, colour: colour.trim() || null, weightGsm: null, referenceFabricId: refId || null, notes: notes.trim() } : null,
       bom: bom.map(l => l.kind === 'fabric' ? { ...l, item: (look.trim() || style.trim()) } : l).filter(l => l.item.trim()),
     }); if (mode !== 'bsc-buys') setSourcingMode(id, mode, null, undefined); onDone(id); }}>Create requirement</Button></div>

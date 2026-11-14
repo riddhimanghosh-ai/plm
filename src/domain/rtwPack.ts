@@ -38,9 +38,9 @@ export function recommendFactories(db: Db, o: ProductionOrder): { fit: Vendor[];
   return { fit, others };
 }
 
-/* hemming or semi-stitching goes to the in-house unit at Vasai; everything else to the 3PL warehouse. Logic to confirm with BSC. */
+/* a semi-stitched product (hemming in-house) goes to Vasai; everything else to the 3PL warehouse. Category marks it on the requirement (BSC, 15 Nov 2026). */
 export const deliveryLocationOf = (needsHemming: boolean) => needsHemming ? DELIVERY_LOCATIONS.hem : DELIVERY_LOCATIONS.plain;
-export const needsHemmingOf = (o: ProductionOrder) => /trouser|chino|jean|bottom|pant/i.test(`${o.category} ${o.subCategory}`);
+export const needsHemmingOf = (o: ProductionOrder) => o.semiStitched ?? false;   // set by category on the requirement
 
 /* the QC points on a PO: due once the TNA block before it is logged, closed when QC passes it */
 export type QcPointState = { key: QcPoint; label: string; hint: string; closes: string; due: string | null; sinceDays: number | null; last: QcCheck | null; state: 'later' | 'due' | 'failed' | 'passed' | 'na' };

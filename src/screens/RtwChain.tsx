@@ -107,7 +107,6 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
   const [deadline, setDeadline] = useState(dateInput(new Date(Date.now() + 5 * 864e5).toISOString()));
   const [extra, setExtra] = useState('');
   const [replyFor, setReplyFor] = useState<string | null>(null); const [cost, setCost] = useState(String(o.targetCost)); const [lead, setLead] = useState('36'); const [fabBy, setFabBy] = useState<FabricBy>('bsc-vendor'); const [note, setNote] = useState('');
-  const [hem, setHem] = useState(needsHemmingOf(o));
   const sent = o.status !== 'Requirement';
   const toggle = (id: string) => setPicked(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const nameOf = (id: string) => db.vendors.find(v => v.id === id)?.name ?? id;
@@ -146,7 +145,7 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
           <td className="text-[12px]">{r ? FABRIC_BY_LABEL[r.fabricBy] : '—'}</td>
           <td style={{ whiteSpace: 'nowrap' }}>{chosen ? <Pill tone="good">PO {o.poNo}</Pill>
             : o.poNo ? null
-            : r ? (prod ? <Button size="sm" variant="primary" onClick={() => raisePoOnReply(o.id, id, hem)}>Raise PO on this</Button> : null)
+            : r ? (prod ? <Button size="sm" variant="primary" onClick={() => raisePoOnReply(o.id, id)}>Raise PO on this</Button> : null)
             : (prod || merchant) ? <button type="button" className="vlink text-[11.5px]" onClick={() => setReplyFor(replyFor === id ? null : id)}>log the reply</button> : null}</td>
         </tr>; })}</tbody>
     </table></div>
@@ -158,7 +157,7 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
       <div style={{ flex: '1 1 180px' }}><Field label="Note"><Input value={note} onChange={e => setNote(e.target.value)} /></Field></div>
       <Button size="sm" variant="primary" onClick={() => { replyCostQuery(o.id, replyFor, { cost: Number(cost), leadDays: Number(lead), fabricBy: fabBy, note: note.trim() || null }); setReplyFor(null); setNote(''); }}>Log reply</Button>
     </div>}
-    {!o.poNo && cq.replies.length > 0 && prod && <div className="pt-2 flex items-center gap-2 text-[12.5px]"><label className="flex items-center gap-1.5"><input type="checkbox" checked={hem} onChange={e => setHem(e.target.checked)} /> needs hemming or semi-stitching in-house</label><span style={faint}>→ delivers to <b>{deliveryLocationOf(hem)}</b> on the PO</span></div>}
+    {!o.poNo && cq.replies.length > 0 && <div className="pt-2 text-[12.5px]" style={faint}>The PO delivers to <b>{deliveryLocationOf(needsHemmingOf(o))}</b> — {o.semiStitched ? 'a semi-stitched product, hemming in-house at Vasai' : 'nothing to hem, so the 3PL warehouse'} (set on the requirement).</div>}
     {!o.poNo && cq.replies.length === 0 && <div className="text-[12.5px] pt-2" style={faint}>No reply yet. The merchandiser is chasing; replies land here from the cost form.</div>}
     {/* every reply over target: category revises the target in-house date or the target cost; what it was stays on the record */}
     {tr.open && <div className="mt-3 p-3 rounded-[8px]" style={{ background: 'color-mix(in srgb, var(--risk) 6%, #fff)', border: '1px solid var(--risk)' }}>
@@ -227,7 +226,7 @@ export function PoSection({ o }: { o: ProductionOrder }) {
   return <Section title={`${o.poNo} · ${db.vendors.find(v => v.id === o.vendorId)?.name ?? ''}`} collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone="good">raised {fmtDate(o.poDate)}</Pill>{o.poAckOn && <Pill tone="good">acknowledged {fmtDate(o.poAckOn)}</Pill>}</span>}>
     <KV k="Factory" v={<VendorLink id={o.vendorId} />} note={rp ? `${rp.leadDays} days quoted` : undefined} />
     <KV k="Pieces" v={`${o.orderQty} × ${fmtMoney(o.finalFob ?? o.targetCost)}`} note={fmtMoney((o.finalFob ?? o.targetCost) * o.orderQty)} />
-    <KV k="Deliver to" v={<b>{pm?.deliveryLocation ?? '—'}</b>} note={pm?.needsHemming ? 'hemming or semi-stitching in-house, so Vasai' : 'nothing to hem, so the 3PL warehouse · rule to confirm with BSC'} />
+    <KV k="Deliver to" v={<b>{pm?.deliveryLocation ?? '—'}</b>} note={pm?.needsHemming ? 'semi-stitched product · hemming in-house, so Vasai' : 'nothing to hem, so the 3PL warehouse'} />
     <KV k="Cloth" v={FABRIC_BY_LABEL[pm?.fabricBy ?? 'factory']} note={pm?.fabricBy === 'factory' ? "the factory gives its fabric PO and receipt details; they are TNA steps" : `${db.vendors.find(v => v.id === p.fabric.vendorId)?.name ?? '—'}${p.fabric.vendorFabricCode ? ` · ${p.fabric.vendorFabricCode}` : ''}${p.fabric.blockedMetres != null ? ` · ${p.fabric.blockedMetres} m blocked` : ''}${pm?.fabricBy === 'bsc' ? ' · sourcing ships it to the factory' : ' · vendor details sent; the factory raises its own PO on them, no cloth PO in PLM'}`} />
     <div className="pt-2"><MailCard label="PO · with the TNA form" mail={{ ...poMailOf(db, o), to: pm?.to ?? [], cc: pm?.cc ?? [] }} sentOn={pm?.on ?? o.poDate} /></div>
   </Section>;
@@ -463,7 +462,6 @@ export function RemarksLog({ o }: { o: ProductionOrder }) {
   const rows: { on: string; who: string; kind: string; text: string; tone: 'risk' | 'good' | 'warn' | 'neutral' }[] = [];
   (o.qcChecks ?? []).forEach(c => rows.push({ on: c.on, who: c.by, kind: `QC · ${QC_POINT_LABEL[c.point]}`, text: `${c.result === 'fail' ? 'Failed' : 'Passed'}${c.remarks ? ` · ${c.remarks}` : ''}${c.aesthetic ? ` · aesthetic: ${c.aesthetic}` : ''}`, tone: c.result === 'fail' ? 'risk' : 'good' }));
   (o.cutRatios ?? []).forEach(cr => { rows.push({ on: cr.askedOn, who: cr.by, kind: `Cut ratio ask${cr.trigger ? ` · ${cr.trigger.replace('-', ' ')}` : ''}`, text: cr.reason, tone: 'warn' }); if (cr.given) rows.push({ on: cr.given.on, who: cr.given.by, kind: 'Cut ratio given', text: `${cr.given.breakup.reduce((a, x) => a + x.qty, 0)} pcs on the new sizes`, tone: 'neutral' }); });
-  (o.sampleCycle?.rounds ?? []).forEach(r => { if (r.remarks) rows.push({ on: r.trialOn ?? r.sampledOn ?? r.sentOn ?? '', who: 'Category', kind: `${r.kind} round ${r.n}`, text: r.remarks, tone: 'warn' }); });
   (o.targetRevisions ?? []).forEach(rv => rows.push({ on: rv.on, who: rv.by, kind: rv.field === 'targetInhouse' ? 'Target in-house revised' : 'Target cost revised', text: `${rv.field === 'targetInhouse' ? `${fmtDate(String(rv.from))} → ${fmtDate(String(rv.to))}` : `${fmtMoney(Number(rv.from))} → ${fmtMoney(Number(rv.to))}`} · ${rv.why}`, tone: 'neutral' }));
   (o.costQuery?.replies ?? []).forEach(r => { if (r.note) rows.push({ on: r.repliedOn, who: 'Factory', kind: 'Counter-sourcing reply', text: r.note, tone: 'neutral' }); });
   if (o.factoryCloth?.note) rows.push({ on: o.factoryCloth.receivedOn ?? o.factoryCloth.poOn ?? '', who: 'Factory', kind: 'Cloth received', text: o.factoryCloth.note, tone: 'neutral' });
@@ -471,7 +469,7 @@ export function RemarksLog({ o }: { o: ProductionOrder }) {
   if (!rows.length) return <div className="py-2 text-[12.5px]" style={faint}>No remarks on this record yet.</div>;
   return <div>{rows.map((r, i) => <div key={i} className="kv"><span className="k" style={{ whiteSpace: 'nowrap' }}>{fmtDate(r.on)}<span className="text-[11px] block" style={faint}>{r.who}</span></span><span className="v" style={{ textAlign: 'left' }}><Pill tone={r.tone}>{r.kind}</Pill><span className="text-[12.5px] ml-2">{r.text}</span></span></div>)}</div>;
 }
-export const remarksCountOf = (o: ProductionOrder) => (o.qcChecks ?? []).length + (o.cutRatios ?? []).length + (o.targetRevisions ?? []).length + (o.sampleCycle?.rounds ?? []).filter(r => r.remarks).length;
+export const remarksCountOf = (o: ProductionOrder) => (o.qcChecks ?? []).length + (o.cutRatios ?? []).length + (o.targetRevisions ?? []).length;
 
 /* ── the fabrics on the PO, one per colour: received and checked by the factory each on its own; a fail holds the colour
    for a replacement under the same PO, or drops it (an alternative comes as a separate PO). The rest carry on. ── */

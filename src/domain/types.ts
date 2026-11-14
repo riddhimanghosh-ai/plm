@@ -318,6 +318,7 @@ export interface ProductionOrder {
   cogsClosedOn?: string | null;
   /* 14 Nov 2026 */
   pack?: RequirementPack | null;
+  semiStitched?: boolean;   // known at the requirement: a semi-stitched product (hemming in-house) delivers to Vasai, everything else to the 3PL warehouse
   costQuery?: CostQuery | null;
   poMail?: { on: string; to: string[]; cc: string[]; deliveryLocation: DeliveryLocation; needsHemming: boolean; fabricBy: FabricBy; clothVendorSent: boolean } | null;
   /* when the factory buys the cloth itself (from BSC's vendor or its own): the details it gives back */

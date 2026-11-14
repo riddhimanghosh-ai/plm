@@ -1483,7 +1483,8 @@ const factoriesFor = (o: ProductionOrder, n: number) => { const fit = FACTORY_ID
 orders.forEach((o, i) => {
   ordSeq = i + 1;
   o.source = /core/i.test(o.program ?? '') || i % 9 === 4 ? 'auto-po' : i % 5 === 2 ? 'planning' : 'design';
-  o.sampleCycle = null;
+  o.sampleCycle = null; o.proto = null; o.samples = [];
+  o.semiStitched = /trouser|chino|jean|bottom|pant/i.test(`${o.category} ${o.subCategory}`) || i % 9 === 2;
   const sentOn = o.activity?.find(a => /^Sent to production/i.test(a.what))?.at ?? o.styleHandover;
   if (o.status === 'Requirement') {
     /* still with category: some parts in, sourcing's four fields in on every other one */
@@ -1502,7 +1503,7 @@ orders.forEach((o, i) => {
     const ids = factoriesFor(o, 3); const d0 = addDays(o.poDate!, -4);
     o.costQuery = { sentOn: iso(addDays(d0, -3)), by: 'Nitin Singh', deadline: iso(addDays(d0, 2)), to: ids.map(id => `${id}@factory.in`), cc: ['nitin.singh@merchandiser.in'], factoryIds: ids,
       replies: ids.map((id, k) => ({ vendorId: id, cost: id === o.vendorId ? (o.finalFob ?? o.targetCost) : Math.round((o.finalFob ?? o.targetCost) * (1.04 + k * 0.05)), fabricBy: id === o.vendorId ? (o.fabricNominated ? 'bsc' : (i % 2 ? 'bsc-vendor' : 'factory')) : (['bsc', 'bsc-vendor', 'factory'] as const)[k % 3], leadDays: 36 + k * 3, repliedOn: iso(addDays(d0, k)), note: null })) };
-    const hem = /trouser|chino|jean|bottom|pant/i.test(`${o.category} ${o.subCategory}`);
+    const hem = !!o.semiStitched;
     /* a third of the POs: the factory buys the cloth itself (from BSC's vendor, or its own) and gives the details back */
     if (i % 3 === 1 && !(o.cutRatios ?? []).length) { o.fabricNominated = false; o.sourcingMode = 'vendor-sources'; o.fabricSupply = null; }
     o.poMail = { on: o.poDate!, to: [`${o.vendorId}@factory.in`], cc: ['nitin.singh@merchandiser.in'], deliveryLocation: hem ? 'Vasai · in-house' : '3PL warehouse', needsHemming: hem, fabricBy: o.fabricNominated ? 'bsc' : (i % 2 ? 'bsc-vendor' : 'factory'), clothVendorSent: !o.fabricNominated ? i % 2 === 1 : true };

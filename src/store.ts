@@ -58,7 +58,7 @@ export interface AppState {
 
   /* planning & design */
   createRequirement(input: Omit<ProductionOrder, 'id' | 'poNo' | 'quotes' | 'vendorId' | 'poDate' | 'finalFob' | 'costingClosure' | 'merchant' | 'jobCardNo' | 'fabricReady' | 'trimsReady' | 'milestones' | 'cutQty' | 'deliveredQty' | 'rejectedQty' | 'receipts' | 'split' | 'status' | 'activity' | 'bom' | 'costing' | 'sampleVendorId' | 'samples' | 'materials' | 'qcAudits' | 'shipheroName' | 'vendorFabricCode' | 'enigmaCode' | 'fabricBlocked' | 'fabricQuotes' | 'fabricVendorId' | 'fabricMetres' | 'sourcing'> & { bom?: BomLine[] }): string;
-  updateRequirement(id: string, patch: Partial<Pick<ProductionOrder, 'orderQty' | 'sizeBreakup' | 'targetInhouse' | 'targetCost' | 'fabricNominated' | 'remarks' | 'fabricBrief'>>): void;
+  updateRequirement(id: string, patch: Partial<Pick<ProductionOrder, 'orderQty' | 'sizeBreakup' | 'targetInhouse' | 'targetCost' | 'fabricNominated' | 'remarks' | 'fabricBrief' | 'semiStitched'>>): void;
   handToSourcing(id: string): void;
   updateBom(id: string, bom: BomLine[]): void;
   /* RTW before sourcing: the prototype on a stand-in cloth, the shortlist, the tech pack */
@@ -228,7 +228,7 @@ export interface AppState {
   sendPack(orderId: string): void;                                   // category: to Production RTW, only when the five parts are complete
   sendCostQuery(orderId: string, factoryIds: string[], deadline: string): void;   // Nitin: mails the factories, copies the merchandiser
   replyCostQuery(orderId: string, vendorId: string, reply: Omit<CostReply, 'vendorId' | 'repliedOn'>): void;   // the factory's reply on the form (logged here in the prototype)
-  raisePoOnReply(orderId: string, vendorId: string, needsHemming: boolean): void;   // Nitin: the PO on one reply, mailed with the delivery location and the TNA form
+  raisePoOnReply(orderId: string, vendorId: string): void;   // delivery location follows the requirement's semi-stitched flag   // Nitin: the PO on one reply, mailed with the delivery location and the TNA form
   submitTnaPlan(orderId: string, plans?: Record<string, string>): void;    // merchandiser: the planned dates back from the factory
   recordQcCheck(orderId: string, point: QcPoint, result: 'pass' | 'fail', remarks: string, aesthetic?: string | null): void;   // QC: a pass closes the TNA block
   reviseTarget(orderId: string, field: 'targetInhouse' | 'targetCost', to: string | number, why: string): void;   // category, when every factory reply is over target; was → now stays on the record
@@ -1387,13 +1387,14 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, `${db.vendors.find(v => v.id === vendorId)?.name ?? vendorId} replied · ₹${reply.cost}/pc · ${reply.leadDays} days · ${FABRIC_BY_LABEL[reply.fabricBy]}`); },
         'Reply logged. Nitin raises the PO on the one he picks.');
     },
-    raisePoOnReply(orderId, vendorId, needsHemming) {
+    raisePoOnReply(orderId, vendorId) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); const rp = o?.costQuery?.replies.find(r => r.vendorId === vendorId); if (!o || !rp || o.poNo) return;
         o.vendorId = vendorId; o.poDate = now(); o.poNo = `PO #${15500 + db.orders.filter(x => x.poNo).length + 1}`; o.status = 'Open'; o.finalFob = rp.cost; o.costingClosure.actual = now();
         o.fabricNominated = rp.fabricBy === 'bsc'; o.sourcingMode = rp.fabricBy === 'bsc' ? 'bsc-buys' : 'vendor-sources';
         o.merchant = o.merchant ?? MERCHANDISERS[db.orders.filter(x => x.status === 'Open').length % 3];
         o.milestones = buildMilestones(o.category as GarmentCategory, o.poDate);
         if (!o.materials?.length) o.materials = defaultMaterials(o); if (!o.sampleVendorId) o.sampleVendorId = vendorId;
+        const needsHemming = !!o.semiStitched;
         o.poMail = { on: now(), to: [], cc: [], deliveryLocation: deliveryLocationOf(needsHemming), needsHemming, fabricBy: rp.fabricBy, clothVendorSent: rp.fabricBy !== 'factory' };
         const m = poMailOf(db, o); o.poMail.to = m.to; o.poMail.cc = m.cc;
         o.tnaPlan = { sentOn: now(), submittedOn: null, by: null }; o.poAckOn = null;
@@ -1939,7 +1940,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 143,
+  version: 144,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
