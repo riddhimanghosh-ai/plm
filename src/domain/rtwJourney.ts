@@ -5,7 +5,7 @@
    warehouse all see the same thing. */
 import type { Db, ProductionOrder } from './types';
 import { fmtDate, daysAgo, receiptOf, riskOf, stageOf, fabricStateOf } from './engines';
-import { packReadyOf, openQcOf, targetReviseOpenOf } from './rtwPack';
+import { packReadyOf, openQcOf, targetReviseOpenOf, poFabricsOf } from './rtwPack';
 
 export type RtwActor = 'design' | 'sourcing' | 'production' | 'merchandiser' | 'qc' | 'warehouse' | 'planning' | 'finance';
 export type RtwPhase = 'design' | 'buy' | 'make' | 'land';
@@ -42,7 +42,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
   const nextMs = o.milestones.find(m => !m.actual && !m.skipped) ?? null;
   const late = r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : '';
   const cq = o.costQuery ?? null; const replies = cq?.replies.length ?? 0; const asked = cq?.factoryIds.length ?? 0;
-  const tr = targetReviseOpenOf(o);
+  const tr = targetReviseOpenOf(o); const pf = poFabricsOf(o);
   const qDeadlineLate = cq && !o.poNo && daysAgo(cq.deadline) > 0 && replies < asked;
   const qc = openQcOf(o); const qcFail = qc.find(x => x.state === 'failed'); const qcDue = qc.find(x => x.state === 'due');
   const tnaNow = !o.tnaPlan?.submittedOn ? 'after the planned dates' : qcFail ? `QC failed the ${qcFail.label.toLowerCase()} · factory to correct and resubmit` : qcDue ? `QC to pass the ${qcDue.label.toLowerCase()}${qcDue.sinceDays ? ` · waiting ${qcDue.sinceDays}d` : ''}` : nextMs ? `factory to log ${nextMs.key.length <= 3 ? nextMs.key : nextMs.key.toLowerCase()}${late}` : st.stage;
@@ -65,7 +65,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
     { key: 'cloth', phase: 'make', label: 'Cloth at the factory · cut ratio', who: o.fabricNominated ? 'Sourcing · Factory · Category' : 'Factory · Category', act: fab.key === 'ratio-asked' ? 'design' : !o.fabricNominated || o.fabricSupply?.sentToFactoryOn ? 'merchandiser' : 'sourcing',
       on: !o.poNo ? null : o.fabricNominated ? (o.fabricSupply?.receipt?.on ?? null) : (o.factoryCloth?.receivedOn ?? ms('Fabric ETA')?.actual ?? (ms('Fabric ETA') && !ms('Fabric ETA')!.skipped ? null : o.poDate)),
       by: !o.poNo ? null : o.fabricNominated ? (o.fabricSupply?.receipt ? `${o.fabricSupply.receipt.metresOk} m counted in${fab.cr?.given ? ' · new cut ratio' : ''}` : null) : (o.factoryCloth?.receivedOn ? `${o.factoryCloth.metresReceived ?? '—'} m received by the factory` : 'the factory sources it'),
-      now: !o.poNo ? 'after the PO' : fab.key === 'ratio-asked' ? (fab.cr?.kind === 'cut-short' ? 'category to approve the cut-short' : 'category to give new sizes') : o.fabricNominated ? (o.fabricSupply?.sentToFactoryOn ? 'factory to count the cloth and trims in' : 'sourcing to send the cloth and trims to the factory') : (o.factoryCloth?.poOn ? 'factory to log the cloth received' : `factory to raise its fabric PO${o.poMail?.fabricBy === 'bsc-vendor' ? " on BSC's vendor" : ''} and give the details`) },
+      now: !o.poNo ? 'after the PO' : fab.key === 'ratio-asked' ? (fab.cr?.kind === 'cut-short' ? 'category to approve the cut-short' : 'category to give new sizes') : pf.failedOpen.length ? `${pf.failedOpen.map(f => f.colour).join(', ')} failed the factory's check · Nitin to hold or drop` : pf.held.length ? `${pf.held.map(f => f.colour).join(', ')} on hold for replacement cloth · the rest carry on` : o.fabricNominated ? (o.fabricSupply?.sentToFactoryOn ? 'factory to count the cloth and trims in' : 'sourcing to send the cloth and trims to the factory') : (o.factoryCloth?.poOn ? 'factory to log the cloth received' : `factory to raise its fabric PO${o.poMail?.fabricBy === 'bsc-vendor' ? " on BSC's vendor" : ''} and give the details`) },
     { key: 'tna', phase: 'make', label: 'Made · TNA with QC', who: 'Factory · QC · Merchandiser', on: finished ?? dispatched, by: finished ? 'finishing done' : dispatched ? 'dispatched' : null, act: tnaAct,
       now: !o.poNo ? 'after the PO' : tnaNow },
     { key: 'dispatch', phase: 'land', label: 'Dispatched · invoice to the warehouse', who: 'Factory · Merchandiser', act: 'merchandiser', on: inv?.mailedOn ?? null, by: inv ? `invoice ${inv.no} · ${inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs` : null,
@@ -78,11 +78,11 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
       now: launch ? `${launch.dropMonth} drop${launch.launchOn ? ` · ${fmtDate(launch.launchOn)}` : ''}` : 'planning puts it in a drop' },
   ];
   /* an open cut-ratio ask pulls the record back to the TNA until it is answered */
-  const ratioOpen = o.status === 'Open' && fab.key === 'ratio-asked';
+  const ratioOpen = o.status === 'Open' && (fab.key === 'ratio-asked' || pf.failedOpen.length > 0);
   const current = ratioOpen ? steps.findIndex(x => x.key === 'cloth') : steps.findIndex(x => !x.on);
   const next = current >= 0 ? steps[current] : null;
   /* "where it is" for a list: the step name, or the TNA stage while it is being made */
-  const where = ratioOpen ? `cut ratio with category · short ${fab.short} m` : !next ? `launched ${fmtDate(launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? (qcFail ? `QC failed · ${qcFail.label.toLowerCase()}` : qcDue ? `QC · ${qcDue.label.toLowerCase()}` : `${st.stage}${late}`) : next.key === 'pack' ? (pack.ready ? 'requirement complete' : `requirement · ${pack.missing.length} to fill`) : next.key === 'query' && cq ? (tr.open && replies >= asked ? 'replies over target · category to revise' : `counter sourcing · ${replies} of ${asked} replied`) : next.label;
+  const where = ratioOpen ? (pf.failedOpen.length ? `${pf.failedOpen.map(f => f.colour).join(', ')} cloth failed · hold or drop` : `cut ratio with category · short ${fab.short} m`) : !next ? `launched ${fmtDate(launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? (qcFail ? `QC failed · ${qcFail.label.toLowerCase()}` : qcDue ? `QC · ${qcDue.label.toLowerCase()}` : `${st.stage}${late}`) : next.key === 'pack' ? (pack.ready ? 'requirement complete' : `requirement · ${pack.missing.length} to fill`) : next.key === 'query' && cq ? (tr.open && replies >= asked ? 'replies over target · category to revise' : `counter sourcing · ${replies} of ${asked} replied`) : next.label;
   return { steps, current, next, where };
 }
 

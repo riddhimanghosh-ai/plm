@@ -106,3 +106,16 @@ export function invoiceMailOf(db: Db, o: ProductionOrder): Mail {
     attachments: [inv?.file ?? 'Invoice', 'Packing list'],
   };
 }
+
+/* the fabrics on a PO as one line: how many in, checked, on hold, dropped */
+export function poFabricsOf(o: ProductionOrder) {
+  const fs = o.poFabrics ?? [];
+  const held = fs.filter(f => f.qc === 'failed' && f.decision?.kind === 'hold' && !f.resumedOn); const dropped = fs.filter(f => f.decision?.kind === 'drop');
+  const failedOpen = fs.filter(f => f.qc === 'failed' && !f.decision); const toCheck = fs.filter(f => f.receivedOn && f.qc === 'pending');
+  const toCome = fs.filter(f => !f.receivedOn && f.decision?.kind !== 'drop');
+  const live = fs.filter(f => f.decision?.kind !== 'drop');
+  const running = live.filter(f => f.qc === 'passed' || !!f.resumedOn);
+  return { all: fs, held, dropped, failedOpen, toCheck, toCome, live, running, livePcs: live.reduce((a, f) => a + f.qty, 0), heldPcs: held.reduce((a, f) => a + f.qty, 0),
+    line: !fs.length ? null : failedOpen.length ? `${failedOpen.map(f => f.colour).join(', ')} failed QC · hold or drop?` : held.length ? `${held.map(f => f.colour).join(', ')} on hold · replacement${held[0].decision?.kind === 'hold' && held[0].decision.replacementBy ? ` by ${fmtDate(held[0].decision.replacementBy)}` : ''}` : toCheck.length ? `${toCheck.map(f => f.colour).join(', ')} to check` : toCome.length ? `${toCome.length} of ${live.length} colours to come` : `${running.length} colour${running.length === 1 ? '' : 's'} in and passed`,
+    tone: (failedOpen.length ? 'risk' : held.length ? 'warn' : toCheck.length ? 'warn' : toCome.length ? 'info' : 'good') as 'risk' | 'warn' | 'info' | 'good' };
+}

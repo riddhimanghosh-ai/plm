@@ -1534,6 +1534,15 @@ orders.forEach((o, i) => {
       o.qcChecks.push({ point: 'pps', on: iso(addDays(ms('PPS Submission')!.actual!, 1)), by: 'Rohit', result: 'fail', remarks: 'chest 1.5 cm under spec on M and L; placket width 2.5 cm against 3 cm on the tech pack' }); }
     else if (o.status === 'Open' && qcFails === 1 && ms('Finishing Start')?.actual && !ms('Finishing End')?.actual) { qcFails = 2; const a = ms('Mid-line Inspection'); if (a) a.actual = null; o.qcChecks = o.qcChecks.filter(c => c.point !== 'midline');
       o.qcChecks.push({ point: 'midline', on: iso(addDays(ms('Finishing Start')!.actual!, 1)), by: 'Rohit', result: 'fail', remarks: 'pressing marks on 6 of 20 checked; hang tag on the wrong side' }); }
+    /* the fabrics on the PO, one per colour: most POs one or two, some four; one has a colour on hold, one a colour dropped */
+    { const cols = (['White', 'Navy', 'Ecru', 'Olive', 'Black', 'Sky', 'Grey', 'Rust'] as const); const n = [1, 2, 1, 4, 2, 3][i % 6]; const base = o.fabricBrief?.colour ?? cols[i % cols.length];
+      const names = [base, ...cols.filter(c => c !== base)].slice(0, n); const per = Math.floor(o.orderQty / n); const metres = Math.ceil((o.fabricMetres ?? o.orderQty * 1.7) / n);
+      const fin = o.milestones.find(m => m.key === 'Fabric ETA')?.actual ?? (o.fabricSupply?.receipt?.on ?? null); const cut = o.milestones.find(m => m.key === 'Cutting Start')?.actual ?? null;
+      o.poFabrics = names.map((c, k) => ({ id: `pf-${i}-${k}`, colour: c, vendorId: o.fabricNominated ? (o.pack?.fabric.vendorId ?? 'sutra') : (o.poMail?.fabricBy === 'bsc-vendor' ? (o.pack?.fabric.vendorId ?? 'sutra') : null), vendorFabricCode: o.pack?.fabric.vendorFabricCode ? `${o.pack.fabric.vendorFabricCode}-${k + 1}` : null,
+        qty: k === n - 1 ? o.orderQty - per * (n - 1) : per, metresNeeded: metres, metresReceived: fin ? metres - (k % 3 === 2 ? 6 : 0) : null, receivedOn: fin, qc: fin ? (cut || k < n - 1 ? 'passed' : 'pending') : 'pending', qcOn: fin ? iso(addDays(fin, 1)) : null, qcNote: null, decision: null, resumedOn: null }));
+      if (o.status === 'Open' && n === 4 && i % 12 === 9 && fin) { const f = o.poFabrics[1]; f.qc = 'failed'; f.qcNote = 'shade off against the approved swatch; barré visible across the roll'; f.decision = { kind: 'hold', replacementBy: iso(addDays(TODAY, 6)), by: 'Nitin Singh', on: iso(addDays(fin, 2)) }; }
+      if (o.status === 'Open' && n === 3 && i % 12 === 5 && fin) { const f = o.poFabrics[1]; f.qc = 'failed'; f.qcNote = 'shade off against the approved swatch; barré visible across the roll'; f.decision = null; }
+      if (o.status === 'Open' && n === 4 && i % 12 === 3 && fin) { const f = o.poFabrics[3]; f.qc = 'failed'; f.qcNote = 'holes every 2 m; vendor has no stock to replace'; f.decision = { kind: 'drop', newRequirementId: null, by: 'Nitin Singh', on: iso(addDays(fin, 2)) }; } }
     /* dispatched: the invoice and packing list went to Prince */
     const disp = ms('Dispatch')?.actual;
     if (disp) { const pcs = o.cutQty ?? o.orderQty; const tot = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) || 1;

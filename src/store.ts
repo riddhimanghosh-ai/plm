@@ -235,6 +235,11 @@ export interface AppState {
   addPoInvoice(orderId: string, inv: Omit<PoInvoice, 'id' | 'on' | 'by'>): void;   // Nitin: every invoice on the PO, both ways, for reconciliation
   removePoInvoice(orderId: string, id: string): void;
   logFactoryCloth(orderId: string, patch: Partial<NonNullable<ProductionOrder['factoryCloth']>>): void;   // merchandiser: the factory's own fabric PO and receipt; logs the TNA's Fabric PO and Fabric ETA
+  receivePoFabric(orderId: string, fabricId: string, metres: number, on?: string | null): void;                 // factory counts a colour in
+  qcPoFabric(orderId: string, fabricId: string, result: 'passed' | 'failed', note: string): void;             // the factory's own quality check on the cloth
+  decidePoFabric(orderId: string, fabricId: string, kind: 'hold' | 'drop', replacementBy?: string | null): void;   // Nitin: hold the colour for a replacement, or drop it (alternative as a separate PO)
+  resumePoFabric(orderId: string, fabricId: string, metres: number): void;                                   // replacement received: the colour continues under the same PO
+  raiseAlternativeFor(orderId: string, fabricId: string): string | null;                                     // a separate requirement for the dropped colour's alternative
   uploadInvoice(orderId: string, inv: { no: string; amount: number; file: string | null; packingList: { size: string; qty: number }[] }): void;   // merchandiser: mailed to Prince with the packing list
   /** production agrees with the factory: part now, balance later — the same PO, split */
   splitDispatch(orderId: string, lots: { qty: number; dispatchOn: string }[], reason: string): void;
@@ -1431,6 +1436,35 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, o.factoryCloth.receivedOn ? `Factory received its cloth · ${o.factoryCloth.metresReceived ?? '—'} m${o.factoryCloth.vendor ? ` from ${o.factoryCloth.vendor}` : ''}` : `Factory raised its fabric PO${o.factoryCloth.poNo ? ` ${o.factoryCloth.poNo}` : ''}${o.factoryCloth.vendor ? ` on ${o.factoryCloth.vendor}` : ''} · ${o.factoryCloth.metres ?? '—'} m`); },
         'Logged. It shows on the TNA too.');
     },
+    receivePoFabric(orderId, fabricId, metres, on = null) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); const f = o?.poFabrics?.find(x => x.id === fabricId); if (!o || !f) return; f.metresReceived = metres; f.receivedOn = on ?? now();
+        log(o, `${f.colour} cloth received · ${metres} m of ${f.metresNeeded} m`); }, 'Counted in. The factory checks it next.');
+    },
+    qcPoFabric(orderId, fabricId, result, note) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); const f = o?.poFabrics?.find(x => x.id === fabricId); if (!o || !f) return; f.qc = result; f.qcOn = now(); f.qcNote = note || null; if (result === 'passed') f.decision = null;
+        log(o, `${f.colour} cloth ${result === 'passed' ? 'passed' : 'FAILED'} the factory's check${note ? ` · ${note}` : ''}${result === 'failed' ? ' · the other colours carry on' : ''}`); },
+        result === 'passed' ? 'Passed. The colour goes into production.' : 'Failed. Nitin holds the colour for a replacement or drops it; the other colours carry on.');
+    },
+    decidePoFabric(orderId, fabricId, kind, replacementBy = null) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); const f = o?.poFabrics?.find(x => x.id === fabricId); if (!o || !f) return;
+        f.decision = kind === 'hold' ? { kind, replacementBy, by: who(), on: now() } : { kind, newRequirementId: null, by: who(), on: now() };
+        if (kind === 'drop') { const live = (o.poFabrics ?? []).filter(x => x.decision?.kind !== 'drop'); const pcs = live.reduce((a, x) => a + x.qty, 0);
+          o.cutRatios = o.cutRatios ?? []; o.cutRatios.push({ askedOn: now(), by: who(), askedByRole: 'production', kind: 'ratio', trigger: 'other', reason: `${f.colour} dropped from this run (cloth failed the factory's check, no replacement) · ${pcs} pcs stay on the PO`, originalBreakup: o.sizeBreakup.map(x => ({ ...x })), given: null, sentToFactoryOn: null }); }
+        log(o, kind === 'hold' ? `${f.colour} on hold · replacement cloth${replacementBy ? ` by ${fmtDate(replacementBy)}` : ''} · continues under this PO` : `${f.colour} dropped from this run · an alternative comes as a separate PO · category to give the cut ratio for the rest`); },
+        kind === 'hold' ? 'On hold. The colour continues under this PO once the replacement is in.' : 'Dropped. Category gives a new cut ratio for the colours that stay; raise a separate requirement for the alternative.');
+    },
+    resumePoFabric(orderId, fabricId, metres) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); const f = o?.poFabrics?.find(x => x.id === fabricId); if (!o || !f) return; f.resumedOn = now(); f.metresReceived = metres; f.qc = 'passed'; f.qcOn = now();
+        log(o, `${f.colour} replacement cloth received · ${metres} m · passed · the colour continues`); }, 'Replacement in. The colour is back in the run.');
+    },
+    raiseAlternativeFor(orderId, fabricId) {
+      const o = get().db.orders.find(x => x.id === orderId); const f = o?.poFabrics?.find(x => x.id === fabricId); if (!o || !f) return null;
+      const id = get().createRequirement({ category: o.category, subCategory: o.subCategory, styleName: `${o.styleName.replace(/\s*·.*$/, '')} · alternative for ${f.colour}`, program: o.program, launchMonth: o.launchMonth, fit: o.fit, orderQty: f.qty,
+        sizeBreakup: o.sizeBreakup.map(x => ({ size: x.size, qty: Math.round(x.qty * f.qty / Math.max(1, o.orderQty)) })), targetInhouse: o.targetInhouse, targetCost: o.targetCost, styleHandover: now(), fabricNominated: o.fabricNominated, remarks: `Alternative for ${f.colour} dropped from ${o.poNo}`,
+        fabricBrief: o.fabricBrief ? { ...o.fabricBrief, colour: null, notes: `alternative to ${f.colour} on ${o.poNo}; cloth failed the factory's check` } : null, source: 'design' } as Parameters<AppState['createRequirement']>[0]);
+      touch(db => { const o2 = db.orders.find(x => x.id === orderId); const f2 = o2?.poFabrics?.find(x => x.id === fabricId); if (f2?.decision?.kind === 'drop') f2.decision.newRequirementId = id; if (o2) log(o2, `Separate requirement raised for ${f.colour}'s alternative`); });
+      return id;
+    },
     uploadInvoice(orderId, inv) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return;
         o.invoice = { ...inv, uploadedOn: now(), by: who(), mailedOn: null, mailedTo: [] }; const m = invoiceMailOf(db, o); o.invoice.mailedOn = now(); o.invoice.mailedTo = m.to;
@@ -1905,7 +1939,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 141,
+  version: 142,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;

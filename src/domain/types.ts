@@ -231,6 +231,13 @@ export type CutRatioTrigger = 'fabric-short' | 'fabric-extra' | 'trim-short' | '
 /* a factory's reply over the target cost or past the target in-house date: category revises the target, and the record keeps was → now */
 export interface TargetRevision { on: string; by: string; field: 'targetInhouse' | 'targetCost'; from: string | number; to: string | number; why: string }
 /* every invoice on a PO, both ways, so accounts can reconcile: the factory's, and BSC's for material it supplied that the factory would otherwise have bought */
+/* 15 Nov 2026: a PO carries several fabrics (one per colour). Each is received and checked by the factory on its own; a fail
+   holds that colour while the vendor replaces the cloth (same PO), or drops it from the run (an alternative comes as a separate PO).
+   The other colours carry on. */
+export interface PoFabric { id: string; colour: string; vendorId: string | null; vendorFabricCode: string | null; qty: number; metresNeeded: number; metresReceived: number | null; receivedOn: string | null;
+  qc: 'pending' | 'passed' | 'failed'; qcOn: string | null; qcNote: string | null;
+  decision: { kind: 'hold'; replacementBy: string | null; by: string; on: string } | { kind: 'drop'; newRequirementId: string | null; by: string; on: string } | null;
+  resumedOn: string | null }   // hold: replacement received, the colour continues
 export interface PoInvoice { id: string; direction: 'bsc-to-factory' | 'factory-to-bsc'; kind: 'fabric' | 'trim' | 'service' | 'other'; no: string; amount: number; what: string; file: string | null; on: string; by: string; note: string | null }
 
 export type SampleStage = 'prototype' | 'sample' | 'trial';   // prototype · sampling cycle · trial cycle
@@ -317,6 +324,7 @@ export interface ProductionOrder {
   factoryCloth?: { vendor: string | null; poNo: string | null; poOn: string | null; metres: number | null; receivedOn: string | null; metresReceived: number | null; note: string | null } | null;
   tnaPlan?: { sentOn: string; submittedOn: string | null; by: string | null } | null;   // the TNA form: planned dates from the factory, via the merchandiser
   qcChecks?: QcCheck[] | null;
+  poFabrics?: PoFabric[] | null;
   targetRevisions?: TargetRevision[] | null;
   poInvoices?: PoInvoice[] | null;
   invoice?: { no: string; amount: number; uploadedOn: string; by: string; file: string | null; packingList: { size: string; qty: number }[]; mailedOn: string | null; mailedTo: string[] } | null;
