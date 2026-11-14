@@ -253,6 +253,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const [cost, setCost] = useState('450'); const [semi, setSemi] = useState(false); const [deliverTo, setDeliverTo] = useState<'3PL warehouse' | 'Vasai · in-house' | null>(null);
   const dest = deliverTo ?? (semi ? 'Vasai · in-house' : '3PL warehouse');
   const [brief, setBrief] = useState('');
+  const [askFiles, setAskFiles] = useState<File[]>([]);   // anything that says the ask: the size sheet, a reference, the style sheet
   const nominated = mode === 'bsc-buys';
   /* fabric information — category's part; sourcing adds the vendor, code, blocked quantity and readiness on the record */
   const [fab, setFab] = useState({ description: '', content: '100% cotton', swatchAnalyser: '', cpm: '', rate: '', widthIn: '58' });
@@ -304,6 +305,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
     TECH_PACK_ITEMS.forEach(it => { const f = tpFiles[it.key]; if (f) jobs.push(attachFiles('order', id, 'Tech pack', it.label, [f])); });
     if (fabPhoto) jobs.push(attachFiles('order', id, 'Fabric photo', null, [fabPhoto]));
     if (trimFile) jobs.push(attachFiles('order', id, 'Trim card', null, [trimFile]));
+    if (askFiles.length) jobs.push(attachFiles('order', id, 'Style sheet', 'Style and production ask', askFiles));
     await Promise.all(jobs);
     if (mode !== 'bsc-buys') setSourcingMode(id, mode, null, undefined);
     onDone(id);
@@ -331,6 +333,14 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       <div className="cap pt-2">Size-wise quantity · cut ratio · {pcs} pcs</div>
       <div className="flex justify-end pb-1">{typed ? <Button size="sm" variant="ghost" onClick={() => setTyped(null)}>Spread {qty || 0} over the usual sizes again</Button> : <span className="text-[11.5px]" style={faint}>spread over the usual sizes — type over any of them</span>}</div>
       <SizeGrid breakup={curve} edit onChange={(sz, n) => setTyped(t => { const base = t ?? Object.fromEntries(spread.map(x => [x.size, x.qty])); return { ...base, [sz]: n }; })} />
+      <div className="mt-3">
+        <div className="cap pb-1">Files</div>
+        <label className="drop-zone" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const fs = [...e.dataTransfer.files]; if (fs.length) setAskFiles(x => [...x, ...fs]); }}>
+          <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,image/*" onChange={e => { const fs = [...(e.target.files ?? [])]; if (fs.length) setAskFiles(x => [...x, ...fs]); e.target.value = ''; }} />
+          <span>📎 Drop files here or <u>browse</u> · pdf, doc, sheet or image</span>
+        </label>
+        {askFiles.length > 0 && <div className="flex gap-1.5 flex-wrap pt-1.5">{askFiles.map((f, i) => <span key={i} className="pill" style={{ fontSize: 12 }}>{f.name}<button type="button" className="ml-1" style={{ color:'var(--ink-faint)' }} onClick={() => setAskFiles(x => x.filter((_, k) => k !== i))} aria-label={`remove ${f.name}`}>×</button></span>)}</div>}
+      </div>
       <div className="mt-3 p-3 rounded-[8px]" style={{ background:'var(--surface-2)', border:'1px dashed var(--line)' }}>
         <div className="flex items-center gap-2 flex-wrap"><b className="text-[13px]">Design brief</b><span className="pill">phase 2 · AI</span></div>
         <textarea className="input" rows={3} value={brief} onChange={e => setBrief(e.target.value)} placeholder="Relaxed oxford shirt, button-down collar, single chest pocket, mother-of-pearl buttons, box-pleat back, folded in a kraft box…" style={{ fontFamily:'inherit', fontSize:12.5, lineHeight:1.4, width:'100%' }} />
