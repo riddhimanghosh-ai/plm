@@ -330,19 +330,20 @@ export const QC_POINT_LABEL = Object.fromEntries(QC_POINTS.map(p => [p.key, p.la
 
 /* ── 6. after the dispatch actual: the invoice and packing list to the warehouse ── */
 export function InvoiceSection({ o, merchant }: { o: ProductionOrder; merchant: boolean }) {
-  const { db, uploadInvoice } = useApp();
+  const { db, uploadInvoice, mailInvoice } = useApp();
   const inv = o.invoice; const disp = o.milestones.find(m => m.key === 'Dispatch')?.actual ?? null;
   const pcs = o.cutQty ?? o.orderQty; const tot = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) || 1;
   const [no, setNo] = useState(''); const [amt, setAmt] = useState(String(pcs * (o.finalFob ?? o.targetCost))); const [file, setFile] = useState('');
   const [pl, setPl] = useState<Record<string, string>>(() => Object.fromEntries(o.sizeBreakup.map(x => [x.size, String(Math.round(x.qty * pcs / tot))])));
   if (!o.poNo) return <Section title="Dispatch · invoice" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>After the dispatch actual on the TNA.</div></Section>;
   const plTotal = Object.values(pl).reduce((a, v) => a + (Number(v) || 0), 0);
-  return <Section title="Dispatched · invoice and packing list" collapsible={false} right={<Pill tone={inv ? 'good' : disp ? 'warn' : 'neutral'}>{inv ? `mailed to Prince ${fmtDate(inv.mailedOn)}` : disp ? `dispatched ${fmtDate(disp)} · invoice to upload` : 'not dispatched yet'}</Pill>}>
+  return <Section title="Dispatched · invoice and packing list" collapsible={false} right={<Pill tone={inv?.mailedOn ? 'good' : inv || disp ? 'warn' : 'neutral'}>{inv?.mailedOn ? `mailed to Prince ${fmtDate(inv.mailedOn)}` : inv ? `uploaded ${fmtDate(inv.uploadedOn)} · to send to Prince` : disp ? `dispatched ${fmtDate(disp)} · invoice to upload` : 'not dispatched yet'}</Pill>}>
     {inv ? <>
       <KV k="Invoice" v={<span className="mono">{inv.no}</span>} note={`${fmtMoney(inv.amount)} · ${inv.file ?? 'uploaded'} · ${inv.by} · ${fmtDate(inv.uploadedOn)}`} />
       <div className="cap pt-2">Packing list · {inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs</div>
       <SizeGrid breakup={inv.packingList} />
       <div className="pt-2"><MailCard label="Invoice and packing list · to the warehouse" mail={{ ...invoiceMailOf(db, o), to: inv.mailedTo.length ? inv.mailedTo : invoiceMailOf(db, o).to }} sentOn={inv.mailedOn} /></div>
+      {!inv.mailedOn && (merchant ? <div className="pt-2 flex items-center gap-2 flex-wrap"><Button variant="primary" onClick={() => mailInvoice(o.id)}>Send to Prince ✉</Button><span className="text-[11.5px]" style={faint}>mails the invoice and packing list to the warehouse, copying Nitin and you</span></div> : <div className="pt-2"><ActsBy role="merchandiser" does="sends the invoice and packing list to Prince" /></div>)}
     </> : !disp ? <div className="text-[12.5px] py-1" style={soft}>The factory logs the dispatch actual on the TNA; the merchandiser then uploads the invoice and packing list here, and PLM mails them to Prince. The printed invoice stops.</div>
       : merchant ? <>
         <div className="grid gap-2 py-1" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
@@ -352,7 +353,7 @@ export function InvoiceSection({ o, merchant }: { o: ProductionOrder; merchant: 
         </div>
         <div className="cap pt-1">Packing list · by size · {plTotal} pcs</div>
         <div className="flex gap-2 flex-wrap py-1">{o.sizeBreakup.map(x => <Field key={x.size} label={x.size}><Input type="number" value={pl[x.size] ?? ''} onChange={e => setPl(p => ({ ...p, [x.size]: e.target.value }))} style={{ width: 70 }} /></Field>)}</div>
-        <div className="pt-1"><Button variant="primary" disabled={!no.trim() || !plTotal} onClick={() => uploadInvoice(o.id, { no: no.trim(), amount: Number(amt) || 0, file: file.trim() || null, packingList: o.sizeBreakup.map(x => ({ size: x.size, qty: Number(pl[x.size]) || 0 })).filter(x => x.qty > 0) })}>Upload · mail to Prince →</Button></div>
+        <div className="pt-1"><Button variant="primary" disabled={!no.trim() || !plTotal} onClick={() => uploadInvoice(o.id, { no: no.trim(), amount: Number(amt) || 0, file: file.trim() || null, packingList: o.sizeBreakup.map(x => ({ size: x.size, qty: Number(pl[x.size]) || 0 })).filter(x => x.qty > 0) })}>Upload invoice and packing list</Button></div>
       </> : <ActsBy role="merchandiser" does="uploads the factory's invoice and packing list; PLM mails them to Prince" />}
   </Section>;
 }

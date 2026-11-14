@@ -69,7 +69,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
     { key: 'tna', phase: 'make', label: 'Made · TNA with QC', who: 'Factory · QC · Merchandiser', on: finished ?? dispatched, by: finished ? 'finishing done' : dispatched ? 'dispatched' : null, act: tnaAct,
       now: !o.poNo ? 'after the PO' : tnaNow },
     { key: 'dispatch', phase: 'land', label: 'Dispatched · invoice to the warehouse', who: 'Factory · Merchandiser', act: 'merchandiser', on: inv?.mailedOn ?? null, by: inv ? `invoice ${inv.no} · ${inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs` : null,
-      now: !o.poNo ? 'after the PO' : !dispatched ? 'after the dispatch actual on the TNA' : 'merchandiser to upload the invoice and packing list' },
+      now: !o.poNo ? 'after the PO' : !dispatched ? 'after the dispatch actual on the TNA' : inv && !inv.mailedOn ? 'merchandiser to send the invoice and packing list to Prince' : 'merchandiser to upload the invoice and packing list' },
     { key: 'received', phase: 'land', label: 'Received · Enigma', who: 'Prince · Enigma', act: 'warehouse', on: receivedOn, by: receivedOn ? (rc.lots.length ? `${rc.received} pcs` : 'closed') : null,
       now: !inv ? 'after the invoice' : rc.partial ? `${rc.received} of ${rc.base} in` : 'Prince to receive against the packing list on Enigma' },
     { key: 'cogs', phase: 'land', label: 'COGS · profitability', who: 'Nitin · Category', act: 'production', on: cogsOn, by: cogsOn ? 'closed' : null,

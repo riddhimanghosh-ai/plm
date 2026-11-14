@@ -240,7 +240,8 @@ export interface AppState {
   decidePoFabric(orderId: string, fabricId: string, kind: 'hold' | 'drop', replacementBy?: string | null): void;   // Nitin: hold the colour for a replacement, or drop it (alternative as a separate PO)
   resumePoFabric(orderId: string, fabricId: string, metres: number): void;                                   // replacement received: the colour continues under the same PO
   raiseAlternativeFor(orderId: string, fabricId: string): string | null;                                     // a separate requirement for the dropped colour's alternative
-  uploadInvoice(orderId: string, inv: { no: string; amount: number; file: string | null; packingList: { size: string; qty: number }[] }): void;   // merchandiser: mailed to Prince with the packing list
+  uploadInvoice(orderId: string, inv: { no: string; amount: number; file: string | null; packingList: { size: string; qty: number }[] }): void;   // merchandiser: uploads the factory's invoice and packing list
+  mailInvoice(orderId: string): void;   // merchandiser: one click, PLM mails both to Prince at the warehouse
   /** production agrees with the factory: part now, balance later — the same PO, split */
   splitDispatch(orderId: string, lots: { qty: number; dispatchOn: string }[], reason: string): void;
   dispatchSplitLot(orderId: string, index: number): void;
@@ -1470,10 +1471,14 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     },
     uploadInvoice(orderId, inv) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return;
-        o.invoice = { ...inv, uploadedOn: now(), by: who(), mailedOn: null, mailedTo: [] }; const m = invoiceMailOf(db, o); o.invoice.mailedOn = now(); o.invoice.mailedTo = m.to;
+        o.invoice = { ...inv, uploadedOn: now(), by: who(), mailedOn: null, mailedTo: [] };
         const d = o.milestones.find(x => x.key === 'Dispatch'); if (d && !d.actual) d.actual = now();
-        log(o, `Invoice ${inv.no} and packing list (${inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs) uploaded · mailed to Prince`); },
-        'Invoice and packing list uploaded and mailed to Prince at the warehouse.');
+        log(o, `Invoice ${inv.no} and packing list (${inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs) uploaded`); },
+        'Uploaded. Send them to Prince when ready.');
+    },
+    mailInvoice(orderId) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.invoice || o.invoice.mailedOn) return; const m = invoiceMailOf(db, o); o.invoice.mailedOn = now(); o.invoice.mailedTo = m.to;
+        log(o, `Invoice ${o.invoice.no} and packing list mailed to Prince`); }, 'Mailed to Prince at the warehouse, copying Nitin and the merchandiser.');
     },
     skipMilestone(orderId, key, skip) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); const m = o?.milestones.find(x => x.key === key); if (!o || !m) return;
@@ -1942,7 +1947,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 144,
+  version: 145,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
