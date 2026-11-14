@@ -4,13 +4,14 @@
    the factory returns planned dates through the merchandiser; the TNA runs with QC at five points;
    the merchandiser uploads the invoice and packing list; Prince receives on Enigma; COGS; launch.
    The same record opens from Requirements, the RTW production tracker, the merchandiser's and QC's screens. */
-import { useState } from 'react';
+import { useContext, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../store';
 import type { ProductionOrder } from '../domain/types';
 import { fmtDate, fmtMoney, daysAgo, riskOf, stageOf, fabricStateOf } from '../domain/engines';
 import { rtwJourneyOf, RTW_PHASES, RTW_INTRO, RTW_ACTOR_LABEL } from '../domain/rtwJourney';
 import { FILE_LABELS, ORDER_STEPS } from '../domain/reference';
-import { Section, Pill, Button, KV, Field, Input, fromDateInput, dateInput } from '../ui';
+import { Section, Pill, Button, KV, Field, Input, fromDateInput, dateInput, DrawerSlot } from '../ui';
 import { SizeGrid, FabricFinalisationSection } from './RtwGates';
 import { PutInDrop } from './Requirements';
 import { MilestoneGrid } from './Tracker';
@@ -65,18 +66,19 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const mine = !!next?.act && next.act === role;
   const onTracker = typeof location !== 'undefined' && location.hash.startsWith('#/tracker');
   const panel = (k: string) => { setOpen(k); setView(readView(k)); requestAnimationFrame(() => document.getElementById(`rtw-step-${o.id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); };
+  const headSlot = useContext(DrawerSlot);
   const roleClass = (a: string) => a === 'merchandiser' ? 'production' : a === 'finance' ? 'production' : a;
 
   return <>
-    {/* one line that says what happens next, and whose move it is */}
-    <div className="rtw-next" data-mine={mine || undefined}>
+    {/* one line that says what happens next, and whose move it is — in the drawer's header when there is one, so it takes no row of its own */}
+    {(() => { const bar = <div className={`rtw-next${headSlot ? ' in-head' : ''}`} data-mine={mine || undefined}>
       {next ? <>
         <span className="rtw-next-k">{mine ? 'Your move' : 'Next'}</span>
         <span className="rtw-next-v">{next.now ?? next.label}</span>
         {next.act && <span className={`pill role-${roleClass(next.act)}`}>{RTW_ACTOR_LABEL[next.act]}</span>}
         {!at(next.key) && isMine(next.key) && <button type="button" className="cta" onClick={() => panel(next.key)}>go there →</button>}
       </> : <><span className="rtw-next-k">Done</span><span className="rtw-next-v">launched {fmtDate(launch?.launchedOn)}</span></>}
-    </div>
+    </div>; return headSlot ? createPortal(bar, headSlot) : bar; })()}
 
     <div className="rtw-wrap"><div className="rtw-journey">
       {/* the rail: every step in order, ticked as it lands; the open one is outlined */}

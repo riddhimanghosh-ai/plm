@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppStore } from './store';
 import { ROLE_LABEL } from './domain/reference';
@@ -234,8 +234,11 @@ export function useOverlay(open: boolean) {
 }
 
 const DRAWER_W = 'bsc-plm-drawer-share-4';   // 12 Nov 2026: new key so every browser opens wide again (92%) instead of an older, narrower saved width   // a fraction of the window; new key so earlier saved widths open at the new default
+/* a slot in the drawer's header: a record puts its one-line "next" there instead of taking a row of its own */
+export const DrawerSlot = createContext<HTMLElement | null>(null);
 export function Drawer({ open, onClose, title, subtitle, back, children }: { open: boolean; onClose: () => void; title: React.ReactNode; subtitle?: React.ReactNode; back?: { label: string; onClick: () => void }; children: React.ReactNode }) {
   const body = useRef<HTMLDivElement>(null);
+  const [slot, setSlot] = useState<HTMLDivElement | null>(null);
   const onTop = useOverlay(open);
   const [sections, setSections] = useState<string[]>([]);
   const [here, setHere] = useState('');
@@ -285,20 +288,21 @@ export function Drawer({ open, onClose, title, subtitle, back, children }: { ope
         onPointerDown={e => { drag.current = { x: e.clientX, w: width }; document.body.style.userSelect = 'none'; (e.target as HTMLElement).setPointerCapture?.(e.pointerId); }}
         onDoubleClick={() => { setWidth(Math.round(window.innerWidth * 0.5)); localStorage.setItem(DRAWER_W, '0.5'); }}
         title="Drag to resize · double-click for half the screen" />
-      <div className="px-5 py-4 sticky top-0" style={{ background:'var(--ground)', borderBottom:'1px solid var(--line)', zIndex:6 }}>
-        {back && <button type="button" className="vlink text-[12.5px] mb-1.5 no-print" style={{ textDecoration:'none' }} onClick={back.onClick}>← Back to {back.label}</button>}
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0"><h2 style={{ fontSize: 22 }}>{title}</h2>{subtitle && <div className="mt-1 text-[12.5px] flex gap-2 items-center flex-wrap" style={{ color:'var(--ink-soft)' }}>{subtitle}</div>}</div>
+      <div className="px-5 py-2.5 sticky top-0" style={{ background:'var(--ground)', borderBottom:'1px solid var(--line)', zIndex:6 }}>
+        {back && <button type="button" className="vlink text-[12.5px] mb-1 no-print" style={{ textDecoration:'none' }} onClick={back.onClick}>← Back to {back.label}</button>}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex items-baseline gap-x-3 gap-y-0.5 flex-wrap"><h2 style={{ fontSize: 19, lineHeight: 1.2 }}>{title}</h2>{subtitle && <div className="text-[12.5px] flex gap-2 items-center flex-wrap" style={{ color:'var(--ink-soft)' }}>{subtitle}</div>}</div>
           <div className="flex items-center gap-1 no-print" style={{ flex:'none' }}>
             <Button size="sm" variant="ghost" onClick={() => window.print()} title="Print this record — the job card and cut sheet go to the floor on paper">🖨</Button>
             <Button size="sm" variant="ghost" onClick={onClose}>{back ? '✕ Esc' : '✕ Esc'}</Button>
           </div>
         </div>
+        <div ref={setSlot} className="drawer-slot" />
       </div>
       {sections.length >= 4 && <div className="drawer-index">
         {sections.map(n => <button key={n} type="button" className={here === n ? 'on' : ''} onClick={() => jump(n)}>{n}</button>)}
       </div>}
-      <div ref={body} className="px-5 py-4 drawer-body">{children}</div>
+      <div ref={body} className="px-5 py-4 drawer-body"><DrawerSlot.Provider value={slot}>{children}</DrawerSlot.Provider></div>
     </aside>
   </>;
 }
