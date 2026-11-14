@@ -22,11 +22,11 @@ import { LaunchCodes, LaunchStickers } from './Launches';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
 const MINE: Record<string, string[]> = {
-  design: ['raised', 'pack', 'tna', 'cogs', 'launch'],
+  design: ['raised', 'pack', 'cloth', 'tna', 'cogs', 'launch'],
   planning: ['raised', 'cogs', 'launch'],
-  sourcing: ['pack', 'tna'],
-  production: ['raised', 'pack', 'query', 'po', 'plan', 'tna', 'dispatch', 'received', 'cogs'],
-  merchandiser: ['query', 'po', 'plan', 'tna', 'dispatch', 'received'],
+  sourcing: ['pack', 'cloth'],
+  production: ['raised', 'pack', 'query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'cogs'],
+  merchandiser: ['query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received'],
   qc: ['po', 'tna'],
   warehouse: ['dispatch', 'received'],
 };
@@ -52,7 +52,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const [open, setOpen] = useState<string>(initial && isMine(initial) ? initial : firstMine);
   /* how the open step lays its parts out: stacked (one under the other) or blocks (side by side, each part its own card) */
   const viewKey = (k: string) => `rtw-step-view:${k}`;
-  const defaultView = (k: string): 'stacked' | 'blocks' => k === 'tna' || k === 'pack' ? 'stacked' : 'blocks';
+  const defaultView = (k: string): 'stacked' | 'blocks' => k === 'tna' || k === 'pack' || k === 'cloth' ? 'stacked' : 'blocks';
   const readView = (k: string): 'stacked' | 'blocks' => { try { const v = localStorage.getItem(viewKey(k)); return v === 'blocks' || v === 'stacked' ? v : defaultView(k); } catch { return defaultView(k); } };
   const [view, setView] = useState<'stacked' | 'blocks'>(() => readView(initial && isMine(initial) ? initial : firstMine));
   const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem(viewKey(open), v); } catch { /* storage off */ } };
@@ -138,9 +138,11 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
         </>}
     </Section>}
     {at('tna') && o.poNo && <div className="pt-3"><QcChecksSection o={o} qc={qc} /></div>}
-    {at('tna') && o.poNo && o.fabricNominated && <Section title="Cloth at the factory" collapsible={false} right={<Pill tone={fab.tone}>{fab.label}</Pill>}>
-      {(merchant && !design && !prod) || (role === 'owner' && location.hash.startsWith('#/factory')) ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" />}
-    </Section>}
+    {at('cloth') && <div className="rtw-full"><Section title="Cloth at the factory" collapsible={false} right={<Pill tone={o.poNo ? fab.tone : 'neutral'}>{o.poNo ? fab.label : 'after the PO'}</Pill>}>
+      {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Once the PO is out: sourcing sends the cloth to the factory, the factory counts it in; short cloth comes back to category for a cut ratio.</div>
+        : !o.fabricNominated ? <div className="text-[12.5px] py-1" style={faint}>The factory sources its own cloth; its fabric PO and receipt are steps on the TNA.</div>
+        : (merchant && !design && !prod) || (role === 'owner' && location.hash.startsWith('#/factory')) ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" />}
+    </Section></div>}
 
     {at('dispatch') && <div className="rtw-full"><InvoiceSection o={o} merchant={merchant} /></div>}
 

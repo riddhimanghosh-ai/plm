@@ -101,7 +101,7 @@ export function Factory() {
         return <>{openRtw.styleName} · {openRtw.orderQty} pcs · in-house by {fmtDate(openRtw.targetInhouse)}
           {cr?.given && <span className="ml-2"><Pill tone={cr.sentToFactoryOn ? 'good' : 'warn'}>{cr.sentToFactoryOn ? `${k} changed · cut ${cr.given.breakup.reduce((a, x) => a + x.qty, 0)} pcs` : `new ${k} given · coming`}</Pill></span>}
           {cr && !cr.given && <span className="ml-2"><Pill tone="risk">{k} with design</Pill></span>}</>; })()}>
-        {openRtw && <RtwRequirement key={openRtw.id} o={openRtw} initial={params.get('step') ?? (rtwTab === 'in' ? 'tna' : rtwTab === 'tna' ? 'tna' : undefined) /* POs for us: open at the step the order is on */} />}
+        {openRtw && <RtwRequirement key={openRtw.id} o={openRtw} initial={params.get('step') ?? (rtwTab === 'in' ? 'cloth' : rtwTab === 'tna' ? 'tna' : undefined) /* POs for us: open at the step the order is on */} />}
       </Drawer>
     </Page>
   );

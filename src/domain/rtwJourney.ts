@@ -22,6 +22,7 @@ export const RTW_INTRO: Record<string, string> = {
   query: 'Nitin picks factories from the factory database (recommended by category and region, or any other), sets a reply deadline and sends the cost query. PLM mails it to the factories with the requirement and a cost form, copying the merchandiser. Replies land here: cost per piece, lead time, and whether the factory or BSC\'s vendor sources the cloth.',
   po: 'Nitin raises the PO on one reply. PLM mails it to the factory and the merchandiser with the delivery location (3PL warehouse, or Vasai in-house when there is hemming or semi-stitching), the cloth vendor\'s details when BSC\'s vendor supplies it, and the TNA form. There is no PO for the vendor cloth in PLM.',
   plan: 'The TNA form comes back with the planned date for every step, through the merchandiser. Until it does, the merchandiser sees it as owed.',
+  cloth: 'The cloth at the factory: the fabric PO and what was sent, what the factory counted in, and the cut ratio. Short or damaged cloth comes back to category, whose new sizes the factory sees at once and cuts to. When the factory sources its own cloth, its fabric PO and receipt are TNA steps.',
   tna: 'Every step of the TNA — the factory\'s own fabric PO and receipt, PP sample, size set, cutting, stitching, finishing, dispatch — with planned, revised and actual dates. QC passes or fails the PP sample, the size set and three line inspections; its remarks are on the record for the merchandiser.',
   dispatch: 'After the dispatch actual the merchandiser uploads the factory\'s invoice and packing list. PLM mails both to Prince at the warehouse, who receives against the packing list on Enigma.',
   received: 'What Enigma received, by size, against the packing list: did everything reach?',
@@ -60,6 +61,9 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
       now: !cq ? 'after the cost query' : replies ? 'Nitin to raise the PO on a reply' : 'after a reply' },
     { key: 'plan', phase: 'buy', label: 'TNA · planned dates', who: 'Factory · Merchandiser', act: 'merchandiser', on: o.tnaPlan?.submittedOn ?? (o.poNo && !o.tnaPlan ? o.poDate : null), by: o.tnaPlan?.submittedOn ? (o.tnaPlan.by ?? 'submitted') : null,
       now: !o.poNo ? 'after the PO' : `merchandiser to return the TNA form${o.tnaPlan ? ` · sent ${fmtDate(o.tnaPlan.sentOn)}` : ''}` },
+    { key: 'cloth', phase: 'make', label: 'Cloth at the factory · cut ratio', who: 'Sourcing · Factory · Category', act: fab.key === 'ratio-asked' ? 'design' : o.fabricSupply?.sentToFactoryOn ? 'merchandiser' : 'sourcing',
+      on: !o.poNo ? null : !o.fabricNominated ? o.poDate : (o.fabricSupply?.receipt?.on ?? null), by: !o.poNo ? null : !o.fabricNominated ? 'the factory sources it' : o.fabricSupply?.receipt ? `${o.fabricSupply.receipt.metresOk} m counted in${fab.cr?.given ? ' · new cut ratio' : ''}` : null,
+      now: !o.poNo ? 'after the PO' : fab.key === 'ratio-asked' ? (fab.cr?.kind === 'cut-short' ? 'category to approve the cut-short' : 'category to give new sizes') : o.fabricSupply?.sentToFactoryOn ? 'factory to count the cloth in' : 'sourcing to send the cloth to the factory' },
     { key: 'tna', phase: 'make', label: 'Made · TNA with QC', who: 'Factory · QC · Merchandiser', on: finished ?? dispatched, by: finished ? 'finishing done' : dispatched ? 'dispatched' : null, act: tnaAct,
       now: !o.poNo ? 'after the PO' : tnaNow },
     { key: 'dispatch', phase: 'land', label: 'Dispatched · invoice to the warehouse', who: 'Factory · Merchandiser', act: 'merchandiser', on: inv?.mailedOn ?? null, by: inv ? `invoice ${inv.no} · ${inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs` : null,
@@ -73,7 +77,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
   ];
   /* an open cut-ratio ask pulls the record back to the TNA until it is answered */
   const ratioOpen = o.status === 'Open' && fab.key === 'ratio-asked';
-  const current = ratioOpen ? steps.findIndex(x => x.key === 'tna') : steps.findIndex(x => !x.on);
+  const current = ratioOpen ? steps.findIndex(x => x.key === 'cloth') : steps.findIndex(x => !x.on);
   const next = current >= 0 ? steps[current] : null;
   /* "where it is" for a list: the step name, or the TNA stage while it is being made */
   const where = ratioOpen ? `cut ratio with category · short ${fab.short} m` : !next ? `launched ${fmtDate(launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? (qcFail ? `QC failed · ${qcFail.label.toLowerCase()}` : qcDue ? `QC · ${qcDue.label.toLowerCase()}` : `${st.stage}${late}`) : next.key === 'pack' ? (pack.ready ? 'requirement complete' : `requirement · ${pack.missing.length} to fill`) : next.key === 'query' && cq ? `cost query · ${replies} of ${asked} replied` : next.label;
