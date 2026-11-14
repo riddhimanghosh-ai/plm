@@ -80,7 +80,7 @@ export function Qc() {
     {tab === 'inspections' && <>
       <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
         <Filter value={within} onChange={setWithin} label="Coming up" options={[{ id: '3', label: 'Within 3 days' }, { id: '7', label: '7 days' }, { id: '14', label: '14 days' }, { id: 'all', label: 'Everything planned' }]} />
-        <MultiFilter value={point} onChange={setPoint} label="Point" options={[{ id: 'all', label: 'All three' }, { id: 'initial', label: 'Initial', count: insp.filter(r => r.pt.key === 'initial').length }, { id: 'midline', label: 'Mid-line', count: insp.filter(r => r.pt.key === 'midline').length }, { id: 'final', label: 'Final', count: insp.filter(r => r.pt.key === 'final').length }]} />
+        <MultiFilter value={point} onChange={setPoint} label="Point" options={[{ id: 'all', label: 'Every inspection' }, { id: 'initial', label: 'Initial', count: insp.filter(r => r.pt.key === 'initial').length }, { id: 'midline', label: 'Mid-line', count: insp.filter(r => r.pt.key === 'midline').length }, { id: 'final', label: 'Final', count: insp.filter(r => r.pt.key === 'final').length }]} />
         {factories.length > 1 && <MultiFilter value={fac} onChange={setFac} label="Factory" options={[{ id: 'all', label: 'All' }, ...factories.map(id => ({ id, label: factoryName(id), count: insp.filter(r => r.o.vendorId === id).length }))]} />}
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style, PO or factory" style={{ width: 190 }} />
       </div></Card>

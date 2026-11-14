@@ -135,7 +135,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
     {at('tna') && <Section title="The TNA" collapsible={false} right={<Pill tone={o.status === 'Closed' ? 'neutral' : r.risk === 'on-track' ? 'good' : r.risk === 'delayed' || r.risk === 'critical' ? 'risk' : 'warn'}>{o.poNo ? (o.status === 'Closed' ? 'delivered' : `${st.stage}${r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : ''}`) : 'after the PO'}</Pill>}>
       {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Generated from the PO; the factory returns its planned dates on the TNA form, then logs each step as it happens. The merchandiser follows up.</div>
         : <>
-          <div className="text-[12.5px] pb-2" style={{ color: 'var(--ink-soft)' }}>Due in-house {fmtDate(o.targetInhouse)}{r.bufferDays != null && o.status !== 'Closed' ? ` · ${r.bufferDays < 0 ? `${-r.bufferDays} days late` : `${r.bufferDays} days to spare`}` : ''}. Planned · revised · actual on every step; the five QC blocks close when QC passes them.</div>
+          <div className="text-[12.5px] pb-2" style={{ color: 'var(--ink-soft)' }}>Due in-house {fmtDate(o.targetInhouse)}{r.bufferDays != null && o.status !== 'Closed' ? ` · ${r.bufferDays < 0 ? `${-r.bufferDays} days late` : `${r.bufferDays} days to spare`}` : ''}. Planned · revised · actual on every step; the QC blocks close when QC passes them.</div>
           <MilestoneGrid o={o} editable={(prod || merchant) && o.status !== 'Closed'} bare dense />
           {!onTracker && <div className="pt-2"><a className="cta" href={`#/tracker?open=${o.id}`}>Open on the RTW production tracker →</a></div>}
         </>}

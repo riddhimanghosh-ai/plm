@@ -19,6 +19,7 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
 
   /* the book: what exists and what it is called */
   { path:'/design',       label:'Requirements',        hint:'every ask — MTM fabric, RTW style — at its stage; open any row, raise any kind', group:'Design',   roles:['owner','design','planning','sourcing'] , hideFor:['sourcing']},
+  { path:'/cogs',         label:'COGS and cost',              hint:'COGS per piece and margin for every style; add to Enigma; marketing details', group:'Design',   roles:['owner','design','production'], hideFor:['production'] },
   { path:'/swatches',     label:'Swatch desk',                hint:'cloth in → swatches cut → stores told → live; the sticker prints off the record', group:'Design',   roles:['owner','design','production','warehouse'] , hideFor:['production']},
   { path:'/fabrics',      label:'MTM fabric master',          hint:'core, non-core and bespoke: stock and blocks',   group:'Design',   roles:['owner','design','sourcing','production'] , hideFor:['production']},
 
@@ -48,7 +49,7 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   { path:'/tracker',      label:'RTW production tracker',     hint:'every bulk PO, date by date',                    group:'Production · RTW', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
   /* Production · RTW in PLM is the tracker alone; analytics read off it sit with planning, and materials go from sourcing straight to the factory */
   { path:'/otif',         label:'RTW production analytics',   hint:'OTIF, daily monitor, escalations, merchandiser alerts — read off the tracker', group:'Planning', roles:['owner','planning'] },
-  { path:'/qc',           label:'QC · samples and inspections', hint:'PP sample, size set, the three line inspections: pass or fail with remarks', group:'QC', roles:['owner','qc'] },
+  { path:'/qc',           label:'QC · samples and inspections', hint:'PP sample, size set, the line inspections: pass or fail with remarks', group:'QC', roles:['owner','qc'] },
   { path:'/factory',      label:'My factory · merchandiser',   hint:"the floor's own day: output, pieces, cloth",     group:'Merchandiser', roles:['owner','merchandiser','production'] , hideFor:['production']},
 
   /* moving */

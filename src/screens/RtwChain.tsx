@@ -358,7 +358,7 @@ export function QcChecksSection({ o, qc, compact }: { o: ProductionOrder; qc: bo
   const passed = pts.filter(x => x.state === 'passed').length; const live = pts.filter(x => x.state !== 'na').length;
   if (!o.poNo) return <Section title="QC" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>PP sample, size set, then three line inspections.</div></Section>;
   const list = open ? QC_CHECKLIST[open.key as QcPoint] : []; const allTicked = list.every(x => ticks[x]);
-  return <Section title="QC · five points" collapsible={false} ownerRole="qc" right={<Pill tone={open?.state === 'failed' ? 'risk' : open ? 'warn' : passed === live ? 'good' : 'neutral'}>{open?.state === 'failed' ? `${open.label} failed · resubmission awaited` : open ? `${open.label} to check now` : `${passed} of ${live} passed`}</Pill>}>
+  return <Section title="QC" collapsible={false} ownerRole="qc" right={<Pill tone={open?.state === 'failed' ? 'risk' : open ? 'warn' : passed === live ? 'good' : 'neutral'}>{open?.state === 'failed' ? `${open.label} failed · resubmission awaited` : open ? `${open.label} to check now` : `${passed} of ${live} passed`}</Pill>}>
     {/* the five points as a stepper: done, open, later */}
     <ol className="qc-steps">{pts.map((x, i) => { const hist = (o.qcChecks ?? []).filter(c => c.point === x.key); const last = hist[hist.length - 1] ?? null;
       return <li key={x.key} className={`qc-step ${x.state}`}>
@@ -481,12 +481,12 @@ export function CogsSection({ o, finance }: { o: ProductionOrder; finance: boole
   const pcs = rc.received || o.cutQty || o.orderQty;
   const cons = c.actualConsumption ?? c.consumption;
   const fabric = o.fabricNominated && c.cpm != null && cons != null ? c.cpm * cons : 0;
-  const make = o.finalFob ?? c.cmp ?? 0;                         // what the factory charges per piece on the PO
+  const make = o.fabricNominated ? (c.cmp ?? Math.max(0, (o.finalFob ?? 0) - fabric)) : (o.finalFob ?? c.cmp ?? 0);   // CMT when BSC sends the cloth, the full FOB otherwise
   const pc = o.poCosts ?? { logistics: null, other: [] };
   const poExtra = ((pc.logistics ?? 0) + pc.other.reduce((a, x) => a + x.amount, 0)) / (pcs || 1);
   const lines: [string, number, string][] = [
     ['Fabric', fabric, o.fabricNominated ? `${c.cpm != null ? fmtMoney(c.cpm) : '—'}/m × ${cons ?? '—'} m${c.actualConsumption != null ? ' (actual, from cutting)' : ' (planned)'}` : 'the factory buys the cloth'],
-    [o.fabricNominated ? 'Making · CMT' : 'Making · FOB', make, o.finalFob != null ? `the factory's PO price${o.poNo ? ` · ${o.poNo}` : ''}` : 'from the costing sheet'],
+    [o.fabricNominated ? 'Making · CMT' : 'Making · FOB', make, o.fabricNominated ? (c.cmp != null ? 'CMT from the costing sheet' : 'the factory\'s price less the cloth') : o.finalFob != null ? `the factory's PO price${o.poNo ? ` · ${o.poNo}` : ''}` : 'from the costing sheet'],
     ['Trims and packaging', c.trimsPackaging, 'costing sheet'],
     ['Transport', c.transportation, 'costing sheet'],
     ...(c.hemming ? [['Hemming', c.hemming, 'costing sheet'] as [string, number, string]] : []),
@@ -497,7 +497,7 @@ export function CogsSection({ o, finance }: { o: ProductionOrder; finance: boole
   const cogs = lines.reduce((a, l) => a + l[1], 0);
   const opt = db.options.find(x => x.styleName === o.styleName) ?? null;
   const launch = (db.launches ?? []).find(l => l.orderId === o.id);
-  const mrp = launch?.designCodes?.[0]?.mrp ?? opt?.mrp ?? plan.finalMrp ?? null;
+  const mrp = o.enigmaProduct?.mrp ?? launch?.designCodes?.[0]?.mrp ?? opt?.mrp ?? plan.finalMrp ?? null;
   const net = mrp != null ? netOf(mrp) : null; const margin = net != null && cogs ? (net - cogs) / net : null;
   const planned = plan.cogs; const diff = planned != null ? cogs - planned : null;
   const delivered = rc.lots.length > 0 && !rc.partial;

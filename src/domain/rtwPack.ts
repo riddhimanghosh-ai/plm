@@ -4,7 +4,7 @@
    the PO, the invoice to the warehouse). */
 import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply } from './types';
 import { TECH_PACK_ITEMS, QC_POINTS, DELIVERY_LOCATIONS, PEOPLE } from './reference';
-import { fmtDate, daysAgo, addDays, iso, daysBetween } from './engines';
+import { fmtDate, daysAgo, addDays, iso, daysBetween, costingOf, receiptOf, netOf } from './engines';
 
 export const EMPTY_PACK: RequirementPack = { techPack: {}, fabric: { description: null, content: null, image: null, swatchAnalyser: null, cpm: null, widthIn: null, vendorId: null, vendorFabricCode: null, blockedMetres: null, readiness: null, readyOn: null }, trimCard: null, trimLines: [], colours: [], brief: null, sentOn: null, sentBy: null };
 export const packOf = (o: ProductionOrder): RequirementPack => o.pack ?? EMPTY_PACK;
@@ -146,4 +146,27 @@ export function draftFromBrief(text: string, styleName: string) {
     trimLines: [{ colour: 'all', item: button, supplierCode: null, image: null }, { colour: 'all', item: 'BSC main label', supplierCode: null, image: null }],
     fit,
   };
+}
+
+/* COGS per piece for an RTW style, from the costing sheet with the actuals laid over it (the record's COGS step and the
+   category's COGS dashboard read the same numbers) */
+export function rtwCogsOf(db: Db, o: ProductionOrder) {
+  const c = o.costing; const plan = costingOf(o); const rc = receiptOf(o);
+  const pcs = rc.received || o.cutQty || o.orderQty;
+  const cons = c.actualConsumption ?? c.consumption;
+  const fabric = o.fabricNominated && c.cpm != null && cons != null ? c.cpm * cons : 0;
+  /* when BSC sends the cloth the factory charges making only (CMT); otherwise its price is the full FOB, cloth included */
+  const make = o.fabricNominated ? (c.cmp ?? Math.max(0, (o.finalFob ?? 0) - fabric)) : (o.finalFob ?? c.cmp ?? 0);
+  const pc = o.poCosts ?? { logistics: null, other: [] };
+  const poExtra = ((pc.logistics ?? 0) + pc.other.reduce((a, x) => a + x.amount, 0)) / (pcs || 1);
+  const parts = { fabric, make, trims: c.trimsPackaging, transport: c.transportation, hemming: c.hemming ?? 0, freight: c.shipping, overheads: c.factoryOverheads, poExtra };
+  const cogs = Object.values(parts).reduce((a, x) => a + (x || 0), 0);
+  const opt = db.options.find(x => x.styleName === o.styleName) ?? null;
+  const launch = (db.launches ?? []).find(l => l.orderId === o.id);
+  const mrp = o.enigmaProduct?.mrp ?? launch?.designCodes?.[0]?.mrp ?? opt?.mrp ?? plan.finalMrp ?? null;
+  const net = mrp != null ? netOf(mrp) : null; const margin = net != null && cogs ? (net - cogs) / net : null;
+  const planned = plan.cogs ?? null;
+  const delivered = rc.lots.length > 0 && !rc.partial;
+  const closedOn = o.cogsClosedOn ?? (o.status === 'Closed' ? (rc.lots[rc.lots.length - 1]?.at ?? null) : null);
+  return { parts, cogs, pcs, total: cogs * pcs, mrp, net, margin, planned, diff: planned != null ? cogs - planned : null, delivered, closedOn, target: o.targetCost };
 }

@@ -6,7 +6,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 DATE = '15 Nov 2026'
 TITLE = 'BSC PLM: Product Requirements, RTW edition'
-SUB = 'Ready-to-wear bulk production end to end, as BSC set it in the discovery of 14 Nov 2026: the six-part requirement, factory counter sourcing, the PO and its mails, the TNA with QC at five points, the cloth at the factory and the cut ratio, dispatch and receipt, COGS, Enigma, and the invoices for reconciliation. Users, user flows step by step, data, rules, build order, and the outcomes it delivers.'
+SUB = 'Ready-to-wear bulk production end to end, as BSC set it in the discovery of 14 Nov 2026: the requirement, factory counter sourcing, the PO and its mails, the TNA with QC, the cloth at the factory and the cut ratio, dispatch and receipt, COGS, Enigma, and the invoices for reconciliation. Users, user flows step by step, data, rules, build order, and the outcomes it delivers.'
 
 C = []
 def h2(t): C.append(('h2', t))
@@ -18,20 +18,20 @@ def steps(rows): table(['#', 'Step · who', 'User flow', 'Data in (source)', 'Sy
 
 # ------------------------------------------------------------------ 1
 h2("1. Purpose and scope")
-p("Requirements for the RTW edition of BSC PLM: Bombay Shirt Company's ready-to-wear bulk production, from the day category raises a style to the day it is in Enigma and the invoices are reconciled. Every role works on one record per style: a rail of twelve steps down the left, one step open at a time, the next move and whose it is pinned in the header. The prototype at bsc-plm-rtw.vercel.app shows every screen named here.")
+p("Requirements for the RTW edition of BSC PLM: Bombay Shirt Company's ready-to-wear bulk production, from the day category raises a style to the day it is in Enigma and the invoices are reconciled. Every role works on one record per style: a rail of steps down the left, one step open at a time, the next move and whose it is pinned in the header. The prototype at bsc-plm-rtw.vercel.app shows every screen named here.")
 p("BSC PLM sits beside Enigma, not inside it. Enigma stays the system of record for products, stock, warehouse receipts (GRN) and vendor POs for cloth. PLM holds what Enigma does not: the requirement and its files, the factory database, counter sourcing and its replies, the factory PO and its mails, the TNA with planned, revised and actual dates, QC, the cloth at the factory and the cut ratio, the invoice trail, COGS, and the conversation. AWB, courier and logistics stay outside PLM.")
-b("In scope.", "Category's six-part requirement with files; sourcing's vendor details and sending; the factory and cloth vendor databases; counter sourcing with replies over target flagged and target revisions logged; the factory PO with delivery location and the TNA form, mailed from PLM with the mail editable; the merchandiser's follow-ups across their three factories; the TNA with 24 blocks and QC at five points; the cloth at the factory, colour by colour, with hold or drop on a failed colour and a new cut ratio on short or extra cloth or trims; dispatch with the invoice and packing list mailed to the warehouse; receipt against the packing list from Enigma; COGS; Add to Enigma with every size; invoices, debit and credit notes; the production dashboard.")
+b("In scope.", "Category's requirement with its files; sourcing's vendor details and sending; the factory and cloth vendor databases; counter sourcing with replies over target flagged and target revisions logged; the factory PO with delivery location and the TNA form, mailed from PLM with the mail editable; the merchandiser's follow-ups across their factories; the TNA and QC; the cloth at the factory, colour by colour, with hold or drop on a failed colour and a new cut ratio on short or extra cloth or trims; dispatch with the invoice and packing list mailed to the warehouse; receipt against the packing list from Enigma; COGS; Add to Enigma with every size; invoices, debit and credit notes; the production dashboard.")
 b("Out of scope.", "Enigma auto-PO (MTM fabric only); a pre-PO sampling cycle (sampling is the PP sample and size set on the TNA); AWB, courier and logistics; the GRN itself (Enigma, by Prince); factory logins (factories work by mail and forms); MTM.")
 b("Conventions.", "A state is where a record is, never the next step. Quantities are pieces unless the unit says metres. Rules marked later are specified but not built. A ✦ marks an AI feature.")
 
 # ------------------------------------------------------------------ 2
 h2("2. Users and roles")
-p("Seven roles work in PLM; factories and the warehouse are reached by mail. One login per person. A button shows only for the role that owns the step; everyone else reads whose move it is.")
+p("These roles work in PLM; factories and the warehouse are reached by mail. One login per person. A button shows only for the role that owns the step; everyone else reads whose move it is.")
 table(["Role", "People", "Owns in PLM", "Lands on", "Reads"], [
- ["Category (design)", "Kunal and the category team", "The six-part requirement and its files; who supplies the cloth; the delivery location; revising target date or cost when every factory reply is over; a new cut ratio when cloth or trims are short or extra, or a colour is dropped; Add to Enigma", "Requirements", "Counter sourcing, QC remarks, COGS"],
+ ["Category (design)", "Kunal and the category team", "The requirement and its files; who supplies the cloth; the delivery location; revising target date or cost when every factory reply is over; a new cut ratio when cloth or trims are short or extra, or a colour is dropped; Add to Enigma", "Requirements", "Counter sourcing, QC remarks, COGS"],
  ["Sourcing", "Sreekanth", "Vendor details on the requirement (cloth vendor, vendor fabric code, blocked quantity, readiness, trim vendor, yarn vendor for knits) when BSC is in the cloth; sending cloth and trims to the factory when BSC sends; the cloth vendor database", "Sourcing · RTW", "Requirements, POs"],
  ["Production RTW", "Nitin, Parag", "Counter sourcing (factories, deadline, the mail); the cloth decision before the PO; the PO and its mail; PO costs; hold or drop a failed colour; COGS; invoices, debit and credit notes; the factory database; the dashboard", "RTW production tracker", "Everything"],
- ["Merchandiser", "Nitin Singh, Abhin M, Bhupendra (three factories each)", "Chasing what factories owe; returning the TNA form; the TNA dates; the factory's own fabric PO and receipt; counting cloth and trims in; asking for a new cut ratio; the invoice and packing list after dispatch and the mail to the warehouse", "My factories", "QC results, remarks"],
+ ["Merchandiser", "Nitin Singh, Abhin M, Bhupendra (a few factories each)", "Chasing what factories owe; returning the TNA form; the TNA dates; the factory's own fabric PO and receipt; counting cloth and trims in; asking for a new cut ratio; the invoice and packing list after dispatch and the mail to the warehouse", "My factories", "QC results, remarks"],
  ["QC", "Rohit", "PP sample, size set, initial, mid-line and final inspection: pass or not, with technical and aesthetic remarks", "QC · samples and inspections", "The tech pack and sizes"],
  ["Warehouse", "Prince", "No screen. Receives the invoice and packing list by mail; receives the goods on Enigma", "None", "The mail"],
  ["Owner", "Akshay, Parag", "Everything", "Any", "None"],
@@ -39,16 +39,16 @@ table(["Role", "People", "Owns in PLM", "Lands on", "Reads"], [
 b("Factories.", "No login. They get the counter-sourcing query and its cost form, the PO with the TNA form, and reply by mail or form; the merchandiser keys what they send.")
 
 # ------------------------------------------------------------------ 3
-h2("3. The record and the twelve steps")
+h2("3. The record and its steps")
 p("Every role opens the same record. The rail shows the steps in four phases; a step ticks when it is done, turns red when it went wrong (short cloth, a failed colour) and amber once it is fixed. Lists everywhere show Where it is and Next from the same words.")
 table(["#", "Step", "Who", "Done when"], [
  ["1", "Raised", "Category or a planning reorder", "the style is created"],
- ["2", "Requirement · six parts", "Category, sourcing", "all six parts are in and category sends it to Production RTW"],
+ ["2", "Requirement", "Category, sourcing", "every part is in and category sends it to Production RTW"],
  ["3", "Factory counter sourcing", "Nitin, factories, category", "replies are in and at least one fits the targets (or the targets are revised)"],
  ["4", "PO raised · mailed", "Nitin", "the PO is raised on a reply and its mail is sent"],
  ["5", "TNA · planned dates", "Merchandiser, factory", "the TNA form comes back with a planned date per step"],
  ["6", "Cloth at the factory · cut ratio", "Sourcing, merchandiser, category", "every colour is in and passed, or held or dropped, and any new cut ratio is given"],
- ["7", "Made · TNA with QC", "Factory, QC, merchandiser", "finishing done; QC passed at five points"],
+ ["7", "Made · TNA with QC", "Factory, QC, merchandiser", "finishing done; QC passed at every point"],
  ["8", "Dispatched · invoice to the warehouse", "Merchandiser", "the invoice and packing list are mailed to Prince"],
  ["9", "Received · Enigma", "Prince", "Enigma holds the receipt against the packing list"],
  ["10", "COGS · profitability", "Nitin, category", "COGS is closed against net MRP"],
@@ -59,10 +59,10 @@ table(["#", "Step", "Who", "Done when"], [
 # ------------------------------------------------------------------ 4
 h2("4. Workflow 1 — The requirement")
 steps([
- ["1.1", "Raise the style · category", "1. Requirements, + New RTW style. Six tabs (or Stacked, Blocks).\n2. Style and production ask: category, sub-category, semi-stitched, style, colour options, order qty, target in-house, target cost, size-wise quantity (the cut ratio), files (drop or browse), the design brief.\n3. Fabric information: who supplies the cloth (We send it, We add vendors, Factory-held); description, content, photo of the physical fabric, option and phase, CPM, rate, width.\n4. Tech pack: twelve items, each a file (pdf, doc, image) or a note.\n5. Trim card: the file, and colour-wise lines with the supplier's item code and reference image.\n6. BOM and consumption from the trims master.\n7. Delivery instruction: 3PL warehouse or Vasai, preselected from semi-stitched.", "typed; files uploaded; the trims master", "style and qty to create; files any of pdf, doc, sheet or image", "the record opens at step 2"],
+ ["1.1", "Raise the style · category", "1. Requirements, + New RTW style. One tab per part (or Stacked, Blocks).\n2. Style and production ask: category, sub-category, semi-stitched, style, colour options, order qty, target in-house, target cost, size-wise quantity (the cut ratio), files (drop or browse), the design brief.\n3. Fabric information: who supplies the cloth (We send it, We add vendors, Factory-held); description, content, photo of the physical fabric, option and phase, CPM, rate, width.\n4. Tech pack: each item a file (pdf, doc, image) or a note.\n5. Trim card: the file, and colour-wise lines with the supplier's item code and reference image.\n6. BOM and consumption from the trims master.\n7. Delivery instruction: 3PL warehouse or Vasai, preselected from semi-stitched.", "typed; files uploaded; the trims master", "style and qty to create; files any of pdf, doc, sheet or image", "the record opens at step 2"],
  ["1.2", "✦ Draft from words · category", "1. Write what is in mind in the brief (look, collar, pocket, buttons, back, packing).\n2. ✦ Draft the requirement: the empty tech-pack items, fabric description and content, and trim lines are drafted from it.\n3. Category checks each part.", "the brief; attached files", "drafts only fill empty items; nothing is sent", "parts show as filled"],
- ["1.3", "Vendor details · sourcing", "1. Sourcing · RTW, Vendor details on requirements: every requirement where category chose We send it or We add vendors.\n2. Part six, Cloth · vendors: cloth vendor (vendors that supply this cloth first, from the database), vendor fabric code, blocked metres, readiness (available, or a supply date), trim vendor, yarn vendor for knits.", "cloth vendor database", "not needed when factory-held", "part six ticks"],
- ["1.4", "Send to Production RTW · category", "1. The gate lists what is missing, part by part.\n2. Send to Production RTW.", "the six parts", "every part complete, sourcing's included", "the style shows as Requested on the tracker"],
+ ["1.3", "Vendor details · sourcing", "1. Sourcing · RTW, Vendor details on requirements: every requirement where category chose We send it or We add vendors.\n2. The Cloth · vendors part: cloth vendor (vendors that supply this cloth first, from the database), vendor fabric code, blocked metres, readiness (available, or a supply date), trim vendor, yarn vendor for knits.", "cloth vendor database", "not needed when factory-held", "the part ticks"],
+ ["1.4", "Send to Production RTW · category", "1. The gate lists what is missing, part by part.\n2. Send to Production RTW.", "every part", "every part complete, sourcing's included", "the style shows as Requested on the tracker"],
 ])
 b("Fill with sample data.", "A prototype-only button fills the empty parts so a walkthrough can move on.")
 
@@ -78,13 +78,13 @@ steps([
 
 # ------------------------------------------------------------------ 6
 h2("6. Workflow 3 — The merchandiser")
-p("Each merchandiser looks after three factories; their screen spans only those, with a factory filter.")
+p("Each merchandiser looks after a set of factories; their screen spans only those, with a factory filter.")
 steps([
  ["3.1", "Follow-ups · merchandiser", "One list of what the factories owe: cost replies past deadline, TNA forms not returned, TNA steps late, QC fails to resubmit, invoices not yet sent. Multi-select filters by kind and factory.", "every PO and query on their factories", "none", "opens the record at that step"],
  ["3.2", "TNA form · merchandiser", "The factory's planned date for every step, submitted once.", "the TNA form", "one date per step", "planned dates on the TNA; the PO counts as acknowledged"],
  ["3.3", "Cloth and trims intake · merchandiser", "Per PO, colour by colour: in, short, failed, on hold, dropped. Rows short or failed read New cut ratio pending.", "counts from the factory", "none", "category's list filters New cut ratio pending"],
- ["3.4", "The TNA · merchandiser", "An accordion of every PO (first open), with its stage; filters by stage and deadline within 3, 7 or 14 days.", "the TNA", "a revised date needs a reason", "late steps on follow-ups and the dashboard"],
- ["3.5", "QC · merchandiser", "Every QC result across the three factories: PP sample and size set passed or not, inspection remarks, technical and aesthetic.", "QC", "none", "none"],
+ ["3.4", "The TNA · merchandiser", "An accordion of every PO (first open), with its stage; filters by stage and deadline within a chosen number of days.", "the TNA", "a revised date needs a reason", "late steps on follow-ups and the dashboard"],
+ ["3.5", "QC · merchandiser", "Every QC result across their factories: PP sample and size set passed or not, inspection remarks, technical and aesthetic.", "QC", "none", "none"],
 ])
 
 # ------------------------------------------------------------------ 7
@@ -99,8 +99,8 @@ steps([
 # ------------------------------------------------------------------ 8
 h2("8. Workflow 5 — The TNA and QC")
 steps([
- ["5.1", "The TNA · factory, merchandiser", "24 blocks from the category template, planned · revised · actual on each; blocks not in the category greyed; any block marked not needed.", "TNA form; the factory", "a revised date needs a reason; a late actual pushes the open steps", "lateness on the dashboard"],
- ["5.2", "QC · QC", "Five points: PP sample, size set, initial inspection (after stitching starts), mid-line (after finishing starts), final (finishing done). QC's screen: inspections coming up within N days by factory; PP samples received; size sets received; every result.", "the TNA", "a pass needs every checklist line ticked; a fail needs remarks", "a pass closes the TNA block; a fail goes to the factory and the merchandiser"],
+ ["5.1", "The TNA · factory, merchandiser", "The blocks from the category template, planned · revised · actual on each; blocks not in the category greyed; any block marked not needed.", "TNA form; the factory", "a revised date needs a reason; a late actual pushes the open steps", "lateness on the dashboard"],
+ ["5.2", "QC · QC", "QC points: PP sample, size set, initial inspection (after stitching starts), mid-line (after finishing starts), final (finishing done). QC's screen: inspections coming up by factory; PP samples received; size sets received; every result.", "the TNA", "a pass needs every checklist line ticked; a fail needs remarks", "a pass closes the TNA block; a fail goes to the factory and the merchandiser"],
  ["5.3", "Remarks · everyone", "QC blocks on the TNA show passed or failed; remarks open on click. The record's Remarks tab holds every remark; What happened holds the whole log.", "QC, cut ratios, revisions", "none", "none"],
 ])
 
@@ -118,13 +118,13 @@ steps([
 # ------------------------------------------------------------------ 10
 h2("10. Databases")
 table(["Database", "Fields", "Used by"], [
- ["Factory database", "factory, location, region, categories it specialises in, merchandiser, contact, lead time, MOQ, on-time rate", "counter sourcing recommends by category; the merchandiser's three factories"],
+ ["Factory database", "factory, location, region, categories it specialises in, merchandiser, contact, lead time, MOQ, on-time rate", "counter sourcing recommends by category; each merchandiser's factories"],
  ["Cloth vendor database", "vendor, location, region, type (domestic, international, trims), what it supplies, contact, lead time, MOQ", "the vendor picker on the requirement puts vendors that supply that cloth first; the trim vendor"],
 ])
 
 # ------------------------------------------------------------------ 11
 h2("11. AI features")
-p("Two AI features are specified. They are built in phase 1 if feasible; if not, they move to the next phase and the flows work without them, by hand.")
+p("AI features are specified. They are built in phase 1 if feasible; if not, they move to the next phase and the flows work without them, by hand.")
 table(["Feature", "What it does", "Inputs", "Output"], [
  ["✦ Draft the requirement", "From category's own words (and any files attached), drafts the tech-pack items, fabric description and content, and trim card lines", "the brief, the style, attached files", "drafted items in the empty parts, for category to check"],
  ["✦ Product and marketing details", "After Add to Enigma, drafts the product title, description, details, care, SEO title and marketing pointers", "name, cloth, fit, colour, sizes, MRP, the brief", "copy saved to Enigma after edits"],
@@ -138,7 +138,7 @@ p("For Parag and Nitin: OTIF over 90 days, open POs and pieces, running late, QC
 # ------------------------------------------------------------------ 13
 h2("13. Business rules and validations")
 ul([
- "Nothing goes to Production RTW until all six parts are complete; sourcing's part only when BSC is in the cloth.",
+ "Nothing goes to Production RTW until every part is complete; sourcing's part only when BSC is in the cloth.",
  "A reply over target cost or landing past the target in-house date is flagged; when none fits, category revises the target with a reason, and the earlier value is kept.",
  "Who supplies the cloth is chosen by category on the requirement and confirmed by Nitin before the PO.",
  "Delivery location: semi-stitched products to Vasai, everything else to the 3PL warehouse; category can choose either.",
@@ -147,7 +147,7 @@ ul([
  "Short or extra cloth or trims, or a dropped colour, asks category for a new cut ratio.",
  "A QC pass needs every checklist line; a fail needs remarks; a pass closes the TNA block.",
  "Every mail PLM composes can be edited before sending; PLM keeps what was sent.",
- "Each merchandiser sees only their three factories.",
+ "Each merchandiser sees only their own factories.",
  "No Enigma auto-PO on RTW; no AWB, courier or logistics in PLM.",
 ])
 
@@ -163,14 +163,14 @@ table(["Phase", "What", "Enigma"], [
 h2("15. Outcomes: what is solved, the benefits, the pain points gone")
 p("What changes for each team once the RTW edition is live.")
 table(["Pain point today", "What PLM does", "Benefit"], [
- ["Requirements arrive incomplete: tech pack, fabric or trim card missing, discovered at the factory", "Six-part requirement with a gate; nothing moves until every part, sourcing's included, is in", "Factories start with everything; fewer stoppages and re-sends"],
+ ["Requirements arrive incomplete: tech pack, fabric or trim card missing, discovered at the factory", "The requirement with a gate; nothing moves until every part, sourcing's included, is in", "Factories start with everything; fewer stoppages and re-sends"],
  ["Tech pack and trim card spread across mail, WhatsApp and drives", "Every file on the record under the part it belongs to", "One place to find the latest; nothing lost between teams"],
  ["Factory quotes chased by phone; no record of who was asked or what they quoted", "Counter sourcing from the factory database, a mail with a deadline, replies in one table", "Faster factory choice; quotes comparable; history kept"],
  ["Quotes over budget or late found out after the PO", "Replies over target cost or past the target date flagged red; category revises with a reason", "Decisions made before the PO; every target change traceable"],
  ["Who buys the cloth unclear between BSC, vendor and factory", "Category chooses, Nitin confirms before the PO; the PO mail carries the vendor details", "No cloth falls between teams"],
  ["Delivery to the wrong warehouse", "Delivery location set on the requirement and printed on the PO", "Goods land where they are finished"],
- ["TNA kept in sheets; planned dates never agreed with the factory", "TNA form returned by the factory; planned · revised · actual on 24 blocks", "One agreed plan; slippage visible the day it happens"],
- ["Merchandisers chase across many chats", "Follow-ups across their three factories: replies, forms, late steps, QC fails, invoices", "Nothing slips; less chasing"],
+ ["TNA kept in sheets; planned dates never agreed with the factory", "TNA form returned by the factory; planned · revised · actual on every block", "One agreed plan; slippage visible the day it happens"],
+ ["Merchandisers chase across many chats", "Follow-ups across their factories: replies, forms, late steps, QC fails, invoices", "Nothing slips; less chasing"],
  ["QC remarks on WhatsApp; PP and size-set results lost", "QC screen with checklist, technical and aesthetic remarks; results on the TNA and to the merchandiser", "Quality issues caught before bulk; a record for every style"],
  ["Short or failed cloth stops the whole PO", "Colour by colour: hold for replacement or drop; new cut ratio for the rest", "The rest of the order keeps moving; fewer missed launches"],
  ["Printed factory invoices; the warehouse not told what is coming", "Invoice and packing list uploaded and mailed to Prince", "Receipt checked against the packing list; shortages found at once"],
@@ -179,7 +179,7 @@ table(["Pain point today", "What PLM does", "Benefit"], [
  ["Product setup and copy typed by hand after launch", "Add to Enigma with every size in one step; ✦ AI drafts product and marketing copy", "Faster go-live; consistent product pages"],
  ["No one view of production", "Dashboard: OTIF, late, QC first-pass, waiting on whom, by factory", "Parag and Nitin see the whole book in one screen"],
 ])
-b("For each team.", "Category: one form, files in place, AI drafts, clear asks for new ratios and target revisions. Sourcing: two jobs, a vendor database to pick from. Production RTW: factories recommended, quotes compared, PO and mails in a click, one dashboard. Merchandiser: one list of what is owed across three factories. QC: a worklist and a checklist. Warehouse: invoice and packing list before the goods. Accounts: every invoice and note on the PO.")
+b("For each team.", "Category: one form, files in place, AI drafts, clear asks for new ratios and target revisions. Sourcing: two jobs, a vendor database to pick from. Production RTW: factories recommended, quotes compared, PO and mails in a click, one dashboard. Merchandiser: one list of what is owed across their factories. QC: a worklist and a checklist. Warehouse: invoice and packing list before the goods. Accounts: every invoice and note on the PO.")
 # ===================================================================== HTML · devx Doctrine
 import re
 def nd(t):
@@ -249,7 +249,6 @@ out.append('<p class="eyebrow"><b>Product requirements</b> · Bombay Shirt Compa
 out.append('<h1>BSC PLM, the <em>ready-to-wear</em> edition</h1>')
 out.append(f'<p class="lede">{esc(nd(SUB))}</p>')
 out.append(f'<p class="meta">{DATE} · devx Labs · <a href="bsc-plm-rtw-overview.html">View the overview</a> · <a href="bsc-plm-prd-rtw-v1.0.docx">Download the Word file</a> · <a href="../">Open the prototype</a></p>')
-out.append(f'<div class="stats"><div><div class="n">{nwf}</div><div class="l">Workflows</div></div><div><div class="n">7</div><div class="l">Roles</div></div><div><div class="n">12</div><div class="l">Steps per style</div></div><div><div class="n">1</div><div class="l">Record per style</div></div></div>')
 out.append('<nav class="toc">'+''.join(f'<a href="#s{i}"><span>{h[0]}</span>{esc((h[1]+": " if h[1] else "")+h[2])}</a>' for i,h in enumerate(heads))+'</nav>')
 hi=-1; open_sec=False
 for c in C:

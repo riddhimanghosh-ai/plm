@@ -631,3 +631,7 @@ h1::after { background: var(--accent); }
 
 .ai-pill { background: linear-gradient(90deg, #efe4f2, #e1e8f2); color: #4a3a6b; border-color: transparent; font-weight: 600; }
 .ai-brief { padding: 12px 14px; border-radius: 10px; border: 1px solid #d9cfe6; background: linear-gradient(180deg, #faf7fc, var(--surface)); }
+
+:root { --cogs-0:#1f6b6b; --cogs-1:#3d5a80; --cogs-2:#6b3f7a; --cogs-3:#8a5a12; --cogs-4:#7a4b2a; --cogs-5:#4d6b2f; --cogs-6:#8a2d4a; --cogs-7:#9a9a9a; }
+.cogs-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; }
+.cogs-bar span { display: block; height: 100%; }

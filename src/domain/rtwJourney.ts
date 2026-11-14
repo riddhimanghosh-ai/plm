@@ -18,7 +18,7 @@ export const SOURCE_LABEL = { design: 'Category ask', planning: 'Planning reorde
    TNA with QC at five points; dispatch with the invoice and packing list to the warehouse; receipt on Enigma; COGS; launch */
 export const RTW_INTRO: Record<string, string> = {
   raised: 'Where the ask came from (a category ask or a planning reorder) and what it asks for: the style, how many, by when, at what cost.',
-  pack: 'The five parts of the requirement: tech pack, fabric info, trim card, size-wise quantity (the cut ratio) and the BOM. Sourcing adds the cloth vendor, its fabric code, the blocked quantity and when the cloth is ready. Nothing goes to Production RTW until every part is in.',
+  pack: 'The parts of the requirement: tech pack, fabric info, trim card, size-wise quantity (the cut ratio) and the BOM. Sourcing adds the cloth vendor, its fabric code, the blocked quantity and when the cloth is ready. Nothing goes to Production RTW until every part is in.',
   query: 'Nitin picks factories from the factory database (recommended by category and region, or any other), sets a reply deadline and sends the counter-sourcing query. PLM mails it to the factories with the requirement and a cost form, copying the merchandiser. Replies land here: cost per piece and lead time. Before raising the PO, Nitin decides the cloth: BSC sends it, the factory buys it from BSC\'s vendor, or the factory\'s own. A reply over the target cost or past the target in-house date is flagged red; when none fits, category revises the target and the record keeps what it was.',
   po: 'Nitin raises the PO on one reply. PLM mails it to the factory and the merchandiser with the delivery location (3PL warehouse, or Vasai in-house when there is hemming or semi-stitching), the cloth vendor\'s details when BSC\'s vendor supplies it, and the TNA form. There is no PO for the vendor cloth in PLM.',
   plan: 'The TNA form comes back with the planned date for every step, through the merchandiser. Until it does, the merchandiser sees it as owed.',
@@ -56,7 +56,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
 
   const steps: RtwStep[] = [
     { key: 'raised', phase: 'design', label: 'Raised', who: sourceWho, on: raised?.at ?? o.styleHandover, by: raised?.who ?? sourceWho },
-    { key: 'pack', phase: 'design', label: 'Requirement · six parts', who: 'Category · Sourcing', act: pack.ready || pack.sourcingMissing.length < pack.missing.length ? 'design' : 'sourcing', on: packOn, by: packOn ? (o.pack?.sentBy ?? 'sent to Production RTW') : null, now: packNow },
+    { key: 'pack', phase: 'design', label: 'Requirement', who: 'Category · Sourcing', act: pack.ready || pack.sourcingMissing.length < pack.missing.length ? 'design' : 'sourcing', on: packOn, by: packOn ? (o.pack?.sentBy ?? 'sent to Production RTW') : null, now: packNow },
     { key: 'query', phase: 'buy', label: 'Factory counter sourcing', who: 'Nitin · Factories · Category', act: tr.open && replies >= asked ? 'design' : cq && replies < asked ? 'merchandiser' : 'production', on: cq ? ((replies >= asked && !tr.open) || o.poNo ? (cq.replies[cq.replies.length - 1]?.repliedOn ?? cq.sentOn) : null) : null, by: cq ? `${replies} of ${asked} replied` : null,
       now: !sent ? 'after the requirement' : !cq ? 'Nitin to pick factories and send the counter-sourcing query' : tr.open && replies >= asked ? `every reply over target · category to revise the target ${tr.flagged.some(r => r.cost > o.targetCost) ? 'cost' : ''}${tr.flagged.some(r => r.cost > o.targetCost) && tr.flagged.some(r => r.leadDays > 0) ? ' or ' : ''}${tr.flagged.some(r => r.leadDays > 0) ? 'in-house date' : ''}`.replace(/target $/, 'target') : `${asked - replies} repl${asked - replies === 1 ? 'y' : 'ies'} due by ${fmtDate(cq.deadline)}${qDeadlineLate ? ` · ${daysAgo(cq.deadline)}d past` : ''}${tr.open ? ' · replies so far over target' : ''}` },
     { key: 'po', phase: 'buy', label: 'PO raised · mailed', who: 'Nitin', act: 'production', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}${o.poMail ? ` · to ${o.poMail.deliveryLocation}${o.poMail.sentOn ? '' : ' · mail to send'}` : ''}` : null,
@@ -99,11 +99,11 @@ export function rtwRowOf(db: Db, o: ProductionOrder) {
 
 /* one status per style, by what has actually happened: the tracker's filter row */
 export const RTW_STATUSES = [
-  { key: 'requested', label: 'Requirement', hint: 'category and sourcing are filling the five parts' },
+  { key: 'requested', label: 'Requirement', hint: 'category and sourcing are filling the requirement' },
   { key: 'queried', label: 'Counter sourcing out', hint: 'factories asked; replies due by the deadline; replies over target flagged' },
   { key: 'po', label: 'PO raised', hint: 'mailed to the factory; the TNA form is owed' },
   { key: 'planned', label: 'TNA planned', hint: 'the factory returned its planned dates' },
-  { key: 'making', label: 'In production', hint: 'the TNA is running; QC at five points' },
+  { key: 'making', label: 'In production', hint: 'the TNA is running; QC at each point' },
   { key: 'dispatched', label: 'Dispatched', hint: 'invoice and packing list with the warehouse' },
   { key: 'received', label: 'Received', hint: 'on Enigma; COGS' },
   { key: 'launched', label: 'In Enigma', hint: 'added with every size' },
