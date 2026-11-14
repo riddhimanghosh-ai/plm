@@ -192,17 +192,17 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
         return <tr key={id} style={{ background: chosen ? 'color-mix(in srgb, var(--good) 7%, transparent)' : fl?.flagged && !o.poNo ? 'color-mix(in srgb, var(--risk) 5%, transparent)' : undefined }}>
           <td><div className="font-medium"><VendorLink id={id} /></div><div className="text-[11px]" style={faint}>{v?.location} · {v?.region} · {vendorMail(v)}</div></td>
           <td className="text-[12px]" style={soft}>{fmtDate(cq.sentOn)}</td>
-          <td>{r ? <Pill tone="good">replied {fmtDate(r.repliedOn)}</Pill> : <Pill tone={late ? 'risk' : 'warn'}>{late ? `${daysAgo(cq.deadline)}d past the deadline` : 'awaiting'}</Pill>}{r?.note && <div className="text-[11px]" style={soft}>{r.note}</div>}</td>
+          <td>{r ? <Pill tone="good">filled the form {fmtDate(r.repliedOn)}</Pill> : <Pill tone={late ? 'risk' : 'warn'}>{late ? `form not filled · ${daysAgo(cq.deadline)}d past` : 'form not filled yet'}</Pill>}{r?.note && <div className="text-[11px]" style={soft}>{r.note}</div>}</td>
           <td className="num" style={{ color: fl && fl.costOver > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.costOver > 0 ? 600 : undefined }}>{r ? fmtMoney(r.cost) : '—'}{fl && fl.costOver > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>+{fmtMoney(fl.costOver)} over target</div>}</td>
           <td className="text-[12px]" style={{ color: fl && fl.lateDays > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.lateDays > 0 ? 600 : undefined }}>{r ? `${r.leadDays} d · ${fmtDate(fl!.inhouseOn)}` : '—'}{fl && fl.lateDays > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>{fl.lateDays}d past the target date</div>}</td>
           <td style={{ whiteSpace: 'nowrap' }}>{chosen ? <Pill tone="good">PO {o.poNo}</Pill>
             : o.poNo ? null
             : r ? (prod ? <Button size="sm" variant="primary" onClick={() => raisePoOnReply(o.id, id, fabBy)}>Raise PO on this</Button> : null)
-            : (prod || merchant) ? <button type="button" className="vlink text-[11.5px]" onClick={() => setReplyFor(replyFor === id ? null : id)}>log the reply</button> : null}</td>
+            : (prod || merchant) ? <button type="button" className="vlink text-[11.5px]" onClick={() => setReplyFor(replyFor === id ? null : id)}>fill as the factory (prototype)</button> : null}</td>
         </tr>; })}</tbody>
     </table></div>
     {replyFor && !o.poNo && <div className="pt-2 flex gap-2 items-end flex-wrap" style={{ borderTop: '1px solid var(--line-soft)' }}>
-      <span className="text-[12px] w-full pt-2" style={soft}>{nameOf(replyFor)}'s reply from the cost form (logged here in the prototype; the form posts it on the real build):</span>
+      <span className="text-[12px] w-full pt-2" style={soft}>{nameOf(replyFor)}'s web form, as the factory fills it (in the build it arrives by itself):</span>
       <Field label="₹ / pc"><Input type="number" value={cost} onChange={e => setCost(e.target.value)} style={{ width: 100 }} /></Field>
       <Field label="Lead (days)"><Input type="number" value={lead} onChange={e => setLead(e.target.value)} style={{ width: 90 }} /></Field>
       <div style={{ flex: '1 1 180px' }}><Field label="Note"><Input value={note} onChange={e => setNote(e.target.value)} /></Field></div>
@@ -213,7 +213,7 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
       <span className="pill role-production">Nitin</span>
     </div>}
     {!o.poNo && cq.replies.length > 0 && <div className="pt-2 text-[12.5px]" style={faint}>The PO delivers to <b>{o.deliverTo ?? deliveryLocationOf(needsHemmingOf(o))}</b> — {o.semiStitched ? 'a semi-stitched product, hemming in-house at Vasai' : 'nothing to hem, so the 3PL warehouse'} (set on the requirement).</div>}
-    {!o.poNo && cq.replies.length === 0 && <div className="text-[12.5px] pt-2" style={faint}>No reply yet. The merchandiser is chasing; replies land here from the cost form.</div>}
+    {!o.poNo && cq.replies.length === 0 && <div className="text-[12.5px] pt-2" style={faint}>No factory has filled the form yet. Replies land here by themselves from the factory's web form.</div>}
     {/* every reply over target: category revises the target in-house date or the target cost; what it was stays on the record */}
     {tr.open && <div className="mt-3 p-3 rounded-[8px]" style={{ background: 'color-mix(in srgb, var(--risk) 6%, #fff)', border: '1px solid var(--risk)' }}>
       <div className="font-medium text-[13px]" style={{ color: 'var(--risk)' }}>Every reply is over target</div>

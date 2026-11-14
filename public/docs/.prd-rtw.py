@@ -38,7 +38,7 @@ table(["Role", "People", "Owns in PLM", "Lands on", "Reads"], [
 ])
 b("Category.", "One role, used by both the design team and the planning team: either can raise a style, fill the requirement and work the category steps.")
 b("Granular roles.", "The roles here are the working split. Every role's permissions, at a granular level (who sees, edits and approves each field and step), are defined with BSC during development.")
-b("Factories.", "No login. They get the counter-sourcing query and its cost form, the PO with the TNA form, and reply by mail or form; the merchandiser keys what they send.")
+b("Factories.", "No login to PLM. For counter sourcing each factory gets a link to a simple web form (no password): it fills its cost per piece, lead time and a note, and the reply lands in PLM by itself. The merchandiser does not chase or key it; they only see which factories have filled the form and which have not. The PO and the TNA form go by mail; the TNA form can move to the same web form later.")
 
 # ------------------------------------------------------------------ 3
 h2("3. The record and its steps")
@@ -72,7 +72,7 @@ b("Fill with sample data.", "A prototype-only button fills the empty parts so a 
 h2("5. Workflow 2 — Factory counter sourcing and the PO")
 steps([
  ["2.1", "Pick factories · Nitin", "1. The factory database recommends by the category's specialisation and on-time rate; any other can be added.\n2. Set the reply deadline.\n3. The counter-sourcing mail composes itself (to the factories, cc the merchandiser, the requirement and a cost form attached); edit To, Cc, Subject, Body; Send.", "factory database; the requirement", "at least one factory and a deadline", "the merchandiser sees who was asked and by when"],
- ["2.2", "Replies · factories, merchandiser", "1. Replies land per factory: cost per piece, lead time, note.\n2. A reply over the target cost or landing past the target in-house date is red, with by how much.\n3. Past the deadline, an unreplied factory turns red and shows on the merchandiser's follow-ups.", "the cost form (keyed in the prototype)", "flags against target cost and target date", "none"],
+ ["2.2", "Replies · factories, merchandiser", "1. Each factory fills the web form from the link in the mail; its reply lands per factory by itself: cost per piece, lead time, note. The merchandiser sees who has filled it.\n2. A reply over the target cost or landing past the target in-house date is red, with by how much.\n3. Past the deadline, an unreplied factory turns red and shows on the merchandiser's follow-ups.", "the factory's web form (no login); keyed by hand in the prototype", "flags against target cost and target date", "none"],
  ["2.3", "Revise the target · category", "1. When every reply is over target, a red banner asks category to revise.\n2. Pick target in-house or target cost, the new value and why.\n3. Target revisions keep was, now, why, who, when.", "replies", "a reason is required", "the record logs it; replies are re-read against the new target"],
  ["2.4", "Decide the cloth, raise the PO · Nitin", "1. The cloth: We send it, We add vendors, Factory-held; defaults to category's choice.\n2. Raise PO on this on one reply.\n3. The PO mail composes: delivery location, the cloth vendor's details when BSC adds vendors, the TNA form attached. Edit and Send to the factory and the merchandiser.", "the reply; the requirement", "one PO per style; delivery from the requirement", "TNA generated from the category template; Fabric PO blocks skipped when BSC sends the cloth"],
  ["2.5", "PO costs · Nitin", "Logistics and other cost lines on the PO.", "typed", "none", "into COGS"],
@@ -156,9 +156,9 @@ ul([
 # ------------------------------------------------------------------ 14
 h2("14. Enigma, mail and build order")
 table(["Phase", "What", "Enigma"], [
- ["1", "Requirement with files, databases, counter sourcing, PO and mails, merchandiser, TNA and QC, cloth and cut ratio, dispatch and invoice, Remarks and What happened; AI features if feasible", "read: products, stock, vendors, stores, receipts"],
+ ["1", "Requirement with files, databases, counter sourcing with the factory web form, PO and mails, merchandiser, TNA and QC, cloth and cut ratio, dispatch and invoice, Remarks and What happened; AI features if feasible", "read: products, stock, vendors, stores, receipts"],
  ["2", "COGS against actuals, Add to Enigma (write), invoices and reconciliation, dashboard KPIs as agreed", "write: design and variants; read receipts by size"],
- ["3", "Real cost-reply and TNA forms for factories; mails sent from BSC's domain; AI features if not in phase 1", "events: receipt posted"],
+ ["3", "The TNA form on the same factory web form; mails sent from BSC's domain; AI features if not in phase 1", "events: receipt posted"],
 ])
 
 # ------------------------------------------------------------------ 15
@@ -167,7 +167,7 @@ p("What changes for each team once the RTW edition is live.")
 table(["Pain point today", "What PLM does", "Benefit"], [
  ["Requirements arrive incomplete: tech pack, fabric or trim card missing, discovered at the factory", "The requirement with a gate; nothing moves until every part, sourcing's included, is in", "Factories start with everything; fewer stoppages and re-sends"],
  ["Tech pack and trim card spread across mail, WhatsApp and drives", "Every file on the record under the part it belongs to", "One place to find the latest; nothing lost between teams"],
- ["Factory quotes chased by phone; no record of who was asked or what they quoted", "Counter sourcing from the factory database, a mail with a deadline, replies in one table", "Faster factory choice; quotes comparable; history kept"],
+ ["Factory quotes chased by phone; no record of who was asked or what they quoted", "Counter sourcing from the factory database, a mail with a deadline and a web form; replies land in one table by themselves", "Faster factory choice; quotes comparable; history kept"],
  ["Quotes over budget or late found out after the PO", "Replies over target cost or past the target date flagged red; category revises with a reason", "Decisions made before the PO; every target change traceable"],
  ["Who buys the cloth unclear between BSC, vendor and factory", "Category chooses, Nitin confirms before the PO; the PO mail carries the vendor details", "No cloth falls between teams"],
  ["Delivery to the wrong warehouse", "Delivery location set on the requirement and printed on the PO", "Goods land where they are finished"],

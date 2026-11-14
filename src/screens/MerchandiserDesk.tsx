@@ -12,13 +12,13 @@ import { VendorLink } from './Vendors';
 
 type Kind = 'cost' | 'form' | 'late' | 'qc';
 type Item = { kind: Kind; o: ProductionOrder; vendorId: string | null; what: string; since: string | null; days: number; tone: 'warn' | 'risk' | 'good'; step: string; remarks?: string };
-const KIND_LABEL: Record<Kind, string> = { cost: 'Cost reply owed', form: 'TNA form owed', late: 'TNA step late', qc: 'QC remarks' };
+const KIND_LABEL: Record<Kind, string> = { cost: 'Quote form not filled', form: 'TNA form owed', late: 'TNA step late', qc: 'QC remarks' };
 
 export function merchandiserItemsOf(orders: ProductionOrder[]): Item[] {
   const out: Item[] = [];
   orders.forEach(o => {
     const cq = o.costQuery;
-    if (cq && !o.poNo && o.status !== 'Cancelled') cq.factoryIds.filter(id => !cq.replies.some(r => r.vendorId === id)).forEach(id => { const past = daysAgo(cq.deadline); out.push({ kind: 'cost', o, vendorId: id, what: `cost reply · deadline ${fmtDate(cq.deadline)}`, since: cq.sentOn, days: past, tone: past > 0 ? 'risk' : 'warn', step: 'query' }); });
+    if (cq && !o.poNo && o.status !== 'Cancelled') cq.factoryIds.filter(id => !cq.replies.some(r => r.vendorId === id)).forEach(id => { const past = daysAgo(cq.deadline); out.push({ kind: 'cost', o, vendorId: id, what: `quote form not filled · deadline ${fmtDate(cq.deadline)} · it lands by itself once filled`, since: cq.sentOn, days: past, tone: past > 0 ? 'risk' : 'warn', step: 'query' }); });
     if (o.status === 'Open' && o.poNo) {
       if (o.tnaPlan && !o.tnaPlan.submittedOn) { const d = daysAgo(o.tnaPlan.sentOn); out.push({ kind: 'form', o, vendorId: o.vendorId, what: `TNA form · planned dates · sent with the PO ${fmtDate(o.tnaPlan.sentOn)}`, since: o.tnaPlan.sentOn, days: d, tone: d > 3 ? 'risk' : 'warn', step: 'plan' }); }
       const next = o.milestones.find(m => !m.actual && !m.skipped); const due = next ? (next.revised ?? next.plan) : null;

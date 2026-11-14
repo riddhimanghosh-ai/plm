@@ -86,8 +86,9 @@ export function costQueryMail(db: Db, o: ProductionOrder, factoryIds: string[], 
   return {
     to: factoryIds.map(id => vendorMail(db.vendors.find(v => v.id === id))), cc: [merch(db, o)],
     subject: `Factory counter sourcing · ${o.styleName} · ${o.orderQty} pcs · reply by ${fmtDate(deadline)}`,
-    body: `Please quote for ${o.orderQty} pcs of ${o.styleName} (${o.category} · ${o.subCategory}) by ${fmtDate(deadline)}. Target in-house ${fmtDate(o.targetInhouse)}.\nFabric: ${p.fabric.description ?? '—'}${p.fabric.content ? ` · ${p.fabric.content}` : ''}${p.fabric.widthIn ? ` · ${p.fabric.widthIn}"` : ''}. Say whether you source the cloth or BSC's vendor supplies it.\nReply on the form linked: cost per piece, lead time, who sources the fabric.`,
-    attachments: ['Tech pack', 'Fabric info', 'Trim card', 'Size break-up', 'BOM', 'Cost reply form'],
+    body: `Please quote for ${o.orderQty} pcs of ${o.styleName} (${o.category} · ${o.subCategory}) by ${fmtDate(deadline)}. Target in-house ${fmtDate(o.targetInhouse)}.\nFabric: ${p.fabric.description ?? '—'}${p.fabric.content ? ` · ${p.fabric.content}` : ''}${p.fabric.widthIn ? ` · ${p.fabric.widthIn}"` : ''}. Fill your quote on the form at the link below (no login): cost per piece, lead time and any note. It reaches BSC directly.
+https://plm.bombayshirts.com/quote/${o.id}`,
+    attachments: ['Tech pack', 'Fabric info', 'Trim card', 'Size break-up', 'BOM'],
   };
 }
 export function poMailOf(db: Db, o: ProductionOrder): Mail {
