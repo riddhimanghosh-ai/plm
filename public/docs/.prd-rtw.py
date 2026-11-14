@@ -37,6 +37,7 @@ table(["Role", "People", "Owns in PLM", "Lands on", "Reads"], [
  ["Owner", "Akshay, Parag", "Everything", "Any", "None"],
 ])
 b("Category.", "One role, used by both the design team and the planning team: either can raise a style, fill the requirement and work the category steps.")
+b("Granular roles.", "The roles here are the working split. Every role's permissions, at a granular level (who sees, edits and approves each field and step), are defined with BSC during development.")
 b("Factories.", "No login. They get the counter-sourcing query and its cost form, the PO with the TNA form, and reply by mail or form; the merchandiser keys what they send.")
 
 # ------------------------------------------------------------------ 3
