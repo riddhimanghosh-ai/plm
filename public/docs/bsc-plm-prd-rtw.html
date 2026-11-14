@@ -1,0 +1,189 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BSC PLM · RTW PRD</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" /><style>
+:root{--ink:#0A0A0A;--ink-2:#1A1A1A;--muted:#5C6066;--muted-2:#8A8F96;--rule:#E5E5E5;--rule-2:#F0F0F0;--paper:#FFFFFF;--paper-2:#FAFAF8;--paper-3:#F4F4F1;--accent:#1E6FFF;--accent-soft:#E8F0FF;--warn:#C0392B;--ok:#0A7C53;
+--f-display:'Inter Tight',-apple-system,BlinkMacSystemFont,sans-serif;--f-serif:'Source Serif 4',Georgia,serif;--f-mono:'JetBrains Mono','SFMono-Regular',monospace}
+*{box-sizing:border-box}
+html{background:var(--paper)}
+body{margin:0;font-family:var(--f-display);color:var(--ink);background:var(--paper);font-feature-settings:"ss01","cv11","tnum";-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-size:15px;line-height:1.5}
+.page{max-width:960px;margin:0 auto;background:var(--paper);padding:64px 32px 96px}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+.eyebrow b{color:var(--accent);font-weight:500}
+h1{font-family:var(--f-display);font-weight:500;font-size:48px;line-height:1.05;letter-spacing:-.025em;margin:0 0 24px;color:var(--ink)}
+h1 em,h2 em{font-family:var(--f-serif);font-style:italic;font-weight:400;color:var(--accent);letter-spacing:-.01em}
+.lede{font-size:17px;color:var(--ink-2);max-width:720px;margin:0 0 32px}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--ink);border-radius:999px;padding:4px 12px;margin-left:12px;vertical-align:middle;color:var(--ink)}
+.meta{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin:0 0 48px}
+.meta a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--rule)}
+.meta a:hover{color:var(--accent);border-color:var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--ink);margin:0 0 64px}
+.stats > div{padding:16px 24px 8px;border-right:1px solid var(--rule)}
+.stats > div:first-child{padding-left:0}.stats > div:last-child{border-right:0}
+.stats .n{font-size:48px;font-weight:400;letter-spacing:-.035em;line-height:1}
+.stats .l{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+nav.toc{border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:16px 0;margin:0 0 64px;columns:2;column-gap:48px}
+nav.toc a{display:flex;gap:12px;padding:4px 0;color:var(--ink-2);text-decoration:none;font-size:14px;break-inside:avoid}
+nav.toc a span{font-family:var(--f-mono);font-size:11px;color:var(--muted-2);min-width:24px;padding-top:2px}
+nav.toc a:hover{color:var(--accent)}
+section{margin:0 0 64px}
+section > .eyebrow{margin-bottom:8px}
+h2{font-weight:500;font-size:30px;letter-spacing:-.02em;line-height:1.15;margin:0 0 8px}
+.rule-accent{width:64px;height:0;border-top:2px solid var(--accent);margin:0 0 24px}
+p{margin:0 0 16px;color:var(--ink-2);max-width:720px}
+p strong{font-weight:600;color:var(--ink)}
+ul{margin:0 0 16px;padding-left:16px;max-width:720px;color:var(--ink-2)}
+li{margin:0 0 8px}
+table{border-collapse:collapse;width:100%;margin:8px 0 24px;font-size:13px}
+th{font-family:var(--f-mono);font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 12px 8px 0;border-bottom:1px solid var(--ink);vertical-align:bottom}
+td{padding:12px 12px 12px 0;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--ink-2);line-height:1.5}
+td:first-child{font-family:var(--f-mono);font-size:12px;color:var(--muted);white-space:nowrap}
+table.steps td:nth-child(2){font-weight:500;color:var(--ink);min-width:130px}
+table.steps td:nth-child(3){min-width:260px}
+a{color:var(--accent)}
+.foot{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);border-top:1px solid var(--rule);padding-top:16px;margin-top:96px;display:flex;justify-content:space-between}
+@media (max-width:760px){.page{padding:32px 16px 64px;margin:0}.stats{grid-template-columns:repeat(2,1fr)}nav.toc{columns:1}h1{font-size:34px}table{display:block;overflow-x:auto}}
+@media print{html,body{background:#fff}.page{box-shadow:none;margin:0;padding:0}}
+</style></head><body><div class="page">
+<p class="eyebrow"><b>Product requirements</b> · Bombay Shirt Company · v1.0<span class="pill">Confidential</span></p>
+<h1>BSC PLM, the <em>ready-to-wear</em> edition</h1>
+<p class="lede">Ready-to-wear bulk production end to end, as BSC set it in the discovery of 14 Nov 2026: the six-part requirement, factory counter sourcing, the PO and its mails, the TNA with QC at five points, the cloth at the factory and the cut ratio, dispatch and receipt, COGS, Enigma, and the invoices for reconciliation. Users, user flows step by step, data, rules, build order, and the outcomes it delivers.</p>
+<p class="meta">15 Nov 2026 · devx Labs · <a href="bsc-plm-rtw-overview.html">View the overview</a> · <a href="bsc-plm-prd-rtw-v1.0.docx">Download the Word file</a> · <a href="../">Open the prototype</a></p>
+<div class="stats"><div><div class="n">6</div><div class="l">Workflows</div></div><div><div class="n">7</div><div class="l">Roles</div></div><div><div class="n">12</div><div class="l">Steps per style</div></div><div><div class="n">1</div><div class="l">Record per style</div></div></div>
+<nav class="toc"><a href="#s0"><span>01</span>Purpose and scope</a><a href="#s1"><span>02</span>Users and roles</a><a href="#s2"><span>03</span>The record and the twelve steps</a><a href="#s3"><span>04</span>Workflow 1: The requirement</a><a href="#s4"><span>05</span>Workflow 2: Factory counter sourcing and the PO</a><a href="#s5"><span>06</span>Workflow 3: The merchandiser</a><a href="#s6"><span>07</span>Workflow 4: Cloth at the factory and the cut ratio</a><a href="#s7"><span>08</span>Workflow 5: The TNA and QC</a><a href="#s8"><span>09</span>Workflow 6: Dispatch, receipt, COGS, Enigma, invoices</a><a href="#s9"><span>10</span>Databases</a><a href="#s10"><span>11</span>AI features</a><a href="#s11"><span>12</span>Dashboard</a><a href="#s12"><span>13</span>Business rules and validations</a><a href="#s13"><span>14</span>Enigma, mail and build order</a><a href="#s14"><span>15</span>Outcomes: what is solved, the benefits, the pain points gone</a></nav>
+<section id="s0"><p class="eyebrow"><b>Section 01</b></p><h2>Purpose and scope</h2><div class="rule-accent"></div>
+<p>Requirements for the RTW edition of BSC PLM: Bombay Shirt Company&#x27;s ready-to-wear bulk production, from the day category raises a style to the day it is in Enigma and the invoices are reconciled. Every role works on one record per style: a rail of twelve steps down the left, one step open at a time, the next move and whose it is pinned in the header. The prototype at bsc-plm-rtw.vercel.app shows every screen named here.</p>
+<p>BSC PLM sits beside Enigma, not inside it. Enigma stays the system of record for products, stock, warehouse receipts (GRN) and vendor POs for cloth. PLM holds what Enigma does not: the requirement and its files, the factory database, counter sourcing and its replies, the factory PO and its mails, the TNA with planned, revised and actual dates, QC, the cloth at the factory and the cut ratio, the invoice trail, COGS, and the conversation. AWB, courier and logistics stay outside PLM.</p>
+<p><strong>In scope.</strong> Category&#x27;s six-part requirement with files; sourcing&#x27;s vendor details and sending; the factory and cloth vendor databases; counter sourcing with replies over target flagged and target revisions logged; the factory PO with delivery location and the TNA form, mailed from PLM with the mail editable; the merchandiser&#x27;s follow-ups across their three factories; the TNA with 24 blocks and QC at five points; the cloth at the factory, colour by colour, with hold or drop on a failed colour and a new cut ratio on short or extra cloth or trims; dispatch with the invoice and packing list mailed to the warehouse; receipt against the packing list from Enigma; COGS; Add to Enigma with every size; invoices, debit and credit notes; the production dashboard.</p>
+<p><strong>Out of scope.</strong> Enigma auto-PO (MTM fabric only); a pre-PO sampling cycle (sampling is the PP sample and size set on the TNA); AWB, courier and logistics; the GRN itself (Enigma, by Prince); factory logins (factories work by mail and forms); MTM.</p>
+<p><strong>Conventions.</strong> A state is where a record is, never the next step. Quantities are pieces unless the unit says metres. Rules marked later are specified but not built. A ✦ marks an AI feature.</p>
+</section>
+<section id="s1"><p class="eyebrow"><b>Section 02</b></p><h2>Users and roles</h2><div class="rule-accent"></div>
+<p>Seven roles work in PLM; factories and the warehouse are reached by mail. One login per person. A button shows only for the role that owns the step; everyone else reads whose move it is.</p>
+<table><thead><tr><th>Role</th><th>People</th><th>Owns in PLM</th><th>Lands on</th><th>Reads</th></tr></thead><tbody>
+<tr><td>Category (design)</td><td>Kunal and the category team</td><td>The six-part requirement and its files; who supplies the cloth; the delivery location; revising target date or cost when every factory reply is over; a new cut ratio when cloth or trims are short or extra, or a colour is dropped; Add to Enigma</td><td>Requirements</td><td>Counter sourcing, QC remarks, COGS</td></tr>
+<tr><td>Sourcing</td><td>Sreekanth</td><td>Vendor details on the requirement (cloth vendor, vendor fabric code, blocked quantity, readiness, trim vendor, yarn vendor for knits) when BSC is in the cloth; sending cloth and trims to the factory when BSC sends; the cloth vendor database</td><td>Sourcing · RTW</td><td>Requirements, POs</td></tr>
+<tr><td>Production RTW</td><td>Nitin, Parag</td><td>Counter sourcing (factories, deadline, the mail); the cloth decision before the PO; the PO and its mail; PO costs; hold or drop a failed colour; COGS; invoices, debit and credit notes; the factory database; the dashboard</td><td>RTW production tracker</td><td>Everything</td></tr>
+<tr><td>Merchandiser</td><td>Nitin Singh, Abhin M, Bhupendra (three factories each)</td><td>Chasing what factories owe; returning the TNA form; the TNA dates; the factory&#x27;s own fabric PO and receipt; counting cloth and trims in; asking for a new cut ratio; the invoice and packing list after dispatch and the mail to the warehouse</td><td>My factories</td><td>QC results, remarks</td></tr>
+<tr><td>QC</td><td>Rohit</td><td>PP sample, size set, initial, mid-line and final inspection: pass or not, with technical and aesthetic remarks</td><td>QC · samples and inspections</td><td>The tech pack and sizes</td></tr>
+<tr><td>Warehouse</td><td>Prince</td><td>No screen. Receives the invoice and packing list by mail; receives the goods on Enigma</td><td>None</td><td>The mail</td></tr>
+<tr><td>Owner</td><td>Akshay, Parag</td><td>Everything</td><td>Any</td><td>None</td></tr>
+</tbody></table>
+<p><strong>Factories.</strong> No login. They get the counter-sourcing query and its cost form, the PO with the TNA form, and reply by mail or form; the merchandiser keys what they send.</p>
+</section>
+<section id="s2"><p class="eyebrow"><b>Section 03</b></p><h2>The record and the twelve steps</h2><div class="rule-accent"></div>
+<p>Every role opens the same record. The rail shows the steps in four phases; a step ticks when it is done, turns red when it went wrong (short cloth, a failed colour) and amber once it is fixed. Lists everywhere show Where it is and Next from the same words.</p>
+<table class="steps"><thead><tr><th>#</th><th>Step</th><th>Who</th><th>Done when</th></tr></thead><tbody>
+<tr><td>1</td><td>Raised</td><td>Category or a planning reorder</td><td>the style is created</td></tr>
+<tr><td>2</td><td>Requirement · six parts</td><td>Category, sourcing</td><td>all six parts are in and category sends it to Production RTW</td></tr>
+<tr><td>3</td><td>Factory counter sourcing</td><td>Nitin, factories, category</td><td>replies are in and at least one fits the targets (or the targets are revised)</td></tr>
+<tr><td>4</td><td>PO raised · mailed</td><td>Nitin</td><td>the PO is raised on a reply and its mail is sent</td></tr>
+<tr><td>5</td><td>TNA · planned dates</td><td>Merchandiser, factory</td><td>the TNA form comes back with a planned date per step</td></tr>
+<tr><td>6</td><td>Cloth at the factory · cut ratio</td><td>Sourcing, merchandiser, category</td><td>every colour is in and passed, or held or dropped, and any new cut ratio is given</td></tr>
+<tr><td>7</td><td>Made · TNA with QC</td><td>Factory, QC, merchandiser</td><td>finishing done; QC passed at five points</td></tr>
+<tr><td>8</td><td>Dispatched · invoice to the warehouse</td><td>Merchandiser</td><td>the invoice and packing list are mailed to Prince</td></tr>
+<tr><td>9</td><td>Received · Enigma</td><td>Prince</td><td>Enigma holds the receipt against the packing list</td></tr>
+<tr><td>10</td><td>COGS · profitability</td><td>Nitin, category</td><td>COGS is closed against net MRP</td></tr>
+<tr><td>11</td><td>Added to Enigma</td><td>Category</td><td>the style is in Enigma with every size</td></tr>
+<tr><td>12</td><td>Invoices · debit and credit notes</td><td>Nitin, accounts</td><td>a log, never a gate</td></tr>
+</tbody></table>
+</section>
+<section id="s3"><p class="eyebrow"><b>Section 04</b> / Workflow 1</p><h2>The requirement</h2><div class="rule-accent"></div>
+<table class="steps"><thead><tr><th>#</th><th>Step · who</th><th>User flow</th><th>Data in (source)</th><th>System checks</th><th>Then</th></tr></thead><tbody>
+<tr><td>1.1</td><td>Raise the style · category</td><td>1. Requirements, + New RTW style. Six tabs (or Stacked, Blocks).<br>2. Style and production ask: category, sub-category, semi-stitched, style, colour options, order qty, target in-house, target cost, size-wise quantity (the cut ratio), files (drop or browse), the design brief.<br>3. Fabric information: who supplies the cloth (We send it, We add vendors, Factory-held); description, content, photo of the physical fabric, option and phase, CPM, rate, width.<br>4. Tech pack: twelve items, each a file (pdf, doc, image) or a note.<br>5. Trim card: the file, and colour-wise lines with the supplier&#x27;s item code and reference image.<br>6. BOM and consumption from the trims master.<br>7. Delivery instruction: 3PL warehouse or Vasai, preselected from semi-stitched.</td><td>typed; files uploaded; the trims master</td><td>style and qty to create; files any of pdf, doc, sheet or image</td><td>the record opens at step 2</td></tr>
+<tr><td>1.2</td><td>✦ Draft from words · category</td><td>1. Write what is in mind in the brief (look, collar, pocket, buttons, back, packing).<br>2. ✦ Draft the requirement: the empty tech-pack items, fabric description and content, and trim lines are drafted from it.<br>3. Category checks each part.</td><td>the brief; attached files</td><td>drafts only fill empty items; nothing is sent</td><td>parts show as filled</td></tr>
+<tr><td>1.3</td><td>Vendor details · sourcing</td><td>1. Sourcing · RTW, Vendor details on requirements: every requirement where category chose We send it or We add vendors.<br>2. Part six, Cloth · vendors: cloth vendor (vendors that supply this cloth first, from the database), vendor fabric code, blocked metres, readiness (available, or a supply date), trim vendor, yarn vendor for knits.</td><td>cloth vendor database</td><td>not needed when factory-held</td><td>part six ticks</td></tr>
+<tr><td>1.4</td><td>Send to Production RTW · category</td><td>1. The gate lists what is missing, part by part.<br>2. Send to Production RTW.</td><td>the six parts</td><td>every part complete, sourcing&#x27;s included</td><td>the style shows as Requested on the tracker</td></tr>
+</tbody></table>
+<p><strong>Fill with sample data.</strong> A prototype-only button fills the empty parts so a walkthrough can move on.</p>
+</section>
+<section id="s4"><p class="eyebrow"><b>Section 05</b> / Workflow 2</p><h2>Factory counter sourcing and the PO</h2><div class="rule-accent"></div>
+<table class="steps"><thead><tr><th>#</th><th>Step · who</th><th>User flow</th><th>Data in (source)</th><th>System checks</th><th>Then</th></tr></thead><tbody>
+<tr><td>2.1</td><td>Pick factories · Nitin</td><td>1. The factory database recommends by the category&#x27;s specialisation and on-time rate; any other can be added.<br>2. Set the reply deadline.<br>3. The counter-sourcing mail composes itself (to the factories, cc the merchandiser, the requirement and a cost form attached); edit To, Cc, Subject, Body; Send.</td><td>factory database; the requirement</td><td>at least one factory and a deadline</td><td>the merchandiser sees who was asked and by when</td></tr>
+<tr><td>2.2</td><td>Replies · factories, merchandiser</td><td>1. Replies land per factory: cost per piece, lead time, note.<br>2. A reply over the target cost or landing past the target in-house date is red, with by how much.<br>3. Past the deadline, an unreplied factory turns red and shows on the merchandiser&#x27;s follow-ups.</td><td>the cost form (keyed in the prototype)</td><td>flags against target cost and target date</td><td>none</td></tr>
+<tr><td>2.3</td><td>Revise the target · category</td><td>1. When every reply is over target, a red banner asks category to revise.<br>2. Pick target in-house or target cost, the new value and why.<br>3. Target revisions keep was, now, why, who, when.</td><td>replies</td><td>a reason is required</td><td>the record logs it; replies are re-read against the new target</td></tr>
+<tr><td>2.4</td><td>Decide the cloth, raise the PO · Nitin</td><td>1. The cloth: We send it, We add vendors, Factory-held; defaults to category&#x27;s choice.<br>2. Raise PO on this on one reply.<br>3. The PO mail composes: delivery location, the cloth vendor&#x27;s details when BSC adds vendors, the TNA form attached. Edit and Send to the factory and the merchandiser.</td><td>the reply; the requirement</td><td>one PO per style; delivery from the requirement</td><td>TNA generated from the category template; Fabric PO blocks skipped when BSC sends the cloth</td></tr>
+<tr><td>2.5</td><td>PO costs · Nitin</td><td>Logistics and other cost lines on the PO.</td><td>typed</td><td>none</td><td>into COGS</td></tr>
+</tbody></table>
+</section>
+<section id="s5"><p class="eyebrow"><b>Section 06</b> / Workflow 3</p><h2>The merchandiser</h2><div class="rule-accent"></div>
+<p>Each merchandiser looks after three factories; their screen spans only those, with a factory filter.</p>
+<table class="steps"><thead><tr><th>#</th><th>Step · who</th><th>User flow</th><th>Data in (source)</th><th>System checks</th><th>Then</th></tr></thead><tbody>
+<tr><td>3.1</td><td>Follow-ups · merchandiser</td><td>One list of what the factories owe: cost replies past deadline, TNA forms not returned, TNA steps late, QC fails to resubmit, invoices not yet sent. Multi-select filters by kind and factory.</td><td>every PO and query on their factories</td><td>none</td><td>opens the record at that step</td></tr>
+<tr><td>3.2</td><td>TNA form · merchandiser</td><td>The factory&#x27;s planned date for every step, submitted once.</td><td>the TNA form</td><td>one date per step</td><td>planned dates on the TNA; the PO counts as acknowledged</td></tr>
+<tr><td>3.3</td><td>Cloth and trims intake · merchandiser</td><td>Per PO, colour by colour: in, short, failed, on hold, dropped. Rows short or failed read New cut ratio pending.</td><td>counts from the factory</td><td>none</td><td>category&#x27;s list filters New cut ratio pending</td></tr>
+<tr><td>3.4</td><td>The TNA · merchandiser</td><td>An accordion of every PO (first open), with its stage; filters by stage and deadline within 3, 7 or 14 days.</td><td>the TNA</td><td>a revised date needs a reason</td><td>late steps on follow-ups and the dashboard</td></tr>
+<tr><td>3.5</td><td>QC · merchandiser</td><td>Every QC result across the three factories: PP sample and size set passed or not, inspection remarks, technical and aesthetic.</td><td>QC</td><td>none</td><td>none</td></tr>
+</tbody></table>
+</section>
+<section id="s6"><p class="eyebrow"><b>Section 07</b> / Workflow 4</p><h2>Cloth at the factory and the cut ratio</h2><div class="rule-accent"></div>
+<table class="steps"><thead><tr><th>#</th><th>Step · who</th><th>User flow</th><th>Data in (source)</th><th>System checks</th><th>Then</th></tr></thead><tbody>
+<tr><td>4.1</td><td>BSC sends · sourcing</td><td>Sourcing · RTW, Send to the factory: every PO where BSC supplies cloth and trims; send with metres; the factory counts both in.</td><td>the vendor PO on Enigma</td><td>only when BSC sends</td><td>Fabric ETA and Trims ETA on the TNA</td></tr>
+<tr><td>4.2</td><td>Factory buys · merchandiser</td><td>When BSC adds vendors or the cloth is factory-held: the factory&#x27;s fabric PO (vendor, number, date, metres) and its receipt (date, metres, note).</td><td>the factory</td><td>none</td><td>logs Fabric PO and Fabric ETA on the TNA</td></tr>
+<tr><td>4.3</td><td>Colour by colour · factory, Nitin</td><td>1. Each colour on the PO is counted in and checked by the factory.<br>2. A colour that fails: Nitin holds it (replacement-by date, continues under the same PO) or drops it from the run (its pieces come off; an alternative is raised as a separate requirement).<br>3. The other colours carry on.</td><td>counts and check from the factory</td><td>a decision on every failed colour</td><td>a drop asks category for the cut ratio of the rest</td></tr>
+<tr><td>4.4</td><td>New cut ratio · category</td><td>Less or more cloth or trims than the PO needs, or a dropped colour: the factory asks; category gives new sizes or approves a cut-short; the factory sees it at once.</td><td>the ask</td><td>sizes add up</td><td>the record&#x27;s cloth step goes amber</td></tr>
+</tbody></table>
+</section>
+<section id="s7"><p class="eyebrow"><b>Section 08</b> / Workflow 5</p><h2>The TNA and QC</h2><div class="rule-accent"></div>
+<table class="steps"><thead><tr><th>#</th><th>Step · who</th><th>User flow</th><th>Data in (source)</th><th>System checks</th><th>Then</th></tr></thead><tbody>
+<tr><td>5.1</td><td>The TNA · factory, merchandiser</td><td>24 blocks from the category template, planned · revised · actual on each; blocks not in the category greyed; any block marked not needed.</td><td>TNA form; the factory</td><td>a revised date needs a reason; a late actual pushes the open steps</td><td>lateness on the dashboard</td></tr>
+<tr><td>5.2</td><td>QC · QC</td><td>Five points: PP sample, size set, initial inspection (after stitching starts), mid-line (after finishing starts), final (finishing done). QC&#x27;s screen: inspections coming up within N days by factory; PP samples received; size sets received; every result.</td><td>the TNA</td><td>a pass needs every checklist line ticked; a fail needs remarks</td><td>a pass closes the TNA block; a fail goes to the factory and the merchandiser</td></tr>
+<tr><td>5.3</td><td>Remarks · everyone</td><td>QC blocks on the TNA show passed or failed; remarks open on click. The record&#x27;s Remarks tab holds every remark; What happened holds the whole log.</td><td>QC, cut ratios, revisions</td><td>none</td><td>none</td></tr>
+</tbody></table>
+</section>
+<section id="s8"><p class="eyebrow"><b>Section 09</b> / Workflow 6</p><h2>Dispatch, receipt, COGS, Enigma, invoices</h2><div class="rule-accent"></div>
+<table class="steps"><thead><tr><th>#</th><th>Step · who</th><th>User flow</th><th>Data in (source)</th><th>System checks</th><th>Then</th></tr></thead><tbody>
+<tr><td>6.1</td><td>Invoice and packing list · merchandiser</td><td>After the dispatch actual: upload the factory&#x27;s invoice (number, amount, file) and the packing list by size; then Send to Prince (the mail is editable).</td><td>the factory&#x27;s invoice</td><td>dispatch logged</td><td>Prince receives on Enigma</td></tr>
+<tr><td>6.2</td><td>Received · Prince on Enigma</td><td>PLM reads Enigma&#x27;s receipt and shows it against the packing list, size by size: did everything reach.</td><td>Enigma receipt</td><td>none</td><td>COGS opens</td></tr>
+<tr><td>6.3</td><td>COGS · Nitin, category</td><td>Per piece: fabric at the actual consumption, the factory&#x27;s PO price, trims and packaging, transport, hemming, freight, overheads, PO logistics and other costs; against MRP net of discounts and GST.</td><td>costing sheet; actuals</td><td>none</td><td>intake margin</td></tr>
+<tr><td>6.4</td><td>Add to Enigma · category</td><td>Design code, the name it sells as (editable), MRP, fit, colour, description, one SKU per size with pcs; add or remove a size; Add to Enigma; editable after.</td><td>the record</td><td>code, name, MRP and at least one size</td><td>in Enigma with every size</td></tr>
+<tr><td>6.5</td><td>✦ Product and marketing details · category</td><td>Generate the product title, description, details, care, SEO title and pointers for marketing from what the record knows; edit; save to Enigma.</td><td>the record</td><td>none</td><td>the product page copy</td></tr>
+<tr><td>6.6</td><td>Invoices, debit and credit notes · Nitin</td><td>Every document on the PO, both ways (factory to BSC; BSC to factory for material BSC supplied), with kind, number, amount, file and a note for accounts.</td><td>typed</td><td>none</td><td>totals both ways for reconciliation</td></tr>
+</tbody></table>
+</section>
+<section id="s9"><p class="eyebrow"><b>Section 10</b></p><h2>Databases</h2><div class="rule-accent"></div>
+<table><thead><tr><th>Database</th><th>Fields</th><th>Used by</th></tr></thead><tbody>
+<tr><td>Factory database</td><td>factory, location, region, categories it specialises in, merchandiser, contact, lead time, MOQ, on-time rate</td><td>counter sourcing recommends by category; the merchandiser&#x27;s three factories</td></tr>
+<tr><td>Cloth vendor database</td><td>vendor, location, region, type (domestic, international, trims), what it supplies, contact, lead time, MOQ</td><td>the vendor picker on the requirement puts vendors that supply that cloth first; the trim vendor</td></tr>
+</tbody></table>
+</section>
+<section id="s10"><p class="eyebrow"><b>Section 11</b></p><h2>AI features</h2><div class="rule-accent"></div>
+<p>Two AI features are specified. They are built in phase 1 if feasible; if not, they move to the next phase and the flows work without them, by hand.</p>
+<table><thead><tr><th>Feature</th><th>What it does</th><th>Inputs</th><th>Output</th></tr></thead><tbody>
+<tr><td>✦ Draft the requirement</td><td>From category&#x27;s own words (and any files attached), drafts the tech-pack items, fabric description and content, and trim card lines</td><td>the brief, the style, attached files</td><td>drafted items in the empty parts, for category to check</td></tr>
+<tr><td>✦ Product and marketing details</td><td>After Add to Enigma, drafts the product title, description, details, care, SEO title and marketing pointers</td><td>name, cloth, fit, colour, sizes, MRP, the brief</td><td>copy saved to Enigma after edits</td></tr>
+</tbody></table>
+<p><strong>In the prototype.</strong> Both are simulated locally from keywords so the walkthrough shows the shape; the build calls the model.</p>
+</section>
+<section id="s11"><p class="eyebrow"><b>Section 12</b></p><h2>Dashboard</h2><div class="rule-accent"></div>
+<p>For Parag and Nitin: OTIF over 90 days, open POs and pieces, running late, QC first-pass rate, PO to dispatch days; what is waiting on whom (counter-sourcing replies past deadline, every reply over target, TNA forms owed, QC points waiting, new cut ratios pending, critical POs); where every style is; by factory. The KPIs and their counting are settled with BSC during development.</p>
+</section>
+<section id="s12"><p class="eyebrow"><b>Section 13</b></p><h2>Business rules and validations</h2><div class="rule-accent"></div>
+<ul><li>Nothing goes to Production RTW until all six parts are complete; sourcing&#x27;s part only when BSC is in the cloth.</li><li>A reply over target cost or landing past the target in-house date is flagged; when none fits, category revises the target with a reason, and the earlier value is kept.</li><li>Who supplies the cloth is chosen by category on the requirement and confirmed by Nitin before the PO.</li><li>Delivery location: semi-stitched products to Vasai, everything else to the 3PL warehouse; category can choose either.</li><li>When BSC sends the cloth, the TNA&#x27;s Fabric PO and Yarn PO blocks are not needed.</li><li>A failed colour is held (same PO) or dropped (separate requirement for the alternative); the other colours continue.</li><li>Short or extra cloth or trims, or a dropped colour, asks category for a new cut ratio.</li><li>A QC pass needs every checklist line; a fail needs remarks; a pass closes the TNA block.</li><li>Every mail PLM composes can be edited before sending; PLM keeps what was sent.</li><li>Each merchandiser sees only their three factories.</li><li>No Enigma auto-PO on RTW; no AWB, courier or logistics in PLM.</li></ul>
+</section>
+<section id="s13"><p class="eyebrow"><b>Section 14</b></p><h2>Enigma, mail and build order</h2><div class="rule-accent"></div>
+<table><thead><tr><th>Phase</th><th>What</th><th>Enigma</th></tr></thead><tbody>
+<tr><td>1</td><td>Requirement with files, databases, counter sourcing, PO and mails, merchandiser, TNA and QC, cloth and cut ratio, dispatch and invoice, Remarks and What happened; AI features if feasible</td><td>read: products, stock, vendors, stores, receipts</td></tr>
+<tr><td>2</td><td>COGS against actuals, Add to Enigma (write), invoices and reconciliation, dashboard KPIs as agreed</td><td>write: design and variants; read receipts by size</td></tr>
+<tr><td>3</td><td>Real cost-reply and TNA forms for factories; mails sent from BSC&#x27;s domain; AI features if not in phase 1</td><td>events: receipt posted</td></tr>
+</tbody></table>
+</section>
+<section id="s14"><p class="eyebrow"><b>Section 15</b></p><h2>Outcomes: what is solved, the benefits, the pain points gone</h2><div class="rule-accent"></div>
+<p>What changes for each team once the RTW edition is live.</p>
+<table><thead><tr><th>Pain point today</th><th>What PLM does</th><th>Benefit</th></tr></thead><tbody>
+<tr><td>Requirements arrive incomplete: tech pack, fabric or trim card missing, discovered at the factory</td><td>Six-part requirement with a gate; nothing moves until every part, sourcing&#x27;s included, is in</td><td>Factories start with everything; fewer stoppages and re-sends</td></tr>
+<tr><td>Tech pack and trim card spread across mail, WhatsApp and drives</td><td>Every file on the record under the part it belongs to</td><td>One place to find the latest; nothing lost between teams</td></tr>
+<tr><td>Factory quotes chased by phone; no record of who was asked or what they quoted</td><td>Counter sourcing from the factory database, a mail with a deadline, replies in one table</td><td>Faster factory choice; quotes comparable; history kept</td></tr>
+<tr><td>Quotes over budget or late found out after the PO</td><td>Replies over target cost or past the target date flagged red; category revises with a reason</td><td>Decisions made before the PO; every target change traceable</td></tr>
+<tr><td>Who buys the cloth unclear between BSC, vendor and factory</td><td>Category chooses, Nitin confirms before the PO; the PO mail carries the vendor details</td><td>No cloth falls between teams</td></tr>
+<tr><td>Delivery to the wrong warehouse</td><td>Delivery location set on the requirement and printed on the PO</td><td>Goods land where they are finished</td></tr>
+<tr><td>TNA kept in sheets; planned dates never agreed with the factory</td><td>TNA form returned by the factory; planned · revised · actual on 24 blocks</td><td>One agreed plan; slippage visible the day it happens</td></tr>
+<tr><td>Merchandisers chase across many chats</td><td>Follow-ups across their three factories: replies, forms, late steps, QC fails, invoices</td><td>Nothing slips; less chasing</td></tr>
+<tr><td>QC remarks on WhatsApp; PP and size-set results lost</td><td>QC screen with checklist, technical and aesthetic remarks; results on the TNA and to the merchandiser</td><td>Quality issues caught before bulk; a record for every style</td></tr>
+<tr><td>Short or failed cloth stops the whole PO</td><td>Colour by colour: hold for replacement or drop; new cut ratio for the rest</td><td>The rest of the order keeps moving; fewer missed launches</td></tr>
+<tr><td>Printed factory invoices; the warehouse not told what is coming</td><td>Invoice and packing list uploaded and mailed to Prince</td><td>Receipt checked against the packing list; shortages found at once</td></tr>
+<tr><td>Debit and credit notes not tied to the PO</td><td>Invoices, debit and credit notes logged on the PO both ways</td><td>Reconciliation for accounts in one place</td></tr>
+<tr><td>COGS known late, if at all</td><td>COGS per piece from the costing sheet and actuals against net MRP</td><td>Margin per style the day goods land</td></tr>
+<tr><td>Product setup and copy typed by hand after launch</td><td>Add to Enigma with every size in one step; ✦ AI drafts product and marketing copy</td><td>Faster go-live; consistent product pages</td></tr>
+<tr><td>No one view of production</td><td>Dashboard: OTIF, late, QC first-pass, waiting on whom, by factory</td><td>Parag and Nitin see the whole book in one screen</td></tr>
+</tbody></table>
+<p><strong>For each team.</strong> Category: one form, files in place, AI drafts, clear asks for new ratios and target revisions. Sourcing: two jobs, a vendor database to pick from. Production RTW: factories recommended, quotes compared, PO and mails in a click, one dashboard. Merchandiser: one list of what is owed across three factories. QC: a worklist and a checklist. Warehouse: invoice and packing list before the goods. Accounts: every invoice and note on the PO.</p>
+</section>
+<div class="foot"><span>BSC PLM · RTW PRD</span><span>devx Labs · Confidential</span></div></div></body></html>
