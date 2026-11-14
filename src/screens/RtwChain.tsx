@@ -7,7 +7,7 @@ import { useApp } from '../store';
 import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy } from '../domain/types';
 import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
 import { TECH_PACK_ITEMS, QC_POINTS, FABRIC_BY_LABEL } from '../domain/reference';
-import { packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, type Mail } from '../domain/rtwPack';
+import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, type Mail } from '../domain/rtwPack';
 import { Section, Pill, Button, KV, Field, Input, Select, fromDateInput, dateInput } from '../ui';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
@@ -62,6 +62,14 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
   /* prototype only: fill whatever is still empty with believable sample values, so a walkthrough can move on */
   const slug = o.styleName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 18);
   const SAMPLE_TP: Record<TechPackKey, string> = { sketch: `${slug}-sketch.pdf`, styling: `${slug}-styling-detail.pdf`, stitching: `${slug}-stitch-dimensions.pdf`, fabricColours: `${slug}-colourways.pdf`, specSheet: `${slug}-spec-sheet.xlsx`, howToMeasure: `${slug}-how-to-measure.pdf`, folding: `${slug}-folding-method.pdf`, trimCard: `${slug}-trim-card.pdf`, labelImage: `${slug}-label.png`, tagImage: `${slug}-hang-tag.png`, barcoding: `${slug}-barcodes.xlsx`, packaging: `${slug}-packaging.pdf` };
+  const [brief, setBrief] = useState(p.brief ?? '');
+  const [drafted, setDrafted] = useState(false);
+  const draftWithAi = () => { const d = draftFromBrief(brief, o.styleName);
+    const nextTp = { ...tp }; TECH_PACK_ITEMS.forEach(it => { if (!nextTp[it.key]?.trim()) nextTp[it.key] = d.techPack[it.key]; });
+    const nextFab = { ...fab, description: fab.description ?? d.fabric.description, content: fab.content ?? d.fabric.content };
+    setTp(nextTp); setFab(nextFab); setTrim(trim || 'drafted trim card');
+    updatePack(o.id, { brief, techPack: nextTp, fabric: { description: nextFab.description, content: nextFab.content }, trimCard: trim || 'drafted trim card', trimLines: (p.trimLines ?? []).length ? p.trimLines : d.trimLines });
+    setDrafted(true); };
   const fillSample = () => {
     const nextTp = { ...tp }; TECH_PACK_ITEMS.forEach(it => { if (!nextTp[it.key]?.trim()) nextTp[it.key] = SAMPLE_TP[it.key]; });
     const mill = db.vendors.find(v => v.kind.endsWith('mill') && (v.supplies ?? []).some(x => `${o.styleName} ${p.fabric.description ?? ''}`.toLowerCase().includes(x))) ?? db.vendors.find(v => v.kind.endsWith('mill'));
@@ -76,6 +84,11 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
   const num = (v: string) => v === '' ? null : Number(v);
   const part = rd.parts.find(x => x.key === tab)!;
   return <Section title="Requirement" collapsible={false} right={<Pill tone={sent ? 'good' : rd.ready ? 'good' : 'warn'}>{sent ? `sent to Production RTW ${fmtDate(p.sentOn ?? o.styleHandover)}` : rd.ready ? 'complete · ready to send' : `${rd.missing.length} item${rd.missing.length > 1 ? 's' : ''} to fill`}</Pill>}>
+    {canDesign && <div className="ai-brief mb-3">
+      <div className="flex items-center gap-2 flex-wrap"><span className="pill ai-pill">✦ AI</span><b className="text-[13px]">Describe it in your words</b><span className="text-[12px]" style={faint}>the tech pack, fabric info and trim card are drafted from this; check each part after</span></div>
+      <textarea className="input mt-1.5" rows={3} value={brief} onChange={e => setBrief(e.target.value)} placeholder="Relaxed oxford shirt, button-down collar, single chest pocket, mother-of-pearl buttons, box-pleat back, folded in a kraft box…" style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4, width: '100%' }} />
+      <div className="flex items-center gap-2 pt-1.5"><Button size="sm" variant="primary" disabled={brief.trim().length < 10} onClick={draftWithAi}>✦ Draft the requirement</Button>{drafted && <span className="text-[12px]" style={{ color: 'var(--good)' }}>Drafted the empty items. Check each part before sending.</span>}</div>
+    </div>}
     <div className="form-tabs pb-3" role="tablist">{rd.parts.map((x, i) => <button type="button" key={x.key} role="tab" aria-selected={tab === x.key} className={tab === x.key ? 'on' : x.missing.length === 0 ? 'done' : ''} onClick={() => setTab(x.key)} title={x.missing.length ? `missing: ${x.missing.join(', ')}` : 'complete'}><span className="n">{x.missing.length === 0 && tab !== x.key ? '✓' : i + 1}</span>{x.label}<span className="text-[11px]" style={{ opacity: .7 }}>{x.done}/{x.total}</span></button>)}</div>
     {tab === 'techPack' && <div>
       {p.brief && <div className="text-[12px] mb-2 p-2 rounded-[6px]" style={{ background: 'var(--surface-2)' }}><b>Design brief</b> <span className="pill">phase 2 · AI drafts from this</span><div className="pt-1" style={soft}>{p.brief}</div></div>}
@@ -546,32 +559,80 @@ export function PoFabricsSection({ o, factory, prod }: { o: ProductionOrder; fac
   </Section>;
 }
 
-/* ── the last step: the style into Enigma with every size, ready to sell ── */
+/* ── the last step: the style into Enigma with every size, ready to sell; editable before and after; then AI drafts the product and marketing details ── */
+type Sku = { size: string; sku: string; qty: number };
 export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boolean }) {
-  const { addToEnigma } = useApp();
+  const { addToEnigma, setEnigmaCopy } = useApp();
   const ep = o.enigmaProduct; const p = packOf(o);
   const base = `BSC-${o.category.includes('hirt') ? 'SH' : o.category.includes('Bottom') ? 'BT' : o.category.includes('Knit') ? 'KN' : 'RT'}-${o.id.replace(/\D/g, '').slice(-4).padStart(4, '0')}`;
   const sizes = (o.cutRatios ?? []).filter(c => c.given).slice(-1)[0]?.given?.breakup ?? o.sizeBreakup;
-  const [f, setF] = useState({ code: base, name: o.styleName, mrp: String(Math.round((o.finalFob ?? o.targetCost) * 3.2 / 10) * 10 - 1), fit: o.fit ?? '', colour: (p.colours ?? [])[0] ?? o.fabricBrief?.colour ?? '', description: p.fabric.description ? `${p.fabric.description}${p.fabric.content ? `, ${p.fabric.content}` : ''}` : '' });
-  const skus = sizes.filter(x => x.qty > 0).map(x => ({ size: x.size, sku: `${f.code}-${x.size}`, qty: x.qty }));
-  if (ep) return <Section title="In Enigma" collapsible={false} right={<Pill tone="good">added {fmtDate(ep.addedOn)} · {ep.by}</Pill>}>
-    <div className="grid gap-x-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-      <KV k="Code" v={<span className="mono">{ep.code}</span>} /><KV k="Name" v={ep.name} /><KV k="MRP" v={fmtMoney(ep.mrp)} /><KV k="Category" v={ep.category} note={[ep.fit, ep.colour].filter(Boolean).join(' · ') || undefined} />
-    </div>
-    {ep.description && <div className="text-[12.5px] pt-1" style={soft}>{ep.description}</div>}
-    <table className="t compact mt-2"><thead><tr><th>Size</th><th>SKU</th><th className="num">Pcs</th></tr></thead><tbody>{ep.skus.map(x => <tr key={x.size}><td>{x.size}</td><td className="mono text-[12px]">{x.sku}</td><td className="num">{x.qty}</td></tr>)}</tbody></table>
-  </Section>;
-  return <Section title="Add to Enigma" collapsible={false} right={<span className="pill role-design">Category</span>}>
+  const init = () => ep ? { code: ep.code, name: ep.name, mrp: String(ep.mrp), fit: ep.fit ?? '', colour: ep.colour ?? '', description: ep.description ?? '', skus: ep.skus.map(x => ({ ...x })) }
+    : { code: base, name: o.styleName, mrp: String(Math.round((o.finalFob ?? o.targetCost) * 3.2 / 10) * 10 - 1), fit: o.fit ?? '', colour: (p.colours ?? [])[0] ?? o.fabricBrief?.colour ?? '', description: p.fabric.description ? `${p.fabric.description}${p.fabric.content ? `, ${p.fabric.content}` : ''}` : '', skus: sizes.filter(x => x.qty > 0).map(x => ({ size: x.size, sku: `${base}-${x.size}`, qty: x.qty })) as Sku[] };
+  const [f, setF] = useState(init);
+  const [editing, setEditing] = useState(!ep);
+  const setSku = (i: number, patch: Partial<Sku>) => setF(x => ({ ...x, skus: x.skus.map((s, k) => k === i ? { ...s, ...patch } : s) }));
+  const recode = (code: string) => setF(x => ({ ...x, code, skus: x.skus.map(s => ({ ...s, sku: s.sku.startsWith(x.code) ? code + s.sku.slice(x.code.length) : s.sku })) }));
+  const save = () => { addToEnigma(o.id, { code: f.code.trim(), name: f.name.trim(), mrp: Number(f.mrp), category: o.category, fit: f.fit.trim() || null, colour: f.colour.trim() || null, description: f.description.trim() || null, skus: f.skus.filter(s => s.size.trim() && s.sku.trim()) }); setEditing(false); };
+
+  /* AI: product and marketing details from what the record already knows (prototype: drafted locally; the build calls the model) */
+  const draftCopy = () => {
+    const e = ep!; const fab = p.fabric; const cloth = [fab.description, fab.content].filter(Boolean).join(', ');
+    const fit = e.fit ?? 'Regular Fit'; const col = e.colour ?? '';
+    return { title: `${e.name}${col && !e.name.toLowerCase().includes(col.toLowerCase()) ? ` · ${col}` : ''}`,
+      description: `${e.name} in ${cloth || 'our house cloth'}. Cut in a ${fit.toLowerCase()} with clean, considered details, it is made for everyday wear that still looks put together. ${p.brief ? p.brief.split('.')[0] + '.' : ''}`.trim(),
+      bullets: [cloth ? `Fabric: ${cloth}` : 'Fabric: house cloth', `Fit: ${fit}`, ...(col ? [`Colour: ${col}`] : []), `Sizes: ${e.skus.map(s => s.size).join(', ')}`, 'Made in India'],
+      care: /linen/i.test(cloth) ? 'Machine wash cold, gentle; line dry in shade; warm iron while damp.' : /wool/i.test(cloth) ? 'Dry clean only.' : 'Machine wash cold with like colours; do not bleach; warm iron.',
+      seo: `${e.name} | ${fit} ${o.category.replace(/^RTW (CMT |FOB )?/i, '').replace(/s$/, '')} | Bombay Shirt Company`,
+      marketing: [`Say the cloth first: ${cloth || 'the fabric'}.`, `${fit} — show it on the body, front and side.`, col ? `Lead with the ${col.toLowerCase()} in the hero image.` : 'Lead with the colour in the hero image.', `₹${e.mrp.toLocaleString('en-IN')} · ${e.skus.length} sizes from ${e.skus[0]?.size} to ${e.skus[e.skus.length - 1]?.size}.`],
+      generatedOn: new Date().toISOString() };
+  };
+  const [copy, setCopy] = useState(ep?.copy ?? null);
+
+  if (ep && !editing) return <>
+    <Section title="In Enigma" collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone="good">added {fmtDate(ep.addedOn)} · {ep.by}{ep.editedOn ? ` · edited ${fmtDate(ep.editedOn)}` : ''}</Pill>{design && <Button size="sm" onClick={() => { setF(init()); setEditing(true); }}>Edit</Button>}</span>}>
+      <div className="grid gap-x-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+        <KV k="Code" v={<span className="mono">{ep.code}</span>} /><KV k="Name" v={ep.name} /><KV k="MRP" v={fmtMoney(ep.mrp)} /><KV k="Category" v={ep.category} note={[ep.fit, ep.colour].filter(Boolean).join(' · ') || undefined} />
+      </div>
+      {ep.description && <div className="text-[12.5px] pt-1" style={soft}>{ep.description}</div>}
+      <table className="t compact mt-2"><thead><tr><th>Size</th><th>SKU</th><th className="num">Pcs</th></tr></thead><tbody>{ep.skus.map(x => <tr key={x.size}><td>{x.size}</td><td className="mono text-[12px]">{x.sku}</td><td className="num">{x.qty}</td></tr>)}</tbody></table>
+    </Section>
+    <div className="pt-3"><Section title="Product and marketing details" collapsible={false} right={<span className="pill ai-pill">✦ AI</span>}>
+      {!copy ? <div className="flex items-center gap-3 flex-wrap py-1">
+        {design ? <Button variant="primary" onClick={() => setCopy(draftCopy())}>✦ Generate product and marketing details</Button> : <ActsBy role="design" does="generates the product and marketing details" />}
+        <span className="text-[12px]" style={faint}>from the name, cloth, fit, colour, sizes, MRP and the design brief</span>
+      </div> : <div className="grid gap-2">
+        <Field label="Product title"><Input value={copy.title} onChange={e => setCopy(c => c && ({ ...c, title: e.target.value }))} disabled={!design} /></Field>
+        <Field label="Description"><textarea className="input" rows={3} value={copy.description} onChange={e => setCopy(c => c && ({ ...c, description: e.target.value }))} disabled={!design} style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4 }} /></Field>
+        <Field label="Details · one per line"><textarea className="input" rows={4} value={copy.bullets.join('\n')} onChange={e => setCopy(c => c && ({ ...c, bullets: e.target.value.split('\n') }))} disabled={!design} style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4 }} /></Field>
+        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+          <Field label="Care"><Input value={copy.care} onChange={e => setCopy(c => c && ({ ...c, care: e.target.value }))} disabled={!design} /></Field>
+          <Field label="SEO title"><Input value={copy.seo} onChange={e => setCopy(c => c && ({ ...c, seo: e.target.value }))} disabled={!design} /></Field>
+        </div>
+        <Field label="Pointers for marketing · one per line"><textarea className="input" rows={4} value={copy.marketing.join('\n')} onChange={e => setCopy(c => c && ({ ...c, marketing: e.target.value.split('\n') }))} disabled={!design} style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4 }} /></Field>
+        {design && <div className="flex gap-2"><Button variant="primary" onClick={() => setEnigmaCopy(o.id, { ...copy, bullets: copy.bullets.filter(Boolean), marketing: copy.marketing.filter(Boolean) })}>Save to Enigma</Button><Button variant="ghost" onClick={() => setCopy(draftCopy())}>✦ Generate again</Button></div>}
+        {ep.copy && <div className="text-[11.5px]" style={faint}>saved {fmtDate(ep.copy.generatedOn)}</div>}
+      </div>}
+    </Section></div>
+  </>;
+
+  return <Section title={ep ? 'Edit in Enigma' : 'Add to Enigma'} collapsible={false} right={<span className="pill role-design">Category</span>}>
     <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-      <Field label="Design code"><Input value={f.code} onChange={e => setF(x => ({ ...x, code: e.target.value }))} disabled={!design} /></Field>
+      <Field label="Design code"><Input value={f.code} onChange={e => recode(e.target.value)} disabled={!design} /></Field>
       <Field label="Name it sells as"><Input value={f.name} onChange={e => setF(x => ({ ...x, name: e.target.value }))} disabled={!design} /></Field>
       <Field label="MRP (₹)"><Input type="number" value={f.mrp} onChange={e => setF(x => ({ ...x, mrp: e.target.value }))} disabled={!design} /></Field>
       <Field label="Fit"><Input value={f.fit} onChange={e => setF(x => ({ ...x, fit: e.target.value }))} disabled={!design} /></Field>
       <Field label="Colour"><Input value={f.colour} onChange={e => setF(x => ({ ...x, colour: e.target.value }))} disabled={!design} /></Field>
       <div style={{ gridColumn: '1 / -1' }}><Field label="Description"><Input value={f.description} onChange={e => setF(x => ({ ...x, description: e.target.value }))} disabled={!design} /></Field></div>
     </div>
-    <div className="cap pt-3">Every size · {skus.reduce((a, x) => a + x.qty, 0)} pcs</div>
-    <table className="t compact"><thead><tr><th>Size</th><th>SKU</th><th className="num">Pcs</th></tr></thead><tbody>{skus.map(x => <tr key={x.size}><td>{x.size}</td><td className="mono text-[12px]">{x.sku}</td><td className="num">{x.qty}</td></tr>)}</tbody></table>
-    <div className="pt-3">{design ? <Button variant="primary" disabled={!f.code.trim() || !f.name.trim() || !Number(f.mrp)} onClick={() => addToEnigma(o.id, { code: f.code.trim(), name: f.name.trim(), mrp: Number(f.mrp), category: o.category, fit: f.fit.trim() || null, colour: f.colour.trim() || null, description: f.description.trim() || null, skus })}>Add to Enigma · {skus.length} sizes →</Button> : <ActsBy role="design" does="adds the style to Enigma with every size" />}</div>
+    <div className="cap pt-3">Every size · {f.skus.reduce((a, x) => a + (x.qty || 0), 0)} pcs</div>
+    <table className="t compact"><thead><tr><th>Size</th><th>SKU</th><th className="num">Pcs</th><th></th></tr></thead>
+      <tbody>{f.skus.map((x, i) => <tr key={i}>
+        <td>{design ? <Input value={x.size} onChange={e => setSku(i, { size: e.target.value, sku: `${f.code}-${e.target.value}` })} style={{ width: 80 }} /> : x.size}</td>
+        <td>{design ? <Input value={x.sku} onChange={e => setSku(i, { sku: e.target.value })} className="input mono" style={{ width: 220 }} /> : <span className="mono text-[12px]">{x.sku}</span>}</td>
+        <td className="num">{design ? <Input type="number" value={x.qty} onChange={e => setSku(i, { qty: Number(e.target.value) || 0 })} style={{ width: 90, textAlign: 'right' }} /> : x.qty}</td>
+        <td>{design && <button type="button" className="vlink text-[11.5px]" onClick={() => setF(y => ({ ...y, skus: y.skus.filter((_, k) => k !== i) }))}>remove</button>}</td>
+      </tr>)}</tbody></table>
+    {design && <div className="pt-1"><button type="button" className="vlink text-[12px]" onClick={() => setF(y => ({ ...y, skus: [...y.skus, { size: '', sku: `${y.code}-`, qty: 0 }] }))}>+ Add a size</button></div>}
+    <div className="pt-3 flex gap-2">{design ? <><Button variant="primary" disabled={!f.code.trim() || !f.name.trim() || !Number(f.mrp) || !f.skus.length} onClick={save}>{ep ? 'Save to Enigma' : `Add to Enigma · ${f.skus.length} sizes →`}</Button>{ep && <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>}</> : <ActsBy role="design" does="adds the style to Enigma with every size" />}</div>
   </Section>;
 }

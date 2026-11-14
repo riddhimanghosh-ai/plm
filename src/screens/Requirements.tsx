@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import { GARMENT_CATEGORIES, SUB_CATEGORIES, SIZE_SETS, TECH_PACK_ITEMS } from '../domain/reference';
+import { draftFromBrief } from '../domain/rtwPack';
 import type { GarmentCategory, ProductionOrder, TechPackKey } from '../domain/types';
 import { fmtDate, fmtMoney, daysAgo, TODAY, addDays, iso } from '../domain/engines';
 import { Page, Card, Pill, Field, Input, Select, Button, Drawer, KV, Section, Note, Seg, dateInput, fromDateInput, useExamples } from '../ui';
@@ -253,7 +254,8 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const [cost, setCost] = useState('450'); const [semi, setSemi] = useState(false); const [deliverTo, setDeliverTo] = useState<'3PL warehouse' | 'Vasai · in-house' | null>(null);
   const dest = deliverTo ?? (semi ? 'Vasai · in-house' : '3PL warehouse');
   const [brief, setBrief] = useState('');
-  const [askFiles, setAskFiles] = useState<File[]>([]);   // anything that says the ask: the size sheet, a reference, the style sheet
+  const [askFiles, setAskFiles] = useState<File[]>([]);
+  const [briefDrafted, setBriefDrafted] = useState(false);   // anything that says the ask: the size sheet, a reference, the style sheet
   const nominated = mode === 'bsc-buys';
   /* fabric information — category's part; sourcing adds the vendor, code, blocked quantity and readiness on the record */
   const [fab, setFab] = useState({ description: '', content: '100% cotton', swatchAnalyser: '', cpm: '', rate: '', widthIn: '58' });
@@ -342,9 +344,13 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
         {askFiles.length > 0 && <div className="flex gap-1.5 flex-wrap pt-1.5">{askFiles.map((f, i) => <span key={i} className="pill" style={{ fontSize: 12 }}>{f.name}<button type="button" className="ml-1" style={{ color:'var(--ink-faint)' }} onClick={() => setAskFiles(x => x.filter((_, k) => k !== i))} aria-label={`remove ${f.name}`}>×</button></span>)}</div>}
       </div>
       <div className="mt-3 p-3 rounded-[8px]" style={{ background:'var(--surface-2)', border:'1px dashed var(--line)' }}>
-        <div className="flex items-center gap-2 flex-wrap"><b className="text-[13px]">Design brief</b><span className="pill">phase 2 · AI</span></div>
+        <div className="flex items-center gap-2 flex-wrap"><b className="text-[13px]">Design brief</b><span className="pill ai-pill">✦ AI</span></div>
         <textarea className="input" rows={3} value={brief} onChange={e => setBrief(e.target.value)} placeholder="Relaxed oxford shirt, button-down collar, single chest pocket, mother-of-pearl buttons, box-pleat back, folded in a kraft box…" style={{ fontFamily:'inherit', fontSize:12.5, lineHeight:1.4, width:'100%' }} />
-        <div className="pt-1"><Button size="sm" disabled>Draft tech pack, trim card and BOM from this →</Button><span className="text-[11px] ml-2" style={faint}>phase 2</span></div>
+        <div className="pt-1 flex items-center gap-2"><Button size="sm" variant="primary" disabled={brief.trim().length < 10} onClick={() => { const d = draftFromBrief(brief, style || 'the style');
+          setTp(x => { const n = { ...x }; TECH_PACK_ITEMS.forEach(it => { if (!(n[it.key] ?? '').trim() && !tpFiles[it.key]) n[it.key] = d.techPack[it.key]; }); return n; });
+          setFab(x => ({ ...x, description: x.description || d.fabric.description, content: x.content && x.content !== '100% cotton' ? x.content : d.fabric.content }));
+          setTrimName(n => n || 'drafted trim card'); setTrimLines(l => l.length ? l : d.trimLines.map(t => ({ colour: t.colour, item: t.item, supplierCode: '', image: '' })));
+          setBriefDrafted(true); }}>✦ Draft tech pack, fabric and trim card</Button>{briefDrafted && <span className="text-[12px]" style={{ color:'var(--good)' }}>Drafted. Check the tabs.</span>}</div>
       </div>
     </Section>}
     {show('fabric') && <Section title="Fabric information" collapsible={false}>

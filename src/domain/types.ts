@@ -335,7 +335,8 @@ export interface ProductionOrder {
   qcChecks?: QcCheck[] | null;
   poFabrics?: PoFabric[] | null;
   /* 15 Nov 2026: the style goes live by being added to Enigma with every size — one step instead of the drop, desk and stickers */
-  enigmaProduct?: { code: string; name: string; mrp: number; category: string; fit: string | null; colour: string | null; description: string | null; skus: { size: string; sku: string; qty: number }[]; addedOn: string; by: string } | null;
+  enigmaProduct?: { code: string; name: string; mrp: number; category: string; fit: string | null; colour: string | null; description: string | null; skus: { size: string; sku: string; qty: number }[]; addedOn: string; by: string; editedOn?: string | null;
+    copy?: { title: string; description: string; bullets: string[]; care: string; seo: string; marketing: string[]; generatedOn: string } | null } | null;   // copy: product and marketing details drafted by AI once it is in Enigma
   targetRevisions?: TargetRevision[] | null;
   poInvoices?: PoInvoice[] | null;
   invoice?: { no: string; amount: number; uploadedOn: string; by: string; file: string | null; packingList: { size: string; qty: number }[]; mailedOn: string | null; mailedTo: string[]; mail?: MailDraft | null } | null;

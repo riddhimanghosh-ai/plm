@@ -628,3 +628,6 @@ h1::after { background: var(--accent); }
 .mf-row:hover { background: var(--surface-2); }
 .mf-all { border-bottom: 1px solid var(--line-soft); border-radius: 6px 6px 0 0; margin-bottom: 2px; font-weight: 500; }
 .mf-n { margin-left: auto; padding-left: 12px; font-size: 11.5px; color: var(--ink-faint); }
+
+.ai-pill { background: linear-gradient(90deg, #efe4f2, #e1e8f2); color: #4a3a6b; border-color: transparent; font-weight: 600; }
+.ai-brief { padding: 12px 14px; border-radius: 10px; border: 1px solid #d9cfe6; background: linear-gradient(180deg, #faf7fc, var(--surface)); }

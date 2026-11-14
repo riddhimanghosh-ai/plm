@@ -241,6 +241,7 @@ export interface AppState {
   resumePoFabric(orderId: string, fabricId: string, metres: number): void;                                   // replacement received: the colour continues under the same PO
   raiseAlternativeFor(orderId: string, fabricId: string): string | null;                                     // a separate requirement for the dropped colour's alternative
   addToEnigma(orderId: string, p: { code: string; name: string; mrp: number; category: string; fit: string | null; colour: string | null; description: string | null; skus: { size: string; sku: string; qty: number }[] }): void;   // category: the style and every size into Enigma, ready to sell
+  setEnigmaCopy(orderId: string, copy: NonNullable<NonNullable<ProductionOrder['enigmaProduct']>['copy']>): void;   // AI-drafted product and marketing details, edited and kept
   uploadInvoice(orderId: string, inv: { no: string; amount: number; file: string | null; packingList: { size: string; qty: number }[] }): void;   // merchandiser: uploads the factory's invoice and packing list
   mailInvoice(orderId: string, mail?: MailDraft | null): void;   // merchandiser: one click, PLM mails both to Prince at the warehouse
   sendPoMail(orderId: string, mail?: MailDraft | null): void;   // Nitin: the PO mail to the factory and the merchandiser, edited if needed
@@ -334,7 +335,7 @@ let seq = 0;
    Writes advance from there in real time, so an edit reads "just now", not "in 1d". */
 const BOOT = Date.now();
 /* bump to reseed the demo data in every browser */
-const SEED_VERSION = 154;
+const SEED_VERSION = 155;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 export const useAppStore = create<AppState>()(persist((set, get) => {
@@ -1481,9 +1482,11 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       return id;
     },
     addToEnigma(orderId, p) {
-      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.enigmaProduct = { ...p, addedOn: now(), by: who() };
-        log(o, `Added to Enigma · ${p.code} · ${p.name} · ₹${p.mrp} · ${p.skus.length} sizes`); }, 'Added to Enigma with every size.');
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; const was = o.enigmaProduct;
+        o.enigmaProduct = { ...p, addedOn: was?.addedOn ?? now(), by: was?.by ?? who(), editedOn: was ? now() : null, copy: was?.copy ?? null };
+        log(o, was ? `Enigma entry edited · ${p.code} · ${p.name} · ₹${p.mrp} · ${p.skus.length} sizes` : `Added to Enigma · ${p.code} · ${p.name} · ₹${p.mrp} · ${p.skus.length} sizes`); }, 'Saved to Enigma with every size.');
     },
+    setEnigmaCopy(orderId, copy) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.enigmaProduct) return; o.enigmaProduct.copy = copy; log(o, 'Product and marketing details saved'); }, 'Product and marketing details saved.'); },
     uploadInvoice(orderId, inv) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return;
         o.invoice = { ...inv, uploadedOn: now(), by: who(), mailedOn: null, mailedTo: [] };

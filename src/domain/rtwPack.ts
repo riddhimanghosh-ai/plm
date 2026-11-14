@@ -124,3 +124,26 @@ export function poFabricsOf(o: ProductionOrder) {
     line: !fs.length ? null : failedOpen.length ? `${failedOpen.map(f => f.colour).join(', ')} failed QC · hold or drop?` : held.length ? `${held.map(f => f.colour).join(', ')} on hold · replacement${held[0].decision?.kind === 'hold' && held[0].decision.replacementBy ? ` by ${fmtDate(held[0].decision.replacementBy)}` : ''}` : toCheck.length ? `${toCheck.map(f => f.colour).join(', ')} to check` : toCome.length ? `${toCome.length} of ${live.length} colours to come` : `${running.length} colour${running.length === 1 ? '' : 's'} in and passed`,
     tone: (failedOpen.length ? 'risk' : held.length ? 'warn' : toCheck.length ? 'warn' : toCome.length ? 'info' : 'good') as 'risk' | 'warn' | 'info' | 'good' };
 }
+
+/* ✦ AI (prototype): draft the requirement from what category writes in its own words. The build sends the text and
+   any attached files to the model; here it is drafted from keywords so the walkthrough shows the shape of it. */
+export function draftFromBrief(text: string, styleName: string) {
+  const t = text.toLowerCase();
+  const pick = (opts: [RegExp, string][], d: string) => opts.find(([r]) => r.test(t))?.[1] ?? d;
+  const cloth = pick([[/oxford/, 'Oxford'], [/poplin/, 'Poplin'], [/linen/, 'Linen'], [/twill/, 'Twill'], [/denim/, 'Denim'], [/corduroy/, 'Corduroy'], [/flannel/, 'Flannel'], [/knit|jersey/, 'Jersey knit'], [/seersucker/, 'Seersucker'], [/dobby/, 'Dobby']], 'Plain weave');
+  const content = pick([[/linen/, '100% linen'], [/wool/, '100% wool'], [/stretch|elastane/, '98% cotton 2% elastane'], [/blend/, 'cotton blend']], '100% cotton');
+  const collar = pick([[/button.?down/, 'button-down collar'], [/mandarin|band|bandhgala/, 'mandarin collar'], [/cuban|camp/, 'camp collar'], [/spread/, 'spread collar']], 'classic collar');
+  const button = pick([[/mother.?of.?pearl|mop/, 'mother-of-pearl buttons 18L'], [/horn/, 'horn buttons 18L'], [/wood/, 'wooden buttons 18L']], 'tonal buttons 18L');
+  const pack = pick([[/kraft/, 'kraft box'], [/poly|bag/, 'recycled poly bag'], [/box/, 'branded box']], 'folded in the standard BSC pack');
+  const pocket = /pocket/.test(t) ? (/no pocket|without pocket/.test(t) ? 'no pocket' : 'single chest pocket') : 'no pocket';
+  const back = pick([[/box.?pleat/, 'box-pleat back'], [/side.?pleat/, 'side pleats'], [/darts?/, 'back darts']], 'plain back');
+  const fit = pick([[/relaxed/, 'Relaxed Fit'], [/slim/, 'Slim Fit'], [/tailored/, 'Tailored Fit'], [/regular/, 'Regular Fit']], 'Tailored Fit');
+  return {
+    techPack: { sketch: `drafted: front and back of ${styleName}`, styling: `${fit}; ${collar}; ${pocket}; ${back}`, stitching: '12 SPI; 1 cm seam allowance; topstitch 0.6 cm at collar and placket',
+      fabricColours: 'as in the colour options', specSheet: `drafted: measurements per size for ${fit}`, howToMeasure: 'standard BSC measuring guide', folding: `${pack}; folded on the 30 × 22 cm board`,
+      trimCard: `${button}; main label at the neck; size label; wash-care at the left side seam`, labelImage: 'BSC main woven label', tagImage: 'BSC hang tag with MRP', barcoding: 'one EAN per size from the design code', packaging: pack },
+    fabric: { description: cloth, content },
+    trimLines: [{ colour: 'all', item: button, supplierCode: null, image: null }, { colour: 'all', item: 'BSC main label', supplierCode: null, image: null }],
+    fit,
+  };
+}
