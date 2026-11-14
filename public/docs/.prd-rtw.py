@@ -23,6 +23,25 @@ p("BSC PLM sits beside Enigma, not inside it. Enigma stays the system of record 
 b("In scope.", "Category's requirement with its files; sourcing's vendor details and sending; the factory and cloth vendor databases; counter sourcing with replies over target flagged and target revisions logged; the factory PO with delivery location and the TNA form, mailed from PLM with the mail editable; the merchandiser's follow-ups across their factories; the TNA and QC; the cloth at the factory, colour by colour, with hold or drop on a failed colour and a new cut ratio on short or extra cloth or trims; dispatch with the invoice and packing list mailed to the warehouse; receipt against the packing list from Enigma; COGS; Add to Enigma with every size; invoices, debit and credit notes; the production dashboard.")
 b("Where it starts.", "PLM starts at the design requirement: once the concept is finalised, the prototype and sampling are done, and category knows the style is to be built. From that point, everything to the style being in Enigma and its invoices reconciled is in PLM.")
 b("Conventions.", "A state is where a record is, never the next step. Quantities are pieces unless the unit says metres. Rules marked later are specified but not built. A ✦ marks an AI feature.")
+b("Outcomes.", "What is solved, the benefits and the pain points gone, once the RTW edition is live.")
+table(["Pain point today", "What PLM does", "Benefit"], [
+ ["Requirements arrive incomplete: tech pack, fabric or trim card missing, discovered at the factory", "The requirement with a gate; nothing moves until every part, sourcing's included, is in", "Factories start with everything; fewer stoppages and re-sends"],
+ ["Tech pack and trim card spread across mail, WhatsApp and drives", "Every file on the record under the part it belongs to", "One place to find the latest; nothing lost between teams"],
+ ["Factory quotes chased by phone; no record of who was asked or what they quoted", "Counter sourcing from the factory database, a mail with a deadline and a web form; replies land in one table by themselves", "Faster factory choice; quotes comparable; history kept"],
+ ["Quotes over budget or late found out after the PO", "Replies over target cost or past the target date flagged red; category revises with a reason", "Decisions made before the PO; every target change traceable"],
+ ["Who buys the cloth unclear between BSC, vendor and factory", "Category chooses, Nitin confirms before the PO; the PO mail carries the vendor details", "No cloth falls between teams"],
+ ["Delivery to the wrong warehouse", "Delivery location set on the requirement and printed on the PO", "Goods land where they are finished"],
+ ["TNA kept in sheets; planned dates never agreed with the factory", "TNA form returned by the factory; planned · revised · actual on every block", "One agreed plan; slippage visible the day it happens"],
+ ["Merchandisers chase across many chats", "Follow-ups across their factories: replies, forms, late steps, QC fails, invoices", "Nothing slips; less chasing"],
+ ["QC remarks on WhatsApp; PP and size-set results lost", "QC screen with checklist, technical and aesthetic remarks; results on the TNA and to the merchandiser", "Quality issues caught before bulk; a record for every style"],
+ ["Short or failed cloth stops the whole PO", "Colour by colour: hold for replacement or drop; new cut ratio for the rest", "The rest of the order keeps moving; fewer missed launches"],
+ ["Printed factory invoices; the warehouse not told what is coming", "Invoice and packing list uploaded and mailed to Prince", "Receipt checked against the packing list; shortages found at once"],
+ ["Debit and credit notes not tied to the PO", "Invoices, debit and credit notes logged on the PO both ways", "Reconciliation for accounts in one place"],
+ ["COGS known late, if at all", "COGS per piece from the costing sheet and actuals against net MRP", "Margin per style the day goods land"],
+ ["Product setup and copy typed by hand after launch", "Add to Enigma with every size in one step; ✦ AI drafts product and marketing copy", "Faster go-live; consistent product pages"],
+ ["No one view of production", "Dashboard: OTIF, late, QC first-pass, waiting on whom, by factory", "Parag and Nitin see the whole book in one screen"],
+])
+b("For each team.", "Category: one form, files in place, AI drafts, clear asks for new ratios and target revisions. Sourcing: two jobs, a vendor database to pick from. Production RTW: factories recommended, quotes compared, PO and mails in a click, one dashboard. Merchandiser: one list of what is owed across their factories. QC: a worklist and a checklist. Warehouse: invoice and packing list before the goods. Accounts: every invoice and note on the PO.")
 
 # ------------------------------------------------------------------ 2
 h2("2. Users and roles")
@@ -161,27 +180,6 @@ table(["Phase", "What", "Enigma"], [
  ["3", "The TNA form on the same factory web form; mails sent from BSC's domain; AI features if not in phase 1", "events: receipt posted"],
 ])
 
-# ------------------------------------------------------------------ 15
-h2("15. Outcomes: what is solved, the benefits, the pain points gone")
-p("What changes for each team once the RTW edition is live.")
-table(["Pain point today", "What PLM does", "Benefit"], [
- ["Requirements arrive incomplete: tech pack, fabric or trim card missing, discovered at the factory", "The requirement with a gate; nothing moves until every part, sourcing's included, is in", "Factories start with everything; fewer stoppages and re-sends"],
- ["Tech pack and trim card spread across mail, WhatsApp and drives", "Every file on the record under the part it belongs to", "One place to find the latest; nothing lost between teams"],
- ["Factory quotes chased by phone; no record of who was asked or what they quoted", "Counter sourcing from the factory database, a mail with a deadline and a web form; replies land in one table by themselves", "Faster factory choice; quotes comparable; history kept"],
- ["Quotes over budget or late found out after the PO", "Replies over target cost or past the target date flagged red; category revises with a reason", "Decisions made before the PO; every target change traceable"],
- ["Who buys the cloth unclear between BSC, vendor and factory", "Category chooses, Nitin confirms before the PO; the PO mail carries the vendor details", "No cloth falls between teams"],
- ["Delivery to the wrong warehouse", "Delivery location set on the requirement and printed on the PO", "Goods land where they are finished"],
- ["TNA kept in sheets; planned dates never agreed with the factory", "TNA form returned by the factory; planned · revised · actual on every block", "One agreed plan; slippage visible the day it happens"],
- ["Merchandisers chase across many chats", "Follow-ups across their factories: replies, forms, late steps, QC fails, invoices", "Nothing slips; less chasing"],
- ["QC remarks on WhatsApp; PP and size-set results lost", "QC screen with checklist, technical and aesthetic remarks; results on the TNA and to the merchandiser", "Quality issues caught before bulk; a record for every style"],
- ["Short or failed cloth stops the whole PO", "Colour by colour: hold for replacement or drop; new cut ratio for the rest", "The rest of the order keeps moving; fewer missed launches"],
- ["Printed factory invoices; the warehouse not told what is coming", "Invoice and packing list uploaded and mailed to Prince", "Receipt checked against the packing list; shortages found at once"],
- ["Debit and credit notes not tied to the PO", "Invoices, debit and credit notes logged on the PO both ways", "Reconciliation for accounts in one place"],
- ["COGS known late, if at all", "COGS per piece from the costing sheet and actuals against net MRP", "Margin per style the day goods land"],
- ["Product setup and copy typed by hand after launch", "Add to Enigma with every size in one step; ✦ AI drafts product and marketing copy", "Faster go-live; consistent product pages"],
- ["No one view of production", "Dashboard: OTIF, late, QC first-pass, waiting on whom, by factory", "Parag and Nitin see the whole book in one screen"],
-])
-b("For each team.", "Category: one form, files in place, AI drafts, clear asks for new ratios and target revisions. Sourcing: two jobs, a vendor database to pick from. Production RTW: factories recommended, quotes compared, PO and mails in a click, one dashboard. Merchandiser: one list of what is owed across their factories. QC: a worklist and a checklist. Warehouse: invoice and packing list before the goods. Accounts: every invoice and note on the PO.")
 # ===================================================================== HTML · devx Doctrine
 import re
 def nd(t):
