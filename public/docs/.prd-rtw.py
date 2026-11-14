@@ -28,7 +28,7 @@ b("Conventions.", "A state is where a record is, never the next step. Quantities
 h2("2. Users and roles")
 p("These roles work in PLM; factories and the warehouse are reached by mail. One login per person. A button shows only for the role that owns the step; everyone else reads whose move it is.")
 table(["Role", "People", "Owns in PLM", "Lands on", "Reads"], [
- ["Category (design)", "Kunal and the category team", "The requirement and its files; who supplies the cloth; the delivery location; revising target date or cost when every factory reply is over; a new cut ratio when cloth or trims are short or extra, or a colour is dropped; Add to Enigma", "Requirements", "Counter sourcing, QC remarks, COGS"],
+ ["Category", "The design and planning teams (Kunal, Neha and their teams)", "The requirement and its files; who supplies the cloth; the delivery location; revising target date or cost when every factory reply is over; a new cut ratio when cloth or trims are short or extra, or a colour is dropped; Add to Enigma", "Requirements", "Counter sourcing, QC remarks, COGS"],
  ["Sourcing", "Sreekanth", "Vendor details on the requirement (cloth vendor, vendor fabric code, blocked quantity, readiness, trim vendor, yarn vendor for knits) when BSC is in the cloth; sending cloth and trims to the factory when BSC sends; the cloth vendor database", "Sourcing · RTW", "Requirements, POs"],
  ["Production RTW", "Nitin, Parag", "Counter sourcing (factories, deadline, the mail); the cloth decision before the PO; the PO and its mail; PO costs; hold or drop a failed colour; COGS; invoices, debit and credit notes; the factory database; the dashboard", "RTW production tracker", "Everything"],
  ["Merchandiser", "Nitin Singh, Abhin M, Bhupendra (a few factories each)", "Chasing what factories owe; returning the TNA form; the TNA dates; the factory's own fabric PO and receipt; counting cloth and trims in; asking for a new cut ratio; the invoice and packing list after dispatch and the mail to the warehouse", "My factories", "QC results, remarks"],
@@ -36,6 +36,7 @@ table(["Role", "People", "Owns in PLM", "Lands on", "Reads"], [
  ["Warehouse", "Prince", "No screen. Receives the invoice and packing list by mail; receives the goods on Enigma", "None", "The mail"],
  ["Owner", "Akshay, Parag", "Everything", "Any", "None"],
 ])
+b("Category.", "One role, used by both the design team and the planning team: either can raise a style, fill the requirement and work the category steps.")
 b("Factories.", "No login. They get the counter-sourcing query and its cost form, the PO with the TNA form, and reply by mail or form; the merchandiser keys what they send.")
 
 # ------------------------------------------------------------------ 3
@@ -110,7 +111,7 @@ steps([
  ["6.1", "Invoice and packing list · merchandiser", "After the dispatch actual: upload the factory's invoice (number, amount, file) and the packing list by size; then Send to Prince (the mail is editable).", "the factory's invoice", "dispatch logged", "Prince receives on Enigma"],
  ["6.2", "Received · Prince on Enigma", "PLM reads Enigma's receipt and shows it against the packing list, size by size: did everything reach.", "Enigma receipt", "none", "COGS opens"],
  ["6.3", "COGS · Nitin, category", "Per piece: fabric at the actual consumption, the factory's PO price, trims and packaging, transport, hemming, freight, overheads, PO logistics and other costs; against MRP net of discounts and GST.", "costing sheet; actuals", "none", "intake margin"],
- ["6.4", "Add to Enigma · category", "Design code, the name it sells as (editable), MRP, fit, colour, description, one SKU per size with pcs; add or remove a size; Add to Enigma; editable after.", "the record", "code, name, MRP and at least one size", "in Enigma with every size"],
+ ["6.4", "Add to Enigma · category", "Design code, the name it sells as (editable), MRP, fit, colour, description, one SKU per size with its price, sale price and pcs; add or remove a size; Add to Enigma; editable after.", "the record", "code, name, MRP and at least one size", "in Enigma with every size"],
  ["6.5", "✦ Product and marketing details · category", "Generate the product title, description, details, care, SEO title and pointers for marketing from what the record knows; edit; save to Enigma.", "the record", "none", "the product page copy"],
  ["6.6", "Invoices, debit and credit notes · Nitin", "Every document on the PO, both ways (factory to BSC; BSC to factory for material BSC supplied), with kind, number, amount, file and a note for accounts.", "typed", "none", "totals both ways for reconciliation"],
 ])
