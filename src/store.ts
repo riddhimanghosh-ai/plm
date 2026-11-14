@@ -240,7 +240,7 @@ export interface AppState {
   decidePoFabric(orderId: string, fabricId: string, kind: 'hold' | 'drop', replacementBy?: string | null): void;   // Nitin: hold the colour for a replacement, or drop it (alternative as a separate PO)
   resumePoFabric(orderId: string, fabricId: string, metres: number): void;                                   // replacement received: the colour continues under the same PO
   raiseAlternativeFor(orderId: string, fabricId: string): string | null;                                     // a separate requirement for the dropped colour's alternative
-  addToEnigma(orderId: string, p: { code: string; name: string; mrp: number; category: string; fit: string | null; colour: string | null; description: string | null; skus: { size: string; sku: string; qty: number }[] }): void;   // category: the style and every size into Enigma, ready to sell
+  addToEnigma(orderId: string, p: { code: string; name: string; mrp: number; category: string; fit: string | null; colour: string | null; description: string | null; skus: { size: string; sku: string; qty: number; price?: number | null; salePrice?: number | null }[] }): void;   // category: the style and every size into Enigma, ready to sell
   setEnigmaCopy(orderId: string, copy: NonNullable<NonNullable<ProductionOrder['enigmaProduct']>['copy']>): void;   // AI-drafted product and marketing details, edited and kept
   uploadInvoice(orderId: string, inv: { no: string; amount: number; file: string | null; packingList: { size: string; qty: number }[] }): void;   // merchandiser: uploads the factory's invoice and packing list
   mailInvoice(orderId: string, mail?: MailDraft | null): void;   // merchandiser: one click, PLM mails both to Prince at the warehouse

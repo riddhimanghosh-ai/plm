@@ -560,19 +560,19 @@ export function PoFabricsSection({ o, factory, prod }: { o: ProductionOrder; fac
 }
 
 /* ── the last step: the style into Enigma with every size, ready to sell; editable before and after; then AI drafts the product and marketing details ── */
-type Sku = { size: string; sku: string; qty: number };
+type Sku = { size: string; sku: string; qty: number; price?: number | null; salePrice?: number | null };
 export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boolean }) {
   const { addToEnigma, setEnigmaCopy } = useApp();
   const ep = o.enigmaProduct; const p = packOf(o);
   const base = `BSC-${o.category.includes('hirt') ? 'SH' : o.category.includes('Bottom') ? 'BT' : o.category.includes('Knit') ? 'KN' : 'RT'}-${o.id.replace(/\D/g, '').slice(-4).padStart(4, '0')}`;
   const sizes = (o.cutRatios ?? []).filter(c => c.given).slice(-1)[0]?.given?.breakup ?? o.sizeBreakup;
   const init = () => ep ? { code: ep.code, name: ep.name, mrp: String(ep.mrp), fit: ep.fit ?? '', colour: ep.colour ?? '', description: ep.description ?? '', skus: ep.skus.map(x => ({ ...x })) }
-    : { code: base, name: o.styleName, mrp: String(Math.round((o.finalFob ?? o.targetCost) * 3.2 / 10) * 10 - 1), fit: o.fit ?? '', colour: (p.colours ?? [])[0] ?? o.fabricBrief?.colour ?? '', description: p.fabric.description ? `${p.fabric.description}${p.fabric.content ? `, ${p.fabric.content}` : ''}` : '', skus: sizes.filter(x => x.qty > 0).map(x => ({ size: x.size, sku: `${base}-${x.size}`, qty: x.qty })) as Sku[] };
+    : { code: base, name: o.styleName, mrp: String(Math.round((o.finalFob ?? o.targetCost) * 3.2 / 10) * 10 - 1), fit: o.fit ?? '', colour: (p.colours ?? [])[0] ?? o.fabricBrief?.colour ?? '', description: p.fabric.description ? `${p.fabric.description}${p.fabric.content ? `, ${p.fabric.content}` : ''}` : '', skus: sizes.filter(x => x.qty > 0).map(x => ({ size: x.size, sku: `${base}-${x.size}`, qty: x.qty, price: null, salePrice: null })) as Sku[] };
   const [f, setF] = useState(init);
   const [editing, setEditing] = useState(!ep);
   const setSku = (i: number, patch: Partial<Sku>) => setF(x => ({ ...x, skus: x.skus.map((s, k) => k === i ? { ...s, ...patch } : s) }));
   const recode = (code: string) => setF(x => ({ ...x, code, skus: x.skus.map(s => ({ ...s, sku: s.sku.startsWith(x.code) ? code + s.sku.slice(x.code.length) : s.sku })) }));
-  const save = () => { addToEnigma(o.id, { code: f.code.trim(), name: f.name.trim(), mrp: Number(f.mrp), category: o.category, fit: f.fit.trim() || null, colour: f.colour.trim() || null, description: f.description.trim() || null, skus: f.skus.filter(s => s.size.trim() && s.sku.trim()) }); setEditing(false); };
+  const save = () => { addToEnigma(o.id, { code: f.code.trim(), name: f.name.trim(), mrp: Number(f.mrp), category: o.category, fit: f.fit.trim() || null, colour: f.colour.trim() || null, description: f.description.trim() || null, skus: f.skus.filter(s => s.size.trim() && s.sku.trim()).map(s => ({ ...s, price: s.price ?? Number(f.mrp) })) }); setEditing(false); };
 
   /* AI: product and marketing details from what the record already knows (prototype: drafted locally; the build calls the model) */
   const draftCopy = () => {
@@ -594,7 +594,7 @@ export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boole
         <KV k="Code" v={<span className="mono">{ep.code}</span>} /><KV k="Name" v={ep.name} /><KV k="MRP" v={fmtMoney(ep.mrp)} /><KV k="Category" v={ep.category} note={[ep.fit, ep.colour].filter(Boolean).join(' · ') || undefined} />
       </div>
       {ep.description && <div className="text-[12.5px] pt-1" style={soft}>{ep.description}</div>}
-      <table className="t compact mt-2"><thead><tr><th>Size</th><th>SKU</th><th className="num">Pcs</th></tr></thead><tbody>{ep.skus.map(x => <tr key={x.size}><td>{x.size}</td><td className="mono text-[12px]">{x.sku}</td><td className="num">{x.qty}</td></tr>)}</tbody></table>
+      <table className="t compact mt-2"><thead><tr><th>Size</th><th>SKU</th><th className="num">Price</th><th className="num">Sale price</th><th className="num">Pcs</th></tr></thead><tbody>{ep.skus.map(x => <tr key={x.size}><td>{x.size}</td><td className="mono text-[12px]">{x.sku}</td><td className="num">{fmtMoney(x.price ?? ep.mrp)}</td><td className="num">{x.salePrice != null ? fmtMoney(x.salePrice) : '—'}</td><td className="num">{x.qty}</td></tr>)}</tbody></table>
     </Section>
     <div className="pt-3"><Section title="Product and marketing details" collapsible={false} right={<span className="pill ai-pill">✦ AI</span>}>
       {!copy ? <div className="flex items-center gap-3 flex-wrap py-1">
@@ -625,14 +625,17 @@ export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boole
       <div style={{ gridColumn: '1 / -1' }}><Field label="Description"><Input value={f.description} onChange={e => setF(x => ({ ...x, description: e.target.value }))} disabled={!design} /></Field></div>
     </div>
     <div className="cap pt-3">Every size · {f.skus.reduce((a, x) => a + (x.qty || 0), 0)} pcs</div>
-    <table className="t compact"><thead><tr><th>Size</th><th>SKU</th><th className="num">Pcs</th><th></th></tr></thead>
+    <div className="flex items-center gap-2 pb-1 text-[12px]" style={faint}>Price per size defaults to the MRP; type over any size that sells at a different price.{design && <button type="button" className="vlink" onClick={() => setF(y => ({ ...y, skus: y.skus.map(s => ({ ...s, price: Number(y.mrp) || null })) }))}>set every size to ₹{f.mrp}</button>}</div>
+    <table className="t compact"><thead><tr><th>Size</th><th>SKU</th><th className="num">Price (₹)</th><th className="num">Sale price (₹)</th><th className="num">Pcs</th><th></th></tr></thead>
       <tbody>{f.skus.map((x, i) => <tr key={i}>
         <td>{design ? <Input value={x.size} onChange={e => setSku(i, { size: e.target.value, sku: `${f.code}-${e.target.value}` })} style={{ width: 80 }} /> : x.size}</td>
         <td>{design ? <Input value={x.sku} onChange={e => setSku(i, { sku: e.target.value })} className="input mono" style={{ width: 220 }} /> : <span className="mono text-[12px]">{x.sku}</span>}</td>
+        <td className="num">{design ? <Input type="number" value={x.price ?? ''} placeholder={f.mrp} onChange={e => setSku(i, { price: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: 110, textAlign: 'right' }} /> : fmtMoney(x.price ?? Number(f.mrp))}</td>
+        <td className="num">{design ? <Input type="number" value={x.salePrice ?? ''} placeholder="—" onChange={e => setSku(i, { salePrice: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: 110, textAlign: 'right' }} /> : x.salePrice != null ? fmtMoney(x.salePrice) : '—'}</td>
         <td className="num">{design ? <Input type="number" value={x.qty} onChange={e => setSku(i, { qty: Number(e.target.value) || 0 })} style={{ width: 90, textAlign: 'right' }} /> : x.qty}</td>
         <td>{design && <button type="button" className="vlink text-[11.5px]" onClick={() => setF(y => ({ ...y, skus: y.skus.filter((_, k) => k !== i) }))}>remove</button>}</td>
       </tr>)}</tbody></table>
-    {design && <div className="pt-1"><button type="button" className="vlink text-[12px]" onClick={() => setF(y => ({ ...y, skus: [...y.skus, { size: '', sku: `${y.code}-`, qty: 0 }] }))}>+ Add a size</button></div>}
+    {design && <div className="pt-1"><button type="button" className="vlink text-[12px]" onClick={() => setF(y => ({ ...y, skus: [...y.skus, { size: '', sku: `${y.code}-`, qty: 0, price: null, salePrice: null }] }))}>+ Add a size</button></div>}
     <div className="pt-3 flex gap-2">{design ? <><Button variant="primary" disabled={!f.code.trim() || !f.name.trim() || !Number(f.mrp) || !f.skus.length} onClick={save}>{ep ? 'Save to Enigma' : `Add to Enigma · ${f.skus.length} sizes →`}</Button>{ep && <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>}</> : <ActsBy role="design" does="adds the style to Enigma with every size" />}</div>
   </Section>;
 }
