@@ -214,7 +214,8 @@ export interface RequirementPack {
   techPack: Partial<Record<TechPackKey, string>>;   // a file name or a note against each item
   fabric: { description: string | null; content: string | null; image: string | null; swatchAnalyser: string | null; cpm: number | null; widthIn: number | null;
     /* sourcing's part: the vendor it chose for the cloth, its code, what is blocked, and when it is ready */
-    vendorId: string | null; vendorFabricCode: string | null; blockedMetres: number | null; readiness: 'available' | 'date' | null; readyOn: string | null };
+    vendorId: string | null; vendorFabricCode: string | null; blockedMetres: number | null; readiness: 'available' | 'date' | null; readyOn: string | null;
+    trimVendorId?: string | null; yarnVendorId?: string | null };   // sourcing also names the trim vendor, and the yarn vendor for knits
   trimCard: string | null;
   sentOn: string | null; sentBy: string | null;   // sent to Production RTW once the five parts are complete
 }

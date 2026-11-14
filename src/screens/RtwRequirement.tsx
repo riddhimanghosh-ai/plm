@@ -16,7 +16,7 @@ import { PutInDrop } from './Requirements';
 import { MilestoneGrid } from './Tracker';
 import { MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
-import { PackSection, CostQuerySection, PoSection, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, CogsSection } from './RtwChain';
+import { PackSection, CostQuerySection, PoSection, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, CogsSection, RemarksLog, remarksCountOf } from './RtwChain';
 import { SOURCE_LABEL } from '../domain/rtwJourney';
 import { LaunchCodes, LaunchStickers } from './Launches';
 
@@ -141,7 +141,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
     </Section>}
     {at('tna') && o.poNo && role !== 'qc' && <div className="pt-3"><QcChecksSection o={o} qc={qc} /></div>}
     {at('cloth') && <div className="rtw-full"><Section title={!o.poNo || o.fabricNominated ? "Cloth at the factory" : "Cloth and trims at the factory"} collapsible={false} right={<Pill tone={o.poNo ? (o.fabricNominated ? fab.tone : (o.factoryCloth?.receivedOn ? 'good' : 'info')) : 'neutral'}>{o.poNo ? (o.fabricNominated ? fab.label : (o.factoryCloth?.receivedOn ? 'cloth in at the factory' : 'factory buying the cloth')) : 'after the PO'}</Pill>}>
-      {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Decided on the factory's reply: BSC sends the cloth (sourcing ships it, the factory counts it in), or the factory buys it — from BSC's vendor on the details in the PO, or its own — and gives back its fabric PO and receipt. Less or more than the PO needs comes back to category for a new cut ratio.</div>
+      {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Decided on the factory's reply: BSC sends the cloth and trims (sourcing ships them, the factory counts them in), or the factory buys it — from BSC's vendor on the details in the PO, or its own — and gives back its fabric PO and receipt. Less or more than the PO needs comes back to category for a new cut ratio.</div>
         : !o.fabricNominated ? <FactoryClothSection o={o} merchant={merchant} />
         : (merchant && !design && !prod) || (role === 'owner' && location.hash.startsWith('#/factory')) ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" />}
     </Section>
@@ -171,6 +171,6 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
       </div>
     </div></div>
 
-    <RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable={design || prod || merchant} steps={ORDER_STEPS} />
+    <RecordTail kind="order" subjectId={o.id} labels={FILE_LABELS.order} editable={design || prod || merchant} steps={ORDER_STEPS} activity={o.activity} extraTabs={[{ id: 'remarks', label: 'Remarks', count: remarksCountOf(o), body: <RemarksLog o={o} /> }]} />
   </>;
 }
