@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { TechPackKey, RequirementPack, CostReply, QcPoint, CutRatioTrigger, PoInvoice, PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails, SampleStage } from './domain/types';
+import type { TechPackKey, RequirementPack, CostReply, QcPoint, CutRatioTrigger, PoInvoice, FabricBy, MailDraft, PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails, SampleStage } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
 import { fmtDate, prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
@@ -226,9 +226,9 @@ export interface AppState {
   /* 14 Nov 2026: the chain as BSC set it */
   updatePack(orderId: string, patch: { techPack?: Partial<Record<TechPackKey, string>>; fabric?: Partial<RequirementPack['fabric']>; trimCard?: string | null }): void;   // category, and sourcing for its four fabric fields
   sendPack(orderId: string): void;                                   // category: to Production RTW, only when the five parts are complete
-  sendCostQuery(orderId: string, factoryIds: string[], deadline: string): void;   // Nitin: mails the factories, copies the merchandiser
+  sendCostQuery(orderId: string, factoryIds: string[], deadline: string, mail?: MailDraft | null): void;   // Nitin: mails the factories, copies the merchandiser; the mail as edited before sending
   replyCostQuery(orderId: string, vendorId: string, reply: Omit<CostReply, 'vendorId' | 'repliedOn'>): void;   // the factory's reply on the form (logged here in the prototype)
-  raisePoOnReply(orderId: string, vendorId: string): void;   // delivery location follows the requirement's semi-stitched flag   // Nitin: the PO on one reply, mailed with the delivery location and the TNA form
+  raisePoOnReply(orderId: string, vendorId: string, fabricBy: FabricBy): void;   // Nitin decides the cloth (BSC sends · factory buys from BSC's vendor · factory's own) before the PO; delivery location follows the requirement's semi-stitched flag   // Nitin: the PO on one reply, mailed with the delivery location and the TNA form
   submitTnaPlan(orderId: string, plans?: Record<string, string>): void;    // merchandiser: the planned dates back from the factory
   recordQcCheck(orderId: string, point: QcPoint, result: 'pass' | 'fail', remarks: string, aesthetic?: string | null): void;   // QC: a pass closes the TNA block
   reviseTarget(orderId: string, field: 'targetInhouse' | 'targetCost', to: string | number, why: string): void;   // category, when every factory reply is over target; was → now stays on the record
@@ -241,7 +241,8 @@ export interface AppState {
   resumePoFabric(orderId: string, fabricId: string, metres: number): void;                                   // replacement received: the colour continues under the same PO
   raiseAlternativeFor(orderId: string, fabricId: string): string | null;                                     // a separate requirement for the dropped colour's alternative
   uploadInvoice(orderId: string, inv: { no: string; amount: number; file: string | null; packingList: { size: string; qty: number }[] }): void;   // merchandiser: uploads the factory's invoice and packing list
-  mailInvoice(orderId: string): void;   // merchandiser: one click, PLM mails both to Prince at the warehouse
+  mailInvoice(orderId: string, mail?: MailDraft | null): void;   // merchandiser: one click, PLM mails both to Prince at the warehouse
+  sendPoMail(orderId: string, mail?: MailDraft | null): void;   // Nitin: the PO mail to the factory and the merchandiser, edited if needed
   /** production agrees with the factory: part now, balance later — the same PO, split */
   splitDispatch(orderId: string, lots: { qty: number; dispatchOn: string }[], reason: string): void;
   dispatchSplitLot(orderId: string, index: number): void;
@@ -1376,35 +1377,39 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, 'Sent to production · requirement complete: tech pack, fabric info, trim card, size break-up, BOM'); },
         'Sent to Production RTW. Nitin picks factories and sends the cost query.');
     },
-    sendCostQuery(orderId, factoryIds, deadline) {
-      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o || !factoryIds.length) return; const m = costQueryMail(db, o, factoryIds, deadline);
-        o.costQuery = { sentOn: now(), by: who(), deadline, to: m.to, cc: m.cc, factoryIds, replies: [] };
+    sendCostQuery(orderId, factoryIds, deadline, mail = null) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o || !factoryIds.length) return; const m = mail ?? costQueryMail(db, o, factoryIds, deadline);
+        o.costQuery = { sentOn: now(), by: who(), deadline, to: m.to, cc: m.cc, factoryIds, replies: [], mail };
         log(o, `Cost query mailed to ${factoryIds.map(id => db.vendors.find(v => v.id === id)?.name ?? id).join(', ')} · reply by ${fmtDate(deadline)} · cc merchandiser`); },
         'Cost query mailed to the factories with the requirement and the cost form; the merchandiser is copied.');
     },
     replyCostQuery(orderId, vendorId, reply) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.costQuery) return; o.costQuery.replies = o.costQuery.replies.filter(r => r.vendorId !== vendorId);
         o.costQuery.replies.push({ vendorId, repliedOn: now(), ...reply });
-        log(o, `${db.vendors.find(v => v.id === vendorId)?.name ?? vendorId} replied · ₹${reply.cost}/pc · ${reply.leadDays} days · ${FABRIC_BY_LABEL[reply.fabricBy]}`); },
+        log(o, `${db.vendors.find(v => v.id === vendorId)?.name ?? vendorId} replied · ₹${reply.cost}/pc · ${reply.leadDays} days${reply.fabricBy ? ` · prefers: ${FABRIC_BY_LABEL[reply.fabricBy]}` : ''}`); },
         'Reply logged. Nitin raises the PO on the one he picks.');
     },
-    raisePoOnReply(orderId, vendorId) {
+    raisePoOnReply(orderId, vendorId, fabricBy) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); const rp = o?.costQuery?.replies.find(r => r.vendorId === vendorId); if (!o || !rp || o.poNo) return;
         o.vendorId = vendorId; o.poDate = now(); o.poNo = `PO #${15500 + db.orders.filter(x => x.poNo).length + 1}`; o.status = 'Open'; o.finalFob = rp.cost; o.costingClosure.actual = now();
-        o.fabricNominated = rp.fabricBy === 'bsc'; o.sourcingMode = rp.fabricBy === 'bsc' ? 'bsc-buys' : 'vendor-sources';
+        o.fabricNominated = fabricBy === 'bsc'; o.sourcingMode = fabricBy === 'bsc' ? 'bsc-buys' : 'vendor-sources';
         o.merchant = o.merchant ?? MERCHANDISERS[db.orders.filter(x => x.status === 'Open').length % 3];
         o.milestones = buildMilestones(o.category as GarmentCategory, o.poDate);
         if (!o.materials?.length) o.materials = defaultMaterials(o); if (!o.sampleVendorId) o.sampleVendorId = vendorId;
         const needsHemming = !!o.semiStitched;
-        o.poMail = { on: now(), to: [], cc: [], deliveryLocation: deliveryLocationOf(needsHemming), needsHemming, fabricBy: rp.fabricBy, clothVendorSent: rp.fabricBy !== 'factory' };
-        const m = poMailOf(db, o); o.poMail.to = m.to; o.poMail.cc = m.cc;
+        o.poMail = { on: now(), to: [], cc: [], deliveryLocation: deliveryLocationOf(needsHemming), needsHemming, fabricBy, clothVendorSent: fabricBy !== 'factory' };
+        const m = poMailOf(db, o); o.poMail.to = m.to; o.poMail.cc = m.cc; o.poMail.sentOn = null;
         /* BSC supplies the cloth: the factory raises no fabric PO, so that block is not needed on this TNA; it still logs the cloth received (Fabric ETA) */
-        if (rp.fabricBy === 'bsc') o.milestones.forEach(m => { if (m.key === 'Fabric PO' || m.key === 'Yarn PO') { m.skipped = { on: now(), by: who() }; m.actual = m.plan; } });
+        if (fabricBy === 'bsc') o.milestones.forEach(m => { if (m.key === 'Fabric PO' || m.key === 'Yarn PO') { m.skipped = { on: now(), by: who() }; m.actual = m.plan; } });
         o.tnaPlan = { sentOn: now(), submittedOn: null, by: null }; o.poAckOn = null;
         o.factoryPo = { raisedOn: now(), by: who(), docsSent: ['Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form'], docsMissing: [] };
         o.fabricSupply = o.fabricSupply ?? { boughtOn: null, sentToFactoryOn: null, metresSent: null, receipt: null };
-        log(o, `PO raised to ${db.vendors.find(v => v.id === vendorId)?.name} · ₹${rp.cost}/pc · deliver to ${o.poMail.deliveryLocation} · mailed with the TNA form, cc merchandiser${rp.fabricBy === 'bsc-vendor' ? ' · cloth vendor details sent' : rp.fabricBy === 'bsc' ? ' · BSC sends the cloth' : ''}`); },
-        'PO raised and mailed to the factory and the merchandiser, with the delivery location and the TNA form.');
+        log(o, `PO raised to ${db.vendors.find(v => v.id === vendorId)?.name} · ₹${rp.cost}/pc · deliver to ${o.poMail.deliveryLocation} · PO mail composed with the TNA form · ${FABRIC_BY_LABEL[fabricBy]}`); },
+        'PO raised. Check the mail, edit it if you like, and send it to the factory and the merchandiser.');
+    },
+    sendPoMail(orderId, mail = null) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.poMail || o.poMail.sentOn) return; const m = mail ?? poMailOf(db, o); o.poMail.sentOn = now(); o.poMail.mail = mail; o.poMail.to = m.to; o.poMail.cc = m.cc;
+        log(o, `${o.poNo} mailed to the factory and the merchandiser · deliver to ${o.poMail.deliveryLocation} · TNA form attached`); }, 'PO mailed to the factory and the merchandiser, with the delivery location and the TNA form.');
     },
     submitTnaPlan(orderId, plans) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return;
@@ -1476,8 +1481,8 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, `Invoice ${inv.no} and packing list (${inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs) uploaded`); },
         'Uploaded. Send them to Prince when ready.');
     },
-    mailInvoice(orderId) {
-      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.invoice || o.invoice.mailedOn) return; const m = invoiceMailOf(db, o); o.invoice.mailedOn = now(); o.invoice.mailedTo = m.to;
+    mailInvoice(orderId, mail = null) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.invoice || o.invoice.mailedOn) return; const m = mail ?? invoiceMailOf(db, o); o.invoice.mailedOn = now(); o.invoice.mailedTo = m.to; o.invoice.mail = mail;
         log(o, `Invoice ${o.invoice.no} and packing list mailed to Prince`); }, 'Mailed to Prince at the warehouse, copying Nitin and the merchandiser.');
     },
     skipMilestone(orderId, key, skip) {
@@ -1947,7 +1952,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
   };
 }, {
   name: 'bsc-plm-v1',
-  version: 145,
+  version: 147,
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;

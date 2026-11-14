@@ -17,15 +17,34 @@ import { BomSection } from './Costing';
 const faint = { color: 'var(--ink-faint)' } as const;
 const soft = { color: 'var(--ink-soft)' } as const;
 
-/* a mail PLM composed: who it went to, what it said, what rode with it. Nobody types these. */
-export function MailCard({ mail, sentOn, label }: { mail: Mail; sentOn: string | null; label: string }) {
-  const [open, setOpen] = useState(false);
+/* a mail PLM composed: who it goes to, what it says, what rides with it. Before it is sent the sender can edit every
+   line and sends it from here; once sent it is read-only with the time it went. */
+export function MailCard({ mail, sentOn, label, onSend, sendLabel }: { mail: Mail; sentOn: string | null; label: string; onSend?: (m: Mail) => void; sendLabel?: string }) {
+  const [open, setOpen] = useState(!!onSend && !sentOn);
+  const [editing, setEditing] = useState(false);
+  const [d, setD] = useState<Mail>(mail);
+  const [seed, setSeed] = useState(mail.subject + mail.body + mail.to.join());
+  const key = mail.subject + mail.body + mail.to.join(); if (!editing && key !== seed) { setSeed(key); setD(mail); }
+  const list = (v: string) => v.split(/[,;]\s*/).map(x => x.trim()).filter(Boolean);
+  const cur = editing ? d : (sentOn ? mail : d);
   return <div className="mail-card">
-    <div className="flex items-center gap-2 flex-wrap"><span className="mail-ic" aria-hidden>✉</span><b>{label}</b><Pill tone={sentOn ? 'good' : 'neutral'}>{sentOn ? `auto-mailed ${fmtDate(sentOn)}` : 'composed on send'}</Pill><button type="button" className="vlink text-[11.5px] ml-auto" onClick={() => setOpen(v => !v)}>{open ? 'hide' : 'show the mail'}</button></div>
-    <div className="text-[11.5px] pt-1" style={soft}><b>To</b> {mail.to.join(', ')}{mail.cc.length ? <> · <b>cc</b> {mail.cc.join(', ')}</> : null}</div>
-    <div className="text-[12px] pt-0.5"><b>{mail.subject}</b></div>
-    {open && <><div className="text-[12px] pt-1" style={{ whiteSpace: 'pre-wrap', ...soft }}>{mail.body}</div>
-      <div className="text-[11.5px] pt-1" style={faint}>Attached: {mail.attachments.join(' · ')}</div></>}
+    <div className="flex items-center gap-2 flex-wrap"><span className="mail-ic" aria-hidden>✉</span><b>{label}</b><Pill tone={sentOn ? 'good' : 'neutral'}>{sentOn ? `mailed ${fmtDate(sentOn)}` : 'not sent yet'}</Pill>
+      {!sentOn && onSend && !editing && <button type="button" className="vlink text-[11.5px]" onClick={() => { setEditing(true); setOpen(true); }}>edit the mail</button>}
+      <button type="button" className="vlink text-[11.5px] ml-auto" onClick={() => setOpen(v => !v)}>{open ? 'hide' : 'show the mail'}</button></div>
+    {editing ? <div className="grid gap-1.5 pt-2">
+      <Field label="To"><Input value={d.to.join(', ')} onChange={e => setD(x => ({ ...x, to: list(e.target.value) }))} /></Field>
+      <Field label="Cc"><Input value={d.cc.join(', ')} onChange={e => setD(x => ({ ...x, cc: list(e.target.value) }))} /></Field>
+      <Field label="Subject"><Input value={d.subject} onChange={e => setD(x => ({ ...x, subject: e.target.value }))} /></Field>
+      <Field label="Body"><textarea className="input" rows={6} value={d.body} onChange={e => setD(x => ({ ...x, body: e.target.value }))} style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4 }} /></Field>
+      <div className="text-[11.5px]" style={faint}>Attached: {mail.attachments.join(' · ')} (from the record; not editable here)</div>
+      <div className="flex gap-2"><Button size="sm" onClick={() => setEditing(false)}>Done editing</Button><Button size="sm" variant="ghost" onClick={() => { setD(mail); setEditing(false); }}>Back to PLM's text</Button></div>
+    </div> : <>
+      <div className="text-[11.5px] pt-1" style={soft}><b>To</b> {cur.to.join(', ')}{cur.cc.length ? <> · <b>cc</b> {cur.cc.join(', ')}</> : null}</div>
+      <div className="text-[12px] pt-0.5"><b>{cur.subject}</b></div>
+      {open && <><div className="text-[12px] pt-1" style={{ whiteSpace: 'pre-wrap', ...soft }}>{cur.body}</div>
+        <div className="text-[11.5px] pt-1" style={faint}>Attached: {mail.attachments.join(' · ')}</div></>}
+    </>}
+    {!sentOn && onSend && !editing && <div className="pt-2 flex items-center gap-2 flex-wrap"><Button variant="primary" disabled={!cur.to.length} onClick={() => onSend({ ...cur, attachments: mail.attachments })}>{sendLabel ?? 'Send ✉'}</Button>{(cur.subject !== mail.subject || cur.body !== mail.body || cur.to.join() !== mail.to.join() || cur.cc.join() !== mail.cc.join()) && <span className="text-[11.5px]" style={faint}>edited · PLM keeps what was sent</span>}</div>}
   </div>;
 }
 
@@ -124,17 +143,17 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
         <Field label="Reply deadline"><Input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} /></Field>
       </div>
       {[...picked].filter(id => !rec.fit.some(v => v.id === id)).length > 0 && <div className="text-[12px] pb-2">Also asked: {[...picked].filter(id => !rec.fit.some(v => v.id === id)).map(id => <span key={id} className="pill ml-1">{nameOf(id)} <button type="button" className="vlink" onClick={() => toggle(id)}>×</button></span>)}</div>}
-      <MailCard label="Counter-sourcing query" mail={costQueryMail(db, o, [...picked], fromDateInput(deadline) ?? new Date().toISOString())} sentOn={null} />
-      <div className="pt-2"><Button variant="primary" disabled={!picked.size || !deadline} onClick={() => sendCostQuery(o.id, [...picked], fromDateInput(deadline)!)}>Send the query to {picked.size} factor{picked.size === 1 ? 'y' : 'ies'} →</Button></div>
+      {picked.size > 0 && deadline ? <MailCard label="Counter-sourcing query" mail={costQueryMail(db, o, [...picked], fromDateInput(deadline) ?? new Date().toISOString())} sentOn={null} sendLabel={`Send the query to ${picked.size} factor${picked.size === 1 ? 'y' : 'ies'} ✉`} onSend={m => sendCostQuery(o.id, [...picked], fromDateInput(deadline)!, { to: m.to, cc: m.cc, subject: m.subject, body: m.body })} />
+        : <div className="text-[12.5px]" style={faint}>Pick at least one factory and a deadline; the mail composes itself and can be edited before it goes.</div>}
     </> : <ActsBy role="production" does="picks the factories, sets the deadline and sends the counter-sourcing query" />}
   </Section>;
   const late = daysAgo(cq.deadline) > 0;
   const revs = o.targetRevisions ?? [];
   return <Section title="Factory counter sourcing" collapsible={false} right={<Pill tone={tr.open ? 'risk' : cq.replies.length >= cq.factoryIds.length ? 'good' : late ? 'risk' : 'warn'}>{cq.replies.length} of {cq.factoryIds.length} replied · due {fmtDate(cq.deadline)}{late && cq.replies.length < cq.factoryIds.length ? ` · ${daysAgo(cq.deadline)}d past` : ''}</Pill>}>
     <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Target in-house </span><b>{fmtDate(o.targetInhouse)}</b></span><span><span style={faint}>Target cost </span><b>{fmtMoney(o.targetCost)}</b>/pc</span>{revs.length > 0 && <span style={faint}>revised {revs.length}× · log below</span>}</div>
-    <MailCard label="Counter-sourcing query" mail={{ ...costQueryMail(db, o, cq.factoryIds, cq.deadline), to: cq.to, cc: cq.cc }} sentOn={cq.sentOn} />
+    <MailCard label="Counter-sourcing query" mail={{ ...costQueryMail(db, o, cq.factoryIds, cq.deadline), ...(cq.mail ?? {}), to: cq.to, cc: cq.cc }} sentOn={cq.sentOn} />
     <div className="pt-2" style={{ overflowX: 'auto' }}><table className="t compact">
-      <thead><tr><th>Factory</th><th>Asked</th><th>Reply</th><th className="num">₹ / pc</th><th>Lead · in-house</th><th>Cloth by</th><th></th></tr></thead>
+      <thead><tr><th>Factory</th><th>Asked</th><th>Reply</th><th className="num">₹ / pc</th><th>Lead · in-house</th><th></th></tr></thead>
       <tbody>{cq.factoryIds.map(id => { const r = cq.replies.find(x => x.vendorId === id); const v = db.vendors.find(x => x.id === id); const chosen = o.vendorId === id && !!o.poNo; const fl = r ? replyFlagsOf(o, r) : null;
         return <tr key={id} style={{ background: chosen ? 'color-mix(in srgb, var(--good) 7%, transparent)' : fl?.flagged && !o.poNo ? 'color-mix(in srgb, var(--risk) 5%, transparent)' : undefined }}>
           <td><div className="font-medium"><VendorLink id={id} /></div><div className="text-[11px]" style={faint}>{v?.location} · {v?.region} · {vendorMail(v)}</div></td>
@@ -142,10 +161,9 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
           <td>{r ? <Pill tone="good">replied {fmtDate(r.repliedOn)}</Pill> : <Pill tone={late ? 'risk' : 'warn'}>{late ? `${daysAgo(cq.deadline)}d past the deadline` : 'awaiting'}</Pill>}{r?.note && <div className="text-[11px]" style={soft}>{r.note}</div>}</td>
           <td className="num" style={{ color: fl && fl.costOver > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.costOver > 0 ? 600 : undefined }}>{r ? fmtMoney(r.cost) : '—'}{fl && fl.costOver > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>+{fmtMoney(fl.costOver)} over target</div>}</td>
           <td className="text-[12px]" style={{ color: fl && fl.lateDays > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.lateDays > 0 ? 600 : undefined }}>{r ? `${r.leadDays} d · ${fmtDate(fl!.inhouseOn)}` : '—'}{fl && fl.lateDays > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>{fl.lateDays}d past the target date</div>}</td>
-          <td className="text-[12px]">{r ? FABRIC_BY_LABEL[r.fabricBy] : '—'}</td>
           <td style={{ whiteSpace: 'nowrap' }}>{chosen ? <Pill tone="good">PO {o.poNo}</Pill>
             : o.poNo ? null
-            : r ? (prod ? <Button size="sm" variant="primary" onClick={() => raisePoOnReply(o.id, id)}>Raise PO on this</Button> : null)
+            : r ? (prod ? <Button size="sm" variant="primary" onClick={() => raisePoOnReply(o.id, id, fabBy)}>Raise PO on this</Button> : null)
             : (prod || merchant) ? <button type="button" className="vlink text-[11.5px]" onClick={() => setReplyFor(replyFor === id ? null : id)}>log the reply</button> : null}</td>
         </tr>; })}</tbody>
     </table></div>
@@ -153,9 +171,12 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
       <span className="text-[12px] w-full pt-2" style={soft}>{nameOf(replyFor)}'s reply from the cost form (logged here in the prototype; the form posts it on the real build):</span>
       <Field label="₹ / pc"><Input type="number" value={cost} onChange={e => setCost(e.target.value)} style={{ width: 100 }} /></Field>
       <Field label="Lead (days)"><Input type="number" value={lead} onChange={e => setLead(e.target.value)} style={{ width: 90 }} /></Field>
-      <Field label="The cloth"><Select value={fabBy} onChange={v => setFabBy(v as FabricBy)} options={(Object.keys(FABRIC_BY_LABEL) as FabricBy[]).map(k => ({ value: k, label: FABRIC_BY_LABEL[k] }))} /></Field>
       <div style={{ flex: '1 1 180px' }}><Field label="Note"><Input value={note} onChange={e => setNote(e.target.value)} /></Field></div>
-      <Button size="sm" variant="primary" onClick={() => { replyCostQuery(o.id, replyFor, { cost: Number(cost), leadDays: Number(lead), fabricBy: fabBy, note: note.trim() || null }); setReplyFor(null); setNote(''); }}>Log reply</Button>
+      <Button size="sm" variant="primary" onClick={() => { replyCostQuery(o.id, replyFor, { cost: Number(cost), leadDays: Number(lead), note: note.trim() || null }); setReplyFor(null); setNote(''); }}>Log reply</Button>
+    </div>}
+    {!o.poNo && cq.replies.length > 0 && <div className="pt-3 mt-2 flex gap-3 items-end flex-wrap" style={{ borderTop: '1px solid var(--line-soft)' }}>
+      <div style={{ flex: '0 1 320px' }}><Field label="The cloth · decided before the PO" hint={fabBy === 'bsc' ? 'sourcing ships cloth and trims; BSC invoices the factory for them' : fabBy === 'bsc-vendor' ? `vendor details go on the PO: ${db.vendors.find(v => v.id === packOf(o).fabric.vendorId)?.name ?? '—'}; the factory raises its own fabric PO` : 'the factory uses its own cloth and gives its PO and receipt details'}>{prod ? <Select value={fabBy} onChange={v => setFabBy(v as FabricBy)} options={(Object.keys(FABRIC_BY_LABEL) as FabricBy[]).map(k => ({ value: k, label: FABRIC_BY_LABEL[k] }))} /> : <div className="text-[12.5px] py-1">{FABRIC_BY_LABEL[fabBy]}</div>}</Field></div>
+      <span className="pill role-production">Nitin</span>
     </div>}
     {!o.poNo && cq.replies.length > 0 && <div className="pt-2 text-[12.5px]" style={faint}>The PO delivers to <b>{deliveryLocationOf(needsHemmingOf(o))}</b> — {o.semiStitched ? 'a semi-stitched product, hemming in-house at Vasai' : 'nothing to hem, so the 3PL warehouse'} (set on the requirement).</div>}
     {!o.poNo && cq.replies.length === 0 && <div className="text-[12.5px] pt-2" style={faint}>No reply yet. The merchandiser is chasing; replies land here from the cost form.</div>}
@@ -220,15 +241,16 @@ export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boole
 
 /* ── 3. the PO, mailed with the delivery location, the cloth vendor and the TNA form ── */
 export function PoSection({ o }: { o: ProductionOrder }) {
-  const { db } = useApp();
+  const { db, sendPoMail, role } = useApp(); const prod = role === 'production' || role === 'owner';
   const pm = o.poMail; const p = packOf(o); const rp = o.costQuery?.replies.find(r => r.vendorId === o.vendorId);
   if (!o.poNo) return <Section title="PO" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>Raised on a cost reply. Mailed to the factory and the merchandiser with the delivery location and the TNA form.</div></Section>;
-  return <Section title={`${o.poNo} · ${db.vendors.find(v => v.id === o.vendorId)?.name ?? ''}`} collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone="good">raised {fmtDate(o.poDate)}</Pill>{o.poAckOn && <Pill tone="good">acknowledged {fmtDate(o.poAckOn)}</Pill>}</span>}>
+  return <Section title={`${o.poNo} · ${db.vendors.find(v => v.id === o.vendorId)?.name ?? ''}`} collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone="good">raised {fmtDate(o.poDate)}</Pill><Pill tone={pm?.sentOn ? 'good' : 'warn'}>{pm?.sentOn ? `mailed ${fmtDate(pm.sentOn)}` : 'mail to send'}</Pill>{o.poAckOn && <Pill tone="good">acknowledged {fmtDate(o.poAckOn)}</Pill>}</span>}>
     <KV k="Factory" v={<VendorLink id={o.vendorId} />} note={rp ? `${rp.leadDays} days quoted` : undefined} />
     <KV k="Pieces" v={`${o.orderQty} × ${fmtMoney(o.finalFob ?? o.targetCost)}`} note={fmtMoney((o.finalFob ?? o.targetCost) * o.orderQty)} />
     <KV k="Deliver to" v={<b>{pm?.deliveryLocation ?? '—'}</b>} note={pm?.needsHemming ? 'semi-stitched product · hemming in-house, so Vasai' : 'nothing to hem, so the 3PL warehouse'} />
     <KV k="Cloth" v={FABRIC_BY_LABEL[pm?.fabricBy ?? 'factory']} note={pm?.fabricBy === 'factory' ? "the factory gives its fabric PO and receipt details; they are TNA steps" : `${db.vendors.find(v => v.id === p.fabric.vendorId)?.name ?? '—'}${p.fabric.vendorFabricCode ? ` · ${p.fabric.vendorFabricCode}` : ''}${p.fabric.blockedMetres != null ? ` · ${p.fabric.blockedMetres} m blocked` : ''}${pm?.fabricBy === 'bsc' ? ' · sourcing ships it to the factory' : ' · vendor details sent; the factory raises its own PO on them, no cloth PO in PLM'}`} />
-    <div className="pt-2"><MailCard label="PO · with the TNA form" mail={{ ...poMailOf(db, o), to: pm?.to ?? [], cc: pm?.cc ?? [] }} sentOn={pm?.on ?? o.poDate} /></div>
+    <div className="pt-2"><MailCard label="PO · with the TNA form" mail={{ ...poMailOf(db, o), ...(pm?.mail ?? {}), to: pm?.to ?? [], cc: pm?.cc ?? [] }} sentOn={pm?.sentOn ?? null} sendLabel="Send the PO to the factory and the merchandiser ✉" onSend={prod ? m => sendPoMail(o.id, { to: m.to, cc: m.cc, subject: m.subject, body: m.body }) : undefined} /></div>
+    {pm && !pm.sentOn && !prod && <ActsBy role="production" does="sends the PO mail" />}
   </Section>;
 }
 
@@ -342,8 +364,8 @@ export function InvoiceSection({ o, merchant }: { o: ProductionOrder; merchant: 
       <KV k="Invoice" v={<span className="mono">{inv.no}</span>} note={`${fmtMoney(inv.amount)} · ${inv.file ?? 'uploaded'} · ${inv.by} · ${fmtDate(inv.uploadedOn)}`} />
       <div className="cap pt-2">Packing list · {inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs</div>
       <SizeGrid breakup={inv.packingList} />
-      <div className="pt-2"><MailCard label="Invoice and packing list · to the warehouse" mail={{ ...invoiceMailOf(db, o), to: inv.mailedTo.length ? inv.mailedTo : invoiceMailOf(db, o).to }} sentOn={inv.mailedOn} /></div>
-      {!inv.mailedOn && (merchant ? <div className="pt-2 flex items-center gap-2 flex-wrap"><Button variant="primary" onClick={() => mailInvoice(o.id)}>Send to Prince ✉</Button><span className="text-[11.5px]" style={faint}>mails the invoice and packing list to the warehouse, copying Nitin and you</span></div> : <div className="pt-2"><ActsBy role="merchandiser" does="sends the invoice and packing list to Prince" /></div>)}
+      <div className="pt-2"><MailCard label="Invoice and packing list · to the warehouse" mail={{ ...invoiceMailOf(db, o), ...(inv.mail ?? {}), to: inv.mailedTo.length ? inv.mailedTo : (inv.mail?.to ?? invoiceMailOf(db, o).to) }} sentOn={inv.mailedOn} sendLabel="Send to Prince ✉" onSend={merchant ? m => mailInvoice(o.id, { to: m.to, cc: m.cc, subject: m.subject, body: m.body }) : undefined} /></div>
+      {!inv.mailedOn && !merchant && <div className="pt-2"><ActsBy role="merchandiser" does="sends the invoice and packing list to Prince" /></div>}
     </> : !disp ? <div className="text-[12.5px] py-1" style={soft}>The factory logs the dispatch actual on the TNA; the merchandiser then uploads the invoice and packing list here, and PLM mails them to Prince. The printed invoice stops.</div>
       : merchant ? <>
         <div className="grid gap-2 py-1" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>

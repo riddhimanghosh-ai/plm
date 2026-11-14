@@ -221,8 +221,10 @@ export interface RequirementPack {
 }
 /* how the cloth reaches the factory: BSC sends it; the factory buys it from BSC's vendor on the details BSC gives; or the factory's own cloth */
 export type FabricBy = 'bsc' | 'bsc-vendor' | 'factory';
-export interface CostReply { vendorId: string; cost: number; fabricBy: FabricBy; leadDays: number; repliedOn: string; note: string | null }
-export interface CostQuery { sentOn: string; by: string; deadline: string; to: string[]; cc: string[]; factoryIds: string[]; replies: CostReply[] }
+/* fabricBy: what the factory may say it prefers; RTW Production decides before the PO */
+export interface CostReply { vendorId: string; cost: number; fabricBy?: FabricBy | null; leadDays: number; repliedOn: string; note: string | null }
+export interface MailDraft { to: string[]; cc: string[]; subject: string; body: string }   // a mail PLM composed, as the sender edited it before sending
+export interface CostQuery { sentOn: string; by: string; deadline: string; to: string[]; cc: string[]; factoryIds: string[]; replies: CostReply[]; mail?: MailDraft | null }
 export type QcPoint = 'pps' | 'size-set' | 'initial' | 'midline' | 'final';
 export interface QcCheck { point: QcPoint; on: string; by: string; result: 'pass' | 'fail'; remarks: string; aesthetic?: string | null }   // aesthetic: look, hand, finish — beside the technical remarks (samples)
 export type DeliveryLocation = '3PL warehouse' | 'Vasai · in-house';
@@ -320,7 +322,7 @@ export interface ProductionOrder {
   pack?: RequirementPack | null;
   semiStitched?: boolean;   // known at the requirement: a semi-stitched product (hemming in-house) delivers to Vasai, everything else to the 3PL warehouse
   costQuery?: CostQuery | null;
-  poMail?: { on: string; to: string[]; cc: string[]; deliveryLocation: DeliveryLocation; needsHemming: boolean; fabricBy: FabricBy; clothVendorSent: boolean } | null;
+  poMail?: { on: string; sentOn?: string | null; mail?: MailDraft | null; to: string[]; cc: string[]; deliveryLocation: DeliveryLocation; needsHemming: boolean; fabricBy: FabricBy; clothVendorSent: boolean } | null;   // on: composed with the PO; sentOn: when Nitin sent it
   /* when the factory buys the cloth itself (from BSC's vendor or its own): the details it gives back */
   factoryCloth?: { vendor: string | null; poNo: string | null; poOn: string | null; metres: number | null; receivedOn: string | null; metresReceived: number | null; note: string | null } | null;
   tnaPlan?: { sentOn: string; submittedOn: string | null; by: string | null } | null;   // the TNA form: planned dates from the factory, via the merchandiser
@@ -328,7 +330,7 @@ export interface ProductionOrder {
   poFabrics?: PoFabric[] | null;
   targetRevisions?: TargetRevision[] | null;
   poInvoices?: PoInvoice[] | null;
-  invoice?: { no: string; amount: number; uploadedOn: string; by: string; file: string | null; packingList: { size: string; qty: number }[]; mailedOn: string | null; mailedTo: string[] } | null;
+  invoice?: { no: string; amount: number; uploadedOn: string; by: string; file: string | null; packingList: { size: string; qty: number }[]; mailedOn: string | null; mailedTo: string[]; mail?: MailDraft | null } | null;
   costingClosure: { plan: string | null; revised: string | null; actual: string | null };   // target · revised plan · actual, as the sheet has it
 
   /* — Production Unit writes these — */

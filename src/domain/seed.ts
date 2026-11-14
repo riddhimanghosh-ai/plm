@@ -1495,18 +1495,18 @@ orders.forEach((o, i) => {
     const ids = factoriesFor(o, 2 + (i % 2)); const deadline = iso(addDays(sentOn, 5));
     /* every third queried style has every reply over target: cost above, or landing past the target date — category has to revise */
     const over = i % 3 === 2;
-    const replies = i % 3 === 0 ? [] : ids.slice(0, i % 3 === 1 ? 1 : ids.length).map((id, k) => ({ vendorId: id, cost: Math.round((o.targetCost ?? 450) * (over ? 1.08 + k * 0.06 : 0.92 + k * 0.07)), fabricBy: (['bsc', 'bsc-vendor', 'factory'] as const)[k % 3], leadDays: over ? Math.max(40, daysBetween(sentOn, o.targetInhouse) + 6 + k * 5) : Math.min(34 + k * 4, Math.max(20, daysBetween(sentOn, o.targetInhouse) - 4)), repliedOn: iso(addDays(sentOn, 2 + k)), note: k === 0 ? null : 'can start after the 20th' }));
+    const replies = i % 3 === 0 ? [] : ids.slice(0, i % 3 === 1 ? 1 : ids.length).map((id, k) => ({ vendorId: id, cost: Math.round((o.targetCost ?? 450) * (over ? 1.08 + k * 0.06 : 0.92 + k * 0.07)), leadDays: over ? Math.max(40, daysBetween(sentOn, o.targetInhouse) + 6 + k * 5) : Math.min(34 + k * 4, Math.max(20, daysBetween(sentOn, o.targetInhouse) - 4)), repliedOn: iso(addDays(sentOn, 2 + k)), note: k === 0 ? null : 'can start after the 20th' }));
     o.costQuery = { sentOn: iso(addDays(sentOn, 1)), by: 'Nitin Singh', deadline, to: ids.map(id => `${id}@factory.in`), cc: ['nitin.singh@merchandiser.in'], factoryIds: ids, replies };
     o.factoryProposals = []; o.poCosts = null;
   } else if (o.status === 'Open' || o.status === 'Closed') {
     o.pack = fullPack(o, sentOn);
     const ids = factoriesFor(o, 3); const d0 = addDays(o.poDate!, -4);
     o.costQuery = { sentOn: iso(addDays(d0, -3)), by: 'Nitin Singh', deadline: iso(addDays(d0, 2)), to: ids.map(id => `${id}@factory.in`), cc: ['nitin.singh@merchandiser.in'], factoryIds: ids,
-      replies: ids.map((id, k) => ({ vendorId: id, cost: id === o.vendorId ? (o.finalFob ?? o.targetCost) : Math.round((o.finalFob ?? o.targetCost) * (1.04 + k * 0.05)), fabricBy: id === o.vendorId ? (o.fabricNominated ? 'bsc' : (i % 2 ? 'bsc-vendor' : 'factory')) : (['bsc', 'bsc-vendor', 'factory'] as const)[k % 3], leadDays: 36 + k * 3, repliedOn: iso(addDays(d0, k)), note: null })) };
+      replies: ids.map((id, k) => ({ vendorId: id, cost: id === o.vendorId ? (o.finalFob ?? o.targetCost) : Math.round((o.finalFob ?? o.targetCost) * (1.04 + k * 0.05)), leadDays: 36 + k * 3, repliedOn: iso(addDays(d0, k)), note: null })) };
     const hem = !!o.semiStitched;
     /* a third of the POs: the factory buys the cloth itself (from BSC's vendor, or its own) and gives the details back */
     if (i % 3 === 1 && !(o.cutRatios ?? []).length) { o.fabricNominated = false; o.sourcingMode = 'vendor-sources'; o.fabricSupply = null; }
-    o.poMail = { on: o.poDate!, to: [`${o.vendorId}@factory.in`], cc: ['nitin.singh@merchandiser.in'], deliveryLocation: hem ? 'Vasai · in-house' : '3PL warehouse', needsHemming: hem, fabricBy: o.fabricNominated ? 'bsc' : (i % 2 ? 'bsc-vendor' : 'factory'), clothVendorSent: !o.fabricNominated ? i % 2 === 1 : true };
+    o.poMail = { on: o.poDate!, sentOn: o.poDate!, to: [`${o.vendorId}@factory.in`], cc: ['nitin.singh@merchandiser.in'], deliveryLocation: hem ? 'Vasai · in-house' : '3PL warehouse', needsHemming: hem, fabricBy: o.fabricNominated ? 'bsc' : (i % 2 ? 'bsc-vendor' : 'factory'), clothVendorSent: !o.fabricNominated ? i % 2 === 1 : true };
     if (o.fabricNominated) o.milestones.forEach(m => { if ((m.key === 'Fabric PO' || m.key === 'Yarn PO') && !m.skipped) { m.skipped = { on: o.poDate!, by: 'Nitin Singh' }; m.actual = m.actual ?? m.plan; } });
     if (!o.fabricNominated) { const fpo = o.milestones.find(m => m.key === 'Fabric PO'); const feta = o.milestones.find(m => m.key === 'Fabric ETA');
       o.factoryCloth = { vendor: i % 2 ? (VENDORS.find(v => v.id === (o.pack?.fabric.vendorId ?? 'sutra'))?.name ?? 'Sutra') : ['Arvind Mills', 'Raymond', 'Nahar'][i % 3], poNo: fpo?.actual ? `FPO-${700 + i}` : null, poOn: fpo?.actual ?? null, metres: fpo?.actual ? Math.ceil(o.orderQty * 1.7) : null, receivedOn: feta?.actual ?? null, metresReceived: feta?.actual ? Math.ceil(o.orderQty * 1.7) - (i % 3) * 4 : null, note: null }; }
