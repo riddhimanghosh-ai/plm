@@ -85,11 +85,6 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
   const num = (v: string) => v === '' ? null : Number(v);
   const part = rd.parts.find(x => x.key === tab)!;
   return <Section title="Requirement" collapsible={false} right={<Pill tone={sent ? 'good' : rd.ready ? 'good' : 'warn'}>{sent ? `sent to Production RTW ${fmtDate(p.sentOn ?? o.styleHandover)}` : rd.ready ? 'complete · ready to send' : `${rd.missing.length} item${rd.missing.length > 1 ? 's' : ''} to fill`}</Pill>}>
-    {canDesign && <div className="ai-brief mb-3">
-      <div className="flex items-center gap-2 flex-wrap"><span className="pill ai-pill">✦ AI</span><b className="text-[13px]">Describe it in your words</b><span className="text-[12px]" style={faint}>the tech pack, fabric info and trim card are drafted from this; check each part after</span></div>
-      <textarea className="input mt-1.5" rows={3} value={brief} onChange={e => setBrief(e.target.value)} placeholder="Relaxed oxford shirt, button-down collar, single chest pocket, mother-of-pearl buttons, box-pleat back, folded in a kraft box…" style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4, width: '100%' }} />
-      <div className="flex items-center gap-2 pt-1.5"><Button size="sm" variant="primary" disabled={brief.trim().length < 10} onClick={draftWithAi}>✦ Draft the requirement</Button>{drafted && <span className="text-[12px]" style={{ color: 'var(--good)' }}>Drafted the empty items. Check each part before sending.</span>}</div>
-    </div>}
     <div className="form-tabs pb-3" role="tablist">{rd.parts.map((x, i) => <button type="button" key={x.key} role="tab" aria-selected={tab === x.key} className={tab === x.key ? 'on' : x.missing.length === 0 ? 'done' : ''} onClick={() => setTab(x.key)} title={x.missing.length ? `missing: ${x.missing.join(', ')}` : 'complete'}><span className="n">{x.missing.length === 0 && tab !== x.key ? '✓' : i + 1}</span>{x.label}<span className="text-[11px]" style={{ opacity: .7 }}>{x.done}/{x.total}</span></button>)}</div>
     {tab === 'techPack' && <div>
       {p.brief && <div className="text-[12px] mb-2 p-2 rounded-[6px]" style={{ background: 'var(--surface-2)' }}><b>Design brief</b> <span className="pill">phase 2 · AI drafts from this</span><div className="pt-1" style={soft}>{p.brief}</div></div>}
@@ -138,6 +133,12 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
       </div>
       {canSourcing && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updatePack(o.id, { fabric: { vendorId: fab.vendorId, vendorFabricCode: fab.vendorFabricCode, blockedMetres: fab.blockedMetres, readiness: fab.readiness, readyOn: fab.readyOn, trimVendorId: fab.trimVendorId ?? null, yarnVendorId: fab.yarnVendorId ?? null } })}>Save vendor details</Button></div>}
       </> : <div className="text-[12.5px] py-2" style={{ color: 'var(--warn)' }}>Category to choose first.</div>}
+    </div>}
+
+    {canDesign && <div className="ai-brief mt-3">
+      <div className="flex items-center gap-2 flex-wrap"><span className="pill ai-pill">✦ AI</span><b className="text-[13px]">Describe it in your words</b><span className="text-[12px]" style={faint}>the tech pack, fabric info and trim card are drafted from this; check each part after</span></div>
+      <textarea className="input mt-1.5" rows={3} value={brief} onChange={e => setBrief(e.target.value)} placeholder="Relaxed oxford shirt, button-down collar, single chest pocket, mother-of-pearl buttons, box-pleat back, folded in a kraft box…" style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4, width: '100%' }} />
+      <div className="flex items-center gap-2 pt-1.5"><Button size="sm" variant="primary" disabled={brief.trim().length < 10} onClick={draftWithAi}>✦ Draft the requirement</Button>{drafted && <span className="text-[12px]" style={{ color: 'var(--good)' }}>Drafted the empty items. Check each part before sending.</span>}</div>
     </div>}
 
     {/* the gate */}
