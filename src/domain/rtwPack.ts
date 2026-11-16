@@ -81,14 +81,20 @@ export type Mail = { to: string[]; cc: string[]; subject: string; body: string; 
 const merch = (db: Db, o: ProductionOrder) => { const m = o.merchant ?? 'Nitin Singh'; const p = PEOPLE.find(x => x.name === m); return `${(p?.id ?? m.toLowerCase().replace(/\s+/g, '.'))}@merchandiser.in`; };
 export const vendorMail = (v: Vendor | undefined) => v?.email ?? `${(v?.id ?? 'factory')}@factory.in`;
 
-export function costQueryMail(db: Db, o: ProductionOrder, factoryIds: string[], deadline: string): Mail {
+/* the requirement's files Nitin can share with each factory on the counter-sourcing mail */
+export const QUERY_FILES = ['Style and production ask', 'Fabric info', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'Delivery instruction'] as const;
+export function costQueryMail(db: Db, o: ProductionOrder, factoryIds: string[], deadline: string, files?: Record<string, string[]> | null): Mail {
   const p = packOf(o);
+  const sent = (id: string) => files?.[id] ?? [...QUERY_FILES];
+  const union = QUERY_FILES.filter(f => factoryIds.some(id => sent(id).includes(f)));
+  const differ = factoryIds.some(id => sent(id).length !== union.length);
+  const perFactory = differ ? `\nFiles for each factory:\n${factoryIds.map(id => `${db.vendors.find(v => v.id === id)?.name ?? id}: ${sent(id).join(', ') || 'none'}`).join('\n')}` : '';
   return {
     to: factoryIds.map(id => vendorMail(db.vendors.find(v => v.id === id))), cc: [merch(db, o)],
     subject: `Factory counter sourcing · ${o.styleName} · ${o.orderQty} pcs · reply by ${fmtDate(deadline)}`,
     body: `Please quote for ${o.orderQty} pcs of ${o.styleName} (${o.category} · ${o.subCategory}) by ${fmtDate(deadline)}. Target in-house ${fmtDate(o.targetInhouse)}.\nFabric: ${p.fabric.description ?? '—'}${p.fabric.content ? ` · ${p.fabric.content}` : ''}${p.fabric.widthIn ? ` · ${p.fabric.widthIn}"` : ''}. Fill your quote on the form at the link below (no login): cost per piece, lead time and any note. It reaches BSC directly.
-https://plm.bombayshirts.com/quote/${o.id}`,
-    attachments: ['Tech pack', 'Fabric info', 'Trim card', 'Size break-up', 'BOM'],
+https://plm.bombayshirts.com/quote/${o.id}${perFactory}`,
+    attachments: union,
   };
 }
 export function poMailOf(db: Db, o: ProductionOrder): Mail {

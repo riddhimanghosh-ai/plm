@@ -7,7 +7,7 @@ import { useApp } from '../store';
 import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy, PoDoc, PoLine } from '../domain/types';
 import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
 import { TECH_PACK_ITEMS, QC_POINTS, FABRIC_BY_LABEL } from '../domain/reference';
-import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, type Mail } from '../domain/rtwPack';
+import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, type Mail } from '../domain/rtwPack';
 import { Section, Pill, Button, KV, Field, Input, Select, fromDateInput, dateInput } from '../ui';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
@@ -160,6 +160,9 @@ export function CostQuerySection({ o, prod, merchant, design, onDraftPo }: { o: 
   const [picked, setPicked] = useState<Set<string>>(() => new Set(rec.fit.slice(0, 3).map(v => v.id)));
   const [deadline, setDeadline] = useState(dateInput(new Date(Date.now() + 5 * 864e5).toISOString()));
   const [extra, setExtra] = useState('');
+  const [files, setFiles] = useState<Record<string, string[]>>({});
+  const filesOf = (id: string) => files[id] ?? [...QUERY_FILES];
+  const flip = (id: string, f: string) => setFiles(x => { const cur = x[id] ?? [...QUERY_FILES]; return { ...x, [id]: cur.includes(f) ? cur.filter(y => y !== f) : QUERY_FILES.filter(y => y === f || cur.includes(y)) }; });
   const [poFor, setPoFor] = useState<string | null>(null);
   const [replyFor, setReplyFor] = useState<string | null>(null); const [cost, setCost] = useState(String(o.targetCost)); const [lead, setLead] = useState('36'); const [fabBy, setFabBy] = useState<FabricBy>('bsc-vendor'); const [note, setNote] = useState('');
   const sent = o.status !== 'Requirement';
@@ -178,7 +181,15 @@ export function CostQuerySection({ o, prod, merchant, design, onDraftPo }: { o: 
         <Field label="Reply deadline"><Input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} /></Field>
       </div>
       {[...picked].filter(id => !rec.fit.some(v => v.id === id)).length > 0 && <div className="text-[12px] pb-2">Also asked: {[...picked].filter(id => !rec.fit.some(v => v.id === id)).map(id => <span key={id} className="pill ml-1">{nameOf(id)} <button type="button" className="vlink" onClick={() => toggle(id)}>×</button></span>)}</div>}
-      {picked.size > 0 && deadline ? <MailCard label="Counter-sourcing query" mail={costQueryMail(db, o, [...picked], fromDateInput(deadline) ?? new Date().toISOString())} sentOn={null} sendLabel={`Send the query to ${picked.size} factor${picked.size === 1 ? 'y' : 'ies'} ✉`} onSend={m => sendCostQuery(o.id, [...picked], fromDateInput(deadline)!, { to: m.to, cc: m.cc, subject: m.subject, body: m.body })} />
+      {picked.size > 0 && <div className="pb-2">
+        <div className="cap">Files to share · per factory</div>
+        <div style={{ overflowX: 'auto' }}><table className="t compact po-lines">
+          <thead><tr><th>Factory</th>{QUERY_FILES.map(f => <th key={f} style={{ textAlign: 'center', whiteSpace: 'normal', minWidth: 64 }}>{f}</th>)}</tr></thead>
+          <tbody>{[...picked].map(id => <tr key={id}><td className="font-medium" style={{ width: 'auto', maxWidth: 'none', minWidth: 120 }}>{nameOf(id)}<button type="button" className="vlink text-[11px] block" onClick={() => setFiles(x => ({ ...x, [id]: filesOf(id).length === QUERY_FILES.length ? [] : [...QUERY_FILES] }))}>{filesOf(id).length === QUERY_FILES.length ? 'none' : 'all'}</button></td>
+            {QUERY_FILES.map(f => <td key={f} style={{ textAlign: 'center' }}><input type="checkbox" checked={filesOf(id).includes(f)} onChange={() => flip(id, f)} /></td>)}</tr>)}</tbody>
+        </table></div>
+      </div>}
+      {picked.size > 0 && deadline ? <MailCard label="Counter-sourcing query" mail={costQueryMail(db, o, [...picked], fromDateInput(deadline) ?? new Date().toISOString(), Object.fromEntries([...picked].map(id => [id, filesOf(id)])))} sentOn={null} sendLabel={`Send the query to ${picked.size} factor${picked.size === 1 ? 'y' : 'ies'} ✉`} onSend={m => sendCostQuery(o.id, [...picked], fromDateInput(deadline)!, { to: m.to, cc: m.cc, subject: m.subject, body: m.body }, Object.fromEntries([...picked].map(id => [id, filesOf(id)])))} />
         : <div className="text-[12.5px]" style={faint}>Pick at least one factory and a deadline; the mail composes itself and can be edited before it goes.</div>}
     </> : <ActsBy role="production" does="picks the factories, sets the deadline and sends the counter-sourcing query" />}
   </Section>;
@@ -186,12 +197,12 @@ export function CostQuerySection({ o, prod, merchant, design, onDraftPo }: { o: 
   const revs = o.targetRevisions ?? [];
   return <Section title="Factory counter sourcing" collapsible={false} right={<Pill tone={tr.open ? 'risk' : cq.replies.length >= cq.factoryIds.length ? 'good' : late ? 'risk' : 'warn'}>{cq.replies.length} of {cq.factoryIds.length} replied · due {fmtDate(cq.deadline)}{late && cq.replies.length < cq.factoryIds.length ? ` · ${daysAgo(cq.deadline)}d past` : ''}</Pill>}>
     <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Target in-house </span><b>{fmtDate(o.targetInhouse)}</b></span><span><span style={faint}>Target cost </span><b>{fmtMoney(o.targetCost)}</b>/pc</span>{revs.length > 0 && <span style={faint}>revised {revs.length}× · log below</span>}</div>
-    <MailCard label="Counter-sourcing query" mail={{ ...costQueryMail(db, o, cq.factoryIds, cq.deadline), ...(cq.mail ?? {}), to: cq.to, cc: cq.cc }} sentOn={cq.sentOn} />
+    <MailCard label="Counter-sourcing query" mail={{ ...costQueryMail(db, o, cq.factoryIds, cq.deadline, cq.files), ...(cq.mail ?? {}), to: cq.to, cc: cq.cc }} sentOn={cq.sentOn} />
     <div className="pt-2" style={{ overflowX: 'auto' }}><table className="t compact">
       <thead><tr><th>Factory</th><th>Asked</th><th>Reply</th><th className="num">₹ / pc</th><th>Lead · in-house</th><th></th></tr></thead>
       <tbody>{cq.factoryIds.map(id => { const r = cq.replies.find(x => x.vendorId === id); const v = db.vendors.find(x => x.id === id); const chosen = o.vendorId === id && !!o.poNo; const fl = r ? replyFlagsOf(o, r) : null;
         return <tr key={id} style={{ background: chosen ? 'color-mix(in srgb, var(--good) 7%, transparent)' : fl?.flagged && !o.poNo ? 'color-mix(in srgb, var(--risk) 5%, transparent)' : undefined }}>
-          <td><div className="font-medium"><VendorLink id={id} /></div><div className="text-[11px]" style={faint}>{v?.location} · {v?.region} · {vendorMail(v)}</div></td>
+          <td><div className="font-medium"><VendorLink id={id} /></div><div className="text-[11px]" style={faint}>{v?.location} · {v?.region} · {vendorMail(v)}</div><div className="text-[11px]" style={soft}>sent: {(cq.files?.[id] ?? [...QUERY_FILES]).length === QUERY_FILES.length ? 'every file' : (cq.files?.[id] ?? []).join(', ') || 'no files'}</div></td>
           <td className="text-[12px]" style={soft}>{fmtDate(cq.sentOn)}</td>
           <td>{r ? <Pill tone="good">filled the form {fmtDate(r.repliedOn)}</Pill> : <Pill tone={late ? 'risk' : 'warn'}>{late ? `form not filled · ${daysAgo(cq.deadline)}d past` : 'form not filled yet'}</Pill>}{r?.note && <div className="text-[11px]" style={soft}>{r.note}</div>}</td>
           <td className="num" style={{ color: fl && fl.costOver > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.costOver > 0 ? 600 : undefined }}>{r ? fmtMoney(r.cost) : '—'}{fl && fl.costOver > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>+{fmtMoney(fl.costOver)} over target</div>}</td>

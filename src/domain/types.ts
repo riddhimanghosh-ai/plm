@@ -229,7 +229,7 @@ export type FabricBy = 'bsc' | 'bsc-vendor' | 'factory';
 /* fabricBy: what the factory may say it prefers; RTW Production decides before the PO */
 export interface CostReply { vendorId: string; cost: number; fabricBy?: FabricBy | null; leadDays: number; repliedOn: string; note: string | null }
 export interface MailDraft { to: string[]; cc: string[]; subject: string; body: string }   // a mail PLM composed, as the sender edited it before sending
-export interface CostQuery { sentOn: string; by: string; deadline: string; to: string[]; cc: string[]; factoryIds: string[]; replies: CostReply[]; mail?: MailDraft | null }
+export interface CostQuery { sentOn: string; by: string; deadline: string; to: string[]; cc: string[]; factoryIds: string[]; replies: CostReply[]; mail?: MailDraft | null; files?: Record<string, string[]> | null }   // files: what each factory was sent (16 Nov 2026); none = every file
 export type QcPoint = 'pps' | 'size-set' | 'initial' | 'midline' | 'final';
 export interface QcCheck { point: QcPoint; on: string; by: string; result: 'pass' | 'fail'; remarks: string; aesthetic?: string | null }   // aesthetic: look, hand, finish — beside the technical remarks (samples)
 export type DeliveryLocation = '3PL warehouse' | 'Vasai · in-house';

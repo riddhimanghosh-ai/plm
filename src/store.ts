@@ -226,7 +226,7 @@ export interface AppState {
   /* 14 Nov 2026: the chain as BSC set it */
   updatePack(orderId: string, patch: { techPack?: Partial<Record<TechPackKey, string>>; fabric?: Partial<RequirementPack['fabric']>; trimCard?: string | null; trimLines?: RequirementPack['trimLines']; colours?: string[]; brief?: string | null; clothBy?: FabricBy | null }): void;   // category, and sourcing for its four fabric fields
   sendPack(orderId: string): void;                                   // category: to Production RTW, only when the five parts are complete
-  sendCostQuery(orderId: string, factoryIds: string[], deadline: string, mail?: MailDraft | null): void;   // Nitin: mails the factories, copies the merchandiser; the mail as edited before sending
+  sendCostQuery(orderId: string, factoryIds: string[], deadline: string, mail?: MailDraft | null, files?: Record<string, string[]> | null): void;   // Nitin: mails the factories, copies the merchandiser; the mail as edited before sending
   replyCostQuery(orderId: string, vendorId: string, reply: Omit<CostReply, 'vendorId' | 'repliedOn'>): void;   // the factory's reply on the form (logged here in the prototype)
   raisePoOnReply(orderId: string, vendorId: string, fabricBy: FabricBy, doc?: PoDoc | null): void;   // Nitin decides the cloth (BSC sends · factory buys from BSC's vendor · factory's own) before the PO; delivery location follows the requirement's semi-stitched flag   // Nitin: the PO on one reply, mailed with the delivery location and the TNA form
   submitTnaPlan(orderId: string, plans?: Record<string, string>): void;    // merchandiser: the planned dates back from the factory
@@ -1384,9 +1384,9 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, 'Sent to production · requirement complete: tech pack, fabric info, trim card, size break-up, BOM'); },
         'Sent to Production RTW. Nitin picks factories and sends the cost query.');
     },
-    sendCostQuery(orderId, factoryIds, deadline, mail = null) {
-      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o || !factoryIds.length) return; const m = mail ?? costQueryMail(db, o, factoryIds, deadline);
-        o.costQuery = { sentOn: now(), by: who(), deadline, to: m.to, cc: m.cc, factoryIds, replies: [], mail };
+    sendCostQuery(orderId, factoryIds, deadline, mail = null, files = null) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o || !factoryIds.length) return; const m = mail ?? costQueryMail(db, o, factoryIds, deadline, files);
+        o.costQuery = { sentOn: now(), by: who(), deadline, to: m.to, cc: m.cc, factoryIds, replies: [], mail, files };
         log(o, `Cost query mailed to ${factoryIds.map(id => db.vendors.find(v => v.id === id)?.name ?? id).join(', ')} · reply by ${fmtDate(deadline)} · cc merchandiser`); },
         'Cost query mailed to the factories with the requirement and the cost form; the merchandiser is copied.');
     },
