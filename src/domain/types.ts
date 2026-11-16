@@ -227,7 +227,9 @@ export interface RequirementPack {
 /* how the cloth reaches the factory: BSC sends it; the factory buys it from BSC's vendor on the details BSC gives; or the factory's own cloth */
 export type FabricBy = 'bsc' | 'bsc-vendor' | 'factory';
 /* fabricBy: what the factory may say it prefers; RTW Production decides before the PO */
-export interface CostReply { vendorId: string; cost: number; fabricBy?: FabricBy | null; leadDays: number; repliedOn: string; note: string | null }
+export interface CostReply { vendorId: string; cost: number; fabricBy?: FabricBy | null; leadDays: number; repliedOn: string; note: string | null;
+  lines?: { colour: string; rate: number }[] | null; startOn?: string | null; validTill?: string | null;
+  breakdown?: { head: string; amount: number }[] | null }   // the price per piece by cost head: fabric (when the factory buys it), trims, cutting, stitching, finishing, packing, overheads and margin   // 16 Nov 2026: the factory quotes a rate per item line on its web form; cost = the weighted average
 export interface MailDraft { to: string[]; cc: string[]; subject: string; body: string }   // a mail PLM composed, as the sender edited it before sending
 export interface CostQuery { sentOn: string; by: string; deadline: string; to: string[]; cc: string[]; factoryIds: string[]; replies: CostReply[]; mail?: MailDraft | null; files?: Record<string, string[]> | null }   // files: what each factory was sent (16 Nov 2026); none = every file
 export type QcPoint = 'pps' | 'size-set' | 'initial' | 'midline' | 'final';

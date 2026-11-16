@@ -13,6 +13,7 @@ import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
 import { SizeGrid, ReceiptLots } from './RtwGates';
 import { BomSection } from './Costing';
+import { QuoteFormModal } from './QuoteForm';
 
 const faint = { color: 'var(--ink-faint)' } as const;
 const soft = { color: 'var(--ink-soft)' } as const;
@@ -163,7 +164,7 @@ export function CostQuerySection({ o, prod, merchant, design, onDraftPo }: { o: 
   const [files, setFiles] = useState<Record<string, string[]>>({});
   const filesOf = (id: string) => files[id] ?? [...QUERY_FILES];
   const flip = (id: string, f: string) => setFiles(x => { const cur = x[id] ?? [...QUERY_FILES]; return { ...x, [id]: cur.includes(f) ? cur.filter(y => y !== f) : QUERY_FILES.filter(y => y === f || cur.includes(y)) }; });
-  const [poFor, setPoFor] = useState<string | null>(null);
+  const [poFor, setPoFor] = useState<string | null>(null); const [quoteFor, setQuoteFor] = useState<string | null>(null);
   const [replyFor, setReplyFor] = useState<string | null>(null); const [cost, setCost] = useState(String(o.targetCost)); const [lead, setLead] = useState('36'); const [fabBy, setFabBy] = useState<FabricBy>('bsc-vendor'); const [note, setNote] = useState('');
   const sent = o.status !== 'Requirement';
   const toggle = (id: string) => setPicked(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -205,14 +206,15 @@ export function CostQuerySection({ o, prod, merchant, design, onDraftPo }: { o: 
           <td><div className="font-medium"><VendorLink id={id} /></div><div className="text-[11px]" style={faint}>{v?.location} · {v?.region} · {vendorMail(v)}</div><div className="text-[11px]" style={soft}>sent: {(cq.files?.[id] ?? [...QUERY_FILES]).length === QUERY_FILES.length ? 'every file' : (cq.files?.[id] ?? []).join(', ') || 'no files'}</div></td>
           <td className="text-[12px]" style={soft}>{fmtDate(cq.sentOn)}</td>
           <td>{r ? <Pill tone="good">filled the form {fmtDate(r.repliedOn)}</Pill> : <Pill tone={late ? 'risk' : 'warn'}>{late ? `form not filled · ${daysAgo(cq.deadline)}d past` : 'form not filled yet'}</Pill>}{r?.note && <div className="text-[11px]" style={soft}>{r.note}</div>}</td>
-          <td className="num" style={{ color: fl && fl.costOver > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.costOver > 0 ? 600 : undefined }}>{r ? fmtMoney(r.cost) : '—'}{fl && fl.costOver > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>+{fmtMoney(fl.costOver)} over target</div>}</td>
+          <td className="num" style={{ color: fl && fl.costOver > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.costOver > 0 ? 600 : undefined }}>{r ? fmtMoney(r.cost) : '—'}{r?.breakdown && r.breakdown.length > 0 && <div className="text-[10.5px]" style={{ ...faint, fontWeight: 400, whiteSpace: 'normal', maxWidth: 220, marginLeft: 'auto' }}>{r.breakdown.map(b => `${b.head.split(' · ')[0].split(' ')[0].replace(/[,/]$/, '').toLowerCase()} ${fmtMoney(b.amount)}`).join(' · ')}</div>}{fl && fl.costOver > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>+{fmtMoney(fl.costOver)} over target</div>}</td>
           <td className="text-[12px]" style={{ color: fl && fl.lateDays > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.lateDays > 0 ? 600 : undefined }}>{r ? `${r.leadDays} d · ${fmtDate(fl!.inhouseOn)}` : '—'}{fl && fl.lateDays > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>{fl.lateDays}d past the target date</div>}</td>
           <td style={{ whiteSpace: 'nowrap' }}>{chosen ? <Pill tone="good">PO {o.poNo}</Pill>
             : o.poNo ? null
             : r ? (prod ? (poFor === id ? <Pill tone="info">PO being drafted ↓</Pill> : <Button size="sm" variant="primary" onClick={() => onDraftPo ? onDraftPo(id, fabBy) : setPoFor(id)}>Draft the PO on this</Button>) : null)
-            : (prod || merchant) ? <button type="button" className="vlink text-[11.5px]" onClick={() => setReplyFor(replyFor === id ? null : id)}>fill as the factory (prototype)</button> : null}</td>
+            : <button type="button" className="vlink text-[11.5px]" onClick={() => setQuoteFor(id)}>open {nameOf(id)}'s quote form ↗</button>}</td>
         </tr>; })}</tbody>
     </table></div>
+    {quoteFor && <QuoteFormModal o={o} vendorId={quoteFor} onClose={() => setQuoteFor(null)} />}
     {replyFor && !o.poNo && <div className="pt-2 flex gap-2 items-end flex-wrap" style={{ borderTop: '1px solid var(--line-soft)' }}>
       <span className="text-[12px] w-full pt-2" style={soft}>{nameOf(replyFor)}'s web form, as the factory fills it (in the build it arrives by itself):</span>
       <Field label="₹ / pc"><Input type="number" value={cost} onChange={e => setCost(e.target.value)} style={{ width: 100 }} /></Field>
@@ -296,7 +298,7 @@ export function PoForm({ o, vendorId, rate, fabricBy, onCancel, onRaise }: { o: 
   const { db } = useApp();
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => { box.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, []);
-  const [d, setD] = useState<PoDoc>(() => { const x = poDraftOf(o, rate); return { ...x, priceBasis: fabricBy === 'bsc' ? 'CMT · BSC supplies the cloth' : fabricBy === 'bsc-vendor' ? "FOB · cloth from BSC's vendor, bought by the factory" : 'FOB · cloth and trims by the factory' }; });
+  const [d, setD] = useState<PoDoc>(() => { const x = poDraftOf(o, rate, o.costQuery?.replies.find(r => r.vendorId === vendorId)?.lines); return { ...x, priceBasis: fabricBy === 'bsc' ? 'CMT · BSC supplies the cloth' : fabricBy === 'bsc-vendor' ? "FOB · cloth from BSC's vendor, bought by the factory" : 'FOB · cloth and trims by the factory' }; });
   const [newColour, setNewColour] = useState(''); const [chLabel, setChLabel] = useState(''); const [chAmt, setChAmt] = useState('');
   const sizes = [...new Set(d.lines.flatMap(l => l.sizes.map(x => x.size)))];
   const t = poTotalsOf(d); const want = o.orderQty;

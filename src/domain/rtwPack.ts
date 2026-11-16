@@ -120,11 +120,11 @@ export function invoiceMailOf(db: Db, o: ProductionOrder): Mail {
 }
 
 /* the factory PO's item lines: one per colour, the requirement's size break-up split across the colours, at the reply's rate */
-export function poDraftOf(o: ProductionOrder, rate: number): PoDoc {
+export function poDraftOf(o: ProductionOrder, rate: number, quoted?: { colour: string; rate: number }[] | null): PoDoc {
   const cols = (o.pack?.colours?.length ? o.pack.colours : (o.poFabrics ?? []).map(f => f.colour));
   const colours = cols.length ? cols : [o.fabricBrief?.colour ?? 'Main colour'];
   const base = o.sizeBreakup?.length ? o.sizeBreakup : [{ size: 'Free size', qty: o.orderQty }];
-  const lines = colours.map((c, k) => ({ id: `pl-${k}`, colour: c, hsn: '6205', rate,
+  const lines = colours.map((c, k) => ({ id: `pl-${k}`, colour: c, hsn: '6205', rate: quoted?.find(q => q.colour === c)?.rate ?? rate,
     sizes: base.map(b => { const each = Math.floor(b.qty / colours.length); return { size: b.size, qty: each + (k === 0 ? b.qty - each * colours.length : 0) }; }) }));
   const bsc = o.fabricNominated || o.pack?.clothBy === 'bsc';
   return { lines, charges: [], gstPct: 5, priceBasis: bsc ? 'CMT · BSC supplies the cloth' : 'FOB · cloth and trims by the factory', paymentTerms: '45 days from receipt at the warehouse', shipBy: o.targetInhouse, notes: null };
