@@ -680,3 +680,8 @@ table.t.po-lines td.num, table.t.po-lines th.num { min-width: 0 !important; }
 .qf-cost .qf-tot, .qf-cost .qf-row:last-child { grid-column: 1 / -1; border-right: 0; }
 @media (max-width: 640px) { .qf-cost { grid-template-columns: 1fr; } }
 .po-cloth { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 12px; background: var(--surface-2); }
+/* invoices table on step 12 */
+table.t.inv-lines th, table.t.inv-lines td { padding: 6px 8px !important; vertical-align: middle; }
+table.t.inv-lines td:first-child, table.t.inv-lines th:first-child { min-width: 118px !important; width: auto; }
+table.t.inv-lines td.num, table.t.inv-lines th.num { min-width: 0 !important; }
+table.t.inv-lines .input, table.t.inv-lines select { height: 32px; font-size: 13px; }

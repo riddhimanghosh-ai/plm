@@ -264,26 +264,25 @@ export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boole
   const PAYER = { 'factory-to-bsc': 'BSC pays', 'bsc-to-factory': 'Factory pays' } as const;
   const add = () => { addPoInvoice(o.id, { doc: docT, direction: payer, kind: 'other', no: no.trim(), amount: Number(amt), what: what.trim() || DOC_LABEL[docT], file: file.trim() || null, note: null }); setNo(''); setAmt(''); setWhat(''); setFile(''); };
   return <Section title="Invoices · debit and credit notes" collapsible={false} right={<Pill tone={rows.length ? 'info' : 'neutral'}>{rows.length ? `${rows.length} logged` : 'none logged yet'}</Pill>}>
-    <div style={{ overflowX: 'auto' }}><table className="t compact po-lines">
-      <thead><tr><th>Document</th><th>No.</th><th>What</th><th className="num">Amount ₹</th><th>Who pays</th><th>File</th><th>Logged</th><th></th></tr></thead>
+    <div style={{ overflowX: 'auto' }}><table className="t compact inv-lines">
+      <thead><tr><th>Document</th><th>No.</th><th>What</th><th className="num">Amount ₹</th><th>Who pays</th><th>File</th><th></th></tr></thead>
       <tbody>{rows.map(r => <tr key={r.id}>
         <td><Pill tone={r.doc === 'credit-note' ? 'good' : r.doc === 'debit-note' ? 'risk' : 'neutral'}>{DOC_LABEL[r.doc ?? 'invoice']}</Pill></td>
         <td className="mono text-[12px]">{r.no}</td>
-        <td className="text-[12.5px]" style={{ whiteSpace: 'normal' }}>{r.what}{r.note && <div className="text-[11px]" style={faint}>{r.note}</div>}</td>
+        <td className="text-[12.5px]" style={{ whiteSpace: 'normal' }}>{r.what}<div className="text-[11px]" style={faint}>{r.by} · {fmtDate(r.on)}{r.note ? ` · ${r.note}` : ''}</div></td>
         <td className="num">{fmtMoney(r.amount)}</td>
         <td><Pill tone={r.direction === 'factory-to-bsc' ? 'warn' : 'info'}>{PAYER[r.direction]}</Pill></td>
         <td className="text-[12px]">{r.file ? <span className="vlink">{r.file}</span> : <span style={faint}>—</span>}</td>
-        <td className="text-[11.5px]" style={soft}>{r.by} · {fmtDate(r.on)}</td>
         <td>{prod && <button type="button" className="vlink text-[11.5px]" onClick={() => removePoInvoice(o.id, r.id)}>×</button>}</td>
       </tr>)}
       {prod && <tr>
-        <td><Select value={docT} onChange={v => { setDocT(v as NonNullable<PoInvoice['doc']>); setPayer(v === 'debit-note' ? 'bsc-to-factory' : v === 'credit-note' ? 'bsc-to-factory' : 'factory-to-bsc'); }} options={Object.entries(DOC_LABEL).map(([k, l]) => ({ value: k, label: l }))} /></td>
-        <td><Input value={no} onChange={e => setNo(e.target.value)} placeholder="INV/0412" style={{ width: 100 }} /></td>
-        <td><Input value={what} onChange={e => setWhat(e.target.value)} placeholder="what it is for" style={{ width: '100%', minWidth: 140 }} /></td>
-        <td className="num"><Input type="number" min={0} value={amt} onChange={e => setAmt(e.target.value)} placeholder="₹" style={{ width: 96, textAlign: 'right' }} /></td>
-        <td><Select value={payer} onChange={v => setPayer(v as PoInvoice['direction'])} options={[{ value: 'factory-to-bsc', label: 'BSC pays' }, { value: 'bsc-to-factory', label: 'Factory pays' }]} /></td>
-        <td><Input value={file} onChange={e => setFile(e.target.value)} placeholder="file.pdf" style={{ width: 100 }} /></td>
-        <td colSpan={2}><Button size="sm" variant="primary" disabled={!no.trim() || !Number(amt)} onClick={add}>+ Add</Button></td>
+        <td><Select style={{ width: 112 }} value={docT} onChange={v => { setDocT(v as NonNullable<PoInvoice['doc']>); setPayer(v === 'debit-note' ? 'bsc-to-factory' : v === 'credit-note' ? 'bsc-to-factory' : 'factory-to-bsc'); }} options={Object.entries(DOC_LABEL).map(([k, l]) => ({ value: k, label: l }))} /></td>
+        <td><Input value={no} onChange={e => setNo(e.target.value)} placeholder="INV/0412" style={{ width: 84 }} /></td>
+        <td><Input value={what} onChange={e => setWhat(e.target.value)} placeholder="what it is for" style={{ width: '100%', minWidth: 110 }} /></td>
+        <td className="num"><Input type="number" min={0} value={amt} onChange={e => setAmt(e.target.value)} placeholder="₹" style={{ width: 78, textAlign: 'right' }} /></td>
+        <td><Select style={{ width: 112 }} value={payer} onChange={v => setPayer(v as PoInvoice['direction'])} options={[{ value: 'factory-to-bsc', label: 'BSC pays' }, { value: 'bsc-to-factory', label: 'Factory pays' }]} /></td>
+        <td><Input value={file} onChange={e => setFile(e.target.value)} placeholder="file.pdf" style={{ width: 72 }} /></td>
+        <td><Button size="sm" variant="primary" disabled={!no.trim() || !Number(amt)} onClick={add}>+ Add</Button></td>
       </tr>}</tbody>
     </table></div>
     <div className="po-totals mt-3" style={{ maxWidth: 360, marginLeft: 'auto' }}>
