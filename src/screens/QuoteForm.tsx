@@ -40,6 +40,13 @@ export function QuoteFormModal({ o, vendorId, onClose }: { o: ProductionOrder; v
   const value = lines.reduce((a, l, i) => a + qtyOf(i) * (perPc + extraOf(l.colour)), 0);
   const ok = perPc > 0 && Number(lead) > 0 && (!factoryCloth || fabricPc > 0);
   const deliver = o.deliverTo ?? deliveryLocationOf(needsHemmingOf(o));
+  const sample = () => {
+    const base: Record<string, number> = { 'Trims and accessories': 24, 'Cutting': 16, 'Stitching': 135, 'Washing / finishing': 28, 'Pressing, checking and packing': 18, 'Overheads and margin': 42 };
+    setAmts(Object.fromEntries(HEADS.map(h => [h, String(base[h] ?? 20)])));
+    if (factoryCloth) { setFabRate('240'); if (!fabMtr) setFabMtr('1.6'); }
+    setLead('40'); setStart(dateInput(new Date(Date.now() + 7 * 864e5).toISOString())); setCloth('');
+    setNote('Capacity on line 2 from next week. MOQ 150 per colour.');
+  };
   const submit = () => {
     const breakdown = [...(factoryCloth ? [{ head: `Fabric · ₹${fabRate}/m × ${fabMtr} m`, amount: Math.round(fabricPc * 100) / 100 }] : []), ...HEADS.filter(h => Number(amts[h]) > 0).map(h => ({ head: h, amount: Number(amts[h]) }))];
     replyCostQuery(o.id, vendorId, { cost: Math.round((value / (pcs || 1)) * 100) / 100, leadDays: Number(lead), note: note.trim() || null, fabricBy: cloth || null, breakdown,
@@ -104,7 +111,7 @@ export function QuoteFormModal({ o, vendorId, onClose }: { o: ProductionOrder; v
             <Field label="Cloth: your preference"><Select value={cloth} onChange={x => setCloth(x as FabricBy | '')} options={[{ value: '', label: 'as BSC decides' }, ...(Object.keys(FABRIC_BY_LABEL) as FabricBy[]).map(k => ({ value: k, label: FABRIC_BY_LABEL[k] }))]} /></Field>
           </div>
           <div className="pt-2"><Field label="Note for BSC"><textarea className="input" rows={3} value={note} onChange={e => setNote(e.target.value)} placeholder="capacity, MOQ, anything in the tech pack you want to flag" style={{ width: '100%', fontFamily: 'inherit', fontSize: 13 }} /></Field></div>
-          <div className="flex gap-2 items-center pt-3"><Button variant="primary" disabled={!ok} onClick={submit}>{prev ? 'Update the quote' : 'Send the quote to BSC'}</Button>{!ok && <span className="text-[12px]" style={faint}>the cost heads and the lead time</span>}</div>
+          <div className="flex gap-2 items-center pt-3"><Button variant="primary" disabled={!ok} onClick={submit}>{prev ? 'Update the quote' : 'Send the quote to BSC'}</Button><Button variant="ghost" onClick={sample}>Fill with sample data</Button>{!ok && <span className="text-[12px]" style={faint}>the cost heads and the lead time</span>}</div>
         </>}
       </div>
     </div>
