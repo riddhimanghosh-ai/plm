@@ -2,7 +2,7 @@
    is the five-part requirement complete; which factories to recommend for a cost query; where the
    goods are delivered; which QC point is open on a PO; and the mails PLM composes (the cost query,
    the PO, the invoice to the warehouse). */
-import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply } from './types';
+import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc } from './types';
 import { TECH_PACK_ITEMS, QC_POINTS, DELIVERY_LOCATIONS, PEOPLE } from './reference';
 import { fmtDate, daysAgo, addDays, iso, daysBetween, costingOf, receiptOf, netOf } from './engines';
 
@@ -98,7 +98,7 @@ export function poMailOf(db: Db, o: ProductionOrder): Mail {
   return {
     to: [vendorMail(v)], cc: [merch(db, o)],
     subject: `${o.poNo ?? 'PO'} · ${o.styleName} · ${o.orderQty} pcs · deliver to ${pm?.deliveryLocation ?? '—'}`,
-    body: `Purchase order ${o.poNo ?? ''} for ${o.orderQty} pcs of ${o.styleName} at ₹${o.finalFob ?? '—'}/pc. Deliver to ${pm?.deliveryLocation ?? '—'}${pm?.needsHemming ? ' (hemming / semi-stitching in-house)' : ''} by ${fmtDate(o.targetInhouse)}.\n${cloth}\nThe TNA form is attached: fill the planned date for every step and return it through your merchandiser.`,
+    body: `Purchase order ${o.poNo ?? ''} for ${o.poDoc ? poTotalsOf(o.poDoc).pcs : o.orderQty} pcs of ${o.styleName}${o.poDoc ? `, ${o.poDoc.lines.length} line${o.poDoc.lines.length === 1 ? '' : 's'}: ${o.poDoc.lines.map(l => `${l.colour} ${l.sizes.reduce((a, x) => a + x.qty, 0)} pcs at ₹${l.rate}`).join('; ')}. Total ₹${Math.round(poTotalsOf(o.poDoc).total).toLocaleString('en-IN')} incl. ${o.poDoc.gstPct}% GST; ${o.poDoc.priceBasis}; payment ${o.poDoc.paymentTerms}` : ` at ₹${o.finalFob ?? '—'}/pc`}. Deliver to ${pm?.deliveryLocation ?? '—'}${pm?.needsHemming ? ' (hemming / semi-stitching in-house)' : ''} by ${fmtDate(o.targetInhouse)}.\n${cloth}\nThe TNA form is attached: fill the planned date for every step and return it through your merchandiser.`,
     attachments: ['PO', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form · planned dates'],
   };
 }
@@ -111,6 +111,24 @@ export function invoiceMailOf(db: Db, o: ProductionOrder): Mail {
     body: `${v?.name ?? 'The factory'} has dispatched ${pcs} pcs of ${o.styleName} against ${o.poNo ?? 'the PO'} to ${o.poMail?.deliveryLocation ?? 'the warehouse'}. Invoice ${inv?.no ?? ''} for ₹${inv?.amount?.toLocaleString('en-IN') ?? '—'} and the packing list are attached. Receive against the packing list on Enigma.`,
     attachments: [inv?.file ?? 'Invoice', 'Packing list'],
   };
+}
+
+/* the factory PO's item lines: one per colour, the requirement's size break-up split across the colours, at the reply's rate */
+export function poDraftOf(o: ProductionOrder, rate: number): PoDoc {
+  const cols = (o.pack?.colours?.length ? o.pack.colours : (o.poFabrics ?? []).map(f => f.colour));
+  const colours = cols.length ? cols : [o.fabricBrief?.colour ?? 'Main colour'];
+  const base = o.sizeBreakup?.length ? o.sizeBreakup : [{ size: 'Free size', qty: o.orderQty }];
+  const lines = colours.map((c, k) => ({ id: `pl-${k}`, colour: c, hsn: '6205', rate,
+    sizes: base.map(b => { const each = Math.floor(b.qty / colours.length); return { size: b.size, qty: each + (k === 0 ? b.qty - each * colours.length : 0) }; }) }));
+  const bsc = o.fabricNominated || o.pack?.clothBy === 'bsc';
+  return { lines, charges: [], gstPct: 5, priceBasis: bsc ? 'CMT · BSC supplies the cloth' : 'FOB · cloth and trims by the factory', paymentTerms: '45 days from receipt at the warehouse', shipBy: o.targetInhouse, notes: null };
+}
+export function poTotalsOf(d: PoDoc | null | undefined) {
+  if (!d) return { pcs: 0, value: 0, charges: 0, taxable: 0, gst: 0, total: 0, avgRate: 0 };
+  const pcs = d.lines.reduce((a, l) => a + l.sizes.reduce((b, s) => b + (s.qty || 0), 0), 0);
+  const value = d.lines.reduce((a, l) => a + l.rate * l.sizes.reduce((b, s) => b + (s.qty || 0), 0), 0);
+  const charges = d.charges.reduce((a, c) => a + (c.amount || 0), 0); const taxable = value + charges; const gst = Math.round(taxable * d.gstPct) / 100;
+  return { pcs, value, charges, taxable, gst, total: taxable + gst, avgRate: pcs ? value / pcs : 0 };
 }
 
 /* the fabrics on a PO as one line: how many in, checked, on hold, dropped */

@@ -233,6 +233,9 @@ export interface CostQuery { sentOn: string; by: string; deadline: string; to: s
 export type QcPoint = 'pps' | 'size-set' | 'initial' | 'midline' | 'final';
 export interface QcCheck { point: QcPoint; on: string; by: string; result: 'pass' | 'fail'; remarks: string; aesthetic?: string | null }   // aesthetic: look, hand, finish — beside the technical remarks (samples)
 export type DeliveryLocation = '3PL warehouse' | 'Vasai · in-house';
+/* the factory PO as a document (16 Nov 2026): item lines per colour with the size break-up and a rate, other charges, GST and the terms */
+export interface PoLine { id: string; colour: string; sizes: { size: string; qty: number }[]; rate: number; hsn?: string | null }
+export interface PoDoc { lines: PoLine[]; charges: { label: string; amount: number }[]; gstPct: number; priceBasis: string; paymentTerms: string; shipBy: string | null; notes: string | null }
 /* what set off a cut-ratio ask: less or more cloth or trim than the PO needs (15 Nov 2026) */
 export type CutRatioTrigger = 'fabric-short' | 'fabric-extra' | 'trim-short' | 'trim-extra' | 'other';
 /* a factory's reply over the target cost or past the target in-house date: category revises the target, and the record keeps was → now */
@@ -328,6 +331,7 @@ export interface ProductionOrder {
   semiStitched?: boolean;
   deliverTo?: DeliveryLocation | null;   // category's pick on the requirement; defaults from semi-stitched, can be overridden   // known at the requirement: a semi-stitched product (hemming in-house) delivers to Vasai, everything else to the 3PL warehouse
   costQuery?: CostQuery | null;
+  poDoc?: PoDoc | null;
   poMail?: { on: string; sentOn?: string | null; mail?: MailDraft | null; to: string[]; cc: string[]; deliveryLocation: DeliveryLocation; needsHemming: boolean; fabricBy: FabricBy; clothVendorSent: boolean } | null;   // on: composed with the PO; sentOn: when Nitin sent it
   /* when the factory buys the cloth itself (from BSC's vendor or its own): the details it gives back */
   factoryCloth?: { vendor: string | null; poNo: string | null; poOn: string | null; metres: number | null; receivedOn: string | null; metresReceived: number | null; note: string | null } | null;

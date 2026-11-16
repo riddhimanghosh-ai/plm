@@ -2,12 +2,12 @@
    requirement and its gate; the cost query to factories and their replies; the PO, mailed with
    the delivery location and the TNA form; the planned dates back; QC at five points on the TNA;
    the invoice and packing list to the warehouse; receipt on Enigma; COGS. */
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../store';
-import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy } from '../domain/types';
+import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy, PoDoc, PoLine } from '../domain/types';
 import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
 import { TECH_PACK_ITEMS, QC_POINTS, FABRIC_BY_LABEL } from '../domain/reference';
-import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, type Mail } from '../domain/rtwPack';
+import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, type Mail } from '../domain/rtwPack';
 import { Section, Pill, Button, KV, Field, Input, Select, fromDateInput, dateInput } from '../ui';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
@@ -152,7 +152,7 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
 }
 
 /* ── 2. the cost query: factories from the database, a deadline, the mail, the replies ── */
-export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionOrder; prod: boolean; merchant: boolean; design: boolean }) {
+export function CostQuerySection({ o, prod, merchant, design, onDraftPo }: { o: ProductionOrder; prod: boolean; merchant: boolean; design: boolean; onDraftPo?: (vendorId: string, fabricBy: FabricBy) => void }) {
   const { db, sendCostQuery, replyCostQuery, raisePoOnReply, reviseTarget } = useApp();
   const tr = targetReviseOpenOf(o);
   const [revField, setRevField] = useState<'targetInhouse' | 'targetCost'>('targetInhouse'); const [revTo, setRevTo] = useState(''); const [revWhy, setRevWhy] = useState('');
@@ -160,6 +160,7 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
   const [picked, setPicked] = useState<Set<string>>(() => new Set(rec.fit.slice(0, 3).map(v => v.id)));
   const [deadline, setDeadline] = useState(dateInput(new Date(Date.now() + 5 * 864e5).toISOString()));
   const [extra, setExtra] = useState('');
+  const [poFor, setPoFor] = useState<string | null>(null);
   const [replyFor, setReplyFor] = useState<string | null>(null); const [cost, setCost] = useState(String(o.targetCost)); const [lead, setLead] = useState('36'); const [fabBy, setFabBy] = useState<FabricBy>('bsc-vendor'); const [note, setNote] = useState('');
   const sent = o.status !== 'Requirement';
   const toggle = (id: string) => setPicked(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -197,7 +198,7 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
           <td className="text-[12px]" style={{ color: fl && fl.lateDays > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.lateDays > 0 ? 600 : undefined }}>{r ? `${r.leadDays} d · ${fmtDate(fl!.inhouseOn)}` : '—'}{fl && fl.lateDays > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>{fl.lateDays}d past the target date</div>}</td>
           <td style={{ whiteSpace: 'nowrap' }}>{chosen ? <Pill tone="good">PO {o.poNo}</Pill>
             : o.poNo ? null
-            : r ? (prod ? <Button size="sm" variant="primary" onClick={() => raisePoOnReply(o.id, id, fabBy)}>Raise PO on this</Button> : null)
+            : r ? (prod ? (poFor === id ? <Pill tone="info">PO being drafted ↓</Pill> : <Button size="sm" variant="primary" onClick={() => onDraftPo ? onDraftPo(id, fabBy) : setPoFor(id)}>Draft the PO on this</Button>) : null)
             : (prod || merchant) ? <button type="button" className="vlink text-[11.5px]" onClick={() => setReplyFor(replyFor === id ? null : id)}>fill as the factory (prototype)</button> : null}</td>
         </tr>; })}</tbody>
     </table></div>
@@ -213,6 +214,7 @@ export function CostQuerySection({ o, prod, merchant, design }: { o: ProductionO
       <span className="pill role-production">Nitin</span>
     </div>}
     {!o.poNo && cq.replies.length > 0 && <div className="pt-2 text-[12.5px]" style={faint}>The PO delivers to <b>{o.deliverTo ?? deliveryLocationOf(needsHemmingOf(o))}</b> — {o.semiStitched ? 'a semi-stitched product, hemming in-house at Vasai' : 'nothing to hem, so the 3PL warehouse'} (set on the requirement).</div>}
+    {!o.poNo && prod && !onDraftPo && poFor && cq.replies.some(r => r.vendorId === poFor) && <PoForm key={poFor + fabBy} o={o} vendorId={poFor} rate={cq.replies.find(r => r.vendorId === poFor)!.cost} fabricBy={fabBy} onCancel={() => setPoFor(null)} onRaise={d => { raisePoOnReply(o.id, poFor, fabBy, d); setPoFor(null); }} />}
     {!o.poNo && cq.replies.length === 0 && <div className="text-[12.5px] pt-2" style={faint}>No factory has filled the form yet. Replies land here by themselves from the factory's web form.</div>}
     {/* every reply over target: category revises the target in-house date or the target cost; what it was stays on the record */}
     {tr.open && <div className="mt-3 p-3 rounded-[8px]" style={{ background: 'color-mix(in srgb, var(--risk) 6%, #fff)', border: '1px solid var(--risk)' }}>
@@ -276,15 +278,102 @@ export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boole
 }
 
 /* ── 3. the PO, mailed with the delivery location, the cloth vendor and the TNA form ── */
+/* ── 3a. the PO itself: item lines per colour with the size break-up and a rate, other charges, GST and the terms.
+   Drafted from the requirement's colours and sizes at the reply's rate; Nitin edits every line before raising it. ── */
+const PAYMENT_TERMS = ['45 days from receipt at the warehouse', '30 days from receipt at the warehouse', '50% advance, 50% on dispatch', 'On dispatch, against invoice'];
+export function PoForm({ o, vendorId, rate, fabricBy, onCancel, onRaise }: { o: ProductionOrder; vendorId: string; rate: number; fabricBy: FabricBy; onCancel: () => void; onRaise: (d: PoDoc) => void }) {
+  const { db } = useApp();
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => { box.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, []);
+  const [d, setD] = useState<PoDoc>(() => { const x = poDraftOf(o, rate); return { ...x, priceBasis: fabricBy === 'bsc' ? 'CMT · BSC supplies the cloth' : fabricBy === 'bsc-vendor' ? "FOB · cloth from BSC's vendor, bought by the factory" : 'FOB · cloth and trims by the factory' }; });
+  const [newColour, setNewColour] = useState(''); const [chLabel, setChLabel] = useState(''); const [chAmt, setChAmt] = useState('');
+  const sizes = [...new Set(d.lines.flatMap(l => l.sizes.map(x => x.size)))];
+  const t = poTotalsOf(d); const want = o.orderQty;
+  const setLine = (id: string, f: (l: PoLine) => PoLine) => setD(x => ({ ...x, lines: x.lines.map(l => l.id === id ? f(l) : l) }));
+  const qtyOf = (l: PoLine) => l.sizes.reduce((a, x) => a + (x.qty || 0), 0);
+  const v = db.vendors.find(x => x.id === vendorId); const deliver = o.deliverTo ?? deliveryLocationOf(needsHemmingOf(o));
+  const ok = d.lines.length > 0 && t.pcs > 0 && d.lines.every(l => l.colour.trim() && l.rate > 0);
+  return <div ref={box} className="po-doc po-draft mt-3" style={{ scrollMarginTop: 140 }}>
+    <div className="flex items-baseline gap-2 flex-wrap pb-2"><span className="cap" style={{ margin: 0 }}>Purchase order · draft</span><span className="text-[12px]" style={faint}>to {v?.name ?? vendorId} · reply {fmtMoney(rate)}/pc</span></div>
+    <div className="grid gap-x-4 gap-y-1 pb-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
+      <Field label="Factory"><div className="text-[12.5px] py-1 font-medium">{v?.name ?? '—'}<span className="block text-[11px] font-normal" style={faint}>{v?.location}{v?.email ? ` · ${v.email}` : ''}</span></div></Field>
+      <Field label="Deliver to"><div className="text-[12.5px] py-1 font-medium">{deliver}</div></Field>
+      <Field label="Ship by"><Input type="date" value={dateInput(d.shipBy)} onChange={e => setD(x => ({ ...x, shipBy: fromDateInput(e.target.value) }))} /></Field>
+      <Field label="Price basis"><Select value={d.priceBasis} onChange={val => setD(x => ({ ...x, priceBasis: val }))} options={['CMT · BSC supplies the cloth', "FOB · cloth from BSC's vendor, bought by the factory", 'FOB · cloth and trims by the factory'].map(x => ({ value: x, label: x }))} /></Field>
+      <Field label="Payment terms"><Select value={d.paymentTerms} onChange={val => setD(x => ({ ...x, paymentTerms: val }))} options={PAYMENT_TERMS.map(x => ({ value: x, label: x }))} /></Field>
+      <Field label="HSN code"><Input value={d.lines[0]?.hsn ?? ''} onChange={e => setD(x => ({ ...x, lines: x.lines.map(l => ({ ...l, hsn: e.target.value })) }))} /></Field>
+      <Field label="GST"><Select value={String(d.gstPct)} onChange={val => setD(x => ({ ...x, gstPct: Number(val) }))} options={[5, 12, 18].map(n => ({ value: String(n), label: `${n}%` }))} /></Field>
+    </div>
+    <div style={{ overflowX: 'auto' }}><table className="t compact po-lines">
+      <thead><tr><th>#</th><th>Colour / option</th>{sizes.map(sz => <th key={sz} className="num">{sz}</th>)}<th className="num">Pcs</th><th className="num">₹ / pc</th><th className="num">Amount</th><th></th></tr></thead>
+      <tbody>{d.lines.map((l, i) => <tr key={l.id}>
+        <td className="mono text-[11px]" style={faint}>{String(i + 1).padStart(2, '0')}</td>
+        <td><Input value={l.colour} onChange={e => setLine(l.id, x => ({ ...x, colour: e.target.value }))} style={{ width: 112 }} /></td>
+        {sizes.map(sz => { const q = l.sizes.find(x => x.size === sz)?.qty ?? 0; return <td key={sz} className="num"><Input type="number" min={0} value={String(q)} onChange={e => setLine(l.id, x => ({ ...x, sizes: sizes.map(s2 => ({ size: s2, qty: s2 === sz ? Math.max(0, Number(e.target.value) || 0) : (x.sizes.find(y => y.size === s2)?.qty ?? 0) })) }))} style={{ width: 46, textAlign: 'right', padding: '4px 5px' }} /></td>; })}
+        <td className="num font-semibold">{qtyOf(l)}</td>
+        <td className="num"><Input type="number" min={0} value={String(l.rate)} onChange={e => setLine(l.id, x => ({ ...x, rate: Number(e.target.value) || 0 }))} style={{ width: 62, textAlign: 'right', padding: '4px 5px' }} /></td>
+        <td className="num">{fmtMoney(Math.round(qtyOf(l) * l.rate))}</td>
+        <td>{d.lines.length > 1 && <button type="button" className="vlink text-[12px]" title="remove this line" onClick={() => setD(x => ({ ...x, lines: x.lines.filter(y => y.id !== l.id) }))}>×</button>}</td>
+      </tr>)}</tbody>
+      <tfoot><tr><td></td><td className="text-[12px]" style={soft}>Total</td>
+        {sizes.map(sz => <td key={sz} className="num text-[12px]" style={soft}>{d.lines.reduce((a, l) => a + (l.sizes.find(x => x.size === sz)?.qty ?? 0), 0)}</td>)}
+        <td className="num font-semibold">{t.pcs}</td><td></td><td className="num font-semibold">{fmtMoney(Math.round(t.value))}</td><td></td></tr></tfoot>
+    </table></div>
+    <div className="pt-1.5"><span className="flex gap-1.5 items-center"><Input value={newColour} onChange={e => setNewColour(e.target.value)} placeholder="another colour" style={{ width: 112 }} /><Button size="sm" variant="ghost" disabled={!newColour.trim()} onClick={() => { setD(x => ({ ...x, lines: [...x.lines, { id: `pl-${Date.now()}`, colour: newColour.trim(), hsn: x.lines[0]?.hsn ?? null, rate: x.lines[0]?.rate ?? rate, sizes: sizes.map(sz => ({ size: sz, qty: 0 })) }] })); setNewColour(''); }}>+ Line</Button></span></div>
+    {t.pcs !== want && <div className="text-[12px] pt-1" style={{ color: 'var(--warn)' }}>{t.pcs} pcs on the PO against {want} on the requirement ({t.pcs > want ? '+' : ''}{t.pcs - want}).</div>}
+    <div className="grid gap-4 pt-3" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 300px)' }}>
+      <div>
+        <div className="cap">Other charges on the PO</div>
+        {d.charges.map((c, i) => <div key={i} className="flex justify-between text-[12.5px] py-0.5"><span>{c.label}</span><span>{fmtMoney(c.amount)} <button type="button" className="vlink" onClick={() => setD(x => ({ ...x, charges: x.charges.filter((_, k) => k !== i) }))}>×</button></span></div>)}
+        <div className="flex gap-1.5 items-center pt-1"><Input value={chLabel} onChange={e => setChLabel(e.target.value)} placeholder="logistics, packing, testing…" style={{ flex: 1 }} /><Input type="number" value={chAmt} onChange={e => setChAmt(e.target.value)} placeholder="₹" style={{ width: 90 }} /><Button size="sm" variant="ghost" disabled={!chLabel.trim() || !Number(chAmt)} onClick={() => { setD(x => ({ ...x, charges: [...x.charges, { label: chLabel.trim(), amount: Number(chAmt) }] })); setChLabel(''); setChAmt(''); }}>Add</Button></div>
+        <div className="pt-3"><Field label="Notes and terms on the PO"><textarea className="input" rows={3} value={d.notes ?? ''} onChange={e => setD(x => ({ ...x, notes: e.target.value || null }))} placeholder="packing per polybag, cartons of 40, labels as per the trim card…" style={{ width: '100%', fontFamily: 'inherit', fontSize: 12.5 }} /></Field></div>
+      </div>
+      <div className="po-totals">
+        <div className="kv"><span className="k">Goods · {t.pcs} pcs</span><span className="v">{fmtMoney(Math.round(t.value))}</span></div>
+        <div className="kv"><span className="k">Other charges</span><span className="v">{fmtMoney(Math.round(t.charges))}</span></div>
+        <div className="kv"><span className="k">Taxable value</span><span className="v">{fmtMoney(Math.round(t.taxable))}</span></div>
+        <div className="kv"><span className="k">GST {d.gstPct}%</span><span className="v">{fmtMoney(Math.round(t.gst))}</span></div>
+        <div className="kv po-grand"><span className="k">PO total</span><span className="v">{fmtMoney(Math.round(t.total))}</span></div>
+        <div className="text-[11px] pt-1" style={faint}>average {fmtMoney(Math.round(t.avgRate))}/pc · target {fmtMoney(o.targetCost)}/pc</div>
+      </div>
+    </div>
+    <div className="flex gap-2 pt-3"><Button variant="primary" disabled={!ok} onClick={() => onRaise(d)}>Raise the PO · {fmtMoney(Math.round(t.total))}</Button><Button variant="ghost" onClick={onCancel}>Cancel</Button></div>
+  </div>;
+}
+export function PoDocView({ o }: { o: ProductionOrder }) {
+  const d = o.poDoc; if (!d) return null;
+  const t = poTotalsOf(d); const sizes = [...new Set(d.lines.flatMap(l => l.sizes.map(x => x.size)))];
+  const qtyOf = (l: PoLine) => l.sizes.reduce((a, x) => a + (x.qty || 0), 0);
+  return <div className="po-doc my-2">
+    <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Price basis </span><b>{d.priceBasis}</b></span><span><span style={faint}>Payment </span><b>{d.paymentTerms}</b></span><span><span style={faint}>Ship by </span><b>{fmtDate(d.shipBy)}</b></span>{d.lines[0]?.hsn && <span><span style={faint}>HSN </span><b className="mono">{d.lines[0].hsn}</b></span>}<span><span style={faint}>GST </span><b>{d.gstPct}%</b></span></div>
+    <div style={{ overflowX: 'auto' }}><table className="t compact po-lines">
+      <thead><tr><th>#</th><th>Colour / option</th>{sizes.map(sz => <th key={sz} className="num">{sz}</th>)}<th className="num">Pcs</th><th className="num">₹ / pc</th><th className="num">Amount</th></tr></thead>
+      <tbody>{d.lines.map((l, i) => <tr key={l.id}><td className="mono text-[11px]" style={faint}>{String(i + 1).padStart(2, '0')}</td><td className="font-medium">{l.colour}</td>
+        {sizes.map(sz => <td key={sz} className="num">{l.sizes.find(x => x.size === sz)?.qty ?? 0}</td>)}<td className="num font-semibold">{qtyOf(l)}</td><td className="num">{fmtMoney(l.rate)}</td><td className="num">{fmtMoney(Math.round(qtyOf(l) * l.rate))}</td></tr>)}</tbody>
+      <tfoot><tr><td></td><td className="text-[12px]" style={soft}>Total</td>{sizes.map(sz => <td key={sz} className="num text-[12px]" style={soft}>{d.lines.reduce((a, l) => a + (l.sizes.find(x => x.size === sz)?.qty ?? 0), 0)}</td>)}<td className="num font-semibold">{t.pcs}</td><td></td><td className="num font-semibold">{fmtMoney(Math.round(t.value))}</td></tr></tfoot>
+    </table></div>
+    <div className="grid gap-4 pt-2" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 300px)' }}>
+      <div className="text-[12.5px]">{d.charges.length > 0 && <><div className="cap">Other charges</div>{d.charges.map((c, i) => <div key={i} className="flex justify-between py-0.5"><span>{c.label}</span><span>{fmtMoney(c.amount)}</span></div>)}</>}{d.notes && <><div className="cap pt-2">Notes and terms</div><div style={soft}>{d.notes}</div></>}</div>
+      <div className="po-totals">
+        <div className="kv"><span className="k">Goods</span><span className="v">{fmtMoney(Math.round(t.value))}</span></div>
+        {t.charges > 0 && <div className="kv"><span className="k">Other charges</span><span className="v">{fmtMoney(Math.round(t.charges))}</span></div>}
+        <div className="kv"><span className="k">GST {d.gstPct}%</span><span className="v">{fmtMoney(Math.round(t.gst))}</span></div>
+        <div className="kv po-grand"><span className="k">PO total</span><span className="v">{fmtMoney(Math.round(t.total))}</span></div>
+      </div>
+    </div>
+  </div>;
+}
+
 export function PoSection({ o }: { o: ProductionOrder }) {
   const { db, sendPoMail, role } = useApp(); const prod = role === 'production' || role === 'owner';
   const pm = o.poMail; const p = packOf(o); const rp = o.costQuery?.replies.find(r => r.vendorId === o.vendorId);
-  if (!o.poNo) return <Section title="PO" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>Raised on a cost reply. Mailed to the factory and the merchandiser with the delivery location and the TNA form.</div></Section>;
+  if (!o.poNo) return <Section title="PO" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>No PO yet.</div></Section>;
   return <Section title={`${o.poNo} · ${db.vendors.find(v => v.id === o.vendorId)?.name ?? ''}`} collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone="good">raised {fmtDate(o.poDate)}</Pill><Pill tone={pm?.sentOn ? 'good' : 'warn'}>{pm?.sentOn ? `mailed ${fmtDate(pm.sentOn)}` : 'mail to send'}</Pill>{o.poAckOn && <Pill tone="good">acknowledged {fmtDate(o.poAckOn)}</Pill>}</span>}>
     <KV k="Factory" v={<VendorLink id={o.vendorId} />} note={rp ? `${rp.leadDays} days quoted` : undefined} />
-    <KV k="Pieces" v={`${o.orderQty} × ${fmtMoney(o.finalFob ?? o.targetCost)}`} note={fmtMoney((o.finalFob ?? o.targetCost) * o.orderQty)} />
+    {o.poDoc ? null : <KV k="Pieces" v={`${o.orderQty} × ${fmtMoney(o.finalFob ?? o.targetCost)}`} note={fmtMoney((o.finalFob ?? o.targetCost) * o.orderQty)} />}
     <KV k="Deliver to" v={<b>{pm?.deliveryLocation ?? '—'}</b>} note={pm?.needsHemming ? 'semi-stitched product · hemming in-house, so Vasai' : 'nothing to hem, so the 3PL warehouse'} />
     <KV k="Cloth" v={FABRIC_BY_LABEL[pm?.fabricBy ?? 'factory']} note={pm?.fabricBy === 'factory' ? "the factory gives its fabric PO and receipt details; they are TNA steps" : `${db.vendors.find(v => v.id === p.fabric.vendorId)?.name ?? '—'}${p.fabric.vendorFabricCode ? ` · ${p.fabric.vendorFabricCode}` : ''}${p.fabric.blockedMetres != null ? ` · ${p.fabric.blockedMetres} m blocked` : ''}${pm?.fabricBy === 'bsc' ? ' · sourcing ships it to the factory' : ' · vendor details sent; the factory raises its own PO on them, no cloth PO in PLM'}`} />
+    <PoDocView o={o} />
     <div className="pt-2"><MailCard label="PO · with the TNA form" mail={{ ...poMailOf(db, o), ...(pm?.mail ?? {}), to: pm?.to ?? [], cc: pm?.cc ?? [] }} sentOn={pm?.sentOn ?? null} sendLabel="Send the PO to the factory and the merchandiser ✉" onSend={prod ? m => sendPoMail(o.id, { to: m.to, cc: m.cc, subject: m.subject, body: m.body }) : undefined} /></div>
     {pm && !pm.sentOn && !prod && <ActsBy role="production" does="sends the PO mail" />}
   </Section>;
@@ -447,6 +536,9 @@ export function PoCostsSection({ o, design, factory }: { o: ProductionOrder; des
   const piece = o.finalFob ?? o.targetCost ?? 0; const pieces = piece * o.orderQty;
   const otherTotal = pc.other.reduce((a, x) => a + x.amount, 0); const total = pieces + (pc.logistics ?? 0) + otherTotal;
   if (!o.poNo) return null;
+  if (o.poDoc) return <Section title="Factory acknowledgement" collapsible={false} right={<Pill tone={o.poAckOn ? 'good' : 'warn'}>{o.poAckOn ? `acknowledged ${fmtDate(o.poAckOn)}` : 'not yet acknowledged by the factory'}</Pill>}>
+    {!o.poAckOn && factory && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => ackPo(o.id)}>We have the PO · acknowledge</Button></div>}
+  </Section>;
   return <Section title="PO value · costs on the PO" collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone={o.poAckOn ? 'good' : 'warn'}>{o.poAckOn ? `acknowledged ${fmtDate(o.poAckOn)}` : 'not yet acknowledged by the factory'}</Pill></span>}>
     <KV k="Pieces" v={`${o.orderQty} × ${fmtMoney(piece)}`} note={`${fmtMoney(pieces)} · piece cost on the PO`} />
     <KV k="Logistics" v={pc.logistics != null ? fmtMoney(pc.logistics) : '—'} />

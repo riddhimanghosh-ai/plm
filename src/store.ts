@@ -6,13 +6,13 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { TechPackKey, RequirementPack, CostReply, QcPoint, CutRatioTrigger, PoInvoice, FabricBy, MailDraft, PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails, SampleStage } from './domain/types';
+import type { PoDoc, TechPackKey, RequirementPack, CostReply, QcPoint, CutRatioTrigger, PoInvoice, FabricBy, MailDraft, PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails, SampleStage } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
 import { fmtDate, prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
 const SAMPLE_STAGES: SampleStage[] = ['prototype', 'sample', 'trial'];
 const STAGE_NAME: Record<SampleStage, string> = { prototype: 'Prototype', sample: 'Sampling cycle', trial: 'Trial cycle' };
-import { EMPTY_PACK, packReadyOf, costQueryMail, poMailOf, invoiceMailOf, deliveryLocationOf } from './domain/rtwPack';
+import { EMPTY_PACK, packReadyOf, costQueryMail, poMailOf, invoiceMailOf, deliveryLocationOf, poTotalsOf } from './domain/rtwPack';
 import { PEOPLE, MERCHANDISERS, QC_POINTS, FABRIC_BY_LABEL, ORDER_STAGE_NEXT, METRES_PER_SHIRT, STORES, SHEET_LABEL, MILESTONES, MILESTONE_OWNER, PRE_PRODUCTION, SHIRT_PRESETS, defaultSpec, defaultMeasurements, defaultPattern } from './domain/reference';
 
 /* `undoAt` is the depth of the stack this toast was raised at: its Undo button
@@ -228,7 +228,7 @@ export interface AppState {
   sendPack(orderId: string): void;                                   // category: to Production RTW, only when the five parts are complete
   sendCostQuery(orderId: string, factoryIds: string[], deadline: string, mail?: MailDraft | null): void;   // Nitin: mails the factories, copies the merchandiser; the mail as edited before sending
   replyCostQuery(orderId: string, vendorId: string, reply: Omit<CostReply, 'vendorId' | 'repliedOn'>): void;   // the factory's reply on the form (logged here in the prototype)
-  raisePoOnReply(orderId: string, vendorId: string, fabricBy: FabricBy): void;   // Nitin decides the cloth (BSC sends · factory buys from BSC's vendor · factory's own) before the PO; delivery location follows the requirement's semi-stitched flag   // Nitin: the PO on one reply, mailed with the delivery location and the TNA form
+  raisePoOnReply(orderId: string, vendorId: string, fabricBy: FabricBy, doc?: PoDoc | null): void;   // Nitin decides the cloth (BSC sends · factory buys from BSC's vendor · factory's own) before the PO; delivery location follows the requirement's semi-stitched flag   // Nitin: the PO on one reply, mailed with the delivery location and the TNA form
   submitTnaPlan(orderId: string, plans?: Record<string, string>): void;    // merchandiser: the planned dates back from the factory
   recordQcCheck(orderId: string, point: QcPoint, result: 'pass' | 'fail', remarks: string, aesthetic?: string | null): void;   // QC: a pass closes the TNA block
   reviseTarget(orderId: string, field: 'targetInhouse' | 'targetCost', to: string | number, why: string): void;   // category, when every factory reply is over target; was → now stays on the record
@@ -335,7 +335,7 @@ let seq = 0;
    Writes advance from there in real time, so an edit reads "just now", not "in 1d". */
 const BOOT = Date.now();
 /* bump to reseed the demo data in every browser */
-const SEED_VERSION = 155;
+const SEED_VERSION = 156;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 export const useAppStore = create<AppState>()(persist((set, get) => {
@@ -1396,9 +1396,11 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, `${db.vendors.find(v => v.id === vendorId)?.name ?? vendorId} replied · ₹${reply.cost}/pc · ${reply.leadDays} days${reply.fabricBy ? ` · prefers: ${FABRIC_BY_LABEL[reply.fabricBy]}` : ''}`); },
         'Reply logged. Nitin raises the PO on the one he picks.');
     },
-    raisePoOnReply(orderId, vendorId, fabricBy) {
+    raisePoOnReply(orderId, vendorId, fabricBy, doc = null) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); const rp = o?.costQuery?.replies.find(r => r.vendorId === vendorId); if (!o || !rp || o.poNo) return;
         o.vendorId = vendorId; o.poDate = now(); o.poNo = `PO #${15500 + db.orders.filter(x => x.poNo).length + 1}`; o.status = 'Open'; o.finalFob = rp.cost; o.costingClosure.actual = now();
+        if (doc) { const t = poTotalsOf(doc); o.poDoc = doc; o.finalFob = Math.round(t.avgRate * 100) / 100 || rp.cost;
+          const logi = doc.charges.find(c => /logistic|freight|transport/i.test(c.label)); o.poCosts = { logistics: logi?.amount ?? null, other: doc.charges.filter(c => c !== logi) }; }
         o.fabricNominated = fabricBy === 'bsc'; o.sourcingMode = fabricBy === 'bsc' ? 'bsc-buys' : 'vendor-sources';
         o.merchant = o.merchant ?? MERCHANDISERS[db.orders.filter(x => x.status === 'Open').length % 3];
         o.milestones = buildMilestones(o.category as GarmentCategory, o.poDate);

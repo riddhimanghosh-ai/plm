@@ -1550,6 +1550,12 @@ orders.forEach((o, i) => {
       if (o.status === 'Open' && n === 4 && i % 12 === 9 && fin) { const f = o.poFabrics[1]; f.qc = 'failed'; f.qcNote = 'shade off against the approved swatch; barré visible across the roll'; f.decision = { kind: 'hold', replacementBy: iso(addDays(TODAY, 6)), by: 'Nitin Singh', on: iso(addDays(fin, 2)) }; }
       if (o.status === 'Open' && n === 3 && i % 12 === 5 && fin) { const f = o.poFabrics[1]; f.qc = 'failed'; f.qcNote = 'shade off against the approved swatch; barré visible across the roll'; f.decision = null; }
       if (o.status === 'Open' && n === 4 && i % 12 === 3 && fin) { const f = o.poFabrics[3]; f.qc = 'failed'; f.qcNote = 'holes every 2 m; vendor has no stock to replace'; f.decision = { kind: 'drop', newRequirementId: null, by: 'Nitin Singh', on: iso(addDays(fin, 2)) }; } }
+    /* the PO as a document: one item line per colour on the PO, its pieces split by the size break-up, at the PO rate */
+    { const tot = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) || 1; const rate = o.finalFob ?? o.targetCost;
+      const lines = (o.poFabrics ?? []).map((f, k) => { const sz = o.sizeBreakup.map(x => ({ size: x.size, qty: Math.floor(x.qty * f.qty / tot) })); const short = f.qty - sz.reduce((a, x) => a + x.qty, 0); if (sz[0]) sz[0].qty += short; return { id: `pl-${i}-${k}`, colour: f.colour, hsn: '6205', rate, sizes: sz }; });
+      const pc = o.poCosts; o.poDoc = { lines, charges: [...(pc?.logistics ? [{ label: 'Logistics', amount: pc.logistics }] : []), ...(pc?.other ?? [])], gstPct: 5,
+        priceBasis: o.fabricNominated ? 'CMT · BSC supplies the cloth' : o.poMail?.fabricBy === 'bsc-vendor' ? "FOB · cloth from BSC's vendor, bought by the factory" : 'FOB · cloth and trims by the factory',
+        paymentTerms: ['45 days from receipt at the warehouse', '30 days from receipt at the warehouse', '50% advance, 50% on dispatch'][i % 3], shipBy: o.targetInhouse, notes: i % 4 === 0 ? 'Packed per polybag, cartons of 40; labels and tags as per the trim card.' : null }; }
     /* dispatched: the invoice and packing list went to Prince */
     const disp = ms('Dispatch')?.actual;
     if (disp) { const pcs = o.cutQty ?? o.orderQty; const tot = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) || 1;

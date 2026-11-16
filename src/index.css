@@ -635,3 +635,16 @@ h1::after { background: var(--accent); }
 :root { --cogs-0:#1f6b6b; --cogs-1:#3d5a80; --cogs-2:#6b3f7a; --cogs-3:#8a5a12; --cogs-4:#7a4b2a; --cogs-5:#4d6b2f; --cogs-6:#8a2d4a; --cogs-7:#9a9a9a; }
 .cogs-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; }
 .cogs-bar span { display: block; height: 100%; }
+/* the factory PO as a document (16 Nov 2026) */
+.po-doc { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface); }
+.po-lines td, .po-lines th { vertical-align: middle; }
+.po-lines tfoot td { border-top: 1px solid var(--line); padding-top: 6px; }
+.po-totals { border: 1px solid var(--line-soft); border-radius: 8px; padding: 8px 12px; background: var(--surface-2); align-self: start; }
+.po-totals .po-grand { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 6px; font-weight: 600; }
+.po-lines .input { padding: 4px 6px; font-size: 12.5px; }
+.po-lines td, .po-lines th { padding: 4px 5px; }
+.po-lines td:first-child, .po-lines th:first-child { width: 28px; }
+table.t.po-lines th, table.t.po-lines td { padding: 4px 5px !important; }
+table.t.po-lines th:first-child, table.t.po-lines td:first-child { width: 28px !important; min-width: 28px !important; max-width: 28px; }
+table.t.po-lines td.num, table.t.po-lines th.num { min-width: 0 !important; }
+.po-draft { border: 2px solid var(--accent); box-shadow: 0 4px 18px rgb(0 0 0/.08); }

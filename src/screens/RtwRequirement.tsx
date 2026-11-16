@@ -7,16 +7,16 @@
 import { useContext, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../store';
-import type { ProductionOrder } from '../domain/types';
+import type { ProductionOrder, FabricBy } from '../domain/types';
 import { fmtDate, fmtMoney, daysAgo, riskOf, stageOf, fabricStateOf } from '../domain/engines';
-import { rtwJourneyOf, RTW_PHASES, RTW_INTRO, RTW_ACTOR_LABEL } from '../domain/rtwJourney';
+import { rtwJourneyOf, RTW_PHASES, RTW_ACTOR_LABEL } from '../domain/rtwJourney';
 import { FILE_LABELS, ORDER_STEPS } from '../domain/reference';
 import { Section, Pill, Button, KV, Field, Input, fromDateInput, dateInput, DrawerSlot } from '../ui';
 import { SizeGrid, FabricFinalisationSection } from './RtwGates';
 import { MilestoneGrid } from './Tracker';
 import { MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
-import { PackSection, CostQuerySection, PoSection, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, CogsSection, RemarksLog, remarksCountOf, PoFabricsSection, EnigmaSection } from './RtwChain';
+import { PackSection, CostQuerySection, PoSection, PoForm, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, CogsSection, RemarksLog, remarksCountOf, PoFabricsSection, EnigmaSection } from './RtwChain';
 import { SOURCE_LABEL } from '../domain/rtwJourney';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
@@ -56,6 +56,9 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const [view, setView] = useState<'stacked' | 'blocks'>(() => readView(initial && isMine(initial) ? initial : firstMine));
   const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem(viewKey(open), v); } catch { /* storage off */ } };
   const at = (k: string) => open === k && isMine(k);
+  /* Draft the PO on a reply: the record moves to step 4 and the PO form opens there */
+  const [poDraft, setPoDraft] = useState<{ vendorId: string; fabricBy: FabricBy } | null>(null);
+  const { raisePoOnReply } = useApp();
 
   /* the order's numbers, editable by category until it is sent */
   const [qty, setQty] = useState(String(o.orderQty)); const [target, setTarget] = useState(dateInput(o.targetInhouse)); const [cost, setCost] = useState(String(o.targetCost)); const [semi, setSemi] = useState(!!o.semiStitched);
@@ -100,7 +103,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
       <div className="rtw-panel" id={`rtw-step-${o.id}`}>
         {(() => { const i = journey.findIndex(x => x.key === open); const x = journey[i]; if (!x) return null;
           return <div className="rtw-panel-head"><div className="flex items-start justify-between gap-3 flex-wrap"><div><div className="cap">Step {i + 1} of {journey.length} · {x.who}</div><h2>{x.label}</h2></div>
-            <div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div></div>{x.key !== 'tna' && <p>{RTW_INTRO[x.key]}</p>}</div>; })()}
+            <div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div></div></div>; })()}
         <div className={view === 'blocks' ? 'rtw-blocks' : undefined}>
     {at('raised') && <Section title="The ask" collapsible={false} right={<span className="pill role-design">Category</span>}>
       {editable ? <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
@@ -124,10 +127,13 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
 
     {at('pack') && <div className="rtw-full"><PackSection o={o} design={design} sourcing={sourcing} /></div>}
 
-    {at('query') && <div className="rtw-full"><CostQuerySection o={o} prod={prod} merchant={merchant} design={design} /></div>}
+    {at('query') && <div className="rtw-full"><CostQuerySection o={o} prod={prod} merchant={merchant} design={design} onDraftPo={(vendorId, fabricBy) => { setPoDraft({ vendorId, fabricBy }); setOpen('po'); }} /></div>}
 
-    {at('po') && <PoSection o={o} />}
-    {at('po') && o.poNo && <div className="pt-3"><PoCostsSection o={o} design={prod} factory={merchant} /></div>}
+    {at('po') && !o.poNo && poDraft && prod && o.costQuery?.replies.some(x => x.vendorId === poDraft.vendorId) && <div className="rtw-full"><Section title="PO · draft" collapsible={false} right={<button type="button" className="vlink text-[12px]" onClick={() => setOpen('query')}>← back to the replies</button>}>
+      <PoForm key={poDraft.vendorId + poDraft.fabricBy} o={o} vendorId={poDraft.vendorId} rate={o.costQuery!.replies.find(x => x.vendorId === poDraft.vendorId)!.cost} fabricBy={poDraft.fabricBy} onCancel={() => { setPoDraft(null); setOpen('query'); }} onRaise={d => { raisePoOnReply(o.id, poDraft.vendorId, poDraft.fabricBy, d); setPoDraft(null); }} />
+    </Section></div>}
+    {at('po') && (o.poNo || !poDraft) && <div className="rtw-full"><PoSection o={o} /></div>}
+    {at('po') && o.poNo && <div className="rtw-full pt-3"><PoCostsSection o={o} design={prod} factory={merchant} /></div>}
 
     {at('plan') && <div className="rtw-full"><TnaPlanSection o={o} merchant={merchant} /></div>}
 
