@@ -18,7 +18,7 @@ import { CommandSearch, SearchHint } from '../screens/Search';
 export const NAV: { path: string; label: string; hint: string; group?: string; roles: RoleId[]; hideFor?: RoleId[] }[] = [
 
   /* the book: what exists and what it is called */
-  { path:'/design',       label:'Requirements',        hint:'every ask — MTM fabric, RTW style — at its stage; open any row, raise any kind', group:'Design',   roles:['owner','design','planning','sourcing'] , hideFor:['sourcing']},
+  { path:'/design',       label:'Requirements',        hint: RTW_ONLY ? 'every RTW style at its stage; open any row, raise a new one' : 'every ask — MTM fabric, RTW style — at its stage; open any row, raise any kind', group:'Design',   roles:['owner','design','planning','sourcing'] , hideFor:['sourcing']},
   { path:'/cogs',         label:'COGS and cost',              hint:'COGS per piece and margin for every style; add to Enigma; marketing details', group:'Design',   roles:['owner','design','production'], hideFor:['production'] },
   { path:'/swatches',     label:'Swatch desk',                hint:'cloth in → swatches cut → stores told → live; the sticker prints off the record', group:'Design',   roles:['owner','design','production','warehouse'] , hideFor:['production']},
   { path:'/fabrics',      label:'MTM fabric master',          hint:'core, non-core and bespoke: stock and blocks',   group:'Design',   roles:['owner','design','sourcing','production'] , hideFor:['production']},
@@ -197,8 +197,8 @@ export function Shell() {
           {(myRole === 'store' && !demoAll) && <Select value={storeId} onChange={setStore} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }} options={STORES.map(s => ({ value:s.id, label:s.name }))} />}
           {demoAll && <>
             <Select value={factoryId} onChange={setFactory} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
-              options={db.vendors.filter(v => v.mtm && v.kind !== 'Hemming unit').map(v => ({ value:v.id, label:v.name }))} />
-            <Select value={storeId} onChange={setStore} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }} options={STORES.map(s => ({ value:s.id, label:s.name }))} />
+              options={db.vendors.filter(v => (RTW_ONLY ? v.kind.endsWith('factory') : v.mtm) && v.kind !== 'Hemming unit').map(v => ({ value:v.id, label:v.name }))} />
+            {!RTW_ONLY && <Select value={storeId} onChange={setStore} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }} options={STORES.map(s => ({ value:s.id, label:s.name }))} />}
           </>}
           {/* A blocked button teaches nothing in a walkthrough. With this on you keep
               your name and your screen, and every team's step is open to you — each

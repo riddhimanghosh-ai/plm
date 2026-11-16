@@ -12,6 +12,7 @@ import { putFile, deleteFile, clearFiles } from './domain/files';
 import { fmtDate, prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
 const SAMPLE_STAGES: SampleStage[] = ['prototype', 'sample', 'trial'];
 const STAGE_NAME: Record<SampleStage, string> = { prototype: 'Prototype', sample: 'Sampling cycle', trial: 'Trial cycle' };
+import { RTW_ONLY } from './domain/edition';
 import { EMPTY_PACK, packReadyOf, costQueryMail, poMailOf, invoiceMailOf, deliveryLocationOf, poTotalsOf } from './domain/rtwPack';
 import { PEOPLE, MERCHANDISERS, QC_POINTS, FABRIC_BY_LABEL, ORDER_STAGE_NEXT, METRES_PER_SHIRT, STORES, SHEET_LABEL, MILESTONES, MILESTONE_OWNER, PRE_PRODUCTION, SHIRT_PRESETS, defaultSpec, defaultMeasurements, defaultPattern } from './domain/reference';
 
@@ -335,7 +336,7 @@ let seq = 0;
    Writes advance from there in real time, so an edit reads "just now", not "in 1d". */
 const BOOT = Date.now();
 /* bump to reseed the demo data in every browser */
-const SEED_VERSION = 156;
+const SEED_VERSION = 157;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 export const useAppStore = create<AppState>()(persist((set, get) => {
@@ -1982,7 +1983,10 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     const storeId = STORES.some(s => s.id === p.storeId) ? p.storeId : 'plh';
     /* role and person are one fact in two fields — a fallback that changes the
        person has to change the role with it, or comments are signed by the wrong team */
-    const person = PEOPLE.find(x => x.id === p.personId) ?? PEOPLE.find(x => x.role === p.role) ?? PEOPLE[0];
+    const found = PEOPLE.find(x => x.id === p.personId) ?? PEOPLE.find(x => x.role === p.role) ?? PEOPLE[0];
+    /* the RTW edition has no store, MTM desks or warehouse: a person saved from another edition falls back to category */
+    const RTW_ROLES = ['owner', 'design', 'sourcing', 'production', 'qc', 'merchandiser'];
+    const person = RTW_ONLY && !RTW_ROLES.includes(found.role) ? (PEOPLE.find(x => x.id === 'kunal') ?? found) : found;
     /* v100: the plain, quiet view is the default — explainers and example strips are opt-in from Demo settings */
     const settings = { ppFreezeHours: 2, ...(p.settings ?? {}), ...(version < 100 ? { quiet: true } : {}) };
     return { ...p, settings, storeId, personId: person.id, role: person.role,
