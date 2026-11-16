@@ -255,38 +255,44 @@ const DOC_LABEL: Record<NonNullable<PoInvoice['doc']>, string> = { invoice: 'Inv
 export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boolean }) {
   const { addPoInvoice, removePoInvoice } = useApp();
   const rows = o.poInvoices ?? [];
-  const [adding, setAdding] = useState(false);
-  const [dir, setDir] = useState<PoInvoice['direction']>('bsc-to-factory'); const [kind, setKind] = useState<PoInvoice['kind']>('fabric'); const [docT, setDocT] = useState<NonNullable<PoInvoice['doc']>>('invoice');
-  const [no, setNo] = useState(''); const [amt, setAmt] = useState(''); const [what, setWhat] = useState(''); const [file, setFile] = useState(''); const [note, setNote] = useState('');
-  const toFactory = rows.filter(r => r.direction === 'bsc-to-factory').reduce((a, r) => a + r.amount, 0); const fromFactory = rows.filter(r => r.direction === 'factory-to-bsc').reduce((a, r) => a + r.amount, 0);
-  return <Section title="Invoices · debit and credit notes" collapsible={false} right={<Pill tone={rows.length ? 'info' : 'neutral'}>{rows.length ? `${rows.length} · BSC → factory ${fmtMoney(toFactory)} · factory → BSC ${fmtMoney(fromFactory)}` : 'none logged'}</Pill>}>
-    {rows.length > 0 && <div style={{ overflowX: 'auto' }}><table className="t compact">
-      <thead><tr><th>Document</th><th>Direction</th><th>No.</th><th>What</th><th className="num">₹</th><th>Document</th><th>Logged</th><th></th></tr></thead>
+  /* who pays: a factory's invoice or credit note means BSC pays (or pays less); BSC's invoice for material or a debit note means the factory pays */
+  const [docT, setDocT] = useState<NonNullable<PoInvoice['doc']>>('invoice'); const [payer, setPayer] = useState<PoInvoice['direction']>('factory-to-bsc');
+  const [no, setNo] = useState(''); const [amt, setAmt] = useState(''); const [what, setWhat] = useState(''); const [file, setFile] = useState('');
+  const bscPays = rows.filter(r => r.direction === 'factory-to-bsc').reduce((a, r) => a + r.amount, 0);
+  const factoryPays = rows.filter(r => r.direction === 'bsc-to-factory').reduce((a, r) => a + r.amount, 0);
+  const net = bscPays - factoryPays;
+  const PAYER = { 'factory-to-bsc': 'BSC pays', 'bsc-to-factory': 'Factory pays' } as const;
+  const add = () => { addPoInvoice(o.id, { doc: docT, direction: payer, kind: 'other', no: no.trim(), amount: Number(amt), what: what.trim() || DOC_LABEL[docT], file: file.trim() || null, note: null }); setNo(''); setAmt(''); setWhat(''); setFile(''); };
+  return <Section title="Invoices · debit and credit notes" collapsible={false} right={<Pill tone={rows.length ? 'info' : 'neutral'}>{rows.length ? `${rows.length} logged` : 'none logged yet'}</Pill>}>
+    <div style={{ overflowX: 'auto' }}><table className="t compact po-lines">
+      <thead><tr><th>Document</th><th>No.</th><th>What</th><th className="num">Amount ₹</th><th>Who pays</th><th>File</th><th>Logged</th><th></th></tr></thead>
       <tbody>{rows.map(r => <tr key={r.id}>
         <td><Pill tone={r.doc === 'credit-note' ? 'good' : r.doc === 'debit-note' ? 'risk' : 'neutral'}>{DOC_LABEL[r.doc ?? 'invoice']}</Pill></td>
-        <td><Pill tone={r.direction === 'bsc-to-factory' ? 'warn' : 'info'}>{r.direction === 'bsc-to-factory' ? 'BSC → factory' : 'factory → BSC'}</Pill></td>
         <td className="mono text-[12px]">{r.no}</td>
-        <td className="text-[12.5px]">{INV_KIND[r.kind]} · {r.what}{r.note && <div className="text-[11px]" style={faint}>{r.note}</div>}</td>
+        <td className="text-[12.5px]" style={{ whiteSpace: 'normal' }}>{r.what}{r.note && <div className="text-[11px]" style={faint}>{r.note}</div>}</td>
         <td className="num">{fmtMoney(r.amount)}</td>
+        <td><Pill tone={r.direction === 'factory-to-bsc' ? 'warn' : 'info'}>{PAYER[r.direction]}</Pill></td>
         <td className="text-[12px]">{r.file ? <span className="vlink">{r.file}</span> : <span style={faint}>—</span>}</td>
         <td className="text-[11.5px]" style={soft}>{r.by} · {fmtDate(r.on)}</td>
-        <td>{prod && <button type="button" className="vlink text-[11.5px]" onClick={() => removePoInvoice(o.id, r.id)}>remove</button>}</td>
-      </tr>)}</tbody></table></div>}
-    {prod && !adding && <div className="pt-2"><Button size="sm" onClick={() => setAdding(true)}>+ Log an invoice or note</Button></div>}
-    {prod && adding && <div className="pt-2">
-      <div className="grid gap-2 py-1" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-        <Field label="Document"><Select value={docT} onChange={v => setDocT(v as NonNullable<PoInvoice['doc']>)} options={Object.entries(DOC_LABEL).map(([k, l]) => ({ value: k, label: l }))} /></Field>
-        <Field label="Direction"><Select value={dir} onChange={v => setDir(v as PoInvoice['direction'])} options={[{ value: 'bsc-to-factory', label: 'BSC → factory (material we supplied)' }, { value: 'factory-to-bsc', label: 'Factory → BSC' }]} /></Field>
-        <Field label="Kind"><Select value={kind} onChange={v => setKind(v as PoInvoice['kind'])} options={Object.entries(INV_KIND).map(([k, l]) => ({ value: k, label: l }))} /></Field>
-        <Field label="No."><Input value={no} onChange={e => setNo(e.target.value)} placeholder="BSC/INV/0412 · DN/112 · CN/087" /></Field>
-        <Field label="Amount (₹)"><Input type="number" value={amt} onChange={e => setAmt(e.target.value)} /></Field>
-        <Field label="What"><Input value={what} onChange={e => setWhat(e.target.value)} placeholder="120 m poplin · 2,400 buttons" /></Field>
-        <Field label="Document"><Input value={file} onChange={e => setFile(e.target.value)} placeholder="invoice.pdf" /></Field>
-        <div style={{ gridColumn: '1 / -1' }}><Field label="Note for accounts"><Input value={note} onChange={e => setNote(e.target.value)} placeholder="to be netted off the factory's invoice" /></Field></div>
-      </div>
-      <div className="flex gap-2"><Button size="sm" variant="primary" disabled={!no.trim() || !Number(amt) || !what.trim()} onClick={() => { addPoInvoice(o.id, { doc: docT, direction: dir, kind, no: no.trim(), amount: Number(amt), what: what.trim(), file: file.trim() || null, note: note.trim() || null }); setAdding(false); setNo(''); setAmt(''); setWhat(''); setFile(''); setNote(''); }}>Log it</Button><Button size="sm" variant="ghost" onClick={() => setAdding(false)}>Cancel</Button></div>
-    </div>}
-    {!prod && !rows.length && <ActsBy role="production" does="logs every invoice on the PO, both ways, with its document" />}
+        <td>{prod && <button type="button" className="vlink text-[11.5px]" onClick={() => removePoInvoice(o.id, r.id)}>×</button>}</td>
+      </tr>)}
+      {prod && <tr>
+        <td><Select value={docT} onChange={v => { setDocT(v as NonNullable<PoInvoice['doc']>); setPayer(v === 'debit-note' ? 'bsc-to-factory' : v === 'credit-note' ? 'bsc-to-factory' : 'factory-to-bsc'); }} options={Object.entries(DOC_LABEL).map(([k, l]) => ({ value: k, label: l }))} /></td>
+        <td><Input value={no} onChange={e => setNo(e.target.value)} placeholder="INV/0412" style={{ width: 100 }} /></td>
+        <td><Input value={what} onChange={e => setWhat(e.target.value)} placeholder="what it is for" style={{ width: '100%', minWidth: 140 }} /></td>
+        <td className="num"><Input type="number" min={0} value={amt} onChange={e => setAmt(e.target.value)} placeholder="₹" style={{ width: 96, textAlign: 'right' }} /></td>
+        <td><Select value={payer} onChange={v => setPayer(v as PoInvoice['direction'])} options={[{ value: 'factory-to-bsc', label: 'BSC pays' }, { value: 'bsc-to-factory', label: 'Factory pays' }]} /></td>
+        <td><Input value={file} onChange={e => setFile(e.target.value)} placeholder="file.pdf" style={{ width: 100 }} /></td>
+        <td colSpan={2}><Button size="sm" variant="primary" disabled={!no.trim() || !Number(amt)} onClick={add}>+ Add</Button></td>
+      </tr>}</tbody>
+    </table></div>
+    <div className="po-totals mt-3" style={{ maxWidth: 360, marginLeft: 'auto' }}>
+      <div className="kv"><span className="k">BSC pays</span><span className="v">{fmtMoney(Math.round(bscPays))}</span></div>
+      <div className="kv"><span className="k">Factory pays</span><span className="v">{fmtMoney(Math.round(factoryPays))}</span></div>
+      <div className="kv po-grand"><span className="k">{net >= 0 ? 'Net payable by BSC' : 'Net payable by the factory'}</span><span className="v">{fmtMoney(Math.round(Math.abs(net)))}</span></div>
+      {o.poDoc && <div className="text-[11px] pt-1" style={faint}>PO total {fmtMoney(Math.round(poTotalsOf(o.poDoc).total))}</div>}
+    </div>
+    {!prod && !rows.length && <ActsBy role="production" does="logs every invoice and note, both ways" />}
   </Section>;
 }
 

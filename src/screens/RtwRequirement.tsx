@@ -163,6 +163,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
     {at('cogs') && <CogsSection o={o} finance={prod || design} />}
 
     {at('launch') && <div className="rtw-full"><EnigmaSection o={o} design={design} /></div>}
+    {at('invoices') && <div className="rtw-full"><PoInvoicesSection o={o} prod={prod} /></div>}
         </div>
       </div>
     </div></div>
