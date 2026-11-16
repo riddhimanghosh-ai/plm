@@ -237,7 +237,10 @@ export interface QcCheck { point: QcPoint; on: string; by: string; result: 'pass
 export type DeliveryLocation = '3PL warehouse' | 'Vasai · in-house';
 /* the factory PO as a document (16 Nov 2026): item lines per colour with the size break-up and a rate, other charges, GST and the terms */
 export interface PoLine { id: string; colour: string; sizes: { size: string; qty: number }[]; rate: number; hsn?: string | null }
-export interface PoDoc { lines: PoLine[]; charges: { label: string; amount: number }[]; gstPct: number; priceBasis: string; paymentTerms: string; shipBy: string | null; notes: string | null }
+export interface PoDoc { lines: PoLine[]; charges: { label: string; amount: number }[]; gstPct: number; priceBasis: string; paymentTerms: string; shipBy: string | null; notes: string | null;
+  /* the commercial terms a real PO carries (16 Nov 2026) */
+  revision?: number; deliveryBasis?: 'ex-factory' | 'in-house'; tolerancePct?: number; aql?: string; lateDeduction?: string | null;
+  cloth?: { metresIssued: number | null; consumptionPerPc: number | null; wastagePct: number | null; leftover: string } | null }   // CMT only: the cloth BSC issues, how much a piece takes, allowed wastage, what happens to the rest
 /* what set off a cut-ratio ask: less or more cloth or trim than the PO needs (15 Nov 2026) */
 export type CutRatioTrigger = 'fabric-short' | 'fabric-extra' | 'trim-short' | 'trim-extra' | 'other';
 /* a factory's reply over the target cost or past the target in-house date: category revises the target, and the record keeps was → now */

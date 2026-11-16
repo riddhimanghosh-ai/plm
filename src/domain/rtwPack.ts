@@ -127,7 +127,24 @@ export function poDraftOf(o: ProductionOrder, rate: number, quoted?: { colour: s
   const lines = colours.map((c, k) => ({ id: `pl-${k}`, colour: c, hsn: '6205', rate: quoted?.find(q => q.colour === c)?.rate ?? rate,
     sizes: base.map(b => { const each = Math.floor(b.qty / colours.length); return { size: b.size, qty: each + (k === 0 ? b.qty - each * colours.length : 0) }; }) }));
   const bsc = o.fabricNominated || o.pack?.clothBy === 'bsc';
-  return { lines, charges: [], gstPct: 5, priceBasis: bsc ? 'CMT · BSC supplies the cloth' : 'FOB · cloth and trims by the factory', paymentTerms: '45 days from receipt at the warehouse', shipBy: o.targetInhouse, notes: null };
+  const code = taxCodeOf(o, bsc); lines.forEach(l => { l.hsn = code; });
+  const cons = o.fabricMetres && o.orderQty ? Math.round(o.fabricMetres / o.orderQty * 100) / 100 : 1.6;
+  return { lines, charges: [], gstPct: 5, priceBasis: bsc ? 'CMT · BSC supplies the cloth' : 'FOB · cloth and trims by the factory', paymentTerms: '45 days from receipt at the warehouse', shipBy: o.targetInhouse, notes: null,
+    revision: 1, deliveryBasis: 'in-house', tolerancePct: 3, aql: AQL_LEVELS[1], lateDeduction: '1% of the PO value per week late, up to 5%',
+    cloth: bsc ? { metresIssued: o.fabricMetres ?? Math.ceil(o.orderQty * cons * 1.03), consumptionPerPc: cons, wastagePct: 3, leftover: 'Returned to BSC with the goods' } : null };
+}
+/* CMT is job work (a service): it carries a SAC code; FOB is the garment itself: an HSN by what it is */
+export const isCmt = (d: { priceBasis: string }) => d.priceBasis.startsWith('CMT');
+export function taxCodeOf(o: ProductionOrder, cmt: boolean) {
+  if (cmt) return '9988';
+  const c = `${o.category} ${o.subCategory ?? ''} ${o.styleName}`.toLowerCase();
+  return /knit|polo|t-shirt|tee|jersey/.test(c) ? '6105' : /pant|trouser|chino|short/.test(c) ? '6203' : '6205';
+}
+export const AQL_LEVELS = ['1.5 major · 2.5 minor', '2.5 major · 4.0 minor', '4.0 major · 6.5 minor'];
+export function clothNeedOf(d: PoDoc, pcs: number) {
+  const c = d.cloth; if (!c || !c.consumptionPerPc) return null;
+  const need = pcs * c.consumptionPerPc * (1 + (c.wastagePct ?? 0) / 100);
+  return { need: Math.round(need * 10) / 10, short: c.metresIssued != null ? Math.round((need - c.metresIssued) * 10) / 10 : null };
 }
 export function poTotalsOf(d: PoDoc | null | undefined) {
   if (!d) return { pcs: 0, value: 0, charges: 0, taxable: 0, gst: 0, total: 0, avgRate: 0 };

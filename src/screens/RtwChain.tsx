@@ -7,7 +7,7 @@ import { useApp } from '../store';
 import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy, PoDoc, PoLine } from '../domain/types';
 import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
 import { TECH_PACK_ITEMS, QC_POINTS, FABRIC_BY_LABEL } from '../domain/reference';
-import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, type Mail } from '../domain/rtwPack';
+import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, isCmt, taxCodeOf, AQL_LEVELS, clothNeedOf, type Mail } from '../domain/rtwPack';
 import { Section, Pill, Button, KV, Field, Input, Select, fromDateInput, dateInput } from '../ui';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
@@ -312,10 +312,15 @@ export function PoForm({ o, vendorId, rate, fabricBy, onCancel, onRaise }: { o: 
       <Field label="Factory"><div className="text-[12.5px] py-1 font-medium">{v?.name ?? '—'}<span className="block text-[11px] font-normal" style={faint}>{v?.location}{v?.email ? ` · ${v.email}` : ''}</span></div></Field>
       <Field label="Deliver to"><div className="text-[12.5px] py-1 font-medium">{deliver}</div></Field>
       <Field label="Ship by"><Input type="date" value={dateInput(d.shipBy)} onChange={e => setD(x => ({ ...x, shipBy: fromDateInput(e.target.value) }))} /></Field>
-      <Field label="Price basis"><Select value={d.priceBasis} onChange={val => setD(x => ({ ...x, priceBasis: val }))} options={['CMT · BSC supplies the cloth', "FOB · cloth from BSC's vendor, bought by the factory", 'FOB · cloth and trims by the factory'].map(x => ({ value: x, label: x }))} /></Field>
+      <Field label="Price basis"><Select value={d.priceBasis} onChange={val => setD(x => { const cmt = val.startsWith('CMT'); const code = taxCodeOf(o, cmt); const cons = o.fabricMetres && o.orderQty ? Math.round(o.fabricMetres / o.orderQty * 100) / 100 : 1.6;
+        return { ...x, priceBasis: val, gstPct: 5, lines: x.lines.map(l => ({ ...l, hsn: code })), cloth: cmt ? (x.cloth ?? { metresIssued: o.fabricMetres ?? null, consumptionPerPc: cons, wastagePct: 3, leftover: 'Returned to BSC with the goods' }) : null }; })} options={['CMT · BSC supplies the cloth', "FOB · cloth from BSC's vendor, bought by the factory", 'FOB · cloth and trims by the factory'].map(x => ({ value: x, label: x }))} /></Field>
       <Field label="Payment terms"><Select value={d.paymentTerms} onChange={val => setD(x => ({ ...x, paymentTerms: val }))} options={PAYMENT_TERMS.map(x => ({ value: x, label: x }))} /></Field>
-      <Field label="HSN code"><Input value={d.lines[0]?.hsn ?? ''} onChange={e => setD(x => ({ ...x, lines: x.lines.map(l => ({ ...l, hsn: e.target.value })) }))} /></Field>
-      <Field label="GST"><Select value={String(d.gstPct)} onChange={val => setD(x => ({ ...x, gstPct: Number(val) }))} options={[5, 12, 18].map(n => ({ value: String(n), label: `${n}%` }))} /></Field>
+      <Field label={isCmt(d) ? 'SAC · job work' : 'HSN · garment'} hint={isCmt(d) ? 'CMT is a stitching service' : 'by what the garment is'}><Input value={d.lines[0]?.hsn ?? ''} onChange={e => setD(x => ({ ...x, lines: x.lines.map(l => ({ ...l, hsn: e.target.value })) }))} /></Field>
+      <Field label="GST" hint="to confirm with accounts"><Select value={String(d.gstPct)} onChange={val => setD(x => ({ ...x, gstPct: Number(val) }))} options={[5, 12, 18].map(n => ({ value: String(n), label: `${n}%` }))} /></Field>
+      <Field label="Ship-by means"><Select value={d.deliveryBasis ?? 'in-house'} onChange={val => setD(x => ({ ...x, deliveryBasis: val as 'ex-factory' | 'in-house' }))} options={[{ value: 'in-house', label: 'in-house at the warehouse' }, { value: 'ex-factory', label: 'leaves the factory' }]} /></Field>
+      <Field label="Quantity tolerance ±%"><Input type="number" min={0} max={10} value={String(d.tolerancePct ?? 0)} onChange={e => setD(x => ({ ...x, tolerancePct: Number(e.target.value) || 0 }))} /></Field>
+      <Field label="Final inspection AQL"><Select value={d.aql ?? AQL_LEVELS[1]} onChange={val => setD(x => ({ ...x, aql: val }))} options={AQL_LEVELS.map(a => ({ value: a, label: a }))} /></Field>
+      <Field label="Late delivery"><Input value={d.lateDeduction ?? ''} onChange={e => setD(x => ({ ...x, lateDeduction: e.target.value || null }))} placeholder="e.g. 1% per week late" /></Field>
     </div>
     <div style={{ overflowX: 'auto' }}><table className="t compact po-lines">
       <thead><tr><th>#</th><th>Colour / option</th>{sizes.map(sz => <th key={sz} className="num">{sz}</th>)}<th className="num">Pcs</th><th className="num">₹ / pc</th><th className="num">Amount</th><th></th></tr></thead>
@@ -333,7 +338,18 @@ export function PoForm({ o, vendorId, rate, fabricBy, onCancel, onRaise }: { o: 
         <td className="num font-semibold">{t.pcs}</td><td></td><td className="num font-semibold">{fmtMoney(Math.round(t.value))}</td><td></td></tr></tfoot>
     </table></div>
     <div className="pt-1.5"><span className="flex gap-1.5 items-center"><Input value={newColour} onChange={e => setNewColour(e.target.value)} placeholder="another colour" style={{ width: 112 }} /><Button size="sm" variant="ghost" disabled={!newColour.trim()} onClick={() => { setD(x => ({ ...x, lines: [...x.lines, { id: `pl-${Date.now()}`, colour: newColour.trim(), hsn: x.lines[0]?.hsn ?? null, rate: x.lines[0]?.rate ?? rate, sizes: sizes.map(sz => ({ size: sz, qty: 0 })) }] })); setNewColour(''); }}>+ Line</Button></span></div>
+    {d.cloth && (() => { const cn = clothNeedOf(d, t.pcs); const c = d.cloth!; const setC = (p: Partial<NonNullable<PoDoc['cloth']>>) => setD(x => ({ ...x, cloth: { ...x.cloth!, ...p } }));
+      return <div className="po-cloth mt-3"><div className="cap" style={{ margin: 0 }}>Cloth BSC issues · CMT</div>
+        <div className="grid gap-x-4 gap-y-1 pt-1" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+          <Field label="Metres issued"><Input type="number" min={0} value={c.metresIssued != null ? String(c.metresIssued) : ''} onChange={e => setC({ metresIssued: e.target.value === '' ? null : Number(e.target.value) })} /></Field>
+          <Field label="Consumption m / pc"><Input type="number" min={0} step="0.01" value={c.consumptionPerPc != null ? String(c.consumptionPerPc) : ''} onChange={e => setC({ consumptionPerPc: e.target.value === '' ? null : Number(e.target.value) })} /></Field>
+          <Field label="Allowed wastage %"><Input type="number" min={0} value={c.wastagePct != null ? String(c.wastagePct) : ''} onChange={e => setC({ wastagePct: e.target.value === '' ? null : Number(e.target.value) })} /></Field>
+          <Field label="Leftover cloth"><Select value={c.leftover} onChange={v => setC({ leftover: v })} options={['Returned to BSC with the goods', 'Kept at the factory for BSC', 'Adjusted on the invoice'].map(x => ({ value: x, label: x }))} /></Field>
+        </div>
+        {cn && <div className="text-[12px] pt-1" style={{ color: cn.short != null && cn.short > 0 ? 'var(--risk)' : 'var(--ink-soft)' }}>{t.pcs} pcs × {c.consumptionPerPc} m + {c.wastagePct ?? 0}% = {cn.need} m needed{cn.short != null ? (cn.short > 0 ? ` · ${cn.short} m short of what is issued` : ` · ${Math.abs(cn.short)} m to spare`) : ''}</div>}
+      </div>; })()}
     {t.pcs !== want && <div className="text-[12px] pt-1" style={{ color: 'var(--warn)' }}>{t.pcs} pcs on the PO against {want} on the requirement ({t.pcs > want ? '+' : ''}{t.pcs - want}).</div>}
+    <div className="text-[11.5px] pt-0.5" style={faint}>Accepted on delivery: {Math.floor(t.pcs * (1 - (d.tolerancePct ?? 0) / 100))} to {Math.ceil(t.pcs * (1 + (d.tolerancePct ?? 0) / 100))} pcs</div>
     <div className="grid gap-4 pt-3" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 300px)' }}>
       <div>
         <div className="cap">Other charges on the PO</div>
@@ -358,7 +374,9 @@ export function PoDocView({ o }: { o: ProductionOrder }) {
   const t = poTotalsOf(d); const sizes = [...new Set(d.lines.flatMap(l => l.sizes.map(x => x.size)))];
   const qtyOf = (l: PoLine) => l.sizes.reduce((a, x) => a + (x.qty || 0), 0);
   return <div className="po-doc my-2">
-    <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Price basis </span><b>{d.priceBasis}</b></span><span><span style={faint}>Payment </span><b>{d.paymentTerms}</b></span><span><span style={faint}>Ship by </span><b>{fmtDate(d.shipBy)}</b></span>{d.lines[0]?.hsn && <span><span style={faint}>HSN </span><b className="mono">{d.lines[0].hsn}</b></span>}<span><span style={faint}>GST </span><b>{d.gstPct}%</b></span></div>
+    <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Price basis </span><b>{d.priceBasis}</b></span><span><span style={faint}>Payment </span><b>{d.paymentTerms}</b></span><span><span style={faint}>Ship by </span><b>{fmtDate(d.shipBy)}</b></span>{d.lines[0]?.hsn && <span><span style={faint}>{isCmt(d) ? 'SAC ' : 'HSN '}</span><b className="mono">{d.lines[0].hsn}</b></span>}<span><span style={faint}>GST </span><b>{d.gstPct}%</b></span>{d.revision && <span><span style={faint}>Rev </span><b>{d.revision}</b></span>}</div>
+    <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Ship-by means </span><b>{d.deliveryBasis === 'ex-factory' ? 'leaves the factory' : 'in-house at the warehouse'}</b></span>{d.tolerancePct != null && <span><span style={faint}>Tolerance </span><b>±{d.tolerancePct}%</b></span>}{d.aql && <span><span style={faint}>AQL </span><b>{d.aql}</b></span>}{d.lateDeduction && <span><span style={faint}>Late </span><b>{d.lateDeduction}</b></span>}</div>
+    {d.cloth && <div className="text-[12.5px] pb-2"><span style={faint}>Cloth issued · CMT </span><b>{d.cloth.metresIssued ?? '—'} m</b> · {d.cloth.consumptionPerPc ?? '—'} m/pc · {d.cloth.wastagePct ?? 0}% wastage · {d.cloth.leftover.toLowerCase()}</div>}
     <div style={{ overflowX: 'auto' }}><table className="t compact po-lines">
       <thead><tr><th>#</th><th>Colour / option</th>{sizes.map(sz => <th key={sz} className="num">{sz}</th>)}<th className="num">Pcs</th><th className="num">₹ / pc</th><th className="num">Amount</th></tr></thead>
       <tbody>{d.lines.map((l, i) => <tr key={l.id}><td className="mono text-[11px]" style={faint}>{String(i + 1).padStart(2, '0')}</td><td className="font-medium">{l.colour}</td>
