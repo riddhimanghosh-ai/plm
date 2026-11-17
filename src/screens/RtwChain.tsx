@@ -3,17 +3,20 @@
    the delivery location and the TNA form; the planned dates back; QC at five points on the TNA;
    the invoice and packing list to the warehouse; receipt on Enigma; COGS. */
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../store';
-import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy, PoDoc, PoLine } from '../domain/types';
+import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy, PoDoc, PoLine, ApproverRole } from '../domain/types';
 import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
 import { TECH_PACK_ITEMS, QC_POINTS, FABRIC_BY_LABEL } from '../domain/reference';
-import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, isCmt, taxCodeOf, AQL_LEVELS, clothNeedOf, type Mail } from '../domain/rtwPack';
+import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, supplyInvoicesOf, isCmt, taxCodeOf, AQL_LEVELS, clothNeedOf, approvalOf, poLedgerOf, supplyLinesOf, rawMaterialsOf, type Mail } from '../domain/rtwPack';
 import { Section, Pill, Button, KV, Field, Input, Select, fromDateInput, dateInput } from '../ui';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
 import { SizeGrid, ReceiptLots } from './RtwGates';
 import { BomSection } from './Costing';
 import { QuoteFormModal } from './QuoteForm';
+import { BomVendors } from './BomVendors';
+import { InvoicePreview, SupplyInvoiceBar } from './InvoicePreview';
 
 const faint = { color: 'var(--ink-faint)' } as const;
 const soft = { color: 'var(--ink-soft)' } as const;
@@ -117,23 +120,7 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
       {canDesign && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updateRequirement(o.id, { sizeBreakup: sizes.filter(x => x.qty > 0), orderQty: sizes.reduce((a, x) => a + x.qty, 0) })}>Save break-up</Button></div>}
     </div>}
     {tab === 'bom' && <BomSection o={o} editable={canDesign} open />}
-    {tab === 'vendors' && <div>
-      <div className="cap">Who supplies the cloth <span className="pill role-design">Category</span></div>
-      <div className="flex gap-2 flex-wrap py-1">{(Object.keys(FABRIC_BY_LABEL) as FabricBy[]).map(k => <button key={k} type="button" disabled={!canDesign} className={`dest-opt${p.clothBy === k ? ' on' : ''}`} onClick={() => updatePack(o.id, { clothBy: k })}><span className="dest-dot" />{k === 'bsc' ? 'We send it' : k === 'bsc-vendor' ? 'We add vendors' : 'Factory-held'}</button>)}</div>
-      {p.clothBy === 'factory' ? <div className="text-[12.5px] py-2" style={faint}>Factory-held cloth: nothing for sourcing here.</div> : p.clothBy ? <>
-      <div className="cap flex items-center gap-2">Sourcing <span className="pill role-sourcing">Sreekanth</span></div>
-      <div className="grid gap-x-4 gap-y-1.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-        <Field label="Cloth vendor">{canSourcing ? <Select value={fab.vendorId ?? ''} onChange={v => setFab(x => ({ ...x, vendorId: v || null }))} options={[{ value: '', label: '— choose —' }, ...mills.map(m => ({ value: m.id, label: m.name }))]} /> : <div className="text-[12.5px] py-1">{p.fabric.vendorId ? <VendorLink id={p.fabric.vendorId} /> : <span style={{ color: 'var(--warn)' }}>sourcing to add</span>}</div>}</Field>
-        <Field label="Vendor fabric code">{canSourcing ? <Input value={fab.vendorFabricCode ?? ''} onChange={e => setFab(x => ({ ...x, vendorFabricCode: e.target.value || null }))} placeholder="SOK#24594" /> : <div className="text-[12.5px] py-1 mono">{p.fabric.vendorFabricCode ?? <span style={{ color: 'var(--warn)', fontFamily: 'var(--body)' }}>sourcing to add</span>}</div>}</Field>
-        <Field label="Blocked with the vendor (m)">{canSourcing ? <Input type="number" value={fab.blockedMetres ?? ''} onChange={e => setFab(x => ({ ...x, blockedMetres: num(e.target.value) }))} /> : <div className="text-[12.5px] py-1">{p.fabric.blockedMetres != null ? `${p.fabric.blockedMetres} m` : <span style={{ color: 'var(--warn)' }}>sourcing to add</span>}</div>}</Field>
-        <Field label="Trim vendor" hint="optional"><div>{canSourcing ? <Select value={fab.trimVendorId ?? ''} onChange={v => setFab(x => ({ ...x, trimVendorId: v || null }))} options={[{ value: '', label: '— choose —' }, ...db.vendors.filter(v => v.kind === 'Trims').map(m => ({ value: m.id, label: m.name })), ...db.vendors.filter(v => v.kind.endsWith('mill') && (v.supplies ?? []).some(x => /button|label|trim|zip/i.test(x))).map(m => ({ value: m.id, label: `${m.name} · ${(m.supplies ?? []).filter(x => /button|label|trim|zip/i.test(x)).join(', ')}` }))]} /> : <div className="text-[12.5px] py-1">{p.fabric.trimVendorId ? <VendorLink id={p.fabric.trimVendorId} /> : <span style={faint}>—</span>}</div>}</div></Field>
-        {/knit/i.test(o.category) && <Field label="Yarn vendor" hint="knits"><div>{canSourcing ? <Select value={fab.yarnVendorId ?? ''} onChange={v => setFab(x => ({ ...x, yarnVendorId: v || null }))} options={[{ value: '', label: '— choose —' }, ...mills.map(m => ({ value: m.id, label: m.name }))]} /> : <div className="text-[12.5px] py-1">{p.fabric.yarnVendorId ? <VendorLink id={p.fabric.yarnVendorId} /> : <span style={faint}>—</span>}</div>}</div></Field>}
-        <Field label="Fabric readiness">{canSourcing ? <div className="flex gap-1.5"><Select value={fab.readiness ?? ''} onChange={v => setFab(x => ({ ...x, readiness: (v || null) as RequirementPack['fabric']['readiness'] }))} options={[{ value: '', label: '—' }, { value: 'available', label: 'Available at the supplier' }, { value: 'date', label: 'Supplied by a date' }]} />{fab.readiness === 'date' && <Input type="date" value={dateInput(fab.readyOn)} onChange={e => setFab(x => ({ ...x, readyOn: fromDateInput(e.target.value) }))} style={{ width: 140 }} />}</div>
-          : <div className="text-[12.5px] py-1">{p.fabric.readiness === 'available' ? 'available at the supplier' : p.fabric.readiness === 'date' && p.fabric.readyOn ? `supplied by ${fmtDate(p.fabric.readyOn)}` : <span style={{ color: 'var(--warn)' }}>sourcing to add</span>}</div>}</Field>
-      </div>
-      {canSourcing && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updatePack(o.id, { fabric: { vendorId: fab.vendorId, vendorFabricCode: fab.vendorFabricCode, blockedMetres: fab.blockedMetres, readiness: fab.readiness, readyOn: fab.readyOn, trimVendorId: fab.trimVendorId ?? null, yarnVendorId: fab.yarnVendorId ?? null } })}>Save vendor details</Button></div>}
-      </> : <div className="text-[12.5px] py-2" style={{ color: 'var(--warn)' }}>Category to choose first.</div>}
-    </div>}
+    {tab === 'vendors' && <BomVendors o={o} canDesign={canDesign} canSourcing={canSourcing} />}
 
     {canDesign && <div className="ai-brief mt-3">
       <div className="flex items-center gap-2 flex-wrap"><span className="pill ai-pill">✦ AI</span><b className="text-[13px]">Describe it in your words</b><span className="text-[12px]" style={faint}>the tech pack, fabric info and trim card are drafted from this; check each part after</span></div>
@@ -147,14 +134,14 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
         : <>
           {(canDesign || canSourcing) && !rd.ready && <Button variant="ghost" onClick={fillSample}>Fill with sample data</Button>}
           {design ? <Button variant="primary" disabled={!rd.ready} onClick={() => sendPack(o.id)}>Send to Production RTW →</Button> : <ActsBy role="design" does="sends it to Production RTW once the five parts are in" />}
-          {!rd.ready && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>Cannot proceed: {part.missing.length ? `${part.label} needs ${part.missing.join(', ')}` : rd.missing.slice(0, 3).join(', ')}{!part.missing.length && rd.missing.length > 3 ? ` and ${rd.missing.length - 3} more` : ''}{rd.sourcingMissing.length ? ' · sourcing owes its fabric fields' : ''}</span>}
+          {!rd.ready && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>Cannot proceed: {part.missing.length ? `${part.label} needs ${part.missing.join(', ')}` : rd.missing.slice(0, 3).join(', ')}{!part.missing.length && rd.missing.length > 3 ? ` and ${rd.missing.length - 3} more` : ''}{rd.sourcingMissing.length ? ' · sourcing owes vendors on the BOM' : ''}</span>}
         </>}
     </div>
   </Section>;
 }
 
 /* ── 2. the cost query: factories from the database, a deadline, the mail, the replies ── */
-export function CostQuerySection({ o, prod, merchant, design, onDraftPo }: { o: ProductionOrder; prod: boolean; merchant: boolean; design: boolean; onDraftPo?: (vendorId: string, fabricBy: FabricBy) => void }) {
+export function CostQuerySection({ o, prod, merchant, design, onDraftPo, onAskApproval, onGo }: { o: ProductionOrder; prod: boolean; merchant: boolean; design: boolean; onDraftPo?: (vendorId: string, fabricBy: FabricBy) => void; onAskApproval?: (vendorId: string, fabricBy: FabricBy) => void; onGo?: (step: string) => void }) {
   const { db, sendCostQuery, replyCostQuery, raisePoOnReply, reviseTarget } = useApp();
   const tr = targetReviseOpenOf(o);
   const [revField, setRevField] = useState<'targetInhouse' | 'targetCost'>('targetInhouse'); const [revTo, setRevTo] = useState(''); const [revWhy, setRevWhy] = useState('');
@@ -207,11 +194,15 @@ export function CostQuerySection({ o, prod, merchant, design, onDraftPo }: { o: 
           <td><div className="font-medium"><VendorLink id={id} /></div><div className="text-[11px]" style={faint}>{v?.location} · {v?.region} · {vendorMail(v)}</div><div className="text-[11px]" style={soft}>sent: {(cq.files?.[id] ?? [...QUERY_FILES]).length === QUERY_FILES.length ? 'every file' : (cq.files?.[id] ?? []).join(', ') || 'no files'}</div></td>
           <td className="text-[12px]" style={soft}>{fmtDate(cq.sentOn)}</td>
           <td>{r ? <Pill tone="good">filled the form {fmtDate(r.repliedOn)}</Pill> : <Pill tone={late ? 'risk' : 'warn'}>{late ? `form not filled · ${daysAgo(cq.deadline)}d past` : 'form not filled yet'}</Pill>}{r?.note && <div className="text-[11px]" style={soft}>{r.note}</div>}</td>
-          <td className="num" style={{ color: fl && fl.costOver > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.costOver > 0 ? 600 : undefined }}>{r ? fmtMoney(r.cost) : '—'}{r?.breakdown && r.breakdown.length > 0 && <div className="text-[10.5px]" style={{ ...faint, fontWeight: 400, whiteSpace: 'normal', maxWidth: 220, marginLeft: 'auto' }}>{r.breakdown.map(b => `${b.head.split(' · ')[0].split(' ')[0].replace(/[,/]$/, '').toLowerCase()} ${fmtMoney(b.amount)}`).join(' · ')}</div>}{fl && fl.costOver > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>+{fmtMoney(fl.costOver)} over target</div>}</td>
+          <td className="num" style={{ color: fl && fl.costOver > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.costOver > 0 ? 600 : undefined }}>{r ? fmtMoney(r.cost) : '—'}{r?.breakdown && r.breakdown.length > 0 && <div className="text-[10.5px]" style={{ ...faint, fontWeight: 400, whiteSpace: 'normal', minWidth: 190, maxWidth: 240, marginLeft: 'auto' }}>{r.breakdown.map(b => `${b.head.split(' · ')[0].split(' ')[0].replace(/[,/]$/, '').toLowerCase()} ${fmtMoney(b.amount)}`).join(' · ')}</div>}{fl && fl.costOver > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>+{fmtMoney(fl.costOver)} over target</div>}</td>
           <td className="text-[12px]" style={{ color: fl && fl.lateDays > 0 ? 'var(--risk)' : undefined, fontWeight: fl && fl.lateDays > 0 ? 600 : undefined }}>{r ? `${r.leadDays} d · ${fmtDate(fl!.inhouseOn)}` : '—'}{fl && fl.lateDays > 0 && <div className="text-[10.5px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>{fl.lateDays}d past the target date</div>}</td>
           <td style={{ whiteSpace: 'nowrap' }}>{chosen ? <Pill tone="good">PO {o.poNo}</Pill>
             : o.poNo ? null
-            : r ? (prod ? (poFor === id ? <Pill tone="info">PO being drafted ↓</Pill> : <Button size="sm" variant="primary" onClick={() => onDraftPo ? onDraftPo(id, fabBy) : setPoFor(id)}>Draft the PO on this</Button>) : null)
+            : r ? (() => { const ap = approvalOf(o);
+              if (!o.enigmaProduct) return <button type="button" className="vlink text-[11.5px]" title="the PO cannot be drafted before the SKUs are in Enigma" onClick={() => onGo?.('launch')}>add the SKUs to Enigma first →</button>;
+              if (ap.state === 'none') return prod ? <Button size="sm" variant="primary" onClick={() => onAskApproval?.(id, fabBy)}>Draft the PO on this</Button> : null;
+              if (ap.a!.vendorId !== id) return ap.state === 'rejected' && prod ? <button type="button" className="vlink text-[11.5px]" onClick={() => onAskApproval?.(id, fabBy)}>draft the PO on this instead</button> : null;
+              return <button type="button" onClick={() => onGo?.('approval')}><Pill tone={ap.state === 'rejected' || ap.late ? 'risk' : ap.state === 'approved' ? 'good' : 'warn'}>{ap.line}</Pill></button>; })()
             : <button type="button" className="vlink text-[11.5px]" onClick={() => setQuoteFor(id)}>open {nameOf(id)}'s quote form ↗</button>}</td>
         </tr>; })}</tbody>
     </table></div>
@@ -227,8 +218,8 @@ export function CostQuerySection({ o, prod, merchant, design, onDraftPo }: { o: 
       <div style={{ flex: '0 1 320px' }}><Field label="The cloth · decided before the PO" hint={fabBy === 'bsc' ? 'sourcing ships cloth and trims; BSC invoices the factory for them' : fabBy === 'bsc-vendor' ? `vendor details go on the PO: ${db.vendors.find(v => v.id === packOf(o).fabric.vendorId)?.name ?? '—'}; the factory raises its own fabric PO` : 'the factory uses its own cloth and gives its PO and receipt details'}>{prod ? <Select value={fabBy} onChange={v => setFabBy(v as FabricBy)} options={(Object.keys(FABRIC_BY_LABEL) as FabricBy[]).map(k => ({ value: k, label: FABRIC_BY_LABEL[k] }))} /> : <div className="text-[12.5px] py-1">{FABRIC_BY_LABEL[fabBy]}</div>}</Field></div>
       <span className="pill role-production">Nitin</span>
     </div>}
+    {!o.poNo && cq.replies.length > 0 && <SupplyInvoiceBar o={o} editable={prod} clothBy={fabBy} className="mt-3" />}
     {!o.poNo && cq.replies.length > 0 && <div className="pt-2 text-[12.5px]" style={faint}>The PO delivers to <b>{o.deliverTo ?? deliveryLocationOf(needsHemmingOf(o))}</b> — {o.semiStitched ? 'a semi-stitched product, hemming in-house at Vasai' : 'nothing to hem, so the 3PL warehouse'} (set on the requirement).</div>}
-    {!o.poNo && prod && !onDraftPo && poFor && cq.replies.some(r => r.vendorId === poFor) && <PoForm key={poFor + fabBy} o={o} vendorId={poFor} rate={cq.replies.find(r => r.vendorId === poFor)!.cost} fabricBy={fabBy} onCancel={() => setPoFor(null)} onRaise={d => { raisePoOnReply(o.id, poFor, fabBy, d); setPoFor(null); }} />}
     {!o.poNo && cq.replies.length === 0 && <div className="text-[12.5px] pt-2" style={faint}>No factory has filled the form yet. Replies land here by themselves from the factory's web form.</div>}
     {/* every reply over target: category revises the target in-house date or the target cost; what it was stays on the record */}
     {tr.open && <div className="mt-3 p-3 rounded-[8px]" style={{ background: 'color-mix(in srgb, var(--risk) 6%, #fff)', border: '1px solid var(--risk)' }}>
@@ -254,7 +245,12 @@ export function CostQuerySection({ o, prod, merchant, design, onDraftPo }: { o: 
 const INV_KIND: Record<PoInvoice['kind'], string> = { fabric: 'Fabric', trim: 'Trim', service: 'Service', other: 'Other' };
 const DOC_LABEL: Record<NonNullable<PoInvoice['doc']>, string> = { invoice: 'Invoice', 'debit-note': 'Debit note', 'credit-note': 'Credit note', other: 'Other' };
 export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boolean }) {
-  const { addPoInvoice, removePoInvoice } = useApp();
+  const { addPoInvoice, removePoInvoice, generateSupplyInvoice, addPoPayment, removePoPayment } = useApp();
+  const led = poLedgerOf(o); const supply = supplyLinesOf(o); const supplyTotal = supply.reduce((x, l) => x + l.amount, 0);
+  const generated = (o.poInvoices ?? []).some(r => r.lines?.length);
+  const [view, setView] = useState<PoInvoice | null>(null);
+  const pays = o.poPayments ?? [];
+  const [pOn, setPOn] = useState(dateInput(new Date().toISOString())); const [pAmt, setPAmt] = useState(''); const [pRef, setPRef] = useState(''); const [pNote, setPNote] = useState('');
   const rows = o.poInvoices ?? [];
   /* who pays: a factory's invoice or credit note means BSC pays (or pays less); BSC's invoice for material or a debit note means the factory pays */
   const [docT, setDocT] = useState<NonNullable<PoInvoice['doc']>>('invoice'); const [payer, setPayer] = useState<PoInvoice['direction']>('factory-to-bsc');
@@ -264,7 +260,7 @@ export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boole
   const net = bscPays - factoryPays;
   const PAYER = { 'factory-to-bsc': 'BSC pays', 'bsc-to-factory': 'Factory pays' } as const;
   const add = () => { addPoInvoice(o.id, { doc: docT, direction: payer, kind: 'other', no: no.trim(), amount: Number(amt), what: what.trim() || DOC_LABEL[docT], file: file.trim() || null, note: null }); setNo(''); setAmt(''); setWhat(''); setFile(''); };
-  return <Section title="Invoices · debit and credit notes" collapsible={false} right={<Pill tone={rows.length ? 'info' : 'neutral'}>{rows.length ? `${rows.length} logged` : 'none logged yet'}</Pill>}>
+  return <Section title="Invoices · notes · payments" collapsible={false} right={<Pill tone={rows.length ? 'info' : 'neutral'}>{rows.length ? `${rows.length} logged` : 'none logged yet'}</Pill>}>
     <div style={{ overflowX: 'auto' }}><table className="t compact inv-lines">
       <thead><tr><th>Document</th><th>No.</th><th>What</th><th className="num">Amount ₹</th><th>Who pays</th><th>File</th><th></th></tr></thead>
       <tbody>{rows.map(r => <tr key={r.id}>
@@ -273,7 +269,7 @@ export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boole
         <td className="text-[12.5px]" style={{ whiteSpace: 'normal' }}>{r.what}<div className="text-[11px]" style={faint}>{r.by} · {fmtDate(r.on)}{r.note ? ` · ${r.note}` : ''}</div></td>
         <td className="num">{fmtMoney(r.amount)}</td>
         <td><Pill tone={r.direction === 'factory-to-bsc' ? 'warn' : 'info'}>{PAYER[r.direction]}</Pill></td>
-        <td className="text-[12px]">{r.file ? <span className="vlink">{r.file}</span> : <span style={faint}>—</span>}</td>
+        <td className="text-[12px]">{r.lines?.length ? <button type="button" className="vlink" onClick={() => setView(r)}>view invoice</button> : r.file ? <span className="vlink">{r.file}</span> : <span style={faint}>—</span>}</td>
         <td>{prod && <button type="button" className="vlink text-[11.5px]" onClick={() => removePoInvoice(o.id, r.id)}>×</button>}</td>
       </tr>)}
       {prod && <tr>
@@ -286,12 +282,34 @@ export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boole
         <td><Button size="sm" variant="primary" disabled={!no.trim() || !Number(amt)} onClick={add}>+ Add</Button></td>
       </tr>}</tbody>
     </table></div>
-    <div className="po-totals mt-3" style={{ maxWidth: 360, marginLeft: 'auto' }}>
-      <div className="kv"><span className="k">BSC pays</span><span className="v">{fmtMoney(Math.round(bscPays))}</span></div>
-      <div className="kv"><span className="k">Factory pays</span><span className="v">{fmtMoney(Math.round(factoryPays))}</span></div>
-      <div className="kv po-grand"><span className="k">{net >= 0 ? 'Net payable by BSC' : 'Net payable by the factory'}</span><span className="v">{fmtMoney(Math.round(Math.abs(net)))}</span></div>
-      {o.poDoc && <div className="text-[11px] pt-1" style={faint}>PO total {fmtMoney(Math.round(poTotalsOf(o.poDoc).total))}</div>}
+    {supply.length > 0 && <div className="supply-inv mt-3">
+      <div className="flex items-center gap-2 flex-wrap"><b className="text-[13px]">What BSC sends on this style</b><span className="text-[12px]" style={faint}>{supply.map(l => `${l.item} ${l.qty} ${l.unit}`).join(' · ')}</span>
+        <span className="ml-auto flex items-center gap-2"><b className="text-[13px]">{fmtMoney(supplyTotal)}</b>{prod && <Button size="sm" variant={generated ? 'ghost' : 'primary'} disabled={!supplyTotal} onClick={() => generateSupplyInvoice(o.id)}>{generated ? 'Generate again' : 'Generate the invoice'}</Button>}</span></div>
+      {!supplyTotal && <div className="text-[11.5px] pt-1" style={{ color: 'var(--warn)' }}>Add a rate to the BOM lines BSC sends to price the invoice.</div>}
+    </div>}
+
+    <div className="cap pt-4">Payments made</div>
+    <div style={{ overflowX: 'auto' }}><table className="t compact inv-lines">
+      <thead><tr><th>Date</th><th>Reference</th><th>Note</th><th className="num">Amount ₹</th><th>Logged</th><th></th></tr></thead>
+      <tbody>{pays.map(x => <tr key={x.id}><td className="text-[12.5px]">{fmtDate(x.on)}</td><td className="mono text-[12px]">{x.ref ?? '—'}</td><td className="text-[12.5px]" style={{ whiteSpace: 'normal' }}>{x.note ?? '—'}</td><td className="num">{fmtMoney(x.amount)}</td>
+        <td className="text-[11.5px]" style={soft}>{x.by}{x.via === 'upload' ? " · finance's upload" : ''}</td><td>{prod && <button type="button" className="vlink text-[11.5px]" onClick={() => removePoPayment(o.id, x.id)}>×</button>}</td></tr>)}
+      {pays.length === 0 && !prod && <tr><td colSpan={6} className="text-[12.5px]" style={faint}>No payment logged yet.</td></tr>}
+      {prod && <tr><td><Input type="date" value={pOn} onChange={e => setPOn(e.target.value)} style={{ width: 132 }} /></td><td><Input value={pRef} onChange={e => setPRef(e.target.value)} placeholder="UTR / cheque no." style={{ width: 120 }} /></td><td><Input value={pNote} onChange={e => setPNote(e.target.value)} placeholder="25% advance, balance…" style={{ width: '100%', minWidth: 120 }} /></td>
+        <td className="num"><Input type="number" min={0} value={pAmt} onChange={e => setPAmt(e.target.value)} placeholder="₹" style={{ width: 96, textAlign: 'right' }} /></td>
+        <td colSpan={2}><Button size="sm" variant="primary" disabled={!Number(pAmt) || !pOn} onClick={() => { addPoPayment(o.id, { on: fromDateInput(pOn)!, amount: Number(pAmt), ref: pRef.trim() || null, note: pNote.trim() || null }); setPAmt(''); setPRef(''); setPNote(''); }}>+ Add</Button></td></tr>}</tbody>
+    </table></div>
+
+    <div className="po-totals mt-3" style={{ maxWidth: 420, marginLeft: 'auto' }}>
+      <div className="kv"><span className="k">PO total</span><span className="v">{fmtMoney(Math.round(led.poTotal))}</span></div>
+      <div className="kv"><span className="k">Less: BSC's invoices and debit notes<span className="block text-[11px]" style={faint}>material BSC sent, deductions</span></span><span className="v">− {fmtMoney(Math.round(led.bscInvoiced))}</span></div>
+      {led.counted && <div className="kv"><span className="k">Less: not received<span className="block text-[11px]" style={faint}>{led.receivedPcs} of {led.poPcs} pcs counted in by the warehouse{led.rejectedPcs ? ` · ${led.rejectedPcs} damaged` : ''}</span></span><span className="v" style={{ color: led.shortValue ? 'var(--risk)' : undefined }}>− {fmtMoney(led.shortValue)}</span></div>}
+      <div className="kv"><span className="k">Payable to the factory</span><span className="v">{fmtMoney(Math.round(led.payable))}</span></div>
+      <div className="kv"><span className="k">Paid so far</span><span className="v">− {fmtMoney(Math.round(led.paid))}</span></div>
+      <div className="kv po-grand"><span className="k">Remaining to pay</span><span className="v" style={{ color: led.remaining < 0 ? 'var(--risk)' : undefined }}>{fmtMoney(Math.round(led.remaining))}</span></div>
+      {led.advancePct > 0 && <div className="text-[11.5px] pt-1" style={{ color: led.advancePending > 0 ? 'var(--warn)' : 'var(--good)' }}>{led.advancePct}% up front {led.advanceWhen ?? ''}: {fmtMoney(led.advanceDue)} · {led.advancePending > 0 ? `${fmtMoney(led.advancePending)} still to pay` : 'paid'}</div>}
+      <div className="text-[11px] pt-1" style={faint}>Factory has invoiced {fmtMoney(Math.round(led.factoryInvoiced))} so far{!o.poNo ? ' · no PO yet' : ''}</div>
     </div>
+    {view && <InvoicePreview o={o} inv={view} onClose={() => setView(null)} />}
     {!prod && !rows.length && <ActsBy role="production" does="logs every invoice and note, both ways" />}
   </Section>;
 }
@@ -300,30 +318,39 @@ export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boole
 /* ── 3a. the PO itself: item lines per colour with the size break-up and a rate, other charges, GST and the terms.
    Drafted from the requirement's colours and sizes at the reply's rate; Nitin edits every line before raising it. ── */
 const PAYMENT_TERMS = ['45 days from receipt at the warehouse', '30 days from receipt at the warehouse', '50% advance, 50% on dispatch', 'On dispatch, against invoice'];
-export function PoForm({ o, vendorId, rate, fabricBy, onCancel, onRaise }: { o: ProductionOrder; vendorId: string; rate: number; fabricBy: FabricBy; onCancel: () => void; onRaise: (d: PoDoc) => void }) {
+export type PoAsk = { needs: ApproverRole[]; deadline: string; note: string | null };
+const PO_NEEDS: { id: string; label: string; needs: ApproverRole[] }[] = [{ id: 'both', label: 'Both HOD and finance', needs: ['hod', 'finance'] }, { id: 'hod', label: 'Only HOD', needs: ['hod'] }, { id: 'finance', label: 'Only finance', needs: ['finance'] }, { id: 'skip', label: 'Skip approval', needs: [] }];
+export function PoForm({ o, vendorId, rate, fabricBy, onCancel, onRaise, initialDoc, title }: { o: ProductionOrder; vendorId: string; rate: number; fabricBy: FabricBy; onCancel: () => void; onRaise: (d: PoDoc, ask: PoAsk) => void; initialDoc?: PoDoc | null; title?: string }) {
+  const [need, setNeed] = useState('both'); const [deadline, setDeadline] = useState(dateInput(new Date(Date.now() + 2 * 864e5).toISOString())); const [askNote, setAskNote] = useState('');
   const { db } = useApp();
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => { box.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, []);
-  const [d, setD] = useState<PoDoc>(() => { const x = poDraftOf(o, rate, o.costQuery?.replies.find(r => r.vendorId === vendorId)?.lines); return { ...x, priceBasis: fabricBy === 'bsc' ? 'CMT · BSC supplies the cloth' : fabricBy === 'bsc-vendor' ? "FOB · cloth from BSC's vendor, bought by the factory" : 'FOB · cloth and trims by the factory' }; });
+  const [d, setD] = useState<PoDoc>(() => { if (initialDoc) return structuredClone(initialDoc); const x = poDraftOf(o, rate, o.costQuery?.replies.find(r => r.vendorId === vendorId)?.lines); return { ...x, priceBasis: fabricBy === 'bsc' ? 'CMT · BSC supplies the cloth' : fabricBy === 'bsc-vendor' ? "FOB · cloth from BSC's vendor, bought by the factory" : 'FOB · cloth and trims by the factory' }; });
   const [newColour, setNewColour] = useState(''); const [chLabel, setChLabel] = useState(''); const [chAmt, setChAmt] = useState('');
   const sizes = [...new Set(d.lines.flatMap(l => l.sizes.map(x => x.size)))];
   const t = poTotalsOf(d); const want = o.orderQty;
+  const rm = rawMaterialsOf(db, o, isCmt(d) ? 'bsc' : fabricBy === 'bsc' ? 'bsc-vendor' : fabricBy);
   const setLine = (id: string, f: (l: PoLine) => PoLine) => setD(x => ({ ...x, lines: x.lines.map(l => l.id === id ? f(l) : l) }));
   const qtyOf = (l: PoLine) => l.sizes.reduce((a, x) => a + (x.qty || 0), 0);
   const v = db.vendors.find(x => x.id === vendorId); const deliver = o.deliverTo ?? deliveryLocationOf(needsHemmingOf(o));
   const ok = d.lines.length > 0 && t.pcs > 0 && d.lines.every(l => l.colour.trim() && l.rate > 0);
   return <div ref={box} className="po-doc po-draft mt-3" style={{ scrollMarginTop: 140 }}>
-    <div className="flex items-baseline gap-2 flex-wrap pb-2"><span className="cap" style={{ margin: 0 }}>Purchase order · draft</span><span className="text-[12px]" style={faint}>to {v?.name ?? vendorId} · reply {fmtMoney(rate)}/pc</span></div>
+    <div className="flex items-baseline gap-2 flex-wrap pb-2"><span className="cap" style={{ margin: 0 }}>{title ?? 'Purchase order · draft'}</span><span className="text-[12px]" style={faint}>to {v?.name ?? vendorId} · reply {fmtMoney(rate)}/pc</span></div>
     <div className="grid gap-x-4 gap-y-1 pb-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
       <Field label="Factory"><div className="text-[12.5px] py-1 font-medium">{v?.name ?? '—'}<span className="block text-[11px] font-normal" style={faint}>{v?.location}{v?.email ? ` · ${v.email}` : ''}</span></div></Field>
       <Field label="Deliver to"><div className="text-[12.5px] py-1 font-medium">{deliver}</div></Field>
-      <Field label="Ship by"><Input type="date" value={dateInput(d.shipBy)} onChange={e => setD(x => ({ ...x, shipBy: fromDateInput(e.target.value) }))} /></Field>
+      <Field label="Style"><div className="text-[12.5px] py-1 font-medium">{o.styleName}<span className="block text-[11px] font-normal" style={faint}>{o.enigmaProduct?.code ?? o.category}</span></div></Field>
+      <Field label="Quantity"><div className="text-[12.5px] py-1 font-medium">{t.pcs} pcs<span className="block text-[11px] font-normal" style={faint}>size ratio {sizes.map(sz => d.lines.reduce((a, l) => a + (l.sizes.find(x => x.size === sz)?.qty ?? 0), 0)).join(' : ')}</span></div></Field>
+      <Field label="Delivery date"><Input type="date" value={dateInput(d.shipBy)} onChange={e => setD(x => ({ ...x, shipBy: fromDateInput(e.target.value) }))} /></Field>
+      <Field label="Goods expected by"><Input type="date" value={dateInput(d.goodsExpectedBy)} onChange={e => setD(x => ({ ...x, goodsExpectedBy: fromDateInput(e.target.value) }))} /></Field>
       <Field label="Price basis"><Select value={d.priceBasis} onChange={val => setD(x => { const cmt = val.startsWith('CMT'); const code = taxCodeOf(o, cmt); const cons = o.fabricMetres && o.orderQty ? Math.round(o.fabricMetres / o.orderQty * 100) / 100 : 1.6;
         return { ...x, priceBasis: val, gstPct: 5, lines: x.lines.map(l => ({ ...l, hsn: code })), cloth: cmt ? (x.cloth ?? { metresIssued: o.fabricMetres ?? null, consumptionPerPc: cons, wastagePct: 3, leftover: 'Returned to BSC with the goods' }) : null }; })} options={['CMT · BSC supplies the cloth', "FOB · cloth from BSC's vendor, bought by the factory", 'FOB · cloth and trims by the factory'].map(x => ({ value: x, label: x }))} /></Field>
-      <Field label="Payment terms"><Select value={d.paymentTerms} onChange={val => setD(x => ({ ...x, paymentTerms: val }))} options={PAYMENT_TERMS.map(x => ({ value: x, label: x }))} /></Field>
+      <Field label="Paid up front %"><Select value={String(d.advancePct ?? 0)} onChange={val => setD(x => ({ ...x, advancePct: Number(val) }))} options={[0, 25, 30, 50].map(n => ({ value: String(n), label: n ? `${n}% up front` : 'nothing up front' }))} /></Field>
+      {(d.advancePct ?? 0) > 0 && <Field label="Up-front payment due"><Select value={d.advanceWhen ?? 'with the PO'} onChange={val => setD(x => ({ ...x, advanceWhen: val }))} options={['with the PO', 'when the cloth is in-house', 'on PP sample approval'].map(x => ({ value: x, label: x }))} /></Field>}
+      <Field label={(d.advancePct ?? 0) > 0 ? 'Balance payment' : 'Payment terms'}><Select value={d.paymentTerms} onChange={val => setD(x => ({ ...x, paymentTerms: val }))} options={PAYMENT_TERMS.map(x => ({ value: x, label: x }))} /></Field>
       <Field label={isCmt(d) ? 'SAC · job work' : 'HSN · garment'} hint={isCmt(d) ? 'CMT is a stitching service' : 'by what the garment is'}><Input value={d.lines[0]?.hsn ?? ''} onChange={e => setD(x => ({ ...x, lines: x.lines.map(l => ({ ...l, hsn: e.target.value })) }))} /></Field>
       <Field label="GST" hint="to confirm with accounts"><Select value={String(d.gstPct)} onChange={val => setD(x => ({ ...x, gstPct: Number(val) }))} options={[5, 12, 18].map(n => ({ value: String(n), label: `${n}%` }))} /></Field>
-      <Field label="Ship-by means"><Select value={d.deliveryBasis ?? 'in-house'} onChange={val => setD(x => ({ ...x, deliveryBasis: val as 'ex-factory' | 'in-house' }))} options={[{ value: 'in-house', label: 'in-house at the warehouse' }, { value: 'ex-factory', label: 'leaves the factory' }]} /></Field>
+      <Field label="Delivery date means"><Select value={d.deliveryBasis ?? 'in-house'} onChange={val => setD(x => ({ ...x, deliveryBasis: val as 'ex-factory' | 'in-house' }))} options={[{ value: 'in-house', label: 'in-house at the warehouse' }, { value: 'ex-factory', label: 'leaves the factory' }]} /></Field>
       <Field label="Quantity tolerance ±%"><Input type="number" min={0} max={10} value={String(d.tolerancePct ?? 0)} onChange={e => setD(x => ({ ...x, tolerancePct: Number(e.target.value) || 0 }))} /></Field>
       <Field label="Final inspection AQL"><Select value={d.aql ?? AQL_LEVELS[1]} onChange={val => setD(x => ({ ...x, aql: val }))} options={AQL_LEVELS.map(a => ({ value: a, label: a }))} /></Field>
       <Field label="Late delivery"><Input value={d.lateDeduction ?? ''} onChange={e => setD(x => ({ ...x, lateDeduction: e.target.value || null }))} placeholder="e.g. 1% per week late" /></Field>
@@ -361,6 +388,8 @@ export function PoForm({ o, vendorId, rate, fabricBy, onCancel, onRaise }: { o: 
         <div className="cap">Other charges on the PO</div>
         {d.charges.map((c, i) => <div key={i} className="flex justify-between text-[12.5px] py-0.5"><span>{c.label}</span><span>{fmtMoney(c.amount)} <button type="button" className="vlink" onClick={() => setD(x => ({ ...x, charges: x.charges.filter((_, k) => k !== i) }))}>×</button></span></div>)}
         <div className="flex gap-1.5 items-center pt-1"><Input value={chLabel} onChange={e => setChLabel(e.target.value)} placeholder="logistics, packing, testing…" style={{ flex: 1 }} /><Input type="number" value={chAmt} onChange={e => setChAmt(e.target.value)} placeholder="₹" style={{ width: 90 }} /><Button size="sm" variant="ghost" disabled={!chLabel.trim() || !Number(chAmt)} onClick={() => { setD(x => ({ ...x, charges: [...x.charges, { label: chLabel.trim(), amount: Number(chAmt) }] })); setChLabel(''); setChAmt(''); }}>Add</Button></div>
+        <div className="pt-3"><Field label="Raw material terms" hint="who supplies what; the vendors BSC nominates are named for the factory"><textarea className="input" rows={4} value={d.rawMaterialTerms ?? rm.text} onChange={e => setD(x => ({ ...x, rawMaterialTerms: e.target.value }))} style={{ width: '100%', fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.45 }} /></Field>
+          {rm.nominated.some(r => !r.vendor) && <div className="text-[11.5px]" style={{ color: 'var(--warn)' }}>No vendor named yet for: {rm.nominated.filter(r => !r.vendor).map(r => r.item).join(', ')}. Add it on the BOM.</div>}</div>
         <div className="pt-3"><Field label="Notes and terms on the PO"><textarea className="input" rows={3} value={d.notes ?? ''} onChange={e => setD(x => ({ ...x, notes: e.target.value || null }))} placeholder="packing per polybag, cartons of 40, labels as per the trim card…" style={{ width: '100%', fontFamily: 'inherit', fontSize: 12.5 }} /></Field></div>
       </div>
       <div className="po-totals">
@@ -372,16 +401,26 @@ export function PoForm({ o, vendorId, rate, fabricBy, onCancel, onRaise }: { o: 
         <div className="text-[11px] pt-1" style={faint}>average {fmtMoney(Math.round(t.avgRate))}/pc · target {fmtMoney(o.targetCost)}/pc</div>
       </div>
     </div>
-    <div className="flex gap-2 pt-3"><Button variant="primary" disabled={!ok} onClick={() => onRaise(d)}>Raise the PO · {fmtMoney(Math.round(t.total))}</Button><Button variant="ghost" onClick={onCancel}>Cancel</Button></div>
+    <div className="po-ask mt-3">
+      <div className="cap" style={{ margin: 0 }}>{need === 'skip' ? 'No approval · the PO is raised and mailed now' : 'Send for approval · it is raised and mailed by itself once approved'}</div>
+      <div className="flex gap-2 flex-wrap items-end pt-1.5">
+        <span className="flex gap-2 flex-wrap">{PO_NEEDS.map(n => <button key={n.id} type="button" className={`dest-opt${need === n.id ? ' on' : ''}`} onClick={() => setNeed(n.id)}><span className="dest-dot" />{n.label}</button>)}</span>
+        {need !== 'skip' && <Field label="Approve by"><Input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} /></Field>}
+        <div style={{ flex: '1 1 220px' }}><Field label={need === 'skip' ? 'Why no approval is needed' : 'Note for the approvers'}><Input value={askNote} onChange={e => setAskNote(e.target.value)} placeholder={need === 'skip' ? 'repeat order at the same rate, within budget…' : 'why this factory, what changed'} /></Field></div>
+      </div>
+    </div>
+    <div className="flex gap-2 pt-3"><Button variant="primary" disabled={!ok || (need !== 'skip' && !deadline) || (need === 'skip' && !askNote.trim())} onClick={() => onRaise({ ...d, rawMaterialTerms: d.rawMaterialTerms ?? rm.text }, { needs: PO_NEEDS.find(n => n.id === need)!.needs, deadline: fromDateInput(deadline) ?? new Date().toISOString(), note: askNote.trim() || null })}>{need === 'skip' ? 'Raise and send the PO' : 'Send for approval'} · {fmtMoney(Math.round(t.total))}</Button><Button variant="ghost" onClick={onCancel}>Cancel</Button></div>
   </div>;
 }
-export function PoDocView({ o }: { o: ProductionOrder }) {
-  const d = o.poDoc; if (!d) return null;
+export function PoDocView({ o, doc }: { o: ProductionOrder; doc?: PoDoc | null }) {
+  const { db } = useApp();
+  const d0 = doc ?? o.poDoc; if (!d0) return null;
+  const d = { ...d0, rawMaterialTerms: d0.rawMaterialTerms ?? rawMaterialsOf(db, o).text };
   const t = poTotalsOf(d); const sizes = [...new Set(d.lines.flatMap(l => l.sizes.map(x => x.size)))];
   const qtyOf = (l: PoLine) => l.sizes.reduce((a, x) => a + (x.qty || 0), 0);
   return <div className="po-doc my-2">
-    <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Price basis </span><b>{d.priceBasis}</b></span><span><span style={faint}>Payment </span><b>{d.paymentTerms}</b></span><span><span style={faint}>Ship by </span><b>{fmtDate(d.shipBy)}</b></span>{d.lines[0]?.hsn && <span><span style={faint}>{isCmt(d) ? 'SAC ' : 'HSN '}</span><b className="mono">{d.lines[0].hsn}</b></span>}<span><span style={faint}>GST </span><b>{d.gstPct}%</b></span>{d.revision && <span><span style={faint}>Rev </span><b>{d.revision}</b></span>}</div>
-    <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Ship-by means </span><b>{d.deliveryBasis === 'ex-factory' ? 'leaves the factory' : 'in-house at the warehouse'}</b></span>{d.tolerancePct != null && <span><span style={faint}>Tolerance </span><b>±{d.tolerancePct}%</b></span>}{d.aql && <span><span style={faint}>AQL </span><b>{d.aql}</b></span>}{d.lateDeduction && <span><span style={faint}>Late </span><b>{d.lateDeduction}</b></span>}</div>
+    <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Price basis </span><b>{d.priceBasis}</b></span><span><span style={faint}>Payment </span><b>{(d.advancePct ?? 0) > 0 ? `${d.advancePct}% ${d.advanceWhen ?? 'up front'}, balance ` : ''}{d.paymentTerms}</b></span><span><span style={faint}>Delivery date </span><b>{fmtDate(d.shipBy)}</b></span>{d.goodsExpectedBy && <span><span style={faint}>Goods expected by </span><b>{fmtDate(d.goodsExpectedBy)}</b></span>}{d.lines[0]?.hsn && <span><span style={faint}>{isCmt(d) ? 'SAC ' : 'HSN '}</span><b className="mono">{d.lines[0].hsn}</b></span>}<span><span style={faint}>GST </span><b>{d.gstPct}%</b></span>{d.revision && <span><span style={faint}>Rev </span><b>{d.revision}</b></span>}</div>
+    <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Delivery date means </span><b>{d.deliveryBasis === 'ex-factory' ? 'leaves the factory' : 'in-house at the warehouse'}</b></span>{d.tolerancePct != null && <span><span style={faint}>Tolerance </span><b>±{d.tolerancePct}%</b></span>}{d.aql && <span><span style={faint}>AQL </span><b>{d.aql}</b></span>}{d.lateDeduction && <span><span style={faint}>Late </span><b>{d.lateDeduction}</b></span>}</div>
     {d.cloth && <div className="text-[12.5px] pb-2"><span style={faint}>Cloth issued · CMT </span><b>{d.cloth.metresIssued ?? '—'} m</b> · {d.cloth.consumptionPerPc ?? '—'} m/pc · {d.cloth.wastagePct ?? 0}% wastage · {d.cloth.leftover.toLowerCase()}</div>}
     <div style={{ overflowX: 'auto' }}><table className="t compact po-lines">
       <thead><tr><th>#</th><th>Colour / option</th>{sizes.map(sz => <th key={sz} className="num">{sz}</th>)}<th className="num">Pcs</th><th className="num">₹ / pc</th><th className="num">Amount</th></tr></thead>
@@ -390,7 +429,7 @@ export function PoDocView({ o }: { o: ProductionOrder }) {
       <tfoot><tr><td></td><td className="text-[12px]" style={soft}>Total</td>{sizes.map(sz => <td key={sz} className="num text-[12px]" style={soft}>{d.lines.reduce((a, l) => a + (l.sizes.find(x => x.size === sz)?.qty ?? 0), 0)}</td>)}<td className="num font-semibold">{t.pcs}</td><td></td><td className="num font-semibold">{fmtMoney(Math.round(t.value))}</td></tr></tfoot>
     </table></div>
     <div className="grid gap-4 pt-2" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 300px)' }}>
-      <div className="text-[12.5px]">{d.charges.length > 0 && <><div className="cap">Other charges</div>{d.charges.map((c, i) => <div key={i} className="flex justify-between py-0.5"><span>{c.label}</span><span>{fmtMoney(c.amount)}</span></div>)}</>}{d.notes && <><div className="cap pt-2">Notes and terms</div><div style={soft}>{d.notes}</div></>}</div>
+      <div className="text-[12.5px]">{d.charges.length > 0 && <><div className="cap">Other charges</div>{d.charges.map((c, i) => <div key={i} className="flex justify-between py-0.5"><span>{c.label}</span><span>{fmtMoney(c.amount)}</span></div>)}</>}{d.rawMaterialTerms && <><div className="cap">Raw material terms</div><div style={{ ...soft, whiteSpace: 'pre-line' }}>{d.rawMaterialTerms}</div></>}{d.notes && <><div className="cap pt-2">Notes and terms</div><div style={soft}>{d.notes}</div></>}</div>
       <div className="po-totals">
         <div className="kv"><span className="k">Goods</span><span className="v">{fmtMoney(Math.round(t.value))}</span></div>
         {t.charges > 0 && <div className="kv"><span className="k">Other charges</span><span className="v">{fmtMoney(Math.round(t.charges))}</span></div>}
@@ -401,8 +440,22 @@ export function PoDocView({ o }: { o: ProductionOrder }) {
   </div>;
 }
 
+/* what rides with the PO mail, as files; the invoice generated from the BOM opens */
+function PoAttachments({ o }: { o: ProductionOrder }) {
+  const { db } = useApp(); const [view, setView] = useState<PoInvoice | null>(null);
+  const invs = supplyInvoicesOf(o); const files = poMailOf(db, o).attachments.filter(a => !a.startsWith('Invoice '));
+  return <div className="po-att mt-3">
+    <div className="text-[11px] uppercase tracking-wide pb-1.5" style={faint}>Attachments on the PO mail · {files.length + invs.length}</div>
+    <div className="flex gap-1.5 flex-wrap">
+      {files.map(f => <span key={f} className="att-chip"><span aria-hidden>📎</span>{f}</span>)}
+      {invs.map(i => <button key={i.id} type="button" className="att-chip inv" onClick={() => setView(i)}><span aria-hidden>🧾</span>Invoice {i.no} · material BSC sends · <b>{fmtMoney(i.amount)}</b><span className="vlink">view</span></button>)}
+      {!invs.length && <span className="att-chip" style={faint}>{supplyLinesOf(o).length ? 'invoice for what BSC sends · not generated' : 'no invoice · nothing is sent by BSC'}</span>}
+    </div>
+    {view && <InvoicePreview o={o} inv={view} onClose={() => setView(null)} />}
+  </div>;
+}
 export function PoSection({ o }: { o: ProductionOrder }) {
-  const { db, sendPoMail, role } = useApp(); const prod = role === 'production' || role === 'owner';
+  const { db } = useApp();
   const pm = o.poMail; const p = packOf(o); const rp = o.costQuery?.replies.find(r => r.vendorId === o.vendorId);
   if (!o.poNo) return <Section title="PO" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>No PO yet.</div></Section>;
   return <Section title={`${o.poNo} · ${db.vendors.find(v => v.id === o.vendorId)?.name ?? ''}`} collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone="good">raised {fmtDate(o.poDate)}</Pill><Pill tone={pm?.sentOn ? 'good' : 'warn'}>{pm?.sentOn ? `mailed ${fmtDate(pm.sentOn)}` : 'mail to send'}</Pill>{o.poAckOn && <Pill tone="good">acknowledged {fmtDate(o.poAckOn)}</Pill>}</span>}>
@@ -411,8 +464,8 @@ export function PoSection({ o }: { o: ProductionOrder }) {
     <KV k="Deliver to" v={<b>{pm?.deliveryLocation ?? '—'}</b>} note={pm?.needsHemming ? 'semi-stitched product · hemming in-house, so Vasai' : 'nothing to hem, so the 3PL warehouse'} />
     <KV k="Cloth" v={FABRIC_BY_LABEL[pm?.fabricBy ?? 'factory']} note={pm?.fabricBy === 'factory' ? "the factory gives its fabric PO and receipt details; they are TNA steps" : `${db.vendors.find(v => v.id === p.fabric.vendorId)?.name ?? '—'}${p.fabric.vendorFabricCode ? ` · ${p.fabric.vendorFabricCode}` : ''}${p.fabric.blockedMetres != null ? ` · ${p.fabric.blockedMetres} m blocked` : ''}${pm?.fabricBy === 'bsc' ? ' · sourcing ships it to the factory' : ' · vendor details sent; the factory raises its own PO on them, no cloth PO in PLM'}`} />
     <PoDocView o={o} />
-    <div className="pt-2"><MailCard label="PO · with the TNA form" mail={{ ...poMailOf(db, o), ...(pm?.mail ?? {}), to: pm?.to ?? [], cc: pm?.cc ?? [] }} sentOn={pm?.sentOn ?? null} sendLabel="Send the PO to the factory and the merchandiser ✉" onSend={prod ? m => sendPoMail(o.id, { to: m.to, cc: m.cc, subject: m.subject, body: m.body }) : undefined} /></div>
-    {pm && !pm.sentOn && !prod && <ActsBy role="production" does="sends the PO mail" />}
+    <PoAttachments o={o} />
+    <div className="pt-2"><MailCard label="PO · with the TNA form" mail={{ ...poMailOf(db, o), ...(pm?.mail ?? {}), to: pm?.to ?? [], cc: pm?.cc ?? [] }} sentOn={pm?.sentOn ?? null} /></div>
   </Section>;
 }
 
@@ -543,6 +596,40 @@ export function InvoiceSection({ o, merchant }: { o: ProductionOrder; merchant: 
 }
 
 /* ── 7. received on Enigma, against the packing list ── */
+/* Prince counts the goods in (17 Nov 2026): what was ordered, what the packing list says, what he counted, size by size.
+   A short or damaged count is flagged, and what is not received comes off the payable. */
+export function WarehouseCount({ o }: { o: ProductionOrder }) {
+  const { receiveLot } = useApp();
+  const inv = o.invoice; const rc = receiptOf(o);
+  const ordered: Record<string, number> = {}; (o.poDoc?.lines ?? []).forEach(l => l.sizes.forEach(x => { ordered[x.size] = (ordered[x.size] ?? 0) + x.qty; })); if (!o.poDoc) o.sizeBreakup.forEach(x => { ordered[x.size] = x.qty; });
+  const got: Record<string, number> = {}; rc.lots.forEach(l => Object.entries(l.bySize ?? {}).forEach(([sz, n]) => { got[sz] = (got[sz] ?? 0) + n; }));
+  const [cnt, setCnt] = useState<Record<string, string>>({}); const [rej, setRej] = useState(''); const [note, setNote] = useState(''); const [more, setMore] = useState(''); const [final, setFinal] = useState(false);
+  if (!inv) return null;
+  const pl = inv.packingList; const sent = pl.reduce((a, x) => a + x.qty, 0);
+  const left = (sz: string, q: number) => Math.max(0, q - (got[sz] ?? 0));
+  const total = pl.reduce((a, x) => a + (Number(cnt[x.size]) || 0), 0);
+  const stillShort = pl.reduce((a, x) => a + Math.max(0, left(x.size, x.qty) - (Number(cnt[x.size]) || 0)), 0);
+  const done = rc.lots.length > 0 && (o.status === 'Closed' || rc.received >= sent);
+  if (done) return null;
+  return <Section title={rc.lots.length ? 'Count the balance in' : 'Count the goods in'} collapsible={false} right={<span className="pill role-warehouse">Prince</span>}>
+    <div style={{ overflowX: 'auto' }}><table className="t compact inv-lines">
+      <thead><tr><th>Size</th><th className="num">Ordered on the PO</th><th className="num">Packing list</th>{rc.lots.length > 0 && <th className="num">Counted before</th>}<th className="num">Counted in now</th><th className="num">Short</th></tr></thead>
+      <tbody>{pl.map(x => { const n = Number(cnt[x.size]) || 0; const sh = left(x.size, x.qty) - n; return <tr key={x.size}><td className="font-medium">{x.size}</td><td className="num">{ordered[x.size] ?? '—'}</td><td className="num">{x.qty}</td>{rc.lots.length > 0 && <td className="num">{got[x.size] ?? 0}</td>}
+        <td className="num"><Input type="number" min={0} value={cnt[x.size] ?? ''} onChange={e => setCnt(c => ({ ...c, [x.size]: e.target.value }))} placeholder={String(left(x.size, x.qty))} style={{ width: 84, textAlign: 'right' }} /></td>
+        <td className="num" style={{ color: cnt[x.size] == null || cnt[x.size] === '' ? 'var(--ink-faint)' : sh > 0 ? 'var(--risk)' : 'var(--good)' }}>{cnt[x.size] == null || cnt[x.size] === '' ? '—' : sh > 0 ? sh : sh < 0 ? `+${-sh}` : '✓'}</td></tr>; })}
+        <tr><td className="font-semibold">Total</td><td className="num font-semibold">{Object.values(ordered).reduce((a, n) => a + n, 0)}</td><td className="num font-semibold">{sent}</td>{rc.lots.length > 0 && <td className="num font-semibold">{rc.received}</td>}<td className="num font-semibold">{total}</td><td className="num font-semibold" style={{ color: stillShort ? 'var(--risk)' : 'var(--good)' }}>{total ? (stillShort || '✓') : '—'}</td></tr></tbody>
+    </table></div>
+    <div className="flex gap-2 pt-2"><Button size="sm" variant="ghost" onClick={() => setCnt(Object.fromEntries(pl.map(x => [x.size, String(left(x.size, x.qty))])))}>All as per the packing list</Button></div>
+    <div className="grid gap-x-4 gap-y-1 pt-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+      <Field label="Damaged or rejected (pcs)" hint="of what was counted in"><Input type="number" min={0} value={rej} onChange={e => setRej(e.target.value)} /></Field>
+      {stillShort > 0 && !final && <Field label="Balance expected on"><Input type="date" value={more} onChange={e => setMore(e.target.value)} /></Field>}
+      <div style={{ gridColumn: 'span 2' }}><Field label="Note"><Input value={note} onChange={e => setNote(e.target.value)} placeholder="2 cartons short, one carton wet, sizes mixed…" /></Field></div>
+    </div>
+    {stillShort > 0 && total > 0 && <label className="flex items-center gap-2 text-[12.5px] pt-2" style={{ color: 'var(--risk)' }}><input type="checkbox" checked={final} onChange={e => setFinal(e.target.checked)} />Not all received: {stillShort} pcs short. No more is coming; close it short.</label>}
+    {stillShort > 0 && total > 0 && <div className="text-[12px] pt-1" style={soft}>What is not received comes off what BSC pays the factory.</div>}
+    <div className="pt-3"><Button variant="primary" disabled={!total} onClick={() => { const rj = Number(rej) || 0; receiveLot(o.id, { qty: total - rj, rejected: rj, note: note.trim() || (stillShort ? `${stillShort} pcs short against the packing list` : 'all as per the packing list'), balanceExpectedOn: stillShort > 0 && !final ? fromDateInput(more) : null, cutQty: sent, closeShort: final, bySize: Object.fromEntries(pl.map(x => [x.size, Number(cnt[x.size]) || 0])) }); setCnt({}); setRej(''); setNote(''); setFinal(false); }}>{stillShort > 0 ? `Record ${total} pcs · flag ${stillShort} short` : `Received · all ${total} pcs`}</Button></div>
+  </Section>;
+}
 export function ReceivedSection({ o }: { o: ProductionOrder }) {
   const rc = receiptOf(o); const inv = o.invoice;
   const got: Record<string, number> = {}; rc.lots.forEach(l => Object.entries(l.bySize ?? {}).forEach(([sz, n]) => { got[sz] = (got[sz] ?? 0) + n; }));
@@ -550,8 +637,8 @@ export function ReceivedSection({ o }: { o: ProductionOrder }) {
   const sentPcs = inv?.packingList.reduce((a, x) => a + x.qty, 0) ?? null;
   const all = sentPcs != null && rc.received >= sentPcs;
   return <>
-    <Section title="Received · Enigma" collapsible={false} right={<Pill tone={all ? 'good' : rc.received ? 'warn' : 'neutral'}>{all ? `all ${rc.received} pcs reached` : rc.received ? `${rc.received} of ${sentPcs ?? rc.base} in` : inv ? 'with Prince · not received yet' : 'after the invoice'}</Pill>}>
-      <div className="text-[12.5px] pb-2" style={soft}>Prince receives against the packing list on Enigma; this reads what Enigma holds. {inv ? '' : 'Nothing to compare until the invoice and packing list are in.'}</div>
+    <Section title="Received · against the packing list" collapsible={false} right={<Pill tone={all ? 'good' : rc.received ? 'warn' : 'neutral'}>{all ? `all ${rc.received} pcs reached` : rc.received ? `${rc.received} of ${sentPcs ?? rc.base} in` : inv ? 'with Prince · not received yet' : 'after the invoice'}</Pill>}>
+      {!inv && <div className="text-[12.5px] pb-2" style={soft}>Nothing to count until the invoice and packing list are in.</div>}
       {inv && <div style={{ overflowX: 'auto' }}><table className="t compact">
         <thead><tr><th>Size</th><th className="num">Packing list</th><th className="num">Received</th><th className="num">Short</th></tr></thead>
         <tbody>{inv.packingList.map(x => { const g = tracked ? (got[x.size] ?? 0) : null; const short = g != null ? x.qty - g : null;
@@ -701,6 +788,9 @@ export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boole
   const [editing, setEditing] = useState(!ep);
   const setSku = (i: number, patch: Partial<Sku>) => setF(x => ({ ...x, skus: x.skus.map((s, k) => k === i ? { ...s, ...patch } : s) }));
   const recode = (code: string) => setF(x => ({ ...x, code, skus: x.skus.map(s => ({ ...s, sku: s.sku.startsWith(x.code) ? code + s.sku.slice(x.code.length) : s.sku })) }));
+  const fillSample = () => { const mrp = Math.round((o.costQuery?.replies.length ? Math.min(...o.costQuery.replies.map(r => r.cost)) : o.targetCost) * 3.2 / 10) * 10 - 1; const col = (p.colours ?? [])[0] ?? o.fabricBrief?.colour ?? 'White';
+    const szs = (sizes.filter(x => x.qty > 0).length ? sizes.filter(x => x.qty > 0) : [{ size: 'S', qty: 30 }, { size: 'M', qty: 50 }, { size: 'L', qty: 50 }, { size: 'XL', qty: 20 }]);
+    setF({ code: base, name: o.styleName, mrp: String(mrp), fit: o.fit ?? 'Regular Fit', colour: col, description: `${p.fabric.description ?? 'House cloth'}${p.fabric.content ? `, ${p.fabric.content}` : ''}. ${o.fit ?? 'Regular fit'}, ${col.toLowerCase()}.`, skus: szs.map(x => ({ size: x.size, sku: `${base}-${x.size}`, qty: x.qty, price: mrp, salePrice: null })) }); };
   const save = () => { addToEnigma(o.id, { code: f.code.trim(), name: f.name.trim(), mrp: Number(f.mrp), category: o.category, fit: f.fit.trim() || null, colour: f.colour.trim() || null, description: f.description.trim() || null, skus: f.skus.filter(s => s.size.trim() && s.sku.trim()).map(s => ({ ...s, price: s.price ?? Number(f.mrp) })) }); setEditing(false); };
 
   /* AI: product and marketing details from what the record already knows (prototype: drafted locally; the build calls the model) */
@@ -744,7 +834,8 @@ export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boole
     </Section></div>
   </>;
 
-  return <Section title={ep ? 'Edit in Enigma' : 'Add to Enigma'} collapsible={false} right={<span className="pill role-design">Category</span>}>
+  return <Section title={ep ? 'Edit in Enigma' : 'Add the SKUs to Enigma'} collapsible={false} right={<span className="pill role-design">Charanjeet</span>}>
+    {!ep && !o.poNo && <div className="text-[12.5px] pb-2" style={{ color: 'var(--warn)' }}>The PO cannot be drafted until the SKUs are in Enigma.</div>}
     <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
       <Field label="Design code"><Input value={f.code} onChange={e => recode(e.target.value)} disabled={!design} /></Field>
       <Field label="Name it sells as"><Input value={f.name} onChange={e => setF(x => ({ ...x, name: e.target.value }))} disabled={!design} /></Field>
@@ -765,6 +856,6 @@ export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boole
         <td>{design && <button type="button" className="vlink text-[11.5px]" onClick={() => setF(y => ({ ...y, skus: y.skus.filter((_, k) => k !== i) }))}>remove</button>}</td>
       </tr>)}</tbody></table>
     {design && <div className="pt-1"><button type="button" className="vlink text-[12px]" onClick={() => setF(y => ({ ...y, skus: [...y.skus, { size: '', sku: `${y.code}-`, qty: 0, price: null, salePrice: null }] }))}>+ Add a size</button></div>}
-    <div className="pt-3 flex gap-2">{design ? <><Button variant="primary" disabled={!f.code.trim() || !f.name.trim() || !Number(f.mrp) || !f.skus.length} onClick={save}>{ep ? 'Save to Enigma' : `Add to Enigma · ${f.skus.length} sizes →`}</Button>{ep && <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>}</> : <ActsBy role="design" does="adds the style to Enigma with every size" />}</div>
+    <div className="pt-3 flex gap-2">{design ? <><Button variant="primary" disabled={!f.code.trim() || !f.name.trim() || !Number(f.mrp) || !f.skus.length} onClick={save}>{ep ? 'Save to Enigma' : `Add to Enigma · ${f.skus.length} sizes →`}</Button>{!ep && <Button variant="ghost" onClick={fillSample}>Fill with sample data</Button>}{ep && <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>}</> : <ActsBy role="design" does="adds the style to Enigma with every size" />}</div>
   </Section>;
 }

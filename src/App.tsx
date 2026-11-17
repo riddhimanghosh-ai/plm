@@ -31,6 +31,9 @@ import { Sheet } from './screens/Sheet';
 import { Fabrics, FabricPage } from './screens/Fabrics';
 import { PrepDesk } from './screens/Preprod';
 import { Qc } from './screens/Qc';
+import { Approvals } from './screens/Approvals';
+import { Payments } from './screens/Payments';
+import { GoodsIn } from './screens/GoodsIn';
 import { RtwDashboard } from './screens/RtwDashboard';
 import { RtwSourcing } from './screens/RtwSourcing';
 import { VendorDb } from './screens/VendorDb';
@@ -59,6 +62,11 @@ export default function App() {
           <Route path="/tracker" element={MTM_ONLY ? <Navigate to="/" replace /> : <Tracker />} />
           <Route path="/factory" element={<Factory />} />
           <Route path="/qc" element={MTM_ONLY ? <Navigate to="/" replace /> : <Qc />} />
+          <Route path="/approvals-hod" element={MTM_ONLY ? <Navigate to="/" replace /> : <Approvals as="hod" />} />
+          <Route path="/approvals" element={MTM_ONLY ? <Navigate to="/" replace /> : <Approvals as="finance" />} />
+          <Route path="/finance-cogs" element={MTM_ONLY ? <Navigate to="/" replace /> : <CogsDashboard />} />
+          <Route path="/inward" element={MTM_ONLY ? <Navigate to="/" replace /> : <GoodsIn />} />
+          <Route path="/payments" element={MTM_ONLY ? <Navigate to="/" replace /> : <Payments />} />
           <Route path="/dashboard" element={MTM_ONLY ? <Navigate to="/" replace /> : <RtwDashboard />} />
           <Route path="/mtm" element={RTW_ONLY ? <Navigate to="/" replace /> : <Mtm />} />
           <Route path="/cad" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="cad" step="cad" />} />

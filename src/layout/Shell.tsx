@@ -49,6 +49,12 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   { path:'/tracker',      label:'RTW production tracker',     hint:'every bulk PO, date by date',                    group:'Production · RTW', roles:['owner','production','warehouse'] , hideFor:['warehouse']},
   /* Production · RTW in PLM is the tracker alone; analytics read off it sit with planning, and materials go from sourcing straight to the factory */
   { path:'/otif',         label:'RTW production analytics',   hint:'OTIF, daily monitor, escalations, merchandiser alerts — read off the tracker', group:'Planning', roles:['owner','planning'] },
+  { path:'/inward',       label:'Goods in · count and receive', hint:'what factories dispatched: invoice, packing list, the order; count it in', group:'Warehouse', roles:['owner','warehouse'] },
+  /* 17 Nov 2026: the PO needs approval before it is drafted; finance also runs the payments */
+  { path:'/approvals-hod', label:'PO approvals',              hint:'PO requests waiting on the HOD, and by when', group:'HOD', roles:['owner','hod'] },
+  { path:'/approvals',    label:'PO approvals',               hint:'PO requests waiting on finance, and by when', group:'Finance', roles:['owner','finance'] },
+  { path:'/finance-cogs', label:'COGS and cost',              hint:'COGS per piece and margin for every style', group:'Finance', roles:['owner','finance'] },
+  { path:'/payments',     label:'Payments',                   hint:'every PO: payable, paid, remaining; upload payments across POs', group:'Finance', roles:['owner','finance'] },
   { path:'/qc',           label:'QC · samples and inspections', hint:'PP sample, size set, the line inspections: pass or fail with remarks', group:'QC', roles:['owner','qc'] },
   { path:'/factory',      label:'My factory · merchandiser',   hint:"the floor's own day: output, pieces, cloth",     group:'Merchandiser', roles:['owner','merchandiser','production'] , hideFor:['production']},
 
@@ -87,7 +93,7 @@ function Crumbs() {
   }, [loc.pathname]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!entry) return null;
   const sep = <span style={{ color:'var(--line)' }}>/</span>;
-  return <div className="crumbs mb-2 flex items-center gap-2 flex-wrap">
+  return <div className="crumbs flex items-center gap-2 flex-wrap">
     <span>{entry.group}</span>{sep}
     {fabric ? <NavLink to={entry.path} className="crumb-link">{entry.label}</NavLink> : <span className="crumb-here">{entry.label}</span>}
     {fabric && <>{sep}<span className="crumb-here">{fabric.name}</span></>}
@@ -190,7 +196,7 @@ export function Shell() {
           {!demoAll && <>
             <div className="text-[11px] uppercase tracking-[.1em]" style={{ color:'var(--sidebar-soft)' }}>Signed in as</div>
             <Select value={personId} onChange={setPerson} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
-              groups={(Object.keys(ROLE_LABEL) as RoleId[]).filter(r => !(RTW_ONLY && r === 'planning')).filter(r => r !== 'warehouse').filter(r => MTM_ONLY ? (r !== 'planning') : RTW_ONLY ? NAV.some(n => n.roles.includes(r) && inEdition(n.path) && r !== 'owner') || r === 'owner' : true).map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
+              groups={(Object.keys(ROLE_LABEL) as RoleId[]).filter(r => !(RTW_ONLY && r === 'planning')).filter(r => RTW_ONLY || r !== 'warehouse').filter(r => MTM_ONLY ? (r !== 'planning') : RTW_ONLY ? NAV.some(n => n.roles.includes(r) && inEdition(n.path) && r !== 'owner') || r === 'owner' : true).map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
           </>}
           {myRole === 'merchandiser' && !demoAll && <Select value={factoryId} onChange={setFactory} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
             options={db.vendors.filter(v => (RTW_ONLY ? v.kind.endsWith('factory') : v.mtm) && v.kind !== 'Hemming unit').map(v => ({ value:v.id, label:v.name }))} />}
@@ -219,7 +225,7 @@ export function Shell() {
       </aside>
 
       {/* a screen this role does not work in is not reachable, even by URL — it lands on the role's own first screen */}
-      <main className="px-7 py-6 max-w-[1280px] w-full"><MentionBar /><Crumbs /><ScreenOwner /> {allowed ? <Outlet /> : <Navigate to={homeFor(role)} replace />}</main>
+      <main className="px-7 py-4 max-w-[1280px] w-full"><MentionBar /><div style={{ minHeight: 34, paddingRight: 190, display: 'flex', alignItems: 'center' }}><Crumbs /></div><ScreenOwner /> {allowed ? <Outlet /> : <Navigate to={homeFor(role)} replace />}</main>
       <VendorDrawer />
       <CommandSearch />
       <Toasts />

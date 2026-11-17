@@ -16,22 +16,28 @@ import { SizeGrid, FabricFinalisationSection } from './RtwGates';
 import { MilestoneGrid } from './Tracker';
 import { MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
-import { PackSection, CostQuerySection, PoSection, PoForm, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, CogsSection, RemarksLog, remarksCountOf, PoFabricsSection, EnigmaSection } from './RtwChain';
+import { PackSection, CostQuerySection, PoSection, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, WarehouseCount, CogsSection, RemarksLog, remarksCountOf, PoFabricsSection, EnigmaSection } from './RtwChain';
 import { SOURCE_LABEL } from '../domain/rtwJourney';
+import { ApprovalSection, PoEditSection } from './RtwApproval';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
 const MINE: Record<string, string[]> = {
-  design: ['raised', 'pack', 'query', 'cloth', 'tna', 'cogs', 'launch'],
+  design: ['raised', 'pack', 'query', 'launch', 'approval', 'cloth', 'tna', 'cogs'],
+  hod: ['query', 'launch', 'approval', 'po', 'invoices'],
+  finance: ['query', 'launch', 'approval', 'po', 'cogs', 'invoices'],
   planning: ['raised', 'cogs', 'launch'],
   sourcing: ['pack', 'cloth', 'invoices'],
-  production: ['raised', 'pack', 'query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'cogs', 'invoices'],
+  production: ['raised', 'pack', 'query', 'launch', 'approval', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'cogs', 'invoices'],
   merchandiser: ['query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'invoices'],
   qc: ['po', 'tna'],
-  warehouse: ['dispatch', 'received'],
+  warehouse: ['po', 'dispatch', 'received'],
 };
 
-export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: string }) {
-  const { db, role, updateRequirement } = useApp();
+/* HOD and finance follow a style up to the PO; finance also keeps the invoices and payments log. Nothing of the making (TNA, cloth, QC, dispatch). */
+const SCOPE: Record<'hod' | 'finance' | 'warehouse', string[]> = { warehouse: ['po', 'dispatch', 'received'], hod: ['raised', 'pack', 'query', 'launch', 'approval', 'po'], finance: ['raised', 'pack', 'query', 'launch', 'approval', 'po', 'cogs', 'invoices'] };
+export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; initial?: string; scope?: 'hod' | 'finance' | 'warehouse' }) {
+  const { db, role, myRole, demoAll, updateRequirement } = useApp();
+  const scoped = scope ?? (!demoAll && (myRole === 'hod' || myRole === 'finance' || myRole === 'warehouse') ? myRole : null);
   const design = role === 'design' || role === 'owner';
 
   const prod = role === 'production' || role === 'owner';
@@ -44,7 +50,9 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const launch = (db.launches ?? []).find(l => l.orderId === o.id) ?? null;
   const raised = o.activity?.find(a => /created|raised/i.test(a.what)) ?? null;
   const faint = { color: 'var(--ink-faint)' } as const;
-  const { steps: journey, current, next } = rtwJourneyOf(db, o);
+  const full = rtwJourneyOf(db, o); const next = full.next;
+  const journey = scoped ? full.steps.filter(x => SCOPE[scoped].includes(x.key)) : full.steps;
+  const current = scoped ? journey.findIndex(x => x.key === full.steps[full.current]?.key) : full.current;
   const mineKeys = role === 'owner' ? null : (MINE[role] ?? []);
   const isMine = (k: string) => !mineKeys || mineKeys.includes(k);
   const firstMine = journey.slice(Math.max(current, 0)).find(x => isMine(x.key))?.key ?? journey.filter(x => isMine(x.key)).slice(-1)[0]?.key ?? journey[current]?.key ?? 'launch';
@@ -57,8 +65,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
   const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem(viewKey(open), v); } catch { /* storage off */ } };
   const at = (k: string) => open === k && isMine(k);
   /* Draft the PO on a reply: the record moves to step 4 and the PO form opens there */
-  const [poDraft, setPoDraft] = useState<{ vendorId: string; fabricBy: FabricBy } | null>(null);
-  const { raisePoOnReply } = useApp();
+  const [apPreset, setApPreset] = useState<{ vendorId: string; fabricBy: FabricBy } | null>(null);
 
   /* the order's numbers, editable by category until it is sent */
   const [qty, setQty] = useState(String(o.orderQty)); const [target, setTarget] = useState(dateInput(o.targetInhouse)); const [cost, setCost] = useState(String(o.targetCost)); const [semi, setSemi] = useState(!!o.semiStitched);
@@ -84,7 +91,7 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
     <div className="rtw-wrap"><div className="rtw-journey">
       {/* the rail: every step in order, ticked as it lands; the open one is outlined */}
       <nav className="rtw-rail" aria-label="Steps">
-        {RTW_PHASES.map(ph => <div key={ph.key} className="rtw-phase">
+        {RTW_PHASES.filter(ph => journey.some(x => x.phase === ph.key)).map(ph => <div key={ph.key} className="rtw-phase">
           <div className="cap">{ph.label}</div>
           {journey.map((x, i) => x.phase === ph.key && (() => { const done = !!x.on; const now = i === current;
             if (!isMine(x.key)) return <div key={x.key} className={`rtw-step flat${done ? ' done' : now ? ' now' : ''}${x.tone ? ` ${x.tone}` : ''}`} title={x.who}>
@@ -127,12 +134,12 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
 
     {at('pack') && <div className="rtw-full"><PackSection o={o} design={design} sourcing={sourcing} /></div>}
 
-    {at('query') && <div className="rtw-full"><CostQuerySection o={o} prod={prod} merchant={merchant} design={design} onDraftPo={(vendorId, fabricBy) => { setPoDraft({ vendorId, fabricBy }); setOpen('po'); }} /></div>}
+    {at('query') && <div className="rtw-full"><CostQuerySection o={o} prod={prod} merchant={merchant} design={design} onAskApproval={(vendorId, fabricBy) => { setApPreset({ vendorId, fabricBy }); setOpen('approval'); }} onGo={setOpen} /></div>}
 
-    {at('po') && !o.poNo && poDraft && prod && o.costQuery?.replies.some(x => x.vendorId === poDraft.vendorId) && <div className="rtw-full"><Section title="PO · draft" collapsible={false} right={<button type="button" className="vlink text-[12px]" onClick={() => setOpen('query')}>← back to the replies</button>}>
-      <PoForm key={poDraft.vendorId + poDraft.fabricBy} o={o} vendorId={poDraft.vendorId} rate={o.costQuery!.replies.find(x => x.vendorId === poDraft.vendorId)!.cost} fabricBy={poDraft.fabricBy} onCancel={() => { setPoDraft(null); setOpen('query'); }} onRaise={d => { raisePoOnReply(o.id, poDraft.vendorId, poDraft.fabricBy, d); setPoDraft(null); }} />
-    </Section></div>}
-    {at('po') && (o.poNo || !poDraft) && <div className="rtw-full"><PoSection o={o} /></div>}
+    {at('launch') && <div className="rtw-full"><EnigmaSection o={o} design={design || prod} /></div>}
+    {at('approval') && <div className="rtw-full"><ApprovalSection key={(apPreset?.vendorId ?? '') + (o.poApproval?.askedOn ?? '')} o={o} prod={prod} preset={apPreset} onGo={k => { setApPreset(null); setOpen(k); }} /></div>}
+    {at('po') && <div className="rtw-full"><PoSection o={o} /></div>}
+    {at('po') && o.poNo && <div className="rtw-full pt-3"><PoEditSection key={(o.poEdit?.askedOn ?? '') + (o.poDoc?.revision ?? 1)} o={o} prod={prod} onGo={setOpen} /></div>}
     {at('po') && o.poNo && <div className="rtw-full pt-3"><PoCostsSection o={o} design={prod} factory={merchant} /></div>}
 
     {at('plan') && <div className="rtw-full"><TnaPlanSection o={o} merchant={merchant} /></div>}
@@ -158,12 +165,12 @@ export function RtwRequirement({ o, initial }: { o: ProductionOrder; initial?: s
 
     {at('dispatch') && <div className="rtw-full"><InvoiceSection o={o} merchant={merchant} /></div>}
 
+    {at('received') && (role === 'warehouse' || role === 'owner') && <div className="rtw-full pb-3"><WarehouseCount o={o} /></div>}
     {at('received') && <div className="rtw-full"><ReceivedSection o={o} /></div>}
 
     {at('cogs') && <CogsSection o={o} finance={prod || design} />}
 
-    {at('launch') && <div className="rtw-full"><EnigmaSection o={o} design={design} /></div>}
-    {at('invoices') && <div className="rtw-full"><PoInvoicesSection o={o} prod={prod} /></div>}
+    {at('invoices') && <div className="rtw-full"><PoInvoicesSection o={o} prod={prod || role === 'finance'} /></div>}
         </div>
       </div>
     </div></div>

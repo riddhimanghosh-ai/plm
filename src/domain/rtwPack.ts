@@ -2,7 +2,7 @@
    is the five-part requirement complete; which factories to recommend for a cost query; where the
    goods are delivered; which QC point is open on a PO; and the mails PLM composes (the cost query,
    the PO, the invoice to the warehouse). */
-import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc } from './types';
+import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc, FabricBy } from './types';
 import { TECH_PACK_ITEMS, QC_POINTS, DELIVERY_LOCATIONS, PEOPLE } from './reference';
 import { fmtDate, daysAgo, addDays, iso, daysBetween, costingOf, receiptOf, netOf } from './engines';
 
@@ -21,7 +21,13 @@ export function packReadyOf(o: ProductionOrder): { ready: boolean; parts: PackPa
   const fabMissing = designFab.filter(x => !x[1]).map(x => x[0]);
   /* sourcing's part is needed only when BSC is involved in the cloth: BSC sends it, or hands the factory its vendor */
   const vendorsNeeded = clothBy !== 'factory';
-  const srcMissing = !clothBy ? ['who supplies the cloth (category)'] : vendorsNeeded ? sourcingFab.filter(x => !x[1]).map(x => x[0]) : [];
+  /* 17 Nov 2026: sourcing fills vendor options against each BOM line and category picks one. A line is settled once it says who supplies it.
+     Requirements filled the earlier way (cloth choice plus sourcing's cloth fields) stay complete. */
+  const legacyDone = !!clothBy && (!vendorsNeeded || sourcingFab.every(x => x[1]));
+  const open = legacyDone ? [] : o.bom.filter(l => !l.suppliedBy);
+  const toFill = open.filter(l => !(l.options ?? []).length).map(l => `${l.item || 'a line'}: vendor options (sourcing)`);
+  const toPick = open.filter(l => (l.options ?? []).length).map(l => `${l.item || 'a line'}: pick an option (category)`);
+  const srcMissing = !o.bom.length ? ['BOM lines first (category)'] : [...toFill, ...toPick];
   const sizesOk = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) > 0;
   const parts: PackPart[] = [
     { key: 'techPack', label: 'Tech pack', who: 'design', missing: tp, total: TECH_PACK_ITEMS.length, done: TECH_PACK_ITEMS.length - tp.length },
@@ -29,10 +35,10 @@ export function packReadyOf(o: ProductionOrder): { ready: boolean; parts: PackPa
     { key: 'trimCard', label: 'Trim card', who: 'design', missing: p.trimCard?.trim() ? [] : ['trim card'], total: 1, done: p.trimCard?.trim() ? 1 : 0 },
     { key: 'sizes', label: 'Size · qty break-up', who: 'design', missing: sizesOk ? [] : ['size-wise quantities (the cut ratio)'], total: 1, done: sizesOk ? 1 : 0 },
     { key: 'bom', label: 'BOM', who: 'design', missing: o.bom.length ? [] : ['at least one BOM line'], total: 1, done: o.bom.length ? 1 : 0 },
-    { key: 'vendors', label: 'Cloth · vendors', who: 'sourcing', missing: srcMissing, total: vendorsNeeded ? sourcingFab.length : 1, done: vendorsNeeded ? sourcingFab.length - srcMissing.length : (clothBy ? 1 : 0), na: clothBy === 'factory' },
+    { key: 'vendors', label: 'Vendors on the BOM', who: 'sourcing', missing: srcMissing, total: Math.max(o.bom.length, 1), done: o.bom.length ? o.bom.length - open.length : 0 },
   ];
   const missing = parts.flatMap(x => x.missing);
-  return { ready: missing.length === 0, parts, missing, sourcingMissing: clothBy && vendorsNeeded ? sourcingFab.filter(x => !x[1]).map(x => x[0]) : [] };
+  return { ready: missing.length === 0, parts, missing, sourcingMissing: toFill };
 }
 
 /* the factory database: factories that specialise in this category first, then the rest, by region */
@@ -104,8 +110,8 @@ export function poMailOf(db: Db, o: ProductionOrder): Mail {
   return {
     to: [vendorMail(v)], cc: [merch(db, o)],
     subject: `${o.poNo ?? 'PO'} · ${o.styleName} · ${o.orderQty} pcs · deliver to ${pm?.deliveryLocation ?? '—'}`,
-    body: `Purchase order ${o.poNo ?? ''} for ${o.poDoc ? poTotalsOf(o.poDoc).pcs : o.orderQty} pcs of ${o.styleName}${o.poDoc ? `, ${o.poDoc.lines.length} line${o.poDoc.lines.length === 1 ? '' : 's'}: ${o.poDoc.lines.map(l => `${l.colour} ${l.sizes.reduce((a, x) => a + x.qty, 0)} pcs at ₹${l.rate}`).join('; ')}. Total ₹${Math.round(poTotalsOf(o.poDoc).total).toLocaleString('en-IN')} incl. ${o.poDoc.gstPct}% GST; ${o.poDoc.priceBasis}; payment ${o.poDoc.paymentTerms}` : ` at ₹${o.finalFob ?? '—'}/pc`}. Deliver to ${pm?.deliveryLocation ?? '—'}${pm?.needsHemming ? ' (hemming / semi-stitching in-house)' : ''} by ${fmtDate(o.targetInhouse)}.\n${cloth}\nThe TNA form is attached: fill the planned date for every step and return it through your merchandiser.`,
-    attachments: ['PO', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form · planned dates'],
+    body: `Purchase order ${o.poNo ?? ''} for ${o.poDoc ? poTotalsOf(o.poDoc).pcs : o.orderQty} pcs of ${o.styleName}${o.poDoc ? `, ${o.poDoc.lines.length} line${o.poDoc.lines.length === 1 ? '' : 's'}: ${o.poDoc.lines.map(l => `${l.colour} ${l.sizes.reduce((a, x) => a + x.qty, 0)} pcs at ₹${l.rate}`).join('; ')}. Total ₹${Math.round(poTotalsOf(o.poDoc).total).toLocaleString('en-IN')} incl. ${o.poDoc.gstPct}% GST; ${o.poDoc.priceBasis}; payment ${o.poDoc.paymentTerms}` : ` at ₹${o.finalFob ?? '—'}/pc`}. Deliver to ${pm?.deliveryLocation ?? '—'}${pm?.needsHemming ? ' (hemming / semi-stitching in-house)' : ''} by ${fmtDate(o.targetInhouse)}.\n${cloth}${o.poDoc?.goodsExpectedBy ? `\nGoods expected in-house by ${fmtDate(o.poDoc.goodsExpectedBy)}.` : ''}\nRaw material terms:\n${o.poDoc?.rawMaterialTerms ?? rawMaterialsOf(db, o).text}${supplyInvoicesOf(o).length ? `\nOur invoice ${supplyInvoicesOf(o).map(i => `${i.no} for ₹${i.amount.toLocaleString('en-IN')}`).join(', ')} for the material BSC sends you is attached; it comes off what we pay on this PO.` : ''}\nThe TNA form is attached: fill the planned date for every step and return it through your merchandiser.`,
+    attachments: ['PO', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form · planned dates', ...supplyInvoicesOf(o).map(i => `Invoice ${i.no} · material BSC sends`)],
   };
 }
 export function invoiceMailOf(db: Db, o: ProductionOrder): Mail {
@@ -129,10 +135,101 @@ export function poDraftOf(o: ProductionOrder, rate: number, quoted?: { colour: s
   const bsc = o.fabricNominated || o.pack?.clothBy === 'bsc';
   const code = taxCodeOf(o, bsc); lines.forEach(l => { l.hsn = code; });
   const cons = o.fabricMetres && o.orderQty ? Math.round(o.fabricMetres / o.orderQty * 100) / 100 : 1.6;
-  return { lines, charges: [], gstPct: 5, priceBasis: bsc ? 'CMT · BSC supplies the cloth' : 'FOB · cloth and trims by the factory', paymentTerms: '45 days from receipt at the warehouse', shipBy: o.targetInhouse, notes: null,
-    revision: 1, deliveryBasis: 'in-house', tolerancePct: 3, aql: AQL_LEVELS[1], lateDeduction: '1% of the PO value per week late, up to 5%',
+  return { goodsExpectedBy: o.targetInhouse, rawMaterialTerms: null, lines, charges: [], gstPct: 5, priceBasis: bsc ? 'CMT · BSC supplies the cloth' : 'FOB · cloth and trims by the factory', paymentTerms: '45 days from receipt at the warehouse', shipBy: o.targetInhouse, notes: null,
+    advancePct: 0, advanceWhen: 'with the PO', revision: 1, deliveryBasis: 'in-house', tolerancePct: 3, aql: AQL_LEVELS[1], lateDeduction: '1% of the PO value per week late, up to 5%',
     cloth: bsc ? { metresIssued: o.fabricMetres ?? Math.ceil(o.orderQty * cons * 1.03), consumptionPerPc: cons, wastagePct: 3, leftover: 'Returned to BSC with the goods' } : null };
 }
+/* ── 17 Nov 2026: approval before the PO, who supplies each BOM line, and the payments ledger ── */
+export const APPROVER_LABEL = { hod: 'HOD', finance: 'Finance' } as const;
+export function approvalOf(o: ProductionOrder) {
+  const a = o.poApproval ?? null;
+  if (!a) return { a: null, state: 'none' as const, pending: [] as ('hod' | 'finance')[], approved: false, rejected: null, late: false, line: 'not sent for approval' };
+  const last = (r: 'hod' | 'finance') => [...a.decisions].reverse().find(d => d.role === r) ?? null;
+  const rejected = a.needs.map(last).find(d => d && !d.approved) ?? null;
+  const pending = a.needs.filter(r => !last(r));
+  const approved = !rejected && pending.length === 0;
+  const late = !approved && !rejected && daysAgo(a.deadline) > 0;
+  const need = !a.needs.length ? 'no one' : a.needs.length === 2 ? 'HOD and finance' : APPROVER_LABEL[a.needs[0]];
+  return { a, state: (rejected ? 'rejected' : approved ? 'approved' : 'pending') as 'rejected' | 'approved' | 'pending', pending, approved, rejected, late, need,
+    line: rejected ? `rejected by ${APPROVER_LABEL[rejected.role]}` : !a.needs.length ? `approval skipped by ${a.by}` : approved ? `approved by ${need}` : `with ${pending.map(r => APPROVER_LABEL[r]).join(' and ')} · by ${fmtDate(a.deadline)}` };
+}
+export function poEditOf(o: ProductionOrder) {
+  const e = o.poEdit ?? null; if (!e) return { e: null, state: 'none' as const, pending: [] as ('hod' | 'finance')[] };
+  const last = (r: 'hod' | 'finance') => [...e.grants].reverse().find(g => g.role === r) ?? null;
+  const declined = e.needs.map(last).find(g => g && !g.granted) ?? null; const pending = e.needs.filter(r => !last(r));
+  return { e, state: (declined ? 'declined' : pending.length ? 'pending' : 'granted') as 'declined' | 'pending' | 'granted', pending, declined };
+}
+/* who gets a BOM line to the factory: the cloth follows category's cloth choice unless set on the line; trims default to the factory */
+export function suppliedByOf(o: ProductionOrder, l: { kind: string; suppliedBy?: 'bsc' | 'nominated' | 'factory' }, clothBy?: FabricBy | null): 'bsc' | 'nominated' | 'factory' {
+  if (l.suppliedBy) return l.suppliedBy;
+  const by = clothBy ?? o.poMail?.fabricBy ?? o.pack?.clothBy ?? (o.fabricNominated ? 'bsc' : 'factory');
+  /* CMT: the factory only makes; cloth, trims and packaging are all sent by BSC unless a line says otherwise */
+  if (by === 'bsc') return 'bsc';
+  if (l.kind !== 'fabric') return 'factory';
+  return by === 'bsc-vendor' ? 'nominated' : 'factory';
+}
+/* raw material terms for the PO: what BSC sends, what the factory buys from vendors BSC nominates (named, so the factory knows), what the factory arranges */
+export function rawMaterialsOf(db: Db, o: ProductionOrder, clothBy?: FabricBy | null) {
+  const vend = (l: ProductionOrder['bom'][number], by: string) => l.vendor ?? (by === 'factory' ? null : db.vendors.find(v => v.id === (l.kind === 'fabric' ? o.pack?.fabric.vendorId : o.pack?.fabric.trimVendorId))?.name ?? null);
+  const rows = o.bom.map(l => { const by = suppliedByOf(o, l, clothBy); return { item: l.item, kind: l.kind, by, vendor: vend(l, by) }; });
+  const of = (b: string) => rows.filter(r => r.by === b);
+  const text = [
+    of('bsc').length ? `Sent by BSC: ${of('bsc').map(r => r.item).join(', ')}. Count in on arrival; return or account for the balance.` : null,
+    of('nominated').length ? `Nominated by BSC, the factory raises its own PO: ${of('nominated').map(r => `${r.item}${r.vendor ? ` from ${r.vendor}` : ' (vendor to be named)'}`).join('; ')}.` : null,
+    of('factory').length ? `By the factory: ${of('factory').map(r => r.item).join(', ')}.` : null,
+  ].filter(Boolean).join('\n');
+  return { rows, text, nominated: of('nominated') };
+}
+export const SUPPLIED_LABEL = { bsc: 'Sent by BSC', nominated: 'Nominated by BSC · factory raises the PO', factory: 'By the factory' } as const;
+/* the invoices BSC generated for what it sends on this style; they ride with the PO mail */
+export const supplyInvoicesOf = (o: ProductionOrder) => (o.poInvoices ?? []).filter(i => i.lines?.length && i.direction === 'bsc-to-factory');
+/* what BSC sends the factory, priced: the lines of the invoice BSC raises on the factory */
+export function supplyLinesOf(o: ProductionOrder, clothBy?: FabricBy | null) {
+  const pcs = o.poDoc ? poTotalsOf(o.poDoc).pcs : o.orderQty;
+  return o.bom.filter(l => suppliedByOf(o, l, clothBy) === 'bsc' && l.qtyPerPc != null).map(l => {
+    const qty = Math.round(l.qtyPerPc! * pcs * 100) / 100;
+    const rate = l.rate ?? (l.kind === 'fabric' ? (o.pack?.fabric.rate ?? o.pack?.fabric.cpm ?? 0) : 0);
+    return { item: l.item, qty, unit: l.unit, rate, amount: Math.round(qty * rate) };
+  });
+}
+/* the BOM costed for the order: each line's quantity for the pieces on the PO (or the requirement), its rate and cost, and who supplies it */
+export function bomCostOf(db: Db, o: ProductionOrder) {
+  const pcs = o.poDoc ? poTotalsOf(o.poDoc).pcs : o.orderQty;
+  const rows = o.bom.map((l, i) => { const by = suppliedByOf(o, l);
+    const rate = l.rate ?? (l.kind === 'fabric' ? (o.pack?.fabric.rate ?? o.pack?.fabric.cpm ?? null) : null);
+    const qty = l.qtyPerPc != null ? Math.round(l.qtyPerPc * pcs * 100) / 100 : null;
+    const vendor = l.vendor ?? (l.kind === 'fabric' && by !== 'factory' ? (db.vendors.find(v => v.id === o.pack?.fabric.vendorId)?.name ?? null) : l.kind !== 'fabric' && by !== 'factory' ? (db.vendors.find(v => v.id === o.pack?.fabric.trimVendorId)?.name ?? null) : null);
+    return { l, i, by, rate, qty, vendor, cost: qty != null && rate != null ? Math.round(qty * rate) : null }; });
+  const total = rows.reduce((a, r) => a + (r.cost ?? 0), 0);
+  const sum = (b: string) => rows.filter(r => r.by === b).reduce((a, r) => a + (r.cost ?? 0), 0);
+  return { pcs, rows, total, perPc: pcs ? total / pcs : 0, bsc: sum('bsc'), nominated: sum('nominated'), factory: sum('factory'), unpriced: rows.filter(r => r.rate == null).length };
+}
+/* the PO's money: what the PO is worth, less what BSC invoiced the factory (material it sent, debit notes), what is paid and what is left */
+export function poLedgerOf(o: ProductionOrder) {
+  const t = o.poDoc ? poTotalsOf(o.poDoc) : null;
+  const poTotal = t ? t.total : (o.finalFob ?? 0) * o.orderQty;
+  const inv = o.poInvoices ?? [];
+  const bscInvoiced = inv.filter(r => r.direction === 'bsc-to-factory').reduce((a, r) => a + r.amount, 0);
+  const factoryInvoiced = inv.filter(r => r.direction === 'factory-to-bsc').reduce((a, r) => a + r.amount, 0);
+  /* Prince's count: pieces not received, or received damaged, come off the payable at the PO's average rate with GST */
+  const lots = o.receipts ?? []; const poPcs = t ? t.pcs : o.orderQty;
+  const receivedPcs = lots.reduce((a, l) => a + l.qty, 0); const rejectedPcs = lots.reduce((a, l) => a + l.rejected, 0);
+  const shortPcs = lots.length ? Math.max(0, poPcs - receivedPcs) : 0;
+  const perPc = poPcs ? (t ? (t.value * (1 + (o.poDoc!.gstPct ?? 0) / 100)) / poPcs : poTotal / poPcs) : 0;
+  const shortValue = Math.round(shortPcs * perPc);
+  const payable = poTotal - bscInvoiced - shortValue;
+  const paid = (o.poPayments ?? []).reduce((a, x) => a + x.amount, 0);
+  const advancePct = o.poDoc?.advancePct ?? 0; const advanceDue = Math.round((poTotal - bscInvoiced) * advancePct / 100);
+  return { poTotal, bscInvoiced, factoryInvoiced, payable, paid, remaining: payable - paid, advancePct, advanceDue, advancePending: Math.max(0, advanceDue - paid), advanceWhen: o.poDoc?.advanceWhen ?? null,
+    counted: lots.length > 0, poPcs, receivedPcs, rejectedPcs, shortPcs, shortValue };
+}
+/* what factories priced for the same category before: the approver's reference */
+export function similarPricesOf(db: Db, o: ProductionOrder) {
+  return db.orders.filter(x => x.id !== o.id && x.category === o.category && x.poNo && x.finalFob != null)
+    .sort((a, b) => (b.poDate ?? '').localeCompare(a.poDate ?? '')).slice(0, 8)
+    .map(x => ({ id: x.id, style: x.styleName, factory: db.vendors.find(v => v.id === x.vendorId)?.name ?? '—', rate: x.finalFob!, qty: x.orderQty, on: x.poDate, basis: x.poDoc?.priceBasis?.split(' · ')[0] ?? (x.fabricNominated ? 'CMT' : 'FOB') }));
+}
+
 /* CMT is job work (a service): it carries a SAC code; FOB is the garment itself: an HSN by what it is */
 export const isCmt = (d: { priceBasis: string }) => d.priceBasis.startsWith('CMT');
 export function taxCodeOf(o: ProductionOrder, cmt: boolean) {

@@ -57,8 +57,8 @@ export function MentionBar() {
        painted straight over the right-hand side of every page header, hiding the
        actions there — "+ Log an MTM concept" sat underneath it and could not be
        clicked. Sticky still keeps it in view as the page scrolls. */
-    <div className="flex justify-end no-print mb-2" style={{ position:'sticky', top: 8, zIndex: 30 }}>
-      <div ref={box} style={{ position:'relative' }}>
+    <div className="flex justify-end no-print" style={{ position:'sticky', top: 8, zIndex: 30, height: 0, pointerEvents:'none' }}>
+      <div ref={box} style={{ position:'relative', pointerEvents:'auto', alignSelf:'flex-start' }}>
         <button type="button" onClick={() => setOpen(o => !o)} title={`${waiting} waiting on you`}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] cursor-pointer"
           style={{ background:'var(--surface)', border:'1px solid var(--line)', font:'inherit', fontSize: 12.5, color:'var(--ink-soft)' }}>

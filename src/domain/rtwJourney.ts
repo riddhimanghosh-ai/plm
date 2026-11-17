@@ -5,13 +5,13 @@
    warehouse all see the same thing. */
 import type { Db, ProductionOrder } from './types';
 import { fmtDate, daysAgo, receiptOf, riskOf, stageOf, fabricStateOf } from './engines';
-import { packReadyOf, openQcOf, targetReviseOpenOf, poFabricsOf } from './rtwPack';
+import { packReadyOf, openQcOf, targetReviseOpenOf, poFabricsOf, approvalOf } from './rtwPack';
 
-export type RtwActor = 'design' | 'sourcing' | 'production' | 'merchandiser' | 'qc' | 'warehouse' | 'planning' | 'finance';
+export type RtwActor = 'hod' | 'design' | 'sourcing' | 'production' | 'merchandiser' | 'qc' | 'warehouse' | 'planning' | 'finance';
 export type RtwPhase = 'design' | 'buy' | 'make' | 'land';
 export type RtwStep = { key: string; label: string; who: string; on: string | null | undefined; by?: string | null; now?: string; act?: RtwActor; phase: RtwPhase; tone?: 'risk' | 'warn' };   // tone: the step went wrong — short cloth, a failed colour — even if it is done
 export const RTW_PHASES: { key: RtwPhase; label: string }[] = [{ key: 'design', label: 'Requirement' }, { key: 'buy', label: 'Factory counter sourcing · PO' }, { key: 'make', label: 'Make · QC' }, { key: 'land', label: 'Deliver · cost · launch' }];
-export const RTW_ACTOR_LABEL: Record<RtwActor, string> = { design: 'Category', sourcing: 'Sourcing', production: 'Nitin', merchandiser: 'Merchandiser · Factory', qc: 'QC', warehouse: 'Prince · Enigma', planning: 'Category · Planning', finance: 'Nitin · Category' };
+export const RTW_ACTOR_LABEL: Record<RtwActor, string> = { hod: 'HOD', design: 'Category', sourcing: 'Sourcing', production: 'Nitin', merchandiser: 'Merchandiser · Factory', qc: 'QC', warehouse: 'Prince · Enigma', planning: 'Category · Planning', finance: 'Finance' };
 export const SOURCE_LABEL = { design: 'Category ask', planning: 'Planning reorder', 'auto-po': 'Enigma auto-PO' } as const;
 /* BSC's chain, 14 Nov 2026: a five-part requirement that goes nowhere until complete; a cost query to factories from the
    factory database; a reply becomes the PO, mailed with the delivery location; the factory returns planned dates; the
@@ -43,7 +43,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
   const nextMs = o.milestones.find(m => !m.actual && !m.skipped) ?? null;
   const late = r.bufferDays != null && r.bufferDays < 0 ? ` · ${-r.bufferDays}d late` : '';
   const cq = o.costQuery ?? null; const replies = cq?.replies.length ?? 0; const asked = cq?.factoryIds.length ?? 0;
-  const tr = targetReviseOpenOf(o); const pf = poFabricsOf(o);
+  const tr = targetReviseOpenOf(o); const pf = poFabricsOf(o); const ap = approvalOf(o);
   const qDeadlineLate = cq && !o.poNo && daysAgo(cq.deadline) > 0 && replies < asked;
   const qc = openQcOf(o); const qcFail = qc.find(x => x.state === 'failed'); const qcDue = qc.find(x => x.state === 'due');
   const tnaNow = !o.tnaPlan?.submittedOn ? 'after the planned dates' : qcFail ? `QC failed the ${qcFail.label.toLowerCase()} · factory to correct and resubmit` : qcDue ? `QC to pass the ${qcDue.label.toLowerCase()}${qcDue.sinceDays ? ` · waiting ${qcDue.sinceDays}d` : ''}` : nextMs ? `factory to log ${nextMs.key.length <= 3 ? nextMs.key : nextMs.key.toLowerCase()}${late}` : st.stage;
@@ -52,17 +52,23 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
   const receivedOn = rc.lots.length && !rc.partial ? rc.lots[rc.lots.length - 1].at : (o.status === 'Closed' ? (ms('Inhouse ETA')?.actual ?? dispatched) : null);
   const cogsOn = o.cogsClosedOn ?? (receivedOn && o.status === 'Closed' ? receivedOn : null);
   const sourceWho = SOURCE_LABEL[o.source ?? 'design'];
-  const packNow = pack.ready ? 'category to send it to Production RTW' : pack.sourcingMissing.length === pack.missing.length ? `sourcing to add the cloth vendor${pack.sourcingMissing.length > 1 ? ' details' : ''}` : `category to fill ${pack.missing.length} item${pack.missing.length > 1 ? 's' : ''}${pack.sourcingMissing.length ? ` · sourcing ${pack.sourcingMissing.length}` : ''}`;
+  const packNow = pack.ready ? 'category to send it to Production RTW' : pack.sourcingMissing.length === pack.missing.length ? `sourcing to add vendors on ${pack.sourcingMissing.length} BOM line${pack.sourcingMissing.length > 1 ? 's' : ''}` : `category to fill ${pack.missing.length} item${pack.missing.length > 1 ? 's' : ''}${pack.sourcingMissing.length ? ` · sourcing ${pack.sourcingMissing.length}` : ''}`;
 
   const steps: RtwStep[] = [
     { key: 'raised', phase: 'design', label: 'Raised', who: sourceWho, on: raised?.at ?? o.styleHandover, by: raised?.who ?? sourceWho },
     { key: 'pack', phase: 'design', label: 'Requirement', who: 'Category · Sourcing', act: pack.ready || pack.sourcingMissing.length < pack.missing.length ? 'design' : 'sourcing', on: packOn, by: packOn ? (o.pack?.sentBy ?? 'sent to Production RTW') : null, now: packNow },
-    { key: 'query', phase: 'buy', label: 'Factory counter sourcing', who: 'Nitin · Factories · Category', act: tr.open && replies >= asked ? 'design' : cq && replies < asked ? 'merchandiser' : 'production', on: cq ? ((replies >= asked && !tr.open) || o.poNo ? (cq.replies[cq.replies.length - 1]?.repliedOn ?? cq.sentOn) : null) : null, by: cq ? `${replies} of ${asked} replied` : null,
+    { key: 'query', phase: 'buy', label: 'Factory counter sourcing', who: 'Nitin · Factories · Category', act: tr.open && replies >= asked ? 'design' : cq && replies < asked ? 'merchandiser' : 'production', on: cq ? ((replies >= asked && !tr.open) || o.poNo || (o.poApproval && replies > 0) ? (cq.replies[cq.replies.length - 1]?.repliedOn ?? cq.sentOn) : null) : null, by: cq ? `${replies} of ${asked} replied` : null,
       now: !sent ? 'after the requirement' : !cq ? 'Nitin to pick factories and send the counter-sourcing query' : tr.open && replies >= asked ? `every reply over target · category to revise the target ${tr.flagged.some(r => r.cost > o.targetCost) ? 'cost' : ''}${tr.flagged.some(r => r.cost > o.targetCost) && tr.flagged.some(r => r.leadDays > 0) ? ' or ' : ''}${tr.flagged.some(r => r.leadDays > 0) ? 'in-house date' : ''}`.replace(/target $/, 'target') : `${asked - replies} repl${asked - replies === 1 ? 'y' : 'ies'} due by ${fmtDate(cq.deadline)}${qDeadlineLate ? ` · ${daysAgo(cq.deadline)}d past` : ''}${tr.open ? ' · replies so far over target' : ''}` },
-    { key: 'po', phase: 'buy', label: 'PO raised · mailed', who: 'Nitin', act: 'production', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}${o.poMail ? ` · to ${o.poMail.deliveryLocation}${o.poMail.sentOn ? '' : ' · mail to send'}` : ''}` : null,
-      now: !cq ? 'after counter sourcing' : tr.open ? 'after category revises the target, or a reply that fits' : replies ? 'Nitin to raise the PO on a reply' : 'after a reply' },
+    /* 17 Nov 2026: the SKUs go into Enigma once the factories have quoted, and the PO needs approval before it is drafted */
+    { key: 'launch', phase: 'buy', label: 'Added to Enigma · SKUs', who: 'Charanjeet', act: 'design', on: o.enigmaProduct?.addedOn ?? launch?.launchedOn ?? null, by: o.enigmaProduct ? `${o.enigmaProduct.code} · ${o.enigmaProduct.skus.length} SKUs` : launch?.dropMonth,
+      now: !replies ? 'after a factory reply' : 'Charanjeet to add the SKUs in Enigma; no PO before that' },
+    { key: 'approval', phase: 'buy', label: 'PO draft · approval', who: 'Nitin · HOD · Finance', act: ap.state === 'pending' ? ap.pending[0] : 'production', on: ap.approved ? (ap.a!.decisions[ap.a!.decisions.length - 1]?.on ?? ap.a!.askedOn) : (o.poNo ? o.poDate : null), by: ap.approved ? ap.line : o.poNo ? 'approved' : null,
+      tone: ap.state === 'rejected' || ap.late ? 'risk' : undefined,
+      now: !replies ? 'after a factory reply' : !(o.enigmaProduct || launch) ? 'after the SKUs are in Enigma' : ap.state === 'none' ? 'Nitin to draft the PO on a reply and send it for approval' : ap.state === 'rejected' ? `${ap.line} · Nitin to change the PO and send again` : `${ap.line}${ap.late ? ' · past the date' : ''}` },
+    { key: 'po', phase: 'buy', label: 'PO raised · mailed', who: 'on approval', act: 'production', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}${o.poMail ? ` · to ${o.poMail.deliveryLocation}${o.poMail.sentOn ? '' : ' · mail to send'}` : ''}` : null,
+      now: !cq ? 'after counter sourcing' : !replies ? 'after a reply' : 'raised and mailed by itself once approved' },
     { key: 'plan', phase: 'buy', label: 'TNA · planned dates', who: 'Factory · Merchandiser', act: o.poMail && !o.poMail.sentOn ? 'production' : 'merchandiser', on: o.tnaPlan?.submittedOn ?? (o.poNo && !o.tnaPlan ? o.poDate : null), by: o.tnaPlan?.submittedOn ? (o.tnaPlan.by ?? 'submitted') : null,
-      now: !o.poNo ? 'after the PO' : o.poMail && !o.poMail.sentOn ? 'Nitin to send the PO mail with the TNA form' : `merchandiser to return the TNA form${o.tnaPlan ? ` · sent ${fmtDate(o.tnaPlan.sentOn)}` : ''}` },
+      now: !o.poNo ? 'after the PO' : `merchandiser to return the TNA form${o.tnaPlan ? ` · sent ${fmtDate(o.tnaPlan.sentOn)}` : ''}` },
     { key: 'cloth', phase: 'make', tone: pf.failedOpen.length || fab.short > 0 || (fab.cr && !fab.cr.given) ? 'risk' : pf.held.length || pf.dropped.length || fab.cr?.given ? 'warn' : undefined, label: 'Cloth at the factory · cut ratio', who: o.fabricNominated ? 'Sourcing · Factory · Category' : 'Factory · Category', act: fab.key === 'ratio-asked' ? 'design' : !o.fabricNominated || o.fabricSupply?.sentToFactoryOn ? 'merchandiser' : 'sourcing',
       on: !o.poNo ? null : o.fabricNominated ? (o.fabricSupply?.receipt?.on ?? null) : (o.factoryCloth?.receivedOn ?? ms('Fabric ETA')?.actual ?? (ms('Fabric ETA') && !ms('Fabric ETA')!.skipped ? null : o.poDate)),
       by: !o.poNo ? null : o.fabricNominated ? (o.fabricSupply?.receipt ? `${o.fabricSupply.receipt.metresOk} m counted in${fab.short > 0 ? ` · short ${fab.short} m` : ''}${fab.cr?.given ? ' · new cut ratio' : ''}${pf.held.length ? ` · ${pf.held.map(f => f.colour).join(', ')} on hold` : ''}${pf.dropped.length ? ` · ${pf.dropped.map(f => f.colour).join(', ')} dropped` : ''}` : null) : (o.factoryCloth?.receivedOn ? `${o.factoryCloth.metresReceived ?? '—'} m received by the factory` : 'the factory sources it'),
@@ -71,21 +77,19 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
       now: !o.poNo ? 'after the PO' : tnaNow },
     { key: 'dispatch', phase: 'land', label: 'Dispatched · invoice to the warehouse', who: 'Factory · Merchandiser', act: 'merchandiser', on: inv?.mailedOn ?? null, by: inv ? `invoice ${inv.no} · ${inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs` : null,
       now: !o.poNo ? 'after the PO' : !dispatched ? 'after the dispatch actual on the TNA' : inv && !inv.mailedOn ? 'merchandiser to send the invoice and packing list to Prince' : 'merchandiser to upload the invoice and packing list' },
-    { key: 'received', phase: 'land', label: 'Received · Enigma', who: 'Prince · Enigma', act: 'warehouse', on: receivedOn, by: receivedOn ? (rc.lots.length ? `${rc.received} pcs` : 'closed') : null,
-      now: !inv ? 'after the invoice' : rc.partial ? `${rc.received} of ${rc.base} in` : 'Prince to receive against the packing list on Enigma' },
+    { key: 'received', phase: 'land', label: 'Received · counted in', who: 'Prince', act: 'warehouse', on: receivedOn, by: receivedOn ? (rc.lots.length ? `${rc.received} pcs` : 'closed') : null,
+      now: !inv ? 'after the invoice' : rc.partial ? `${rc.received} of ${rc.base} in` : 'Prince to count the goods in against the packing list' },
     { key: 'cogs', phase: 'land', label: 'COGS · profitability', who: 'Nitin · Category', act: 'production', on: cogsOn, by: cogsOn ? 'closed' : null,
       now: !receivedOn ? 'after receipt' : 'Nitin to close COGS' },
-    { key: 'launch', phase: 'land', label: 'Added to Enigma', who: 'Category', act: 'design', on: o.enigmaProduct?.addedOn ?? launch?.launchedOn, by: o.enigmaProduct ? `${o.enigmaProduct.code} · ${o.enigmaProduct.skus.length} sizes` : launch?.dropMonth,
-      now: 'category to add it to Enigma with every size' },
     /* a log, not a gate: every invoice, debit note and credit note on the PO, for reconciliation; it never holds the record up */
-    { key: 'invoices', phase: 'land', label: 'Invoices · debit and credit notes', who: 'Nitin · Accounts', act: 'production', on: o.poNo ? (o.poInvoices?.length ? o.poInvoices[o.poInvoices.length - 1].on : o.poDate) : null, by: o.poNo ? `${o.poInvoices?.length ?? 0} logged` : null, now: 'after the PO' },
+    { key: 'invoices', phase: 'land', label: 'Invoices · notes · payments', who: 'Nitin · Finance', act: 'production', on: o.poNo ? (o.poInvoices?.length ? o.poInvoices[o.poInvoices.length - 1].on : o.poDate) : null, by: o.poNo ? `${o.poInvoices?.length ?? 0} logged` : null, now: 'after the PO' },
   ];
   /* an open cut-ratio ask pulls the record back to the TNA until it is answered */
   const ratioOpen = o.status === 'Open' && (fab.key === 'ratio-asked' || pf.failedOpen.length > 0);
   const current = ratioOpen ? steps.findIndex(x => x.key === 'cloth') : steps.findIndex(x => !x.on && x.key !== 'invoices');
   const next = current >= 0 ? steps[current] : null;
   /* "where it is" for a list: the step name, or the TNA stage while it is being made */
-  const where = ratioOpen ? (pf.failedOpen.length ? `${pf.failedOpen.map(f => f.colour).join(', ')} cloth failed · hold or drop` : `cut ratio with category · short ${fab.short} m`) : !next ? `in Enigma ${fmtDate(o.enigmaProduct?.addedOn ?? launch?.launchedOn)}` : next.key === 'tna' && o.poNo ? (qcFail ? `QC failed · ${qcFail.label.toLowerCase()}` : qcDue ? `QC · ${qcDue.label.toLowerCase()}` : `${st.stage}${late}`) : next.key === 'pack' ? (pack.ready ? 'requirement complete' : `requirement · ${pack.missing.length} to fill`) : next.key === 'query' && cq ? (tr.open && replies >= asked ? 'replies over target · category to revise' : `counter sourcing · ${replies} of ${asked} replied`) : next.label;
+  const where = ratioOpen ? (pf.failedOpen.length ? `${pf.failedOpen.map(f => f.colour).join(', ')} cloth failed · hold or drop` : `cut ratio with category · short ${fab.short} m`) : !next ? `COGS closed${o.enigmaProduct ? ` · ${o.enigmaProduct.code}` : ''}` : next.key === 'tna' && o.poNo ? (qcFail ? `QC failed · ${qcFail.label.toLowerCase()}` : qcDue ? `QC · ${qcDue.label.toLowerCase()}` : `${st.stage}${late}`) : next.key === 'pack' ? (pack.ready ? 'requirement complete' : `requirement · ${pack.missing.length} to fill`) : next.key === 'query' && cq ? (tr.open && replies >= asked ? 'replies over target · category to revise' : `counter sourcing · ${replies} of ${asked} replied`) : next.label;
   return { steps, current, next, where };
 }
 
@@ -106,12 +110,12 @@ export const RTW_STATUSES = [
   { key: 'making', label: 'In production', hint: 'the TNA is running; QC at each point' },
   { key: 'dispatched', label: 'Dispatched', hint: 'invoice and packing list with the warehouse' },
   { key: 'received', label: 'Received', hint: 'on Enigma; COGS' },
-  { key: 'launched', label: 'In Enigma', hint: 'added with every size' },
+  { key: 'launched', label: 'COGS closed', hint: 'received and costed' },
 ] as const;
 export type RtwStatusKey = typeof RTW_STATUSES[number]['key'];
 export function rtwStatusOf(db: Db, o: ProductionOrder): { key: RtwStatusKey; label: string; i: number } {
   const j = rtwJourneyOf(db, o); const on = (k: string) => !!j.steps.find(s => s.key === k)?.on;
-  const key: RtwStatusKey = on('launch') ? 'launched' : on('received') ? 'received' : on('dispatch') ? 'dispatched' : on('plan') ? 'making' : on('po') ? (o.tnaPlan?.submittedOn ? 'planned' : 'po') : on('pack') ? 'queried' : 'requested';
+  const key: RtwStatusKey = on('cogs') ? 'launched' : on('received') ? 'received' : on('dispatch') ? 'dispatched' : on('plan') ? 'making' : on('po') ? (o.tnaPlan?.submittedOn ? 'planned' : 'po') : on('pack') ? 'queried' : 'requested';
   const i = RTW_STATUSES.findIndex(s => s.key === key);
   return { key, label: RTW_STATUSES[i].label, i };
 }

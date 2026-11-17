@@ -8,7 +8,7 @@
    Tracker itself.
    ========================================================================== */
 
-export type RoleId = 'owner' | 'design' | 'planning' | 'sourcing' | 'production' | 'warehouse' | 'store' | 'finance' | 'merchandiser' | 'qc' | 'cad' | 'cutting' | 'fusing' | 'compiling';   // qc (14 Nov 2026): PP sample, size set and the line inspections   // the four pre-production desks: each person signs in, a team shares one desk
+export type RoleId = 'hod' | 'owner' | 'design' | 'planning' | 'sourcing' | 'production' | 'warehouse' | 'store' | 'finance' | 'merchandiser' | 'qc' | 'cad' | 'cutting' | 'fusing' | 'compiling';   // qc (14 Nov 2026): PP sample, size set and the line inspections   // the four pre-production desks: each person signs in, a team shares one desk
 
 export interface Person { id: string; name: string; role: RoleId; title: string }
 
@@ -161,7 +161,16 @@ export interface BomLine {
   spec: string | null;           // 'Soktas · 100% cotton 2×1 twill', 'Horn, 4-hole, 18L'
   qtyPerPc: number | null;
   unit: string;                  // 'm', 'kg', 'pc'
+  suppliedBy?: SuppliedBy;       // 17 Nov 2026: who gets this line to the factory
+  rate?: number | null;          // ₹ per unit: the line's cost, and the price on the invoice BSC raises on what it sends
+  vendor?: string | null;        // who it is bought from: BSC's vendor, or the one BSC nominates
+  options?: BomOption[];         // 17 Nov 2026: what sourcing offers for this line; category picks one, which sets suppliedBy, vendor and rate
+  chosen?: string | null;        // the option category picked
 }
+/* one way to get a BOM line: who supplies it, from which vendor, at what rate */
+export interface BomOption { id: string; suppliedBy: SuppliedBy; vendor: string | null; rate: number | null; code?: string | null; note?: string | null; by: string; on: string }
+/* BSC sends it; BSC names the vendor and the factory raises its own PO; or the factory arranges it itself */
+export type SuppliedBy = 'bsc' | 'nominated' | 'factory';
 
 /* ---------- RTW sample approval — the gate before bulk ------------------
    Factory makes a sample from the tech pack and job card; the BSC Production
@@ -239,6 +248,8 @@ export type DeliveryLocation = '3PL warehouse' | 'Vasai · in-house';
 export interface PoLine { id: string; colour: string; sizes: { size: string; qty: number }[]; rate: number; hsn?: string | null }
 export interface PoDoc { lines: PoLine[]; charges: { label: string; amount: number }[]; gstPct: number; priceBasis: string; paymentTerms: string; shipBy: string | null; notes: string | null;
   /* the commercial terms a real PO carries (16 Nov 2026) */
+  goodsExpectedBy?: string | null; rawMaterialTerms?: string | null;   // 17 Nov 2026: when the goods are expected in-house; who supplies which raw material, and the vendors BSC nominates
+  advancePct?: number; advanceWhen?: string;   // 17 Nov 2026: part of the payment up front, the rest on the payment terms
   revision?: number; deliveryBasis?: 'ex-factory' | 'in-house'; tolerancePct?: number; aql?: string; lateDeduction?: string | null;
   cloth?: { metresIssued: number | null; consumptionPerPc: number | null; wastagePct: number | null; leftover: string } | null }   // CMT only: the cloth BSC issues, how much a piece takes, allowed wastage, what happens to the rest
 /* what set off a cut-ratio ask: less or more cloth or trim than the PO needs (15 Nov 2026) */
@@ -253,7 +264,14 @@ export interface PoFabric { id: string; colour: string; vendorId: string | null;
   qc: 'pending' | 'passed' | 'failed'; qcOn: string | null; qcNote: string | null;
   decision: { kind: 'hold'; replacementBy: string | null; by: string; on: string } | { kind: 'drop'; newRequirementId: string | null; by: string; on: string } | null;
   resumedOn: string | null }   // hold: replacement received, the colour continues
-export interface PoInvoice { id: string; doc?: 'invoice' | 'debit-note' | 'credit-note' | 'other'; direction: 'bsc-to-factory' | 'factory-to-bsc'; kind: 'fabric' | 'trim' | 'service' | 'other'; no: string; amount: number; what: string; file: string | null; on: string; by: string; note: string | null }
+/* 17 Nov 2026: before the PO, Nitin sends the chosen reply for approval — HOD, finance or both — with an approve-by date */
+export type ApproverRole = 'hod' | 'finance';
+export interface PoApproval { vendorId: string; fabricBy: FabricBy; needs: ApproverRole[]; deadline: string; askedOn: string; by: string; note: string | null;
+  doc?: PoDoc | null; kind?: 'new' | 'revision';   // the drafted PO the approvers approve; on the last approval it is raised (or the revision applied) and mailed by itself
+  decisions: { role: ApproverRole; by: string; on: string; approved: boolean; comment: string | null }[] }
+/* a payment made against the PO: keyed by hand or from finance's upload */
+export interface PoPayment { id: string; on: string; amount: number; ref: string | null; note: string | null; by: string; via: 'manual' | 'upload' }
+export interface PoInvoice { id: string; lines?: { item: string; qty: number; unit: string; rate: number; amount: number }[] | null; doc?: 'invoice' | 'debit-note' | 'credit-note' | 'other'; direction: 'bsc-to-factory' | 'factory-to-bsc'; kind: 'fabric' | 'trim' | 'service' | 'other'; no: string; amount: number; what: string; file: string | null; on: string; by: string; note: string | null }
 
 export type SampleStage = 'prototype' | 'sample' | 'trial';   // prototype · sampling cycle · trial cycle
 export interface SampleCycleRound { n: number; kind: SampleStage; sentOn: string | null; dueOn: string | null; sampledOn: string | null; trialOn: string | null; outcome: 'approved' | 'remarks' | null; remarks: string | null; cadUpdatedOn: string | null }
@@ -337,6 +355,10 @@ export interface ProductionOrder {
   deliverTo?: DeliveryLocation | null;   // category's pick on the requirement; defaults from semi-stitched, can be overridden   // known at the requirement: a semi-stitched product (hemming in-house) delivers to Vasai, everything else to the 3PL warehouse
   costQuery?: CostQuery | null;
   poDoc?: PoDoc | null;
+  poApproval?: PoApproval | null;
+  poPayments?: PoPayment[] | null;
+  /* a raised PO is locked: to change it (a new cut ratio, a date, a rate) Nitin asks for edit access, HOD and / or finance grant it, the PO is edited and goes for approval again */
+  poEdit?: { needs: ApproverRole[]; reason: string; askedOn: string; by: string; grants: { role: ApproverRole; by: string; on: string; granted: boolean; comment: string | null }[] } | null;
   poMail?: { on: string; sentOn?: string | null; mail?: MailDraft | null; to: string[]; cc: string[]; deliveryLocation: DeliveryLocation; needsHemming: boolean; fabricBy: FabricBy; clothVendorSent: boolean } | null;   // on: composed with the PO; sentOn: when Nitin sent it
   /* when the factory buys the cloth itself (from BSC's vendor or its own): the details it gives back */
   factoryCloth?: { vendor: string | null; poNo: string | null; poOn: string | null; metres: number | null; receivedOn: string | null; metresReceived: number | null; note: string | null } | null;

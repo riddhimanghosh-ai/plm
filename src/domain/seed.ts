@@ -9,6 +9,7 @@
 import type { LostSale, SwatchBookRequest, CreditEntry, OptionRequest, RequestOption, ConceptFabricOption, FabricBrief, ReturnCase, StockWriteOff, FitSample, Grn, Attachment, Concept, Block, Db, Escalation, Fabric, ProductionOrder, RtwOption, Vendor, GarmentCategory, Thread, Comment, RoleId, CustomerOrder, StockRequest, Launch, ProductionPlan, ExtraFabricRequest, FactoryOutput, Scan, SwatchBook, TrimItem, StockTransfer, FabricQuote, FabricPo, SampleRound , PlanningReview, RequirementPack, PrepStep, PrepEvent, SwatchDispatch } from './types';
 import { mainSizesOf, FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, SHEET_OPTIONS, MEASUREMENTS, defaultSpec, defaultPattern, PEOPLE, SIZE_SETS, MERCHANDISERS, DELAY_REASONS, RTW_SUBCATS, RANGES, STORES, isBottoms, BOTTOM_SIZES, SHIRT_SIZES, MTM_FITS, TRIM_MASTER, COLLAR_STYLES, POCKETS, EXTRA_FABRIC_REASONS, EXTRA_FABRIC_PANELS, PANEL_METRES, BOOK_EDITION, BIG_STORES, MTM_SWATCH_BOOKS } from './reference';
 import { REAL_MTM_FABRICS, REAL_BLOCKS, REAL_RTW_SHIRTS, REAL_RTW_BOTTOMS, REAL_MERCH, REAL_DROPS, REAL_STO } from './realdata';
+import { poDraftOf, supplyLinesOf } from './rtwPack';
 import { sourcingModeOf, buildMilestones, TODAY, addDays, iso, riskOf, coverageOf, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, daysBetween, consumptionFor, daysAgo, defaultMaterials, mintBespokeCode } from './engines';
 
 /* mulberry32 — same seed, same book, every reload */
@@ -1555,14 +1556,48 @@ orders.forEach((o, i) => {
       const lines = (o.poFabrics ?? []).map((f, k) => { const sz = o.sizeBreakup.map(x => ({ size: x.size, qty: Math.floor(x.qty * f.qty / tot) })); const short = f.qty - sz.reduce((a, x) => a + x.qty, 0); if (sz[0]) sz[0].qty += short; return { id: `pl-${i}-${k}`, colour: f.colour, hsn: o.fabricNominated ? '9988' : /pant|trouser|chino|short/i.test(o.styleName) ? '6203' : /polo|tee|t-shirt|knit/i.test(o.styleName) ? '6105' : '6205', rate, sizes: sz }; });
       const pc = o.poCosts; o.poDoc = { lines, charges: [...(pc?.logistics ? [{ label: 'Logistics', amount: pc.logistics }] : []), ...(pc?.other ?? [])], gstPct: 5,
         priceBasis: o.fabricNominated ? 'CMT · BSC supplies the cloth' : o.poMail?.fabricBy === 'bsc-vendor' ? "FOB · cloth from BSC's vendor, bought by the factory" : 'FOB · cloth and trims by the factory',
-        paymentTerms: ['45 days from receipt at the warehouse', '30 days from receipt at the warehouse', '50% advance, 50% on dispatch'][i % 3], shipBy: o.targetInhouse, revision: 1, deliveryBasis: 'in-house', tolerancePct: 3, aql: '2.5 major · 4.0 minor', lateDeduction: '1% of the PO value per week late, up to 5%',
+        paymentTerms: ['45 days from receipt at the warehouse', '30 days from receipt at the warehouse', '50% advance, 50% on dispatch'][i % 3], shipBy: iso(addDays(o.targetInhouse, -5)), goodsExpectedBy: o.targetInhouse, revision: 1, deliveryBasis: 'in-house', tolerancePct: 3, aql: '2.5 major · 4.0 minor', lateDeduction: '1% of the PO value per week late, up to 5%',
         cloth: o.fabricNominated ? { metresIssued: o.fabricMetres ?? Math.ceil(o.orderQty * 1.65), consumptionPerPc: o.fabricMetres && o.orderQty ? Math.round(o.fabricMetres / o.orderQty / 1.03 * 100) / 100 : 1.6, wastagePct: 3, leftover: 'Returned to BSC with the goods' } : null, notes: i % 4 === 0 ? 'Packed per polybag, cartons of 40; labels and tags as per the trim card.' : null }; }
+    /* 17 Nov 2026: the SKUs went into Enigma and the reply was approved before this PO; part of the PO is paid */
+    { const code = `BSC-${o.category.includes('hirt') ? 'SH' : o.category.includes('Bottom') ? 'BT' : o.category.includes('Knit') ? 'KN' : 'RT'}-${o.id.replace(/\D/g, '').slice(-4).padStart(4, '0')}`; const mrp = Math.round((o.finalFob ?? o.targetCost) * 3.2 / 10) * 10 - 1;
+      o.enigmaProduct = o.enigmaProduct ?? { code, name: o.styleName, mrp, category: o.category, fit: o.fit ?? null, colour: o.fabricBrief?.colour ?? null, description: null, skus: o.sizeBreakup.filter(x => x.qty > 0).map(x => ({ size: x.size, sku: `${code}-${x.size}`, qty: x.qty, price: mrp, salePrice: null })), addedOn: iso(addDays(o.poDate!, -2)), by: 'Charanjeet', editedOn: null, copy: null };
+      const needs = ([['hod', 'finance'], ['hod'], ['finance']] as const)[i % 3];
+      o.poApproval = { vendorId: o.vendorId!, fabricBy: o.poMail?.fabricBy ?? 'factory', needs: [...needs], deadline: iso(addDays(o.poDate!, 0)), askedOn: iso(addDays(o.poDate!, -2)), by: 'Nitin Singh', note: null,
+        decisions: needs.map((r, k) => ({ role: r, by: r === 'hod' ? 'HOD' : 'Finance', on: iso(addDays(o.poDate!, -1 + k * 0)), approved: true, comment: null })) };
+      const adv = [0, 25, 50][i % 3]; if (o.poDoc) { o.poDoc.advancePct = adv; o.poDoc.advanceWhen = 'with the PO'; }
+      const tot = o.poDoc ? o.poDoc.lines.reduce((a, l) => a + l.rate * l.sizes.reduce((b, x) => b + x.qty, 0), 0) * 1.05 : 0;
+      const pays = []; if (adv && i % 4 !== 3) pays.push({ id: `pay-${i}-a`, on: iso(addDays(o.poDate!, 1)), amount: Math.round(tot * adv / 100), ref: `UTR${88000 + i}`, note: `${adv}% advance`, by: 'Finance', via: 'upload' as const });
+      if (o.status === 'Closed') pays.push({ id: `pay-${i}-b`, on: iso(addDays(o.poDate!, 60)), amount: Math.round(tot * (100 - (pays.length ? adv : 0)) / 100 * 0.6), ref: `UTR${89000 + i}`, note: 'part balance', by: 'Finance', via: 'upload' as const });
+      o.poPayments = pays;
+      /* CMT: everything is sent by BSC; otherwise some trims are from vendors BSC nominates, the rest the factory's own */
+      o.bom.forEach((l, k) => { if (l.kind !== 'fabric' && !o.fabricNominated) { l.suppliedBy = (['factory', 'nominated', 'factory', 'factory'] as const)[(i + k) % 4]; if (l.suppliedBy === 'nominated') l.vendor = ['Movium', 'Shree Labels', 'Paras Buttons'][k % 3]; } }); }
     /* dispatched: the invoice and packing list went to Prince */
     const disp = ms('Dispatch')?.actual;
     if (disp) { const pcs = o.cutQty ?? o.orderQty; const tot = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) || 1;
       o.invoice = { no: `INV-${2600 + i}`, amount: Math.round(pcs * (o.finalFob ?? o.targetCost)), uploadedOn: iso(addDays(disp, 1)), by: o.merchant ?? 'Nitin Singh', file: `invoice-${2600 + i}.pdf`, packingList: o.sizeBreakup.map(x => ({ size: x.size, qty: Math.round(x.qty * pcs / tot) })), mailedOn: iso(addDays(disp, 1)), mailedTo: ['prince@bombayshirts.com'] }; }
   }
 });
+/* 17 Nov 2026 — before the PO: of the styles with replies, the first still waits for its SKUs in Enigma; the next are in Enigma and wait on HOD and finance, on HOD alone, on finance alone; one is approved and ready for its PO */
+{ let n = 0; orders.forEach(o => { const rp = o.costQuery?.replies ?? []; if (o.poNo || !rp.length || (o.status !== 'Quoting' && o.status !== 'Allocated')) return; const k = n++; if (k === 0) return;
+  const code = `BSC-RT-${o.id.replace(/\D/g, '').slice(-4).padStart(4, '0')}`; const best = [...rp].sort((a, b) => a.cost - b.cost)[0]; const mrp = Math.round(best.cost * 3.2 / 10) * 10 - 1;
+  o.enigmaProduct = { code, name: o.styleName, mrp, category: o.category, fit: o.fit ?? null, colour: o.fabricBrief?.colour ?? null, description: null, skus: o.sizeBreakup.filter(x => x.qty > 0).map(x => ({ size: x.size, sku: `${code}-${x.size}`, qty: x.qty, price: mrp, salePrice: null })), addedOn: iso(addDays(TODAY, -3)), by: 'Charanjeet', editedOn: null, copy: null };
+  if (k === 1) return;   // in Enigma, not yet sent for approval
+  const needs = ([['hod', 'finance'], ['hod'], ['finance'], ['hod', 'finance']] as const)[(k - 2) % 4];
+  o.poApproval = { doc: poDraftOf(o, best.cost), kind: 'new', vendorId: best.vendorId, fabricBy: 'bsc-vendor', needs: [...needs], deadline: iso(addDays(TODAY, k % 2 ? 2 : -1)), askedOn: iso(addDays(TODAY, -2)), by: 'Nitin Singh', note: k % 2 ? null : 'factory can start next week if we confirm', decisions: [] };
+  if ((k - 2) % 4 === 3) o.poApproval.decisions = [{ role: 'hod', by: 'HOD', on: iso(addDays(TODAY, -1)), approved: true, comment: null }, { role: 'finance', by: 'Finance', on: iso(addDays(TODAY, -1)), approved: false, comment: 'payment terms: no advance for a first order' }];
+  if ((k - 2) % 4 === 0 && k > 2) o.poApproval.decisions = [{ role: 'hod', by: 'HOD', on: iso(addDays(TODAY, -1)), approved: true, comment: null }];
+}); }
+/* 17 Nov 2026: every trim and packaging line carries a cost, so the BOM adds up */
+{ const RATE: Record<string, number> = { Button: 1.2, Pocketing: 38, 'Wash-care label': 0.8, 'Compostable inner Bag': 3.5, 'Courier Bag': 6, 'Packaging Box': 42, 'Paper Bag': 14, Flasher: 2.5, 'Outer Hanger Bag': 4, 'Outer Hanger': 9, 'Additional Consumable': 3 };
+  orders.forEach(o => o.bom.forEach(l => { if (l.kind !== 'fabric') l.rate = RATE[l.item] ?? (l.unit === 'pc' ? 3 : 30); })); }
+/* every raised PO where BSC sends material carries the invoice generated from its BOM; it rides with the PO mail */
+{ let n = 0; orders.forEach(o => { if (!o.poNo || !o.poDoc) return; const lines = supplyLinesOf(o); const amount = lines.reduce((a, l) => a + l.amount, 0); if (!lines.length || !amount) return;
+  const no = `BSC/INV/${4101 + n++}`;
+  o.poInvoices = [{ id: `sinv-${o.id}`, doc: 'invoice', direction: 'bsc-to-factory', kind: lines.some(l => o.bom.find(b => b.item === l.item)?.kind === 'fabric') ? 'fabric' : 'trim', no, amount, what: `Material sent by BSC: ${lines.map(l => l.item).join(', ')}`, file: `${no.replace(/\//g, '-')}.pdf`, on: o.poDate!, by: 'PLM', note: 'generated from the BOM lines BSC sends', lines },
+    ...(o.poInvoices ?? []).filter(x => x.direction !== 'bsc-to-factory' || x.doc === 'debit-note')]; }); }
+/* a raised PO whose cut ratio changed: Nitin has asked for edit access; another where access is given and the PO is open for editing */
+{ let n = 0; orders.forEach(o => { if (o.status !== 'Open' || !o.poDoc || n > 1) return; const cr = (o.cutRatios ?? []).find(c => c.given); if (!cr && n === 0) return;
+  o.poEdit = { needs: n === 0 ? ['hod', 'finance'] : ['hod'], reason: n === 0 ? 'New cut ratio from category' : 'Delivery date moved a week', askedOn: iso(addDays(TODAY, -1)), by: 'Nitin Singh', grants: n === 0 ? [] : [{ role: 'hod', by: 'HOD', on: iso(TODAY), granted: true, comment: null }] }; n++; }); }
 /* category's cloth choice follows what the PO did */
 orders.forEach((o, i) => { if (o.pack && o.pack.clothBy === undefined) o.pack.clothBy = o.poMail?.fabricBy ?? clothFor(o, i); if (o.pack && o.pack.clothBy === 'factory') { o.pack.fabric.vendorId = null; o.pack.fabric.vendorFabricCode = null; o.pack.fabric.blockedMetres = null; o.pack.fabric.readiness = null; o.pack.fabric.trimVendorId = null; } });
 orders.forEach(o => { const m = Object.entries({ 'Nitin Singh': ['ayaan', 'camellia', 'topnotch'], 'Abhin M': ['gseams', 'goodwill', 'richman'], 'Bhupendra': ['united', 'strand', 'zen'] }).find(([, fs]) => o.vendorId && fs.includes(o.vendorId))?.[0]; if (m) o.merchant = m; });

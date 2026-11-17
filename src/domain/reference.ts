@@ -35,7 +35,7 @@ export const PEOPLE: Person[] = [
 ];
 
 export const ROLE_LABEL: Record<RoleId, string> = {
-  owner:'Owner', design: RTW_ONLY ? 'Category' : 'Design', planning:'Planning', sourcing:'Sourcing',
+  hod:'HOD', owner:'Owner', design: RTW_ONLY ? 'Category' : 'Design', planning:'Planning', sourcing:'Sourcing',
   production:'Production', warehouse:'Warehouse', store:'Store', finance:'Finance', merchandiser:'Factory merchandiser', qc:'QC',
   cad:'CAD team', cutting:'Cutting team', fusing:'Fusing team', compiling:'Compiling team',
 };
