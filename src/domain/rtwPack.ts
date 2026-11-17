@@ -34,8 +34,8 @@ export function packReadyOf(o: ProductionOrder): { ready: boolean; parts: PackPa
     { key: 'fabric', label: 'Fabric info', who: 'design', missing: fabMissing, total: designFab.length, done: designFab.length - fabMissing.length },
     { key: 'trimCard', label: 'Trim card', who: 'design', missing: p.trimCard?.trim() ? [] : ['trim card'], total: 1, done: p.trimCard?.trim() ? 1 : 0 },
     { key: 'sizes', label: 'Size · qty break-up', who: 'design', missing: sizesOk ? [] : ['size-wise quantities (the cut ratio)'], total: 1, done: sizesOk ? 1 : 0 },
-    { key: 'bom', label: 'BOM', who: 'design', missing: o.bom.length ? [] : ['at least one BOM line'], total: 1, done: o.bom.length ? 1 : 0 },
-    { key: 'vendors', label: 'Vendors on the BOM', who: 'sourcing', missing: srcMissing, total: Math.max(o.bom.length, 1), done: o.bom.length ? o.bom.length - open.length : 0 },
+    /* the BOM and its vendors are one part: category adds the lines, sourcing adds vendors against each, category picks */
+    { key: 'bom', label: 'BOM · vendors', who: 'design', missing: o.bom.length ? srcMissing : ['at least one BOM line'], total: Math.max(o.bom.length, 1), done: o.bom.length ? o.bom.length - open.length : 0 },
   ];
   const missing = parts.flatMap(x => x.missing);
   return { ready: missing.length === 0, parts, missing, sourcingMissing: toFill };
@@ -116,12 +116,12 @@ export function poMailOf(db: Db, o: ProductionOrder): Mail {
 }
 export function invoiceMailOf(db: Db, o: ProductionOrder): Mail {
   const v = db.vendors.find(x => x.id === o.vendorId); const inv = o.invoice;
-  const pcs = (inv?.packingList ?? []).reduce((a, x) => a + x.qty, 0);
+  const pcs = inv ? (inv.packedPcs ?? inv.packingList.reduce((a, x) => a + x.qty, 0)) : 0;
   return {
     to: ['prince@bombayshirts.com'], cc: [merch(db, o), 'nitin@bombayshirts.com'],
     subject: `Invoice ${inv?.no ?? ''} · ${o.poNo ?? ''} · ${o.styleName} · ${pcs} pcs dispatched`,
     body: `${v?.name ?? 'The factory'} has dispatched ${pcs} pcs of ${o.styleName} against ${o.poNo ?? 'the PO'} to ${o.poMail?.deliveryLocation ?? 'the warehouse'}. Invoice ${inv?.no ?? ''} for ₹${inv?.amount?.toLocaleString('en-IN') ?? '—'} and the packing list are attached. Receive against the packing list on Enigma.`,
-    attachments: [inv?.file ?? 'Invoice', 'Packing list'],
+    attachments: [inv?.file ?? 'Invoice', inv?.packingFile ?? 'Packing list · PDF'],
   };
 }
 
@@ -309,3 +309,9 @@ export function rtwCogsOf(db: Db, o: ProductionOrder) {
   const closedOn = o.cogsClosedOn ?? (o.status === 'Closed' ? (rc.lots[rc.lots.length - 1]?.at ?? null) : null);
   return { parts, cogs, pcs, total: cogs * pcs, mrp, net, margin, planned, diff: planned != null ? cogs - planned : null, delivered, closedOn, target: o.targetCost };
 }
+
+/* the packing list is the factory's PDF for now, with the pieces on it; older records carry it size by size */
+export const packedPcsOf = (inv: NonNullable<ProductionOrder['invoice']>) => inv.packedPcs ?? inv.packingList.reduce((a, x) => a + x.qty, 0);
+export const packingFileOf = (inv: NonNullable<ProductionOrder['invoice']>) => inv.packingFile ?? `packing-list-${inv.no.replace(/[^A-Za-z0-9]+/g, '-')}.pdf`;
+/* pieces ordered by size: off the PO when it has lines, else the requirement's break-up */
+export function orderedBySizeOf(o: ProductionOrder) { const out: Record<string, number> = {}; (o.poDoc?.lines ?? []).forEach(l => l.sizes.forEach(x => { out[x.size] = (out[x.size] ?? 0) + x.qty; })); if (!o.poDoc) o.sizeBreakup.forEach(x => { out[x.size] = x.qty; }); return out; }

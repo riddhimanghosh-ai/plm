@@ -11,14 +11,13 @@ import { packOf, packReadyOf, poFabricsOf } from '../domain/rtwPack';
 import { Page, Card, Pill, Drawer, Empty, Seg, Input } from '../ui';
 import { VendorLink } from './Vendors';
 import { RtwRequirement } from './RtwRequirement';
-import { VendorDb } from './VendorDb';
 
 
 export function RtwSourcing() {
   const { db } = useApp();
   const [params, setParams] = useSearchParams();
   const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); v ? n.set(k, v) : n.delete(k); setParams(n, { replace: true }); };
-  const view = (params.get('view') ?? 'vendors') as 'vendors' | 'send' | 'db';
+  const view = (params.get('view') ?? 'vendors') as 'vendors' | 'send';
   const [q, setQ] = useState('');
   const match = (o: ProductionOrder) => !q.trim() || `${o.styleName} ${o.poNo ?? ''}`.toLowerCase().includes(q.trim().toLowerCase());
   const faint = { color: 'var(--ink-faint)' } as const;
@@ -36,9 +35,8 @@ export function RtwSourcing() {
       <Seg value={view} onChange={v => set('view', v === 'vendors' ? null : v)} options={[
         { id: 'vendors', label: 'Vendors on the BOM · requirements', count: vendorRows.length, hint: 'against each BOM line: who supplies it, the vendor and the rate; add more than one option and category picks' },
         { id: 'send', label: 'Send to the factory · BSC sends', count: sendRows.length, hint: 'POs where BSC supplies the cloth and trims' },
-        { id: 'db', label: 'Cloth vendor database', count: db.vendors.filter(v => v.kind.endsWith('mill') || v.kind === 'Trims').length, hint: 'every cloth and trim vendor and what it supplies' },
       ]} />
-      {view !== 'db' && <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style or PO" style={{ width: 200 }} />}
+      {<Input value={q} onChange={e => setQ(e.target.value)} placeholder="style or PO" style={{ width: 200 }} />}
     </div>
 
     {view === 'vendors' && (vendorRows.length === 0 ? <Card><Empty title="No BOM line waiting on a vendor." body="" /></Card> : <Card><table className="t">
@@ -66,10 +64,9 @@ export function RtwSourcing() {
         </tr>; })}</tbody>
     </table></Card>)}
 
-    {view === 'db' && <VendorDb kind="cloth" bare />}
 
     <Drawer open={!!active} onClose={() => set('open', null)} title={active?.poNo ?? active?.styleName ?? ''} subtitle={active && <span>{active.styleName} · {active.orderQty} pcs</span>}>
-      {active && <RtwRequirement key={active.id} o={active} initial={view === 'send' ? 'cloth' : 'pack'} />}
+      {active && <RtwRequirement key={active.id} o={active} initial="pack" scope="sourcing" />}
     </Drawer>
   </Page>;
 }

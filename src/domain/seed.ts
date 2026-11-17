@@ -1595,9 +1595,6 @@ orders.forEach((o, i) => {
   const no = `BSC/INV/${4101 + n++}`;
   o.poInvoices = [{ id: `sinv-${o.id}`, doc: 'invoice', direction: 'bsc-to-factory', kind: lines.some(l => o.bom.find(b => b.item === l.item)?.kind === 'fabric') ? 'fabric' : 'trim', no, amount, what: `Material sent by BSC: ${lines.map(l => l.item).join(', ')}`, file: `${no.replace(/\//g, '-')}.pdf`, on: o.poDate!, by: 'PLM', note: 'generated from the BOM lines BSC sends', lines },
     ...(o.poInvoices ?? []).filter(x => x.direction !== 'bsc-to-factory' || x.doc === 'debit-note')]; }); }
-/* a raised PO whose cut ratio changed: Nitin has asked for edit access; another where access is given and the PO is open for editing */
-{ let n = 0; orders.forEach(o => { if (o.status !== 'Open' || !o.poDoc || n > 1) return; const cr = (o.cutRatios ?? []).find(c => c.given); if (!cr && n === 0) return;
-  o.poEdit = { needs: n === 0 ? ['hod', 'finance'] : ['hod'], reason: n === 0 ? 'New cut ratio from category' : 'Delivery date moved a week', askedOn: iso(addDays(TODAY, -1)), by: 'Nitin Singh', grants: n === 0 ? [] : [{ role: 'hod', by: 'HOD', on: iso(TODAY), granted: true, comment: null }] }; n++; }); }
 /* category's cloth choice follows what the PO did */
 orders.forEach((o, i) => { if (o.pack && o.pack.clothBy === undefined) o.pack.clothBy = o.poMail?.fabricBy ?? clothFor(o, i); if (o.pack && o.pack.clothBy === 'factory') { o.pack.fabric.vendorId = null; o.pack.fabric.vendorFabricCode = null; o.pack.fabric.blockedMetres = null; o.pack.fabric.readiness = null; o.pack.fabric.trimVendorId = null; } });
 orders.forEach(o => { const m = Object.entries({ 'Nitin Singh': ['ayaan', 'camellia', 'topnotch'], 'Abhin M': ['gseams', 'goodwill', 'richman'], 'Bhupendra': ['united', 'strand', 'zen'] }).find(([, fs]) => o.vendorId && fs.includes(o.vendorId))?.[0]; if (m) o.merchant = m; });

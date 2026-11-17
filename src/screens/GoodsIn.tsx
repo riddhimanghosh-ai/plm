@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import { fmtDate, fmtMoney, receiptOf, daysAgo } from '../domain/engines';
-import { poLedgerOf } from '../domain/rtwPack';
+import { packedPcsOf, poLedgerOf } from '../domain/rtwPack';
 import { Page, Card, Pill, Drawer, Empty, Seg, Stats, Input, MultiFilter, passes } from '../ui';
 import { RtwRequirement } from './RtwRequirement';
 
@@ -16,7 +16,7 @@ export function GoodsIn() {
   const view = (params.get('view') ?? 'todo') as 'todo' | 'done';
   const [q, setQ] = useState(''); const [facs, setFacs] = useState<string[]>([]);
   const nameOf = (id: string | null) => db.vendors.find(v => v.id === id)?.name ?? '—';
-  const all = db.orders.filter(o => o.poNo && o.invoice?.mailedOn).map(o => { const rc = receiptOf(o); const sent = o.invoice!.packingList.reduce((a, x) => a + x.qty, 0); const l = poLedgerOf(o);
+  const all = db.orders.filter(o => o.poNo && o.invoice?.mailedOn).map(o => { const rc = receiptOf(o); const sent = packedPcsOf(o.invoice!); const l = poLedgerOf(o);
     const done = rc.lots.length > 0 && (o.status === 'Closed' || rc.received + rc.rejected >= sent);
     const state = !rc.lots.length ? 'to-count' : !done ? 'balance' : l.shortPcs > 0 || rc.rejected > 0 ? 'short' : 'ok';
     return { o, rc, sent, l, done, state }; });

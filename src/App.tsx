@@ -57,6 +57,7 @@ export default function App() {
           <Route path="/sourcing" element={RTW_ONLY ? <RtwSourcing /> : <Sourcing />} />
           <Route path="/rtw-sourcing" element={MTM_ONLY ? <Navigate to="/" replace /> : <RtwSourcing />} />
           <Route path="/cogs" element={MTM_ONLY ? <Navigate to="/" replace /> : <CogsDashboard />} />
+          <Route path="/enigma-marketing" element={MTM_ONLY ? <Navigate to="/" replace /> : <CogsDashboard only="enigma" />} />
           <Route path="/factory-db" element={MTM_ONLY ? <Navigate to="/" replace /> : <VendorDb kind="factory" />} />
           <Route path="/cloth-vendors" element={MTM_ONLY ? <Navigate to="/" replace /> : <VendorDb kind="cloth" />} />
           <Route path="/tracker" element={MTM_ONLY ? <Navigate to="/" replace /> : <Tracker />} />

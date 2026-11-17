@@ -241,7 +241,7 @@ export interface AppState {
   addPoPayment(orderId: string, p: { on: string; amount: number; ref: string | null; note: string | null }): void;
   addPoPayments(rows: { poNo: string; on: string; amount: number; ref: string | null; note: string | null }[]): number;   // finance's upload across POs; returns how many matched
   removePoPayment(orderId: string, id: string): void;
-  addBomOptions(orderId: string, items: { idx: number; opt: { suppliedBy: SuppliedBy; vendor: string | null; rate: number | null; code?: string | null; note?: string | null } }[]): void;   // sourcing: vendor options against BOM lines
+  addBomOptions(orderId: string, items: { idx: number; opt: { suppliedBy: SuppliedBy; vendor: string | null; rate: number | null; gstPct?: number | null; state?: string | null; code?: string | null; note?: string | null } }[]): void;   // sourcing: vendor options against BOM lines
   removeBomOption(orderId: string, idx: number, optId: string): void;
   pickBomOptions(orderId: string, picks: { idx: number; optId: string }[]): void;   // category picks one option per line
   generateSupplyInvoice(orderId: string): void;   // the invoice BSC raises on the factory for the BOM lines BSC sends
@@ -256,7 +256,7 @@ export interface AppState {
   raiseAlternativeFor(orderId: string, fabricId: string): string | null;                                     // a separate requirement for the dropped colour's alternative
   addToEnigma(orderId: string, p: { code: string; name: string; mrp: number; category: string; fit: string | null; colour: string | null; description: string | null; skus: { size: string; sku: string; qty: number; price?: number | null; salePrice?: number | null }[] }): void;   // category: the style and every size into Enigma, ready to sell
   setEnigmaCopy(orderId: string, copy: NonNullable<NonNullable<ProductionOrder['enigmaProduct']>['copy']>): void;   // AI-drafted product and marketing details, edited and kept
-  uploadInvoice(orderId: string, inv: { no: string; amount: number; file: string | null; packingList: { size: string; qty: number }[] }): void;   // merchandiser: uploads the factory's invoice and packing list
+  uploadInvoice(orderId: string, inv: { no: string; amount: number; file: string | null; packingList: { size: string; qty: number }[]; packingFile?: string | null; packedPcs?: number | null }): void;   // merchandiser: uploads the factory's invoice and packing list
   mailInvoice(orderId: string, mail?: MailDraft | null): void;   // merchandiser: one click, PLM mails both to Prince at the warehouse
   sendPoMail(orderId: string, mail?: MailDraft | null): void;   // Nitin: the PO mail to the factory and the merchandiser, edited if needed
   /** production agrees with the factory: part now, balance later — the same PO, split */
@@ -358,7 +358,7 @@ function makeSupplyInvoice(db: Db, o: ProductionOrder) {
   o.poInvoices = prev ? (o.poInvoices ?? []).map(i => i.id === prev.id ? inv : i) : [...(o.poInvoices ?? []), inv];
   (o.activity = o.activity ?? []).push({ at: new Date(TODAY).toISOString(), who: 'PLM', what: `Invoice ${no} ${prev ? 'regenerated' : 'generated'} for what BSC sends · ₹${amount} · ${lines.length} line${lines.length === 1 ? '' : 's'}` });
 }
-const SEED_VERSION = 167;
+const SEED_VERSION = 168;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 export const useAppStore = create<AppState>()(persist((set, get) => {
@@ -1480,7 +1480,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     askPoApproval(orderId, vendorId, fabricBy, needs, deadline, note, doc) {
       let made: PoApproval | null = null; let rev = false;
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o || !o.enigmaProduct) return;   // no PO draft before the SKUs are in Enigma
-        const revision = !!o.poNo; if (revision && poEditOf(o).state !== 'granted') return;
+        const revision = !!o.poNo;   // 17 Nov 2026: a raised PO is changed directly and sent for approval again; no separate edit access
         o.poApproval = { vendorId, fabricBy, needs, deadline, askedOn: now(), by: who(), note, decisions: [], doc, kind: revision ? 'revision' : 'new' }; made = o.poApproval; rev = revision;
         const t = poTotalsOf(doc);
         log(o, `${revision ? `Revised ${o.poNo}` : 'PO draft'} sent for approval · ${db.vendors.find(v => v.id === vendorId)?.name ?? vendorId} · ${t.pcs} pcs · ₹${Math.round(t.total)} · ${needs.length ? `needs ${needs.map(r => r === 'hod' ? 'HOD' : 'finance').join(' and ')} · by ${fmtDate(deadline)}` : `approval skipped${note ? ` · ${note}` : ''}`}`); },
@@ -1534,7 +1534,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     pickBomOptions(orderId, picks) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return;
         picks.forEach(({ idx, optId }) => { const l = o.bom[idx]; const op = l?.options?.find(x => x.id === optId); if (!l || !op) return;
-          l.chosen = op.id; l.suppliedBy = op.suppliedBy; l.vendor = op.vendor; if (op.rate != null) l.rate = op.rate;
+          l.chosen = op.id; l.suppliedBy = op.suppliedBy; l.vendor = op.vendor; if (op.rate != null) l.rate = op.rate; l.gstPct = op.gstPct ?? null; l.vendorState = op.state ?? null;
           /* the cloth line carries the cloth choice the rest of the record reads: who supplies it, the vendor, its code and rate */
           if (l.kind === 'fabric') { const p = o.pack ?? JSON.parse(JSON.stringify(EMPTY_PACK)) as RequirementPack; const by = op.suppliedBy === 'bsc' ? 'bsc' : op.suppliedBy === 'nominated' ? 'bsc-vendor' : 'factory';
             const v = op.vendor ? db.vendors.find(x => x.name.toLowerCase() === op.vendor!.toLowerCase()) : null;
@@ -1617,7 +1617,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return;
         o.invoice = { ...inv, uploadedOn: now(), by: who(), mailedOn: null, mailedTo: [] };
         const d = o.milestones.find(x => x.key === 'Dispatch'); if (d && !d.actual) d.actual = now();
-        log(o, `Invoice ${inv.no} and packing list (${inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs) uploaded`); },
+        log(o, `Invoice ${inv.no} and packing list (${inv.packedPcs ?? inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs) uploaded`); },
         'Uploaded. Send them to Prince when ready.');
     },
     mailInvoice(orderId, mail = null) {

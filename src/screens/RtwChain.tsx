@@ -8,7 +8,7 @@ import { useApp } from '../store';
 import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy, PoDoc, PoLine, ApproverRole } from '../domain/types';
 import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
 import { TECH_PACK_ITEMS, QC_POINTS, FABRIC_BY_LABEL } from '../domain/reference';
-import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, supplyInvoicesOf, isCmt, taxCodeOf, AQL_LEVELS, clothNeedOf, approvalOf, poLedgerOf, supplyLinesOf, rawMaterialsOf, type Mail } from '../domain/rtwPack';
+import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, supplyInvoicesOf, packedPcsOf, packingFileOf, orderedBySizeOf, isCmt, taxCodeOf, AQL_LEVELS, clothNeedOf, approvalOf, poLedgerOf, supplyLinesOf, rawMaterialsOf, type Mail } from '../domain/rtwPack';
 import { Section, Pill, Button, KV, Field, Input, Select, fromDateInput, dateInput } from '../ui';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
@@ -54,11 +54,11 @@ export function MailCard({ mail, sentOn, label, onSend, sendLabel }: { mail: Mai
 
 /* ── 1. the five-part requirement, and the gate ── */
 type PartKey = 'techPack' | 'fabric' | 'trimCard' | 'sizes' | 'bom' | 'vendors';
-export function PackSection({ o, design, sourcing }: { o: ProductionOrder; design: boolean; sourcing: boolean }) {
+export function PackSection({ o, design, sourcing, only }: { o: ProductionOrder; design: boolean; sourcing: boolean; only?: PartKey }) {
   const { db, updatePack, sendPack, updateRequirement, attachFiles } = useApp();
   const p = packOf(o);
   const pick = (label: string, step: string | null, onName: (n: string) => void) => <label className="file-btn"><input type="file" accept=".pdf,.doc,.docx,image/*" onChange={e => { const f = e.target.files?.[0]; if (!f) return; onName(f.name); void attachFiles('order', o.id, label, step, [f]); }} />Attach</label>; const rd = packReadyOf(o); const sent = !!p.sentOn || o.status !== 'Requirement';
-  const [tab, setTab] = useState<PartKey>(rd.parts.find(x => x.missing.length)?.key ?? 'techPack');
+  const [tab, setTab] = useState<PartKey>(only ?? rd.parts.find(x => x.missing.length)?.key ?? 'techPack');
   const [tp, setTp] = useState<Partial<Record<TechPackKey, string>>>({ ...p.techPack });
   const [fab, setFab] = useState<RequirementPack['fabric']>({ ...p.fabric });
   const [trim, setTrim] = useState(p.trimCard ?? '');
@@ -88,7 +88,7 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
   const num = (v: string) => v === '' ? null : Number(v);
   const part = rd.parts.find(x => x.key === tab)!;
   return <Section title="Requirement" collapsible={false} right={<Pill tone={sent ? 'good' : rd.ready ? 'good' : 'warn'}>{sent ? `sent to Production RTW ${fmtDate(p.sentOn ?? o.styleHandover)}` : rd.ready ? 'complete · ready to send' : `${rd.missing.length} item${rd.missing.length > 1 ? 's' : ''} to fill`}</Pill>}>
-    <div className="form-tabs pb-3" role="tablist">{rd.parts.map((x, i) => <button type="button" key={x.key} role="tab" aria-selected={tab === x.key} className={tab === x.key ? 'on' : x.missing.length === 0 ? 'done' : ''} onClick={() => setTab(x.key)} title={x.missing.length ? `missing: ${x.missing.join(', ')}` : 'complete'}><span className="n">{x.missing.length === 0 && tab !== x.key ? '✓' : i + 1}</span>{x.label}<span className="text-[11px]" style={{ opacity: .7 }}>{x.done}/{x.total}</span></button>)}</div>
+    <div className="form-tabs pb-3" role="tablist">{rd.parts.filter(x => !only || x.key === only).map((x, i) => <button type="button" key={x.key} role="tab" aria-selected={tab === x.key} className={tab === x.key ? 'on' : x.missing.length === 0 ? 'done' : ''} onClick={() => setTab(x.key)} title={x.missing.length ? `missing: ${x.missing.join(', ')}` : 'complete'}><span className="n">{x.missing.length === 0 && tab !== x.key ? '✓' : i + 1}</span>{x.label}<span className="text-[11px]" style={{ opacity: .7 }}>{x.done}/{x.total}</span></button>)}</div>
     {tab === 'techPack' && <div>
       {p.brief && <div className="text-[12px] mb-2 p-2 rounded-[6px]" style={{ background: 'var(--surface-2)' }}><b>Design brief</b> <span className="pill">phase 2 · AI drafts from this</span><div className="pt-1" style={soft}>{p.brief}</div></div>}
       <div className="grid gap-x-4 gap-y-1.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
@@ -119,17 +119,22 @@ export function PackSection({ o, design, sourcing }: { o: ProductionOrder; desig
       <SizeGrid breakup={sizes} edit={canDesign} onChange={(sz, n) => setSizes(b => { const has = b.some(x => x.size === sz); return has ? b.map(x => x.size === sz ? { ...x, qty: n } : x) : [...b, { size: sz, qty: n }]; })} />
       {canDesign && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updateRequirement(o.id, { sizeBreakup: sizes.filter(x => x.qty > 0), orderQty: sizes.reduce((a, x) => a + x.qty, 0) })}>Save break-up</Button></div>}
     </div>}
-    {tab === 'bom' && <BomSection o={o} editable={canDesign} open />}
-    {tab === 'vendors' && <BomVendors o={o} canDesign={canDesign} canSourcing={canSourcing} />}
+    {tab === 'bom' && <>
+      {!only && <BomSection o={o} editable={canDesign} open />}
+      <div className={only ? '' : 'pt-3 mt-3'} style={only ? undefined : { borderTop: '1px solid var(--line-soft)' }}>
+        <div className="cap flex items-center gap-2 pb-1">Vendors on each BOM line <span className="pill role-sourcing">Sourcing adds</span><span className="pill role-design">Category picks</span></div>
+        <BomVendors o={o} canDesign={canDesign} canSourcing={canSourcing} />
+      </div>
+    </>}
 
-    {canDesign && <div className="ai-brief mt-3">
+    {canDesign && !only && <div className="ai-brief mt-3">
       <div className="flex items-center gap-2 flex-wrap"><span className="pill ai-pill">✦ AI</span><b className="text-[13px]">Describe it in your words</b><span className="text-[12px]" style={faint}>the tech pack, fabric info and trim card are drafted from this; check each part after</span></div>
       <textarea className="input mt-1.5" rows={3} value={brief} onChange={e => setBrief(e.target.value)} placeholder="Relaxed oxford shirt, button-down collar, single chest pocket, mother-of-pearl buttons, box-pleat back, folded in a kraft box…" style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4, width: '100%' }} />
       <div className="flex items-center gap-2 pt-1.5"><Button size="sm" variant="primary" disabled={brief.trim().length < 10} onClick={draftWithAi}>✦ Draft the requirement</Button>{drafted && <span className="text-[12px]" style={{ color: 'var(--good)' }}>Drafted the empty items. Check each part before sending.</span>}</div>
     </div>}
 
     {/* the gate */}
-    <div className="pt-3 mt-3 flex items-center gap-3 flex-wrap" style={{ borderTop: '1px solid var(--line-soft)' }}>
+    <div className="pt-3 mt-3 flex items-center gap-3 flex-wrap" hidden={!!only} style={{ borderTop: '1px solid var(--line-soft)' }}>
       {sent ? <span className="text-[12.5px]" style={{ color: 'var(--good)' }}>Sent to Production RTW {fmtDate(p.sentOn ?? o.styleHandover)}{p.sentBy ? ` by ${p.sentBy}` : ''}. Nitin picks the factories and sends the cost query.</span>
         : <>
           {(canDesign || canSourcing) && !rd.ready && <Button variant="ghost" onClick={fillSample}>Fill with sample data</Button>}
@@ -569,16 +574,15 @@ export const QC_POINT_LABEL = Object.fromEntries(QC_POINTS.map(p => [p.key, p.la
 export function InvoiceSection({ o, merchant }: { o: ProductionOrder; merchant: boolean }) {
   const { db, uploadInvoice, mailInvoice } = useApp();
   const inv = o.invoice; const disp = o.milestones.find(m => m.key === 'Dispatch')?.actual ?? null;
-  const pcs = o.cutQty ?? o.orderQty; const tot = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) || 1;
+  const pcs = o.cutQty ?? o.orderQty;
   const [no, setNo] = useState(''); const [amt, setAmt] = useState(String(pcs * (o.finalFob ?? o.targetCost))); const [file, setFile] = useState('');
-  const [pl, setPl] = useState<Record<string, string>>(() => Object.fromEntries(o.sizeBreakup.map(x => [x.size, String(Math.round(x.qty * pcs / tot))])));
+  const [plFile, setPlFile] = useState(''); const [plPcs, setPlPcs] = useState(String(pcs));
   if (!o.poNo) return <Section title="Dispatch · invoice" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>After the dispatch actual on the TNA.</div></Section>;
-  const plTotal = Object.values(pl).reduce((a, v) => a + (Number(v) || 0), 0);
+  const plTotal = Number(plPcs) || 0;
   return <Section title="Dispatched · invoice and packing list" collapsible={false} right={<Pill tone={inv?.mailedOn ? 'good' : inv || disp ? 'warn' : 'neutral'}>{inv?.mailedOn ? `mailed to Prince ${fmtDate(inv.mailedOn)}` : inv ? `uploaded ${fmtDate(inv.uploadedOn)} · to send to Prince` : disp ? `dispatched ${fmtDate(disp)} · invoice to upload` : 'not dispatched yet'}</Pill>}>
     {inv ? <>
       <KV k="Invoice" v={<span className="mono">{inv.no}</span>} note={`${fmtMoney(inv.amount)} · ${inv.file ?? 'uploaded'} · ${inv.by} · ${fmtDate(inv.uploadedOn)}`} />
-      <div className="cap pt-2">Packing list · {inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs</div>
-      <SizeGrid breakup={inv.packingList} />
+      <KV k="Packing list" v={<span className="att-chip"><span aria-hidden>📎</span>{packingFileOf(inv)}</span>} note={`PDF from the factory · ${packedPcsOf(inv)} pcs on it`} />
       <div className="pt-2"><MailCard label="Invoice and packing list · to the warehouse" mail={{ ...invoiceMailOf(db, o), ...(inv.mail ?? {}), to: inv.mailedTo.length ? inv.mailedTo : (inv.mail?.to ?? invoiceMailOf(db, o).to) }} sentOn={inv.mailedOn} sendLabel="Send to Prince ✉" onSend={merchant ? m => mailInvoice(o.id, { to: m.to, cc: m.cc, subject: m.subject, body: m.body }) : undefined} /></div>
       {!inv.mailedOn && !merchant && <div className="pt-2"><ActsBy role="merchandiser" does="sends the invoice and packing list to Prince" /></div>}
     </> : !disp ? <div className="text-[12.5px] py-1" style={soft}>The factory logs the dispatch actual on the TNA; the merchandiser then uploads the invoice and packing list here, and PLM mails them to Prince. The printed invoice stops.</div>
@@ -588,38 +592,42 @@ export function InvoiceSection({ o, merchant }: { o: ProductionOrder; merchant: 
           <Field label="Amount (₹)"><Input type="number" value={amt} onChange={e => setAmt(e.target.value)} /></Field>
           <Field label="Invoice file"><Input value={file} onChange={e => setFile(e.target.value)} placeholder="invoice.pdf" /></Field>
         </div>
-        <div className="cap pt-1">Packing list · by size · {plTotal} pcs</div>
-        <div className="flex gap-2 flex-wrap py-1">{o.sizeBreakup.map(x => <Field key={x.size} label={x.size}><Input type="number" value={pl[x.size] ?? ''} onChange={e => setPl(p => ({ ...p, [x.size]: e.target.value }))} style={{ width: 70 }} /></Field>)}</div>
-        <div className="pt-1"><Button variant="primary" disabled={!no.trim() || !plTotal} onClick={() => uploadInvoice(o.id, { no: no.trim(), amount: Number(amt) || 0, file: file.trim() || null, packingList: o.sizeBreakup.map(x => ({ size: x.size, qty: Number(pl[x.size]) || 0 })).filter(x => x.qty > 0) })}>Upload invoice and packing list</Button></div>
+        <div className="grid gap-2 py-1" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+          <Field label="Packing list · PDF"><div className="flex gap-1.5 items-center"><label className="file-btn"><input type="file" accept=".pdf" onChange={e => { const f = e.target.files?.[0]; if (f) setPlFile(f.name); }} />Attach</label><Input value={plFile} onChange={e => setPlFile(e.target.value)} placeholder="packing-list.pdf" style={{ flex: 1 }} /></div></Field>
+          <Field label="Pieces on the packing list"><Input type="number" min={0} value={plPcs} onChange={e => setPlPcs(e.target.value)} /></Field>
+        </div>
+        <div className="pt-1"><Button variant="primary" disabled={!no.trim() || !plTotal || !plFile.trim()} onClick={() => uploadInvoice(o.id, { no: no.trim(), amount: Number(amt) || 0, file: file.trim() || null, packingList: [], packingFile: plFile.trim(), packedPcs: plTotal })}>Upload invoice and packing list</Button></div>
       </> : <ActsBy role="merchandiser" does="uploads the factory's invoice and packing list; PLM mails them to Prince" />}
   </Section>;
 }
 
 /* ── 7. received on Enigma, against the packing list ── */
-/* Prince counts the goods in (17 Nov 2026): what was ordered, what the packing list says, what he counted, size by size.
+/* Prince counts the goods in (17 Nov 2026): what was ordered and what he counted, size by size, with the packing list PDF beside it.
    A short or damaged count is flagged, and what is not received comes off the payable. */
 export function WarehouseCount({ o }: { o: ProductionOrder }) {
   const { receiveLot } = useApp();
   const inv = o.invoice; const rc = receiptOf(o);
-  const ordered: Record<string, number> = {}; (o.poDoc?.lines ?? []).forEach(l => l.sizes.forEach(x => { ordered[x.size] = (ordered[x.size] ?? 0) + x.qty; })); if (!o.poDoc) o.sizeBreakup.forEach(x => { ordered[x.size] = x.qty; });
+  const ordered = orderedBySizeOf(o);
   const got: Record<string, number> = {}; rc.lots.forEach(l => Object.entries(l.bySize ?? {}).forEach(([sz, n]) => { got[sz] = (got[sz] ?? 0) + n; }));
   const [cnt, setCnt] = useState<Record<string, string>>({}); const [rej, setRej] = useState(''); const [note, setNote] = useState(''); const [more, setMore] = useState(''); const [final, setFinal] = useState(false);
   if (!inv) return null;
-  const pl = inv.packingList; const sent = pl.reduce((a, x) => a + x.qty, 0);
+  /* counted against what was ordered, size by size; the packing list is the factory's PDF, with its total */
+  const pl = Object.entries(ordered).map(([size, qty]) => ({ size, qty })); const sent = packedPcsOf(inv); const orderedPcs = pl.reduce((a, x) => a + x.qty, 0);
   const left = (sz: string, q: number) => Math.max(0, q - (got[sz] ?? 0));
   const total = pl.reduce((a, x) => a + (Number(cnt[x.size]) || 0), 0);
   const stillShort = pl.reduce((a, x) => a + Math.max(0, left(x.size, x.qty) - (Number(cnt[x.size]) || 0)), 0);
   const done = rc.lots.length > 0 && (o.status === 'Closed' || rc.received >= sent);
   if (done) return null;
   return <Section title={rc.lots.length ? 'Count the balance in' : 'Count the goods in'} collapsible={false} right={<span className="pill role-warehouse">Prince</span>}>
+    <div className="flex items-center gap-2 flex-wrap pb-2 text-[12.5px]"><span style={faint}>Packing list</span><span className="att-chip"><span aria-hidden>📎</span>{packingFileOf(inv)}</span><span><b>{sent}</b> pcs on it · <b>{orderedPcs}</b> ordered{sent < orderedPcs ? <span style={{ color: 'var(--risk)' }}> · {orderedPcs - sent} fewer than ordered</span> : null}</span><span style={faint}>· invoice <span className="mono">{inv.no}</span></span></div>
     <div style={{ overflowX: 'auto' }}><table className="t compact inv-lines">
-      <thead><tr><th>Size</th><th className="num">Ordered on the PO</th><th className="num">Packing list</th>{rc.lots.length > 0 && <th className="num">Counted before</th>}<th className="num">Counted in now</th><th className="num">Short</th></tr></thead>
-      <tbody>{pl.map(x => { const n = Number(cnt[x.size]) || 0; const sh = left(x.size, x.qty) - n; return <tr key={x.size}><td className="font-medium">{x.size}</td><td className="num">{ordered[x.size] ?? '—'}</td><td className="num">{x.qty}</td>{rc.lots.length > 0 && <td className="num">{got[x.size] ?? 0}</td>}
+      <thead><tr><th>Size</th><th className="num">Ordered on the PO</th>{rc.lots.length > 0 && <th className="num">Counted before</th>}<th className="num">Counted in now</th><th className="num">Short</th></tr></thead>
+      <tbody>{pl.map(x => { const n = Number(cnt[x.size]) || 0; const sh = left(x.size, x.qty) - n; return <tr key={x.size}><td className="font-medium">{x.size}</td><td className="num">{x.qty}</td>{rc.lots.length > 0 && <td className="num">{got[x.size] ?? 0}</td>}
         <td className="num"><Input type="number" min={0} value={cnt[x.size] ?? ''} onChange={e => setCnt(c => ({ ...c, [x.size]: e.target.value }))} placeholder={String(left(x.size, x.qty))} style={{ width: 84, textAlign: 'right' }} /></td>
         <td className="num" style={{ color: cnt[x.size] == null || cnt[x.size] === '' ? 'var(--ink-faint)' : sh > 0 ? 'var(--risk)' : 'var(--good)' }}>{cnt[x.size] == null || cnt[x.size] === '' ? '—' : sh > 0 ? sh : sh < 0 ? `+${-sh}` : '✓'}</td></tr>; })}
-        <tr><td className="font-semibold">Total</td><td className="num font-semibold">{Object.values(ordered).reduce((a, n) => a + n, 0)}</td><td className="num font-semibold">{sent}</td>{rc.lots.length > 0 && <td className="num font-semibold">{rc.received}</td>}<td className="num font-semibold">{total}</td><td className="num font-semibold" style={{ color: stillShort ? 'var(--risk)' : 'var(--good)' }}>{total ? (stillShort || '✓') : '—'}</td></tr></tbody>
+        <tr><td className="font-semibold">Total</td><td className="num font-semibold">{orderedPcs}</td>{rc.lots.length > 0 && <td className="num font-semibold">{rc.received}</td>}<td className="num font-semibold">{total}</td><td className="num font-semibold" style={{ color: stillShort ? 'var(--risk)' : 'var(--good)' }}>{total ? (stillShort || '✓') : '—'}</td></tr></tbody>
     </table></div>
-    <div className="flex gap-2 pt-2"><Button size="sm" variant="ghost" onClick={() => setCnt(Object.fromEntries(pl.map(x => [x.size, String(left(x.size, x.qty))])))}>All as per the packing list</Button></div>
+    <div className="flex gap-2 pt-2"><Button size="sm" variant="ghost" onClick={() => setCnt(Object.fromEntries(pl.map(x => [x.size, String(left(x.size, x.qty))])))}>All as ordered</Button></div>
     <div className="grid gap-x-4 gap-y-1 pt-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
       <Field label="Damaged or rejected (pcs)" hint="of what was counted in"><Input type="number" min={0} value={rej} onChange={e => setRej(e.target.value)} /></Field>
       {stillShort > 0 && !final && <Field label="Balance expected on"><Input type="date" value={more} onChange={e => setMore(e.target.value)} /></Field>}
@@ -627,23 +635,24 @@ export function WarehouseCount({ o }: { o: ProductionOrder }) {
     </div>
     {stillShort > 0 && total > 0 && <label className="flex items-center gap-2 text-[12.5px] pt-2" style={{ color: 'var(--risk)' }}><input type="checkbox" checked={final} onChange={e => setFinal(e.target.checked)} />Not all received: {stillShort} pcs short. No more is coming; close it short.</label>}
     {stillShort > 0 && total > 0 && <div className="text-[12px] pt-1" style={soft}>What is not received comes off what BSC pays the factory.</div>}
-    <div className="pt-3"><Button variant="primary" disabled={!total} onClick={() => { const rj = Number(rej) || 0; receiveLot(o.id, { qty: total - rj, rejected: rj, note: note.trim() || (stillShort ? `${stillShort} pcs short against the packing list` : 'all as per the packing list'), balanceExpectedOn: stillShort > 0 && !final ? fromDateInput(more) : null, cutQty: sent, closeShort: final, bySize: Object.fromEntries(pl.map(x => [x.size, Number(cnt[x.size]) || 0])) }); setCnt({}); setRej(''); setNote(''); setFinal(false); }}>{stillShort > 0 ? `Record ${total} pcs · flag ${stillShort} short` : `Received · all ${total} pcs`}</Button></div>
+    <div className="pt-3"><Button variant="primary" disabled={!total} onClick={() => { const rj = Number(rej) || 0; receiveLot(o.id, { qty: total - rj, rejected: rj, note: note.trim() || (stillShort ? `${stillShort} pcs short against the PO` : 'all as ordered'), balanceExpectedOn: stillShort > 0 && !final ? fromDateInput(more) : null, cutQty: sent, closeShort: final, bySize: Object.fromEntries(pl.map(x => [x.size, Number(cnt[x.size]) || 0])) }); setCnt({}); setRej(''); setNote(''); setFinal(false); }}>{stillShort > 0 ? `Record ${total} pcs · flag ${stillShort} short` : `Received · all ${total} pcs`}</Button></div>
   </Section>;
 }
 export function ReceivedSection({ o }: { o: ProductionOrder }) {
   const rc = receiptOf(o); const inv = o.invoice;
   const got: Record<string, number> = {}; rc.lots.forEach(l => Object.entries(l.bySize ?? {}).forEach(([sz, n]) => { got[sz] = (got[sz] ?? 0) + n; }));
   const tracked = rc.lots.length > 0 && rc.lots.every(l => !!l.bySize);
-  const sentPcs = inv?.packingList.reduce((a, x) => a + x.qty, 0) ?? null;
+  const sentPcs = inv ? packedPcsOf(inv) : null; const ord = Object.entries(orderedBySizeOf(o)).map(([size, qty]) => ({ size, qty })); const ordPcs = ord.reduce((a, x) => a + x.qty, 0);
   const all = sentPcs != null && rc.received >= sentPcs;
   return <>
-    <Section title="Received · against the packing list" collapsible={false} right={<Pill tone={all ? 'good' : rc.received ? 'warn' : 'neutral'}>{all ? `all ${rc.received} pcs reached` : rc.received ? `${rc.received} of ${sentPcs ?? rc.base} in` : inv ? 'with Prince · not received yet' : 'after the invoice'}</Pill>}>
+    <Section title="Received · counted in" collapsible={false} right={<Pill tone={all ? 'good' : rc.received ? 'warn' : 'neutral'}>{all ? `all ${rc.received} pcs reached` : rc.received ? `${rc.received} of ${sentPcs ?? rc.base} in` : inv ? 'with Prince · not received yet' : 'after the invoice'}</Pill>}>
       {!inv && <div className="text-[12.5px] pb-2" style={soft}>Nothing to count until the invoice and packing list are in.</div>}
+      {inv && <div className="flex items-center gap-2 flex-wrap pb-2 text-[12.5px]"><span style={faint}>Packing list</span><span className="att-chip"><span aria-hidden>📎</span>{packingFileOf(inv)}</span><span><b>{sentPcs}</b> pcs on it</span></div>}
       {inv && <div style={{ overflowX: 'auto' }}><table className="t compact">
-        <thead><tr><th>Size</th><th className="num">Packing list</th><th className="num">Received</th><th className="num">Short</th></tr></thead>
-        <tbody>{inv.packingList.map(x => { const g = tracked ? (got[x.size] ?? 0) : null; const short = g != null ? x.qty - g : null;
+        <thead><tr><th>Size</th><th className="num">Ordered on the PO</th><th className="num">Received</th><th className="num">Short</th></tr></thead>
+        <tbody>{ord.map(x => { const g = tracked ? (got[x.size] ?? 0) : null; const short = g != null ? x.qty - g : null;
           return <tr key={x.size}><td>{x.size}</td><td className="num">{x.qty}</td><td className="num">{g != null ? g : '—'}</td><td className="num" style={{ color: short ? 'var(--risk)' : 'var(--good)' }}>{short == null ? '—' : short > 0 ? short : short < 0 ? `+${-short}` : '✓'}</td></tr>; })}
-          <tr><td className="font-semibold">Total</td><td className="num font-semibold">{sentPcs}</td><td className="num font-semibold">{rc.received || '—'}</td><td className="num font-semibold" style={{ color: all ? 'var(--good)' : 'var(--risk)' }}>{rc.received ? (sentPcs! - rc.received > 0 ? sentPcs! - rc.received : '✓') : '—'}</td></tr>
+          <tr><td className="font-semibold">Total</td><td className="num font-semibold">{ordPcs}</td><td className="num font-semibold">{rc.received || '—'}</td><td className="num font-semibold" style={{ color: rc.received >= ordPcs ? 'var(--good)' : 'var(--risk)' }}>{rc.received ? (ordPcs - rc.received > 0 ? ordPcs - rc.received : '✓') : '—'}</td></tr>
         </tbody></table></div>}
     </Section>
     {rc.lots.length > 0 && <div className="pt-3"><ReceiptLots o={o} editable={false} open /></div>}

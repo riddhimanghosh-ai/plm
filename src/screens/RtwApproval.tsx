@@ -2,12 +2,12 @@
    both — with an approve-by date. The approvers see the PO itself, every reply, and what factories priced for the
    category before. On the last approval the PO is raised and mailed by itself; production has no send step.
    A raised PO is locked: to change it Nitin asks for edit access, edits it, and it goes for approval again. */
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store';
 import type { ProductionOrder, FabricBy, ApproverRole } from '../domain/types';
 import { fmtDate, fmtMoney, daysAgo } from '../domain/engines';
 import { approvalOf, poEditOf, poTotalsOf, replyFlagsOf, similarPricesOf, APPROVER_LABEL } from '../domain/rtwPack';
-import { Section, Pill, Button, Field, Input, Select, KV } from '../ui';
+import { Section, Pill, Button, Field, Input, Select, KV, Seg } from '../ui';
 import { ActsBy } from './Who';
 import { PoForm, PoDocView } from './RtwChain';
 
@@ -24,6 +24,7 @@ export function ApprovalSection({ o, prod, preset, onGo }: { o: ProductionOrder;
   const ap = approvalOf(o); const a = ap.a; const replies = o.costQuery?.replies ?? [];
   const nameOf = (id: string) => db.vendors.find(v => v.id === id)?.name ?? id;
   const [pick, setPick] = useState<{ vendorId: string; fabricBy: FabricBy } | null>(preset ?? null);
+  const [view, setView] = useState<'po' | 'replies' | 'before'>('po');
   const [vendorId, setVendorId] = useState([...replies].sort((x, y) => x.cost - y.cost)[0]?.vendorId ?? '');
   const [comment, setComment] = useState(''); const [again, setAgain] = useState(false);
   const similar = similarPricesOf(db, o);
@@ -64,6 +65,7 @@ export function ApprovalSection({ o, prod, preset, onGo }: { o: ProductionOrder;
         <KV k="Sent by" v={a.by} note={`${fmtDate(a.askedOn)} · approve by ${fmtDate(a.deadline)}`} />
         {revision && o.poDoc && <KV k="PO now" v={fmtMoney(Math.round(poTotalsOf(o.poDoc).total))} note={`revision ${o.poDoc.revision ?? 1} · ${poTotalsOf(o.poDoc).pcs} pcs`} />}
       </div>
+      {revision && a.doc && o.poDoc && (() => { const g: Record<string, number> = {}; a.doc.lines.forEach(l => l.sizes.forEach(x => { g[x.size] = (g[x.size] ?? 0) + x.qty; })); return <RatioCompare o={o} given={Object.entries(g).map(([size, qty]) => ({ size, qty }))} label="Sizes on the revised PO" />; })()}
       {rp?.breakdown && rp.breakdown.length > 0 && <div className="text-[12px] pt-1" style={soft}>Quote made up of: {rp.breakdown.map(b => `${b.head} ${fmtMoney(b.amount)}`).join(' · ')}</div>}
       {a.note && <div className="text-[12.5px] pt-2"><span style={faint}>Note </span>{a.note}</div>}
 
@@ -79,65 +81,71 @@ export function ApprovalSection({ o, prod, preset, onGo }: { o: ProductionOrder;
       {ap.state === 'rejected' && (prod ? <div className="pt-3"><Button onClick={() => setAgain(true)}>Change the PO and send again</Button></div> : null)}
     </Section>
 
-    {a.doc && <Section title={revision ? 'The revised PO' : 'The PO as drafted'} collapsible={false}><PoDocView o={o} doc={a.doc} /></Section>}
+    {/* one panel at a time instead of three stacked: the PO, the replies on this style, what the category cost before */}
+    <div className="py-2"><Seg value={view} onChange={v => setView(v as typeof view)} options={[{ id: 'po', label: revision ? 'The revised PO' : 'The PO as drafted' }, { id: 'replies', label: 'Every reply on this style', count: replies.length }, { id: 'before', label: 'What factories priced before', count: similar.length }]} /></div>
+    {view === 'po' && ((a.doc ?? o.poDoc) ? <Section title={revision ? 'The revised PO' : a.doc ? 'The PO as drafted' : 'The PO as raised'} collapsible={false}><PoDocView o={o} doc={a.doc ?? o.poDoc} /></Section> : <div className="text-[12.5px] py-2" style={faint}>No PO document on this request.</div>)}
 
-    <Section title="Every reply on this style" collapsible={false}>
+    {view === 'replies' && <Section title="Every reply on this style" collapsible={false}>
       <table className="t compact"><thead><tr><th>Factory</th><th className="num">₹ / pc</th><th>Lead · in-house</th><th>Against target</th></tr></thead>
         <tbody>{replies.map(r => { const f = replyFlagsOf(o, r); return <tr key={r.vendorId} style={{ background: r.vendorId === a.vendorId ? 'color-mix(in srgb, var(--accent) 6%, transparent)' : undefined }}>
           <td className="font-medium">{nameOf(r.vendorId)}{r.vendorId === a.vendorId && <span className="pill ml-2">this PO</span>}</td><td className="num">{fmtMoney(r.cost)}</td><td className="text-[12px]">{r.leadDays} d · {fmtDate(f.inhouseOn)}</td>
           <td className="text-[12px]" style={{ color: f.flagged ? 'var(--risk)' : 'var(--good)' }}>{f.flagged ? [f.costOver > 0 ? `${fmtMoney(f.costOver)} over` : null, f.lateDays > 0 ? `${f.lateDays}d late` : null].filter(Boolean).join(' · ') : 'fits'}</td></tr>; })}</tbody></table>
-    </Section>
+    </Section>}
 
-    <Section title={`What factories priced before · ${o.category}`} collapsible={false} right={<span className="text-[11.5px]" style={faint}>from POs raised on PLM</span>}>
+    {view === 'before' && <Section title={`What factories priced before · ${o.category}`} collapsible={false} right={<span className="text-[11.5px]" style={faint}>from POs raised on PLM</span>}>
       {similar.length === 0 ? <div className="text-[12.5px] py-1" style={faint}>No earlier PO in this category yet. It builds up as POs are raised.</div>
         : <table className="t compact"><thead><tr><th>Style</th><th>Factory</th><th>Basis</th><th className="num">Pcs</th><th className="num">₹ / pc</th><th>PO date</th></tr></thead>
           <tbody>{similar.map(x => <tr key={x.id}><td className="font-medium" style={{ whiteSpace: 'normal' }}>{x.style}</td><td>{x.factory}</td><td className="text-[12px]" style={soft}>{x.basis}</td><td className="num">{x.qty}</td><td className="num">{fmtMoney(x.rate)}</td><td className="text-[12px]">{fmtDate(x.on)}</td></tr>)}</tbody></table>}
       {similar.length > 0 && rp && <div className="text-[12px] pt-2" style={soft}>Average before: {fmtMoney(Math.round(similar.reduce((s, x) => s + x.rate, 0) / similar.length))}/pc · this PO: {fmtMoney(t ? Math.round(t.avgRate) : rp.cost)}/pc</div>}
-    </Section>
+    </Section>}
   </>;
 }
 
-/* a raised PO is locked. Nitin asks for edit access (a new cut ratio, a date, a rate); HOD and / or finance give it;
-   he edits the PO and it goes for approval again; approved, the revised PO is mailed by itself. */
-export function PoEditSection({ o, prod, onGo }: { o: ProductionOrder; prod: boolean; onGo?: (step: string) => void }) {
-  const { role, myRole, demoAll, requestPoEdit, grantPoEdit, askPoApproval } = useApp();
-  const ed = poEditOf(o); const ap = approvalOf(o); const revPending = ap.a?.kind === 'revision' && ap.state !== 'approved';
-  const ratio = (o.cutRatios ?? []).filter(c => c.given && (c.given.on ?? '') > (o.poDate ?? '')).slice(-1)[0] ?? null;
-  const [asking, setAsking] = useState(false); const [need, setNeed] = useState('both'); const [reason, setReason] = useState(ratio ? 'New cut ratio from category' : '');
-  const [comment, setComment] = useState('');
+/* a raised PO is changed directly (a new cut ratio, a date, a rate) and goes for approval again; approved, the
+   revised PO is mailed by itself. There is no separate edit access (17 Nov 2026). */
+/* the sizes on the PO against the cut ratio category gave after it: what HOD and finance are being asked to let through */
+function RatioCompare({ o, given, by, label = 'New cut ratio suggested' }: { o: ProductionOrder; given: { size: string; qty: number }[]; by?: string | null; label?: string }) {
+  const was: Record<string, number> = {}; (o.poDoc?.lines ?? []).forEach(l => l.sizes.forEach(x => { was[x.size] = (was[x.size] ?? 0) + x.qty; }));
+  const sizes = [...new Set([...Object.keys(was), ...given.map(g => g.size)])]; const now = (sz: string) => given.find(g => g.size === sz)?.qty ?? 0;
+  const tw = sizes.reduce((a, z) => a + (was[z] ?? 0), 0); const tn = sizes.reduce((a, z) => a + now(z), 0); const rate = o.poDoc ? poTotalsOf(o.poDoc).avgRate : 0;
+  return <div className="py-2"><div className="cap">{label}{by ? ` · ${by}` : ''}</div>
+    <div style={{ overflowX: 'auto' }}><table className="t compact inv-lines"><thead><tr><th></th>{sizes.map(z => <th key={z} className="num">{z}</th>)}<th className="num">Total</th></tr></thead>
+      <tbody><tr><td style={soft}>On the PO now</td>{sizes.map(z => <td key={z} className="num">{was[z] ?? 0}</td>)}<td className="num font-semibold">{tw}</td></tr>
+        <tr><td className="font-medium" style={{ color: 'var(--good)' }}>{label.startsWith('New') ? 'Suggested' : 'Revised'}</td>{sizes.map(z => <td key={z} className="num" style={now(z) !== (was[z] ?? 0) ? { color: 'var(--risk)', fontWeight: 700 } : undefined}>{now(z)}</td>)}<td className="num font-semibold">{tn}</td></tr></tbody></table></div>
+    <div className="text-[12px] pt-1" style={soft}>{tn === tw ? 'Same pieces, different sizes.' : `${Math.abs(tn - tw)} pcs ${tn < tw ? 'fewer' : 'more'}`}{tn !== tw && rate ? ` · about ${fmtMoney(Math.round(Math.abs(tn - tw) * rate))} ${tn < tw ? 'off' : 'on'} the PO before GST` : ''}</div></div>;
+}
+export function PoEditSection({ o, prod, design, onGo }: { o: ProductionOrder; prod: boolean; design?: boolean; onGo?: (step: string) => void }) {
+  const { askPoApproval } = useApp();
+  const ap = approvalOf(o); const revPending = ap.a?.kind === 'revision' && ap.state !== 'approved';
+  /* a cut ratio given after the PO that the PO does not carry yet */
+  const onPo: Record<string, number> = {}; (o.poDoc?.lines ?? []).forEach(l => l.sizes.forEach(x => { onPo[x.size] = (onPo[x.size] ?? 0) + x.qty; }));
+  const last = (o.cutRatios ?? []).filter(c => c.given && (c.given.on ?? '') > (o.poDate ?? '')).slice(-1)[0] ?? null;
+  const ratio = last && last.given!.breakup.some(b => (onPo[b.size] ?? 0) !== b.qty) ? last : null;
+  const canEdit = prod || (!!design && !!ratio);   // category changes it too when it is its own new cut ratio
+  const [editing, setEditing] = useState(!!ratio && canEdit && !revPending);
+  /* arriving from a new cut ratio: bring the change form into view instead of leaving it below the PO */
+  const box = useRef<HTMLDivElement>(null); const jump = !!ratio && canEdit && !revPending;
+  useEffect(() => { if (jump) setTimeout(() => box.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 150); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!o.poNo || !o.poDoc) return null;
-  const canGrant = (r: ApproverRole) => (demoAll || role === 'owner' || myRole === r) && ed.pending.includes(r);
 
   if (revPending) return <Section title="PO change" collapsible={false} right={<Pill tone={ap.state === 'rejected' ? 'risk' : 'warn'}>revised PO · {ap.line}</Pill>}>
     <div className="text-[12.5px]" style={soft}>The revised PO is with the approvers. This PO stays as it is until they approve. <button type="button" className="vlink" onClick={() => onGo?.('approval')}>See the approval →</button></div>
   </Section>;
 
-  if (ed.state === 'none' || ed.state === 'declined') return <Section title="PO change" collapsible={false} right={ed.state === 'declined' ? <Pill tone="risk">edit access declined by {APPROVER_LABEL[ed.declined!.role]}</Pill> : <span className="text-[11.5px]" style={faint}>locked · revision {o.poDoc.revision ?? 1}</span>}>
-    {ratio && !asking && <div className="text-[12.5px] pb-2" style={{ color: 'var(--warn)' }}>Category gave a new cut ratio on {fmtDate(ratio.given!.on)}. The PO still carries the earlier sizes.</div>}
-    {ed.state === 'declined' && ed.declined!.comment && <div className="text-[12.5px] pb-2" style={soft}>{ed.declined!.comment}</div>}
-    {!prod ? <ActsBy role="production" does="asks for edit access to change the PO" /> : !asking ? <Button onClick={() => setAsking(true)}>Ask for edit access</Button> : <>
-      <Field label="What needs to change"><Input value={reason} onChange={e => setReason(e.target.value)} placeholder="new cut ratio, delivery date, rate, a line dropped…" /></Field>
-      <div className="cap pt-2">Edit access from</div>
-      <div className="flex gap-2 flex-wrap py-1">{NEEDS.map(n => <button key={n.id} type="button" className={`dest-opt${need === n.id ? ' on' : ''}`} onClick={() => setNeed(n.id)}><span className="dest-dot" />{n.label}</button>)}</div>
-      <div className="flex gap-2 pt-2"><Button variant="primary" disabled={!reason.trim()} onClick={() => { requestPoEdit(o.id, NEEDS.find(n => n.id === need)!.needs, reason.trim()); setAsking(false); }}>Ask for edit access</Button><Button variant="ghost" onClick={() => setAsking(false)}>Cancel</Button></div>
-    </>}
-  </Section>;
-
-  const e = ed.e!;
-  if (ed.state === 'pending') return <Section title="PO change · edit access asked" collapsible={false} right={<Pill tone="warn">with {ed.pending.map(r => APPROVER_LABEL[r]).join(' and ')}</Pill>}>
-    <div className="text-[12.5px] pb-1"><span style={faint}>Asked by </span>{e.by} · {fmtDate(e.askedOn)} · <b>{e.reason}</b></div>
-    {e.needs.map(r => { const g = [...e.grants].reverse().find(x => x.role === r);
-      return <div key={r} className="appr-row"><span className={`pill role-${r === 'hod' ? 'owner' : 'finance'}`}>{APPROVER_LABEL[r]}</span>
-        {g ? <span className="text-[12.5px]"><Pill tone={g.granted ? 'good' : 'risk'}>{g.granted ? 'access given' : 'declined'}</Pill> <span style={soft}>{g.by} · {fmtDate(g.on)}</span></span>
-          : canGrant(r) ? <span className="flex gap-2 items-center flex-wrap" style={{ flex: 1 }}><Input value={comment} onChange={ev => setComment(ev.target.value)} placeholder="comment (needed to decline)" style={{ flex: '1 1 200px' }} /><Button size="sm" variant="primary" onClick={() => { grantPoEdit(o.id, r, true, comment.trim() || null); setComment(''); }}>Give edit access</Button><Button size="sm" disabled={!comment.trim()} onClick={() => { grantPoEdit(o.id, r, false, comment.trim()); setComment(''); }}>Decline</Button></span>
-          : <span className="text-[12.5px]" style={{ color: 'var(--warn)' }}>pending</span>}</div>; })}
-  </Section>;
-
-  /* access given: the PO opens for editing and goes for approval again */
-  const start = ratio?.given ? { ...o.poDoc, lines: o.poDoc.lines.map((l, i) => i === 0 || o.poDoc!.lines.length === 1 ? { ...l, sizes: ratio.given!.breakup.map(b => ({ size: b.size, qty: o.poDoc!.lines.length === 1 ? b.qty : (l.sizes.find(x => x.size === b.size)?.qty ?? 0) })) } : l) } : o.poDoc;
-  return <Section title="PO change · edit access given" collapsible={false} right={<Pill tone="good">{e.needs.map(r => APPROVER_LABEL[r]).join(' and ')} gave access</Pill>}>
-    {prod ? <PoForm o={o} vendorId={o.vendorId!} rate={o.finalFob ?? 0} fabricBy={o.poMail?.fabricBy ?? 'factory'} initialDoc={start} title={`${o.poNo} · revision ${(o.poDoc.revision ?? 1) + 1} · ${e.reason}`}
-      onCancel={() => onGo?.('po')} onRaise={(d, ask) => askPoApproval(o.id, o.vendorId!, o.poMail?.fabricBy ?? 'factory', ask.needs, ask.deadline, ask.note ?? e.reason, d)} />
-      : <ActsBy role="production" does="edits the PO and sends it for approval again" />}
-  </Section>;
+  /* the PO opens with the new cut ratio already on it: one line takes the new sizes; with several colours each keeps its share */
+  const lines0 = o.poDoc.lines; const share: Record<string, number[]> = {};
+  (ratio?.given?.breakup ?? []).forEach(b => { const was = onPo[b.size] ?? 0; const mine = lines0.map(l => l.sizes.find(x => x.size === b.size)?.qty ?? 0);
+    /* each colour keeps its share of the size, and the shares add up to exactly what category gave */
+    const raw = mine.map(m => was ? m * b.qty / was : b.qty / lines0.length); const out = raw.map(Math.floor); let left = b.qty - out.reduce((a, n) => a + n, 0);
+    raw.map((r, k) => ({ k, f: r - Math.floor(r) })).sort((x, y) => y.f - x.f).forEach(x => { if (left > 0) { out[x.k]++; left--; } }); share[b.size] = out; });
+  const start = ratio?.given ? { ...o.poDoc, lines: lines0.map((l, k) => ({ ...l, sizes: ratio.given!.breakup.map(b => ({ size: b.size, qty: share[b.size][k] })) })) } : o.poDoc;
+  const why = ratio ? 'New cut ratio from category' : 'PO changed';
+  return <div ref={box} style={{ scrollMarginTop: 70 }}><Section title="PO change" collapsible={false} right={<span className="text-[11.5px]" style={faint}>revision {o.poDoc.revision ?? 1} · a change goes for approval again</span>}>
+    {ratio && <div className="text-[12.5px]" style={{ color: 'var(--warn)' }}>Category gave a new cut ratio on {fmtDate(ratio.given!.on)}. The PO still carries the earlier sizes; change the PO and send it for approval.</div>}
+    {ratio && <RatioCompare o={o} given={ratio.given!.breakup} by={ratio.given!.by} />}
+    {!canEdit ? <ActsBy role="production" does="changes the PO and sends it for approval again" />
+      : !editing ? <Button onClick={() => setEditing(true)}>Change the PO</Button>
+      : <PoForm o={o} vendorId={o.vendorId!} rate={o.finalFob ?? 0} fabricBy={o.poMail?.fabricBy ?? 'factory'} initialDoc={start} title={`${o.poNo} · revision ${(o.poDoc.revision ?? 1) + 1} · ${why}`}
+          onCancel={() => setEditing(false)} onRaise={(d, ask) => askPoApproval(o.id, o.vendorId!, o.poMail?.fabricBy ?? 'factory', ask.needs, ask.deadline, ask.note ?? why, d)} />}
+  </Section></div>;
 }

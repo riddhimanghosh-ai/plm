@@ -166,9 +166,12 @@ export interface BomLine {
   vendor?: string | null;        // who it is bought from: BSC's vendor, or the one BSC nominates
   options?: BomOption[];         // 17 Nov 2026: what sourcing offers for this line; category picks one, which sets suppliedBy, vendor and rate
   chosen?: string | null;        // the option category picked
+  gstPct?: number | null;        // GST % on this line, from the picked option
+  vendorState?: string | null;   // the vendor's state, from the picked option
 }
 /* one way to get a BOM line: who supplies it, from which vendor, at what rate */
-export interface BomOption { id: string; suppliedBy: SuppliedBy; vendor: string | null; rate: number | null; code?: string | null; note?: string | null; by: string; on: string }
+export interface BomOption { id: string; suppliedBy: SuppliedBy; vendor: string | null; rate: number | null; gstPct?: number | null; state?: string | null;   // GST on the line and the vendor's state: same state as the buyer is CGST + SGST, another state is IGST
+  code?: string | null; note?: string | null; by: string; on: string }
 /* BSC sends it; BSC names the vendor and the factory raises its own PO; or the factory arranges it itself */
 export type SuppliedBy = 'bsc' | 'nominated' | 'factory';
 
@@ -370,7 +373,7 @@ export interface ProductionOrder {
     copy?: { title: string; description: string; bullets: string[]; care: string; seo: string; marketing: string[]; generatedOn: string } | null } | null;   // copy: product and marketing details drafted by AI once it is in Enigma
   targetRevisions?: TargetRevision[] | null;
   poInvoices?: PoInvoice[] | null;
-  invoice?: { no: string; amount: number; uploadedOn: string; by: string; file: string | null; packingList: { size: string; qty: number }[]; mailedOn: string | null; mailedTo: string[]; mail?: MailDraft | null } | null;
+  invoice?: { no: string; amount: number; uploadedOn: string; by: string; file: string | null; packingList: { size: string; qty: number }[]; packingFile?: string | null; packedPcs?: number | null; mailedOn: string | null; mailedTo: string[]; mail?: MailDraft | null } | null;   // 17 Nov 2026: the packing list is a PDF for now (packingFile, packedPcs); packingList by size stays for older records
   costingClosure: { plan: string | null; revised: string | null; actual: string | null };   // target · revised plan · actual, as the sheet has it
 
   /* — Production Unit writes these — */

@@ -14,11 +14,12 @@ import { RtwRequirement } from './RtwRequirement';
 const TARGET_MARGIN = 0.55;   // the costing sheet's intake-margin line; below it shows red
 type Row = { o: ProductionOrder; c: ReturnType<typeof rtwCogsOf> };
 
-export function CogsDashboard() {
+/* only: the screen shows one side. COGS and margin is finance's and category's; Enigma and marketing is category's own screen (17 Nov 2026). */
+export function CogsDashboard({ only = 'cogs' }: { only?: 'cogs' | 'enigma' }) {
   const { db } = useApp();
   const [params, setParams] = useSearchParams();
   const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); v ? n.set(k, v) : n.delete(k); setParams(n, { replace: true }); };
-  const view = (params.get('view') ?? 'cogs') as 'cogs' | 'enigma';
+  const view = only;
   const [cats, setCats] = useState<string[]>([]); const [status, setStatus] = useState<string[]>([]); const [q, setQ] = useState('');
   const all: Row[] = db.orders.filter(o => o.poNo && o.status !== 'Cancelled').map(o => ({ o, c: rtwCogsOf(db, o) }));
   const stateOf = (r: Row) => r.c.margin != null && r.c.margin < TARGET_MARGIN ? 'below' : !r.o.enigmaProduct ? (r.c.delivered ? 'to-enigma' : 'making') : !r.o.enigmaProduct.copy ? 'to-marketing' : 'live';
@@ -41,18 +42,14 @@ export function CogsDashboard() {
   const faint = { color: 'var(--ink-faint)' } as const;
   const cats0 = [...new Set(all.map(r => r.o.category))];
 
-  return <Page title="COGS and cost" lede="What every style costs per piece against what it sells for, and the last two moves once it is in: add it to Enigma, and its product and marketing details.">
-    <Stats items={[
+  return <Page title={view === 'enigma' ? 'Enigma and marketing' : 'COGS and cost'} lede={view === 'enigma' ? 'Once a style is in: add it to Enigma, then its product and marketing details.' : 'What every style costs per piece against what it sells for.'}>
+    {view === 'cogs' && <Stats items={[
       { label: 'Avg COGS per piece', value: fmtMoney(Math.round(avgCogs)) },
       { label: 'Avg intake margin', value: avgMargin != null ? `${Math.round(avgMargin * 100)}%` : '—', tone: avgMargin != null ? (avgMargin >= TARGET_MARGIN ? 'good' : 'risk') : undefined },
       { label: `Below ${Math.round(TARGET_MARGIN * 100)}% margin`, value: below.length, tone: below.length ? 'risk' : 'good' },
       { label: 'Over planned COGS', value: over.length, tone: over.length ? 'warn' : 'good' },
       { label: 'COGS on the book', value: fmtMoney(Math.round(book)) },
-    ]} />
-    <div className="mb-3"><Seg value={view} onChange={v => { set('view', v === 'cogs' ? null : v); setStatus([]); }} options={[
-      { id: 'cogs', label: 'COGS and margin', count: all.length },
-      { id: 'enigma', label: 'Enigma and marketing', count: toEnigma.length + toMkt.length },
-    ]} /></div>
+    ]} />}
     {view === 'cogs' && <div className="mb-3">
       <Card><div className="px-4 py-3">
         <div className="cap">Where a piece's cost goes · average</div>

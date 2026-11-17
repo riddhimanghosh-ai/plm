@@ -19,7 +19,8 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
 
   /* the book: what exists and what it is called */
   { path:'/design',       label:'Requirements',        hint: RTW_ONLY ? 'every RTW style at its stage; open any row, raise a new one' : 'every ask — MTM fabric, RTW style — at its stage; open any row, raise any kind', group:'Design',   roles:['owner','design','planning','sourcing'] , hideFor:['sourcing']},
-  { path:'/cogs',         label:'COGS and cost',              hint:'COGS per piece and margin for every style; add to Enigma; marketing details', group:'Design',   roles:['owner','design','production'], hideFor:['production'] },
+  { path:'/cogs',         label:'COGS and cost',              hint:'COGS per piece and margin for every style', group:'Design',   roles:['owner','design','production'], hideFor:['production'] },
+  { path:'/enigma-marketing', label:'Enigma and marketing',   hint:'add received styles to Enigma; product and marketing details', group:'Design',   roles:['owner','design'] },
   { path:'/swatches',     label:'Swatch desk',                hint:'cloth in → swatches cut → stores told → live; the sticker prints off the record', group:'Design',   roles:['owner','design','production','warehouse'] , hideFor:['production']},
   { path:'/fabrics',      label:'MTM fabric master',          hint:'core, non-core and bespoke: stock and blocks',   group:'Design',   roles:['owner','design','sourcing','production'] , hideFor:['production']},
 
