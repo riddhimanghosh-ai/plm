@@ -64,6 +64,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
   const [view, setView] = useState<'stacked' | 'blocks'>(() => readView(initial && isMine(initial) ? initial : firstMine));
   const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem(viewKey(open), v); } catch { /* storage off */ } };
   const at = (k: string) => open === k && isMine(k);
+  const [phaseOpen, setPhaseOpen] = useState<Record<string, boolean>>({});
   /* Draft the PO on a reply: the record moves to step 4 and the PO form opens there */
   const [apPreset, setApPreset] = useState<{ vendorId: string; fabricBy: FabricBy } | null>(null);
 
@@ -91,9 +92,17 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
     <div className="rtw-wrap"><div className="rtw-journey">
       {/* the rail: every step in order, ticked as it lands; the open one is outlined */}
       <nav className="rtw-rail" aria-label="Steps">
-        {RTW_PHASES.filter(ph => journey.some(x => x.phase === ph.key)).map(ph => <div key={ph.key} className="rtw-phase">
-          <div className="cap">{ph.label}</div>
-          {journey.map((x, i) => x.phase === ph.key && (() => { const done = !!x.on; const now = i === current;
+        {RTW_PHASES.filter(ph => journey.some(x => x.phase === ph.key)).map(ph => { const steps = journey.filter(x => x.phase === ph.key);
+          const allDone = steps.every(x => !!x.on); const hasNow = steps.some(x => journey.indexOf(x) === current); const hasOpen = steps.some(x => x.key === open);
+          const lastOn = steps.map(x => x.on).filter(Boolean).sort().slice(-1)[0] ?? null;
+          /* 18 Nov 2026: each phase folds to one line on a click; all start open */
+          const shut = phaseOpen[ph.key] != null ? !phaseOpen[ph.key] : false; void hasNow; void hasOpen;   // every phase starts open (user, 18 Nov 2026); a click folds it
+          return <div key={ph.key} className={`rtw-phase${shut ? ' shut' : ''}`}>
+          <button type="button" className="rtw-ph-head" onClick={() => setPhaseOpen(m => ({ ...m, [ph.key]: shut }))} aria-expanded={!shut}>
+            <span className="rtw-ph-car" aria-hidden>{shut ? '▸' : '▾'}</span><span className="rtw-ph-name">{ph.label}</span>
+            {shut && <span className={`rtw-ph-sum${allDone ? ' done' : ''}`}>{allDone ? `✓ ${steps.length} done${lastOn ? ` · ${fmtDate(lastOn)}` : ''}` : `${steps.filter(x => x.on).length ? `${steps.filter(x => x.on).length} of ${steps.length} done` : `${steps.length} step${steps.length === 1 ? '' : 's'} ahead`}`}</span>}
+          </button>
+          {!shut && journey.map((x, i) => x.phase === ph.key && (() => { const done = !!x.on; const now = i === current;
             if (!isMine(x.key)) return <div key={x.key} className={`rtw-step flat${done ? ' done' : now ? ' now' : ''}${x.tone ? ` ${x.tone}` : ''}`} title={x.who}>
               <span className="cl-box" aria-hidden>{done ? '✓' : i + 1}</span>
               <span className="rtw-step-main"><span className="rtw-step-label">{x.label}</span>
@@ -104,7 +113,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
               <span className="rtw-step-main"><span className="rtw-step-label">{x.label}</span>
                 <span className="rtw-step-sub">{done ? `${fmtDate(x.on!)}${x.by ? ` · ${x.by}` : ''}` : now ? (x.now ?? 'now') : x.who}</span></span>
             </button>; })())}
-        </div>)}
+        </div>; })}
       </nav>
 
       <div className="rtw-panel" id={`rtw-step-${o.id}`}>

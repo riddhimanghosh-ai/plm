@@ -736,3 +736,33 @@ table.t.bomv tr.bomv-grp:hover td { background: var(--surface-3, var(--surface-2
 .bom-src-c i { font-style: normal; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
 .bom-src-c.empty { border-style: dashed; color: var(--ink-faint); opacity: .55; filter: blur(.3px); background: var(--surface-2); }
 td.bomv-blank { color: var(--ink-faint); opacity: .5; font-size: 11.5px; font-style: italic; filter: blur(.3px); }
+
+/* My work: only what is waiting on this person, one move per row (18 Nov 2026) */
+.my-work { display: flex; flex-direction: column; }
+.mw-row { display: flex; align-items: center; gap: 16px; width: 100%; padding: 14px 18px; border: 0; border-bottom: 1px solid var(--line-soft); background: none; font: inherit; text-align: left; cursor: pointer; color: var(--ink); }
+.mw-row:last-child { border-bottom: 0; }
+.mw-row:hover { background: var(--surface-2); }
+.mw-row.flag { box-shadow: inset 3px 0 0 var(--risk); }
+.mw-row.urgent { box-shadow: inset 3px 0 0 var(--warn); }
+.mw-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mw-main b { font-weight: 600; font-size: 14.5px; }
+.mw-meta { font-size: 12px; color: var(--ink-faint); }
+.mw-do { flex: none; max-width: 46%; padding: 7px 14px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 600; }
+.mw-row.flag .mw-do { background: var(--risk); color: #fff; }
+
+/* the record's rail folds by phase (18 Nov 2026) */
+.rtw-ph-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: 0; padding: 4px 2px; font: inherit; cursor: pointer; text-align: left; color: var(--ink); }
+.rtw-ph-head:hover .rtw-ph-name { text-decoration: underline; }
+.rtw-ph-car { width: 12px; color: var(--ink-faint); font-size: 11px; }
+.rtw-ph-name { font-size: 13.5px; font-weight: 600; }
+.rtw-ph-sum { margin-left: auto; font-size: 11.5px; color: var(--ink-faint); white-space: nowrap; }
+.rtw-ph-sum.done { color: var(--good); }
+.rtw-phase.shut { padding-bottom: 2px; }
+
+/* the BOM, quieter (18 Nov 2026): extra columns behind a switch, totals on one line, the rest behind ⋯ */
+table.t.bomv.lean .c-x { display: none; }
+.bom-line { display: flex; align-items: center; gap: 6px 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-soft); padding: 2px 0 8px; }
+.bom-line b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.bom-more { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; width: 30px; height: 26px; font-size: 16px; line-height: 1; cursor: pointer; color: var(--ink-soft); }
+.bom-more.on, .bom-more:hover { border-color: var(--ink-faint); color: var(--ink); }
+.bom-menu { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }

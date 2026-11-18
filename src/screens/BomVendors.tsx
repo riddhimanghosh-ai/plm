@@ -17,7 +17,7 @@ const SAMPLE_VENDORS = { fabric: ['Soktas', 'Arvind Mills'], trim: ['Trimco Acce
 
 export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; canDesign: boolean; canSourcing: boolean }) {
   const { db, addBomOptions, removeBomOption, pickBomOptions } = useApp(); const store = useAppStore;
-  const [addFor, setAddFor] = useState<number | null>(null);
+  const [addFor, setAddFor] = useState<number | null>(null); const [more, setMore] = useState(false);
   /* each group folds; fabric starts open, a group with a line still open starts open, a finished group starts closed */
   const [fold, setFold] = useState<Record<string, boolean>>({});
   const [f, setF] = useState<{ by: SuppliedBy; vendor: string; rate: string; gst: string; state: string; code: string; note: string }>({ by: 'bsc', vendor: '', rate: '', gst: '5', state: BSC_STATE, code: '', note: '' });
@@ -47,35 +47,36 @@ export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; 
   /* the buyer is BSC when BSC sources, the factory otherwise; both sit in the same state for the split unless the factory is elsewhere */
   const buyerState = stateOfPlace(db.vendors.find(v => v.id === (o.vendorId ?? o.poApproval?.vendorId))?.location);
   const taxCell = (pct: number, state: string | null, amount: number | null) => { const g = gstSplit(amount ?? 0, pct, state, buyerState);
-    return <td className="text-[11.5px]" style={{ whiteSpace: 'normal' }}><div>{g.label}{amount != null && pct ? <b className="mono"> {fmtMoney(Math.round(g.tax))}</b> : null}</div><div style={faint}>{state ?? 'state not given'}</div></td>; };
+    return <td className="text-[11.5px] c-x" style={{ whiteSpace: 'normal' }}><div>{g.label}{amount != null && pct ? <b className="mono"> {fmtMoney(Math.round(g.tax))}</b> : null}</div><div style={faint}>{state ?? 'state not given'}</div></td>; };
   const tax = o.bom.reduce((a, l, i) => { const r = rateOf(i); return a + (r != null && qtyOf(i) != null ? gstSplit(r * qtyOf(i)!, l.gstPct ?? defaultGstOf(l.kind), l.vendorState, buyerState).tax : 0); }, 0);
   if (!o.bom.length) return <div className="text-[12.5px] py-2" style={{ color: 'var(--warn)' }}>Category adds the BOM first (part 5). Sourcing then fills the vendor against each line.</div>;
   return <div>
     <div className="flex items-center gap-2 flex-wrap pb-2">
-      <span className="cap" style={{ margin: 0 }}>Vendors on each BOM line</span><span className="pill role-sourcing">Sourcing adds</span>{BOM_MULTI_OPTIONS && <span className="pill role-design">Category picks</span>}
-      <Pill tone={noOpts ? 'warn' : 'good'}>{noOpts ? `${noOpts} line${noOpts === 1 ? '' : 's'} waiting on sourcing` : 'sourcing has filled every line'}</Pill>
-      <Pill tone={unpicked.length ? 'warn' : 'good'}>{unpicked.length ? `${unpicked.length} line${unpicked.length === 1 ? '' : 's'} for category to pick` : 'nothing to pick'}</Pill>
+      <span className="cap" style={{ margin: 0 }}>Vendors on each BOM line</span>
+      {noOpts > 0 && <Pill tone="warn">{noOpts} line{noOpts === 1 ? '' : 's'} waiting on sourcing</Pill>}
+      {unpicked.length > 0 && <Pill tone="warn">{unpicked.length} line{unpicked.length === 1 ? '' : 's'} for category to pick</Pill>}
+      <button type="button" className="vlink text-[12px]" onClick={() => setMore(v => !v)}>{more ? 'fewer columns' : 'more columns · per pc, GST, state, code'}</button>
       <span className="ml-auto flex gap-2">{(canSourcing || canDesign) && openLines.length > 0 && <Button size="sm" variant="ghost" onClick={sampleFill}>Sample fill{canDesign ? ' · vendors and picks' : ' · vendor options'}</Button>}{canDesign && unpicked.length > 0 && <Button size="sm" onClick={cheapest}>Pick the lowest rate on every line</Button>}</span>
     </div>
     {openLines.length > 0 && <div className="text-[12px] pb-1.5" style={{ color: 'var(--warn)' }}>Until every line has its vendor, the requirement cannot go to Production RTW and no invoice is generated.</div>}
-    <div style={{ overflowX: 'auto' }}><table className="t compact bom-t bomv"><thead><tr><th>BOM line</th><th className="num">Per pc</th><th className="num">For {pcs} pcs</th><th>Supplied by</th><th>Vendor</th><th className="num">Rate ₹</th><th className="num">Cost ₹</th><th>GST · vendor state</th><th>Code · note</th><th></th></tr></thead>
+    <div style={{ overflowX: 'auto' }}><table className={`t compact bom-t bomv${more ? '' : ' lean'}`}><thead><tr><th>BOM line</th><th className="num c-x">Per pc</th><th className="num">For {pcs} pcs</th><th>Supplied by</th><th>Vendor</th><th className="num">Rate ₹</th><th className="num">Cost ₹</th><th className="c-x">GST · vendor state</th><th className="c-x">Code · note</th><th></th></tr></thead>
       <tbody>{(['fabric', 'trim', 'packaging'] as const).flatMap(k => { const rows = o.bom.map((l, i) => ({ l, i })).filter(x => x.l.kind === k); if (!rows.length) return [];
         const pend = rows.filter(x => !legacyOf(x.i) && !x.l.chosen && !x.l.suppliedBy).length; const sub = rows.reduce((a, x) => { const r0 = rateOf(x.i); const q0 = qtyOf(x.i); return a + (r0 != null && q0 != null ? r0 * q0 : 0); }, 0);
         const shut = fold[k] ?? (k !== 'fabric' && pend === 0 && addFor == null);
         return [<tr key={k} className="grp bomv-grp" onClick={() => setFold(x => ({ ...x, [k]: !shut }))}><td colSpan={10}><span className="flex items-center gap-2"><span className="bomv-car">{shut ? '▸' : '▾'}</span><b>{KIND[k]}</b><span style={faint}>{rows.length} line{rows.length === 1 ? '' : 's'}{sub ? ` · ${fmtMoney(Math.round(sub))}` : ''}</span>{pend > 0 ? <Pill tone="warn">{pend} without a vendor</Pill> : <span style={{ color: 'var(--good)' }}>✓ every line has a vendor</span>}</span></td></tr>, ...(shut ? [] : rows).flatMap(({ l, i }) => { const opts = l.options ?? []; const q = qtyOf(i); const legacy = legacyOf(i); const r = bc.rows[i];
           const head = (span: number) => <td rowSpan={span} style={{ whiteSpace: 'normal', verticalAlign: 'top' }}><div className="font-medium">{l.item || '—'}</div>{l.spec && <div className="text-[11.5px]" style={faint}>{l.spec}</div>}</td>;
-          const qty = (span: number) => <><td rowSpan={span} className="num" style={{ verticalAlign: 'top' }}>{l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit}` : '—'}</td><td rowSpan={span} className="num" style={{ verticalAlign: 'top' }}>{q != null ? `${q.toLocaleString('en-IN')} ${l.unit}` : '—'}</td></>;
+          const qty = (span: number) => <><td rowSpan={span} className="num c-x" style={{ verticalAlign: 'top' }}>{l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit}` : '—'}</td><td rowSpan={span} className="num" style={{ verticalAlign: 'top' }}>{q != null ? `${q.toLocaleString('en-IN')} ${l.unit}` : '—'}</td></>;
           const adding = addFor === i; const showNone = !opts.length && !legacy && !canSourcing;
           const n = opts.length + (legacy && !opts.length ? 1 : 0) + (showNone ? 1 : 0) + (adding ? 1 : 0) + (canSourcing && !adding && (BOM_MULTI_OPTIONS || (!opts.length && !legacy)) ? 1 : 0);
           const out = [];
-          if (legacy && !opts.length) out.push(<tr key={`${i}-set`} className="bomv-on">{head(n)}{qty(n)}<td><Pill tone="good">{BY[l.suppliedBy ?? r.by]}</Pill></td><td className="text-[12.5px]">{l.vendor ?? r.vendor ?? ((l.suppliedBy ?? r.by) === 'factory' ? <span style={faint}>factory's own</span> : '—')}</td><td className="num">{r.rate ?? '—'}</td><td className="num">{r.rate != null && q != null ? fmtMoney(Math.round(r.rate * q)) : '—'}</td>{taxCell(l.gstPct ?? defaultGstOf(l.kind), l.vendorState ?? null, r.rate != null && q != null ? r.rate * q : null)}<td className="text-[11.5px]" style={faint}>set on the BOM</td><td></td></tr>);
-          else if (showNone) out.push(<tr key={`${i}-none`}>{head(n)}{qty(n)}{['supplied by', 'vendor', 'rate', 'cost', 'GST · state', 'code · note'].map(x => <td key={x} className="bomv-blank">{x}</td>)}<td className="text-[11px]" style={{ color: 'var(--warn)', whiteSpace: 'nowrap' }}>sourcing adds</td></tr>);
+          if (legacy && !opts.length) out.push(<tr key={`${i}-set`} className="bomv-on">{head(n)}{qty(n)}<td><Pill tone="good">{BY[l.suppliedBy ?? r.by]}</Pill></td><td className="text-[12.5px]">{l.vendor ?? r.vendor ?? ((l.suppliedBy ?? r.by) === 'factory' ? <span style={faint}>factory's own</span> : '—')}</td><td className="num">{r.rate ?? '—'}</td><td className="num">{r.rate != null && q != null ? fmtMoney(Math.round(r.rate * q)) : '—'}</td>{taxCell(l.gstPct ?? defaultGstOf(l.kind), l.vendorState ?? null, r.rate != null && q != null ? r.rate * q : null)}<td className="text-[11.5px] c-x" style={faint}>set on the BOM</td><td></td></tr>);
+          else if (showNone) out.push(<tr key={`${i}-none`}>{head(n)}{qty(n)}{['supplied by', 'vendor', 'rate', 'cost', 'GST · state', 'code · note'].map(x => <td key={x} className={`bomv-blank${x === 'GST · state' || x === 'code · note' ? ' c-x' : ''}`}>{x}</td>)}<td className="text-[11px]" style={{ color: 'var(--warn)', whiteSpace: 'nowrap' }}>sourcing adds</td></tr>);
           opts.forEach((op, k2) => { const on = l.chosen === op.id; out.push(<tr key={op.id} className={on ? 'bomv-on' : ''}>{k2 === 0 && head(n)}{k2 === 0 && qty(n)}
             <td><span className="flex items-center gap-1.5">{canDesign ? <button type="button" className={`dest-opt${on ? ' on' : ''}`} style={{ padding: '3px 9px', fontSize: 11.5 }} onClick={() => pickBomOptions(o.id, [{ idx: i, optId: op.id }])}><span className="dest-dot" />{on ? 'picked' : 'pick'}</button> : on ? <Pill tone="good">picked</Pill> : null}<span className="text-[12.5px]">{BY[op.suppliedBy]}</span></span></td>
             <td className="text-[12.5px]">{op.vendor ?? <span style={faint}>{op.suppliedBy === 'factory' ? "factory's own" : '—'}</span>}</td>
             <td className="num">{op.rate ?? '—'}</td><td className="num">{op.rate != null && q != null ? fmtMoney(Math.round(op.rate * q)) : '—'}</td>
             {taxCell(op.gstPct ?? defaultGstOf(l.kind), op.state ?? null, op.rate != null && q != null ? op.rate * q : null)}
-            <td className="text-[11.5px]" style={{ ...faint, whiteSpace: 'normal' }}>{[op.code, op.note].filter(Boolean).join(' · ') || '—'}</td>
+            <td className="text-[11.5px] c-x" style={{ ...faint, whiteSpace: 'normal' }}>{[op.code, op.note].filter(Boolean).join(' · ') || '—'}</td>
             <td>{canSourcing && !on && <button type="button" className="vlink text-[11.5px]" onClick={() => removeBomOption(o.id, i, op.id)}>remove</button>}</td></tr>); });
           if (adding) out.push(<tr key={`${i}-add`} className="bomv-add">{out.length === 0 && head(n)}{out.length === 0 && qty(n)}
             <td colSpan={7}><div className="bomv-form">

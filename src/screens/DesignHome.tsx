@@ -12,7 +12,7 @@ import type { Concept, ProductionOrder, OptionRequest, RoleId } from '../domain/
 import { designFlowOf, sourcingStateOf, sourcingModeOf, conceptOf, fmtDate, daysAgo, fabricStateOf } from '../domain/engines';
 import { rtwRowOf } from '../domain/rtwJourney';
 import { ROLE_LABEL } from '../domain/reference';
-import { Page, Card, Pill, Seg, Th, Button, Drawer, Input, Select } from '../ui';
+import { Page, Card, Pill, Seg, Th, Button, Drawer, Input, Select, Empty } from '../ui';
 import { ActsBy } from './Who';
 import { ConceptDetail, NewConcept } from './Concepts';
 import { NewRequirement } from './Requirements';
@@ -101,7 +101,7 @@ export function DesignHome() {
       const ask = [...(o.cutRatios ?? [])].reverse().find(c => !c.given) ?? null; const ed = o.poEdit ? poEditOf(o) : null; const rev = o.poApproval?.kind === 'revision' && approvalOf(o).state !== 'approved';
       const flag = ask ? `New cut ratio asked · ${ask.reason}` : ed && ed.state !== 'declined' ? `${o.poNo ?? 'PO'} being revised · ${o.poEdit!.reason}` : rev ? `Revised ${o.poNo ?? 'PO'} with approvers · check the cut ratio on it` : null;
       out.push({ flag, where: j.where, urgent: fab.key === 'ratio-asked', pending: pend === 'Launched' ? 'Launched' : `${pend} pending`, id: o.id, kind: mode === 'fob-nominated' ? 'FOB' : 'RTW', name: o.styleName, brief: o.fabricBrief?.look ? `${o.fabricBrief.look}${o.fabricBrief.colour ? ` · ${o.fabricBrief.colour}` : ''} · ${o.orderQty} pcs` : `${o.category} · ${o.orderQty} pcs`,
-        raisedBy: o.source === 'planning' ? 'Planning' : 'Category', raisedOn: o.styleHandover, stage: st, owner: j.next?.act === 'design' ? 'design' : f.now.state === 'done' ? null : f.now.owner, next: j.next ? j.next.now ?? j.next.label : 'launched',
+        raisedBy: o.source === 'planning' ? 'Planning' : 'Category', raisedOn: o.styleHandover, stage: st, owner: (j.next?.act ?? null) as RoleId | null, next: j.next ? j.next.now ?? j.next.label : 'launched',
         sourcing: mode === 'vendor-sources' ? null : mode === 'fob-nominated' ? (o.fobNomination?.emailedOn ? 'finalised' : 'design to name the supplier') : poDone ? 'finalised' : o.status === 'Requirement' ? null : ss.label,
         href: o.id });
     });
@@ -137,6 +137,13 @@ export function DesignHome() {
   const quiet = useAppStore(s => !!s.settings.quiet);
   /* 15 Nov 2026: one style for each pending type, even in quiet mode; "show all" is one click away */
   const showAll = params.get('all') === '1'; void quiet;
+  /* 18 Nov 2026: the screen opens on My work, only what is waiting on this person, each with its one move; every style is a click away */
+  const meRole = asRole === 'owner' ? 'design' : asRole;
+  const mine = rows.filter(r => r.owner === meRole).sort((x, y) => Number(!!y.flag) - Number(!!x.flag) || Number(!!y.urgent) - Number(!!x.urgent) || (x.raisedOn ?? '').localeCompare(y.raisedOn ?? ''));
+  /* the next move as a verb: "category to give new sizes" becomes "Give new sizes" */
+  const doLabel = (t: string) => { let v = /category to /i.test(t) ? t.slice(t.search(/category to /i) + 12) : t.replace(/^(category|design|planning)\s+(to\s+)?/i, ''); v = v.replace(/\s·\s*sourcing.*$/i, ''); return v.charAt(0).toUpperCase() + v.slice(1); };
+  const view = (params.get('view') ?? (mine.length ? 'mine' : 'all')) as 'mine' | 'all';
+  const mineShown = mine.filter(r => !q.trim() || q.toLowerCase().split(/\s+/).every(w => `${r.name} ${r.brief} ${r.kind}`.toLowerCase().includes(w)));
   const sample = useMemo(() => { const seen = new Map<string, number>(); return rows.filter(r => { const k = `${r.kind}·${r.pending}`; const c = seen.get(k) ?? 0; if (c >= 1) return false; seen.set(k, c + 1); return true; }); }, [rows]);
   const flagged = rows.filter(r => r.flag);
   const base = (showAll ? rows : [...flagged, ...sample.filter(r => !r.flag)]).slice().sort((x, y) => Number(!!y.flag) - Number(!!x.flag));
@@ -161,6 +168,15 @@ export function DesignHome() {
       replaces="the design meeting's un-minuted list, the brief emailed to sourcing, and three trackers that each start too late"
       actions={design ? <span className="flex gap-2"><Button onClick={() => setBulk(true)}>↑ Bulk upload</Button><Button variant="primary" onClick={() => set('new', RTW_ONLY ? 'rtw' : '1')}>{RTW_ONLY ? '+ New RTW style' : '+ New requirement'}</Button></span> : <ActsBy role={['design', 'planning']} does="raises a requirement — what is needed, for which product, by when" inline />}>
 
+      <div className="flex items-center gap-3 flex-wrap mb-3">
+        <Seg value={view} onChange={v => set('view', v === 'mine' ? null : v)} options={[{ id: 'mine', label: 'My work', count: mine.length }, { id: 'all', label: 'Every style', count: rows.length }]} />
+        {view === 'mine' && <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search my work…" style={{ width: 240 }} aria-label="search my work" />}
+        {view === 'mine' && <span className="text-[12.5px] ml-auto" style={{ color:'var(--ink-faint)' }}>{mine.length ? `${mine.length} waiting on you · the rest are with other teams` : 'Nothing is waiting on you.'}</span>}
+      </div>
+      {view === 'mine' ? <Card>{mineShown.length === 0 ? <Empty title="Nothing waiting on you." body="Every style is with another team right now. See them under Every style." /> : <div className="my-work">{mineShown.map(r => <button type="button" key={r.id} className={`mw-row${r.flag ? ' flag' : r.urgent ? ' urgent' : ''}`} onClick={() => set('open', r.href)}>
+          <span className="mw-main"><b>{r.name}</b><span className="mw-meta">{r.flag ? r.flag.split(' · ').slice(1).join(' · ') || r.flag : r.where ?? r.sourcing ?? ''} · {r.brief}</span></span>
+          <span className="mw-do">{doLabel(r.next)} <span aria-hidden>→</span></span>
+        </button>)}</div>}</Card> : <>
       <div className="flex items-end gap-3 flex-wrap mb-3">
         {/* three dropdowns: the stage, what is pending, whose move */}
         <div><span className="label">Stage</span><Select value={stage} onChange={v => setStage(v as typeof stage)} options={[
@@ -208,7 +224,7 @@ export function DesignHome() {
           <td className="text-[12.5px]" style={{ whiteSpace:'normal', minWidth: 160 }}>{r.where ?? (r.sourcing ?? '')}</td>
           <td className="text-[12.5px]" style={{ whiteSpace:'normal', minWidth: 200 }}>{r.flag && !r.urgent ? <span style={{ color:'var(--risk)', fontWeight: 600 }}>{r.flag}</span> : r.urgent ? <Pill tone="risk">{r.next}</Pill> : <><span style={{ fontWeight: r.owner === 'design' ? 600 : 400 }}>{r.next}</span>{r.owner && r.owner !== 'design' ? <span className="pill ml-1" style={{ fontSize: 10.5 }}>{r.owner}</span> : null}</>}</td>
         </tr>)}</tbody>
-      </table></div></Card>
+      </table></div></Card></>}
 
       {/* ── the front door: product type first, then the right form, all without leaving the screen ── */}
       <Drawer open={newKind === '1'} onClose={() => set('new', null)} title="New requirement" subtitle={<span>What does design need? Pick the product type — the form that follows asks only what that type needs.</span>}>
