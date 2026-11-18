@@ -145,10 +145,11 @@ export function Shell() {
   return (
     <div className={`grid min-h-screen${settings.quiet ? ' quiet' : ''}`} style={{ gridTemplateColumns:'264px minmax(0,1fr)' }}>
       <aside className="flex flex-col gap-4 px-3 py-4 sticky top-0 h-screen overflow-y-auto" style={{ background:'var(--sidebar)', color:'var(--sidebar-ink)' }}>
-        <div className="px-2">
-          <div className="uppercase leading-none" style={{ fontFamily:'var(--display)', fontWeight:700, fontSize:22, letterSpacing:'.08em' }}>BSC <span style={{ color:'var(--sidebar-soft)' }}>PLM</span></div>
-          <div className="text-[11px] uppercase tracking-[.12em] mt-1" style={{ color:'var(--sidebar-soft)' }}>Bombay Shirt Company{EDITION_LABEL ? ` · ${EDITION_LABEL} edition` : ''}</div>
-        </div>
+        <a href="#/" className="px-2 flex items-center gap-3" style={{ textDecoration: 'none', color: 'inherit' }} aria-label="BSC PLM home">
+          <img src={`${import.meta.env.BASE_URL}bsc-logo-light.png`} alt="Bombay Shirt Company" width={52} height={52} style={{ flex: 'none' }} />
+          <div><div className="uppercase leading-none" style={{ fontFamily:'var(--display)', fontWeight:700, fontSize:22, letterSpacing:'.08em' }}>BSC <span style={{ color:'var(--sidebar-soft)' }}>PLM</span></div>
+          <div className="text-[11px] uppercase tracking-[.12em] mt-1" style={{ color:'var(--sidebar-soft)' }}>Bombay Shirt Company{EDITION_LABEL ? ` · ${EDITION_LABEL} edition` : ''}</div></div>
+        </a>
 
         <div className="px-1"><SearchHint /></div>
 

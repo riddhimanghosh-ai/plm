@@ -3,6 +3,7 @@
    words. BSC's registered details and its own template replace the placeholders in the build. */
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { BSC_LOGO_PNG } from './logoData';
 import type { Db, ProductionOrder, PoInvoice, PoDoc } from './types';
 import { poVendorsOf, poTotalsOf, rawMaterialsOf } from './rtwPack';
 
@@ -47,10 +48,10 @@ export function downloadInvoicePdf(db: Db, o: ProductionOrder, inv: PoInvoice, s
   const d = invoiceDocOf(db, o, inv); const pdf = new jsPDF({ unit: 'pt', format: 'a4' }); const W = pdf.internal.pageSize.getWidth(); const L = 40; const R = W - 40;
   /* the watermark goes down first so the invoice prints over it */
   if (sample) { pdf.setFontSize(70); pdf.setTextColor(238); pdf.setFont('helvetica', 'bold'); pdf.text('SAMPLE', W / 2, 620, { align: 'center', angle: 30 }); pdf.setTextColor(0); }
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.text(d.seller.name, L, 52);
+  pdf.addImage(BSC_LOGO_PNG, 'PNG', L, 34, 50, 50); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.text(d.seller.name, L + 60, 52);
   pdf.setFontSize(11); pdf.text('TAX INVOICE', R, 52, { align: 'right' });
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(90);
-  pdf.text(d.seller.addr, L, 68); pdf.text(`GSTIN ${d.seller.gstin} · State ${d.seller.state}`, L, 81);
+  pdf.text(d.seller.addr, L + 60, 68); pdf.text(`GSTIN ${d.seller.gstin} · State ${d.seller.state}`, L + 60, 81);
   pdf.text(`Invoice no. ${d.no}`, R, 68, { align: 'right' }); pdf.text(`Date ${day(d.on)}`, R, 81, { align: 'right' }); if (d.poNo) pdf.text(`Against ${d.poNo}`, R, 94, { align: 'right' });
   pdf.setDrawColor(200); pdf.line(L, 104, R, 104); pdf.setTextColor(0);
   const block = (x: number, title: string, rows: string[]) => { pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(120); pdf.text(title.toUpperCase(), x, 122); pdf.setTextColor(0); pdf.setFontSize(10); pdf.text(rows[0], x, 137); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); rows.slice(1).forEach((r, i) => pdf.text(r, x, 151 + i * 12)); };
@@ -84,10 +85,10 @@ export function downloadVendorsPdf(db: Db, o: ProductionOrder) {
   /* the PDF's standard font has no middle dot or long dash */
   const a = (x: string) => x.replace(/\s*·\s*/g, ' - ').replace(/—/g, '-');
   const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' }); const W = pdf.internal.pageSize.getWidth(); const L = 40; const R = W - 40;
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.text(SELLER.name, L, 50);
+  pdf.addImage(BSC_LOGO_PNG, 'PNG', L, 30, 50, 50); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.text(SELLER.name, L + 60, 50);
   pdf.setFontSize(11); pdf.text('VENDOR DETAILS', R, 50, { align: 'right' });
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(90);
-  pdf.text(SELLER.addr, L, 66); pdf.text(a(`${o.poNo ?? 'PO'} - ${o.styleName}`), R, 66, { align: 'right' }); pdf.text(`For ${f?.name ?? 'the factory'}${f?.location ? `, ${f.location}` : ''}`, R, 79, { align: 'right' });
+  pdf.text(SELLER.addr, L + 60, 66); pdf.text(a(`${o.poNo ?? 'PO'} - ${o.styleName}`), R, 66, { align: 'right' }); pdf.text(`For ${f?.name ?? 'the factory'}${f?.location ? `, ${f.location}` : ''}`, R, 79, { align: 'right' });
   pdf.setDrawColor(200); pdf.line(L, 90, R, 90); pdf.setTextColor(0);
   autoTable(pdf, { startY: 104, margin: { left: L, right: 40 }, styles: { fontSize: 8.5, cellPadding: 5, valign: 'top' }, headStyles: { fillColor: [31, 92, 66], textColor: 255 },
     columnStyles: { 0: { cellWidth: 120, fontStyle: 'bold' }, 1: { cellWidth: 150 }, 2: { cellWidth: 130 }, 3: { cellWidth: 170 } },
@@ -108,10 +109,10 @@ export function poPdfOf(db: Db, o: ProductionOrder, docIn?: PoDoc | null): jsPDF
   const f = db.vendors.find(v => v.id === (o.vendorId ?? o.poApproval?.vendorId)) ?? null; const t = poTotalsOf(d); const pm = o.poMail;
   const pdf = new jsPDF({ unit: 'pt', format: 'a4' }); const W = pdf.internal.pageSize.getWidth(); const H = pdf.internal.pageSize.getHeight(); const L = 40; const R = W - 40;
   pdf.setFillColor(31, 92, 66); pdf.rect(0, 0, W, 6, 'F');
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.text(SELLER.name, L, 46);
+  pdf.addImage(BSC_LOGO_PNG, 'PNG', L, 26, 50, 50); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.text(SELLER.name, L + 60, 46);
   pdf.setFontSize(13); pdf.text('PURCHASE ORDER', R, 46, { align: 'right' });
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(90);
-  pdf.text(SELLER.addr, L, 62); pdf.text(`GSTIN ${SELLER.gstin} - State ${SELLER.state}`, L, 75);
+  pdf.text(SELLER.addr, L + 60, 62); pdf.text(`GSTIN ${SELLER.gstin} - State ${SELLER.state}`, L + 60, 75);
   pdf.text(a(`${o.poNo ?? 'PO (draft)'}${d.revision ? ` - revision ${d.revision}` : ''}`), R, 62, { align: 'right' }); pdf.text(`Date ${o.poDate ? day(o.poDate) : day(new Date().toISOString())}`, R, 75, { align: 'right' });
   pdf.setDrawColor(200); pdf.line(L, 86, R, 86); pdf.setTextColor(0);
   const col = (x: number, title: string, rows: string[]) => { pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(120); pdf.text(title.toUpperCase(), x, 104); pdf.setTextColor(0); pdf.setFontSize(10); pdf.text(a(rows[0]), x, 119); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); rows.slice(1).forEach((r, i) => pdf.text(a(r), x, 133 + i * 12, { maxWidth: (R - L) / 3 - 10 })); };

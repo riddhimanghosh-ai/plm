@@ -55,7 +55,7 @@ export function MailPreviewModal({ mail: mail0, sentOn, onClose, onSave }: { mai
           <div className="gm-tools" aria-hidden><span>←</span><span>⤓</span><span>⚠</span><span>🗑</span><span className="gm-sep" /><span>✉</span><span>⏱</span><span>⋮</span><span className="gm-count">1 of 3</span></div>
           <h2 className="gm-subj">{mail.subject}<span className="gm-label">Inbox ×</span></h2>
           <div className="gm-msg">
-            <span className="gm-av" aria-hidden>B</span>
+            <img className="gm-av img" src={`${import.meta.env.BASE_URL}bsc-logo-dark.png`} alt="" />
             <div className="gm-head">
               <div className="gm-from"><b>{FROM.name}</b> <span>&lt;{FROM.email}&gt;</span></div>
               <div className="gm-to">to {mail.to.join(', ') || '—'}{mail.cc.length ? <>, cc {mail.cc.join(', ')}</> : null} ▾</div>
