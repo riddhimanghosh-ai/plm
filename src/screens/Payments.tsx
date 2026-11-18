@@ -1,33 +1,33 @@
-/* Finance · payments (17 Nov 2026): for every PO, what it is worth, what BSC invoiced the factory for material it
-   sent, what is payable, what is paid and what is left; the up-front part still owed. And one upload of payments
-   across POs — each row lands on its PO's log and the remaining payable updates by itself. */
+/* Finance · payments to make (18 Nov 2026): a queue, not a ledger. What is due to a factory now (the up-front part on its
+   trigger, the balance on the payment terms), what comes later, what is paid; a payment is recorded from the row, or many
+   at once from a sheet. The ledger itself is its own screen. */
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import readXlsxFile from 'read-excel-file';
 import { useApp } from '../store';
 import type { ProductionOrder } from '../domain/types';
 import { fmtDate, fmtMoney } from '../domain/engines';
-import { poLedgerOf } from '../domain/rtwPack';
-import { Page, Card, Pill, Drawer, Empty, Seg, Stats, Input, Button, MultiFilter, passes, downloadXlsx } from '../ui';
-import { RtwRequirement } from './RtwRequirement';
+import { poLedgerOf, payDueOf } from '../domain/rtwPack';
+import { Page, Card, Pill, Empty, Tabs, Stats, Input, Button, MultiFilter, passes, downloadXlsx } from '../ui';
+import { PayDialog, FinanceDrawer, useFinanceUrl } from './Finance';
 
 type UpRow = { poNo: string; on: string; amount: number; ref: string | null; note: string | null; match: ProductionOrder | null; problem: string | null };
 const toIso = (v: unknown): string | null => { if (v instanceof Date) return v.toISOString(); const d = new Date(String(v ?? '')); return isNaN(d.getTime()) ? null : d.toISOString(); };
 
 export function Payments() {
   const { db, addPoPayments } = useApp();
-  const [params, setParams] = useSearchParams();
-  const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); v ? n.set(k, v) : n.delete(k); setParams(n, { replace: true }); };
-  const view = (params.get('view') ?? 'pos') as 'pos' | 'upload';
-  const [q, setQ] = useState(''); const [facs, setFacs] = useState<string[]>([]); const [st, setSt] = useState<string[]>([]);
+  const u = useFinanceUrl<'due' | 'later' | 'paid' | 'upload'>('due'); const view = u.tab; const set = u.set;
+  const [q, setQ] = useState(''); const [facs, setFacs] = useState<string[]>([]); const [pay, setPay] = useState<ProductionOrder | null>(null);
   const nameOf = (id: string | null) => db.vendors.find(v => v.id === id)?.name ?? '—';
-  const all = db.orders.filter(o => o.poNo && o.status !== 'Cancelled').map(o => ({ o, l: poLedgerOf(o) }));
-  const stateOf = (l: ReturnType<typeof poLedgerOf>) => l.remaining <= 0 ? 'paid' : l.advancePending > 0 ? 'advance' : l.paid > 0 ? 'part' : 'unpaid';
-  const STATE: Record<string, [string, 'good' | 'warn' | 'risk' | 'info' | 'neutral']> = { advance: ['up-front payment due', 'risk'], unpaid: ['nothing paid yet', 'warn'], part: ['part paid', 'info'], paid: ['paid in full', 'good'] };
-  const rows = all.filter(x => passes(facs, x.o.vendorId ?? '')).filter(x => passes(st, stateOf(x.l))).filter(x => !q.trim() || `${x.o.poNo} ${x.o.styleName}`.toLowerCase().includes(q.trim().toLowerCase())).sort((a, b) => b.l.remaining - a.l.remaining);
-  const sum = (f: (l: ReturnType<typeof poLedgerOf>) => number) => all.reduce((a, x) => a + f(x.l), 0);
-  const active = db.orders.find(o => o.id === params.get('open')) ?? null;
-  const faint = { color: 'var(--ink-faint)' } as const;
+  const all = db.orders.filter(o => o.poNo && o.status !== 'Cancelled').map(o => ({ o, l: poLedgerOf(o), d: payDueOf(o) }));
+  const hit = (x: { o: ProductionOrder }) => passes(facs, x.o.vendorId ?? '') && (!q.trim() || `${x.o.poNo} ${x.o.styleName} ${nameOf(x.o.vendorId)}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const due = all.filter(x => x.d.bucket === 'due'); const later = all.filter(x => x.d.bucket === 'later'); const paid = all.filter(x => x.d.bucket === 'paid');
+  const dueRows = due.filter(hit).sort((a, b) => b.d.lateDays - a.d.lateDays || b.d.dueNow - a.d.dueNow);
+  const laterRows = later.filter(hit).sort((a, b) => (a.d.parts[0]?.dueOn ?? '9').localeCompare(b.d.parts[0]?.dueOn ?? '9') || b.l.remaining - a.l.remaining);
+  const paidRows = paid.filter(hit).sort((a, b) => (b.o.poDate ?? '').localeCompare(a.o.poDate ?? ''));
+  const late = due.filter(x => x.d.lateDays > 7);
+  const active = db.orders.find(o => o.id === u.open) ?? null;
+  const faint = { color: 'var(--ink-faint)' } as const; const r0 = (n: number) => fmtMoney(Math.round(n));
+  const po = (o: ProductionOrder) => <td><div className="mono text-[12.5px]">{o.poNo}</div><div className="text-[11.5px]" style={faint}>{o.styleName}</div></td>;
 
   /* the upload */
   const [up, setUp] = useState<UpRow[]>([]); const [file, setFile] = useState(''); const [done, setDone] = useState<number | null>(null);
@@ -39,46 +39,59 @@ export function Payments() {
   const onFile = async (f: File | undefined) => { if (!f) return; setDone(null); setFile(f.name);
     if (/\.csv$/i.test(f.name)) { const t = await f.text(); setUp(shape(t.split(/\r?\n/).map(l => l.split(',')))); }
     else setUp(shape(await readXlsxFile(f) as unknown[][])); };
-  const sample = () => { const open = all.filter(x => x.l.remaining > 0).slice(0, 4); setDone(null); setFile('sample rows');
-    setUp(open.map((x, i) => ({ poNo: x.o.poNo!, on: new Date().toISOString(), amount: Math.round((x.l.advancePending > 0 ? x.l.advancePending : x.l.remaining * 0.5)), ref: `UTR${91000 + i}`, note: x.l.advancePending > 0 ? `${x.l.advancePct}% up front` : 'part balance', match: x.o, problem: null }))); };
+  const sample = () => { const open = [...due, ...later].slice(0, 4); setDone(null); setFile('sample rows');
+    setUp(open.map((x, i) => ({ poNo: x.o.poNo!, on: new Date().toISOString(), amount: Math.round(x.d.dueNow || x.l.remaining * 0.5), ref: `UTR${91000 + i}`, note: x.l.advancePending > 0 ? `${x.l.advancePct}% up front` : 'part balance', match: x.o, problem: null }))); };
   const good = up.filter(r => r.match && r.amount > 0);
   const template = () => downloadXlsx('payments-template', [{ label: 'PO number', get: (r: string[]) => r[0] }, { label: 'Payment date', get: (r: string[]) => r[1] }, { label: 'Amount', get: (r: string[]) => r[2] }, { label: 'Reference (UTR / cheque)', get: (r: string[]) => r[3] }, { label: 'Note', get: (r: string[]) => r[4] }],
     [[all[0]?.o.poNo ?? 'PO #15501', new Date().toISOString().slice(0, 10), '25000', 'UTR123456', '25% up front']], 'Payments');
 
-  return <Page title="Payments" lede="What every PO is worth, what is paid and what is left; upload payments across POs in one go.">
+  return <Page title="Payments to make" lede="What is due to factories now, what comes later, and recording what was paid.">
     <Stats items={[
-      { label: 'PO value', value: fmtMoney(Math.round(sum(l => l.poTotal))) },
-      { label: "Less BSC's invoices", value: fmtMoney(Math.round(sum(l => l.bscInvoiced))) },
-      { label: 'Paid', value: fmtMoney(Math.round(sum(l => l.paid))), tone: 'good' },
-      { label: 'Remaining to pay', value: fmtMoney(Math.round(sum(l => Math.max(0, l.remaining)))), tone: 'warn' },
-      { label: 'Up-front payments due', value: fmtMoney(Math.round(sum(l => l.advancePending))), tone: sum(l => l.advancePending) ? 'risk' : 'good' },
+      { label: 'Due now', value: r0(due.reduce((a, x) => a + x.d.dueNow, 0)), tone: due.length ? 'risk' : 'good' },
+      { label: 'POs with a payment due', value: due.length, tone: due.length ? 'warn' : 'good' },
+      { label: 'More than a week late', value: late.length, tone: late.length ? 'risk' : 'good' },
+      { label: 'Not due yet', value: r0(all.reduce((a, x) => a + x.d.later, 0)) },
+      { label: 'Paid so far', value: r0(all.reduce((a, x) => a + x.l.paid, 0)), tone: 'good' },
     ]} />
-    <div className="mb-3"><Seg value={view} onChange={v => set('view', v === 'pos' ? null : v)} options={[{ id: 'pos', label: 'Payments by PO', count: all.length }, { id: 'upload', label: 'Upload payments' }]} /></div>
+    <Tabs active={view} onChange={u.setTab} tabs={[
+      { id: 'due', label: 'Due now', count: due.length, hint: 'the up-front part or the balance has fallen due' },
+      { id: 'later', label: 'Not due yet', count: later.length, hint: 'still to pay, waiting on its trigger' },
+      { id: 'paid', label: 'Paid in full', count: paid.length },
+      { id: 'upload', label: 'Upload payments', hint: 'many payments across POs from one sheet' }]} />
+    {view !== 'upload' && <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
+      <MultiFilter label="Factory" value={facs} onChange={setFacs} width={220} options={[{ id: 'all', label: 'Every factory' }, ...[...new Set(all.map(x => x.o.vendorId ?? ''))].filter(Boolean).map(id => ({ id, label: nameOf(id) }))]} />
+      <Input value={q} onChange={e => setQ(e.target.value)} placeholder="PO, style or factory" style={{ width: 210 }} />
+      {view === 'due' && <span className="ml-auto text-[12px]" style={faint}>Paid many at once? <button type="button" className="vlink" onClick={() => u.setTab('upload')}>Upload the sheet</button></span>}
+    </div></Card>}
 
-    {view === 'pos' && <>
-      <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
-        <MultiFilter label="Status" value={st} onChange={setSt} options={[{ id: 'all', label: 'Every PO', count: all.length }, ...Object.entries(STATE).map(([k, [lab]]) => ({ id: k, label: lab, count: all.filter(x => stateOf(x.l) === k).length }))]} />
-        <MultiFilter label="Factory" value={facs} onChange={setFacs} width={220} options={[{ id: 'all', label: 'Every factory' }, ...[...new Set(all.map(x => x.o.vendorId ?? ''))].filter(Boolean).map(id => ({ id, label: nameOf(id) }))]} />
-        <Input value={q} onChange={e => setQ(e.target.value)} placeholder="PO or style" style={{ width: 200 }} />
-      </div></Card>
-      {rows.length === 0 ? <Card><Empty title="Nothing matches." body="" /></Card> : <Card><table className="t">
-        <thead><tr><th>PO</th><th>Factory</th><th className="num">PO total</th><th className="num">BSC invoiced</th><th className="num">Payable</th><th>Up front</th><th className="num">Paid</th><th className="num">Remaining</th><th>Status</th></tr></thead>
-        <tbody>{rows.slice(0, params.get('all') === '1' ? undefined : 40).map(({ o, l }) => { const [lab, tone] = STATE[stateOf(l)];
-          return <tr key={o.id} className="row" onClick={() => set('open', o.id)}>
-            <td><div className="mono text-[12.5px]">{o.poNo}</div><div className="text-[11.5px]" style={faint}>{o.styleName} · {fmtDate(o.poDate)}</div></td>
-            <td className="text-[12.5px]">{nameOf(o.vendorId)}</td>
-            <td className="num">{fmtMoney(Math.round(l.poTotal))}</td>
-            <td className="num" style={{ color: l.bscInvoiced ? undefined : 'var(--ink-faint)' }}>{l.bscInvoiced ? `− ${fmtMoney(Math.round(l.bscInvoiced))}` : '—'}</td>
-            <td className="num">{fmtMoney(Math.round(l.payable))}</td>
-            <td className="text-[12px]">{l.advancePct ? <span style={{ color: l.advancePending > 0 ? 'var(--risk)' : 'var(--good)' }}>{l.advancePct}% · {l.advancePending > 0 ? `${fmtMoney(l.advancePending)} due` : 'paid'}</span> : <span style={faint}>none</span>}</td>
-            <td className="num">{fmtMoney(Math.round(l.paid))}</td>
-            <td className="num font-semibold">{fmtMoney(Math.round(l.remaining))}</td>
-            <td><Pill tone={tone}>{lab}</Pill></td>
-          </tr>; })}</tbody>
-      </table>
-      {rows.length > 40 && params.get('all') !== '1' && <div className="px-4 py-2 text-[12px]" style={faint}>40 of {rows.length} shown · <button type="button" className="vlink" onClick={() => set('all', '1')}>show all</button></div>}
-      </Card>}
-    </>}
+    {view === 'due' && (dueRows.length === 0 ? <Card><Empty title="Nothing is due." body="" /></Card> : <Card><table className="t">
+      <thead><tr><th>PO</th><th>Factory</th><th>What is due</th><th>Due since</th><th className="num">Due now</th><th className="num">Left on the PO after</th><th></th></tr></thead>
+      <tbody>{dueRows.map(({ o, l, d }) => <tr key={o.id} className="row" onClick={() => u.setOpen(o.id)}>
+        {po(o)}<td className="text-[12.5px]">{nameOf(o.vendorId)}</td>
+        <td style={{ whiteSpace: 'normal' }}>{d.dueParts.map(x => <div key={x.key} className="text-[12.5px]"><Pill tone={x.key === 'advance' ? 'warn' : 'info'}>{x.label}</Pill> <span className="text-[11.5px]" style={faint}>{x.when}</span></div>)}</td>
+        <td className="text-[12.5px]" style={{ whiteSpace: 'nowrap', color: d.lateDays > 7 ? 'var(--risk)' : undefined }}>{fmtDate(d.dueOn)}<div className="text-[11px]">{d.lateDays > 0 ? `${d.lateDays}d ago` : 'today'}</div></td>
+        <td className="num font-semibold">{r0(d.dueNow)}</td>
+        <td className="num" style={faint}>{r0(l.remaining - d.dueNow)}</td>
+        <td style={{ whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}><button type="button" className="cta" onClick={() => setPay(o)}>Record payment →</button></td>
+      </tr>)}</tbody></table></Card>)}
+
+    {view === 'later' && (laterRows.length === 0 ? <Card><Empty title="Nothing waiting." body="" /></Card> : <Card><table className="t">
+      <thead><tr><th>PO</th><th>Factory</th><th>Falls due</th><th>Expected on</th><th className="num">To pay</th><th className="num">Paid so far</th><th></th></tr></thead>
+      <tbody>{laterRows.map(({ o, l, d }) => <tr key={o.id} className="row" onClick={() => u.setOpen(o.id)}>
+        {po(o)}<td className="text-[12.5px]">{nameOf(o.vendorId)}</td>
+        <td style={{ whiteSpace: 'normal' }}>{d.parts.map(x => <div key={x.key} className="text-[12.5px]"><b>{x.label}</b> <span style={faint}>{x.when}</span></div>)}</td>
+        <td className="text-[12.5px]">{d.parts[0]?.dueOn ? fmtDate(d.parts[0].dueOn) : <span style={faint}>{d.parts[0]?.key === 'balance' ? 'once the goods are in' : 'not known yet'}</span>}</td>
+        <td className="num font-semibold">{r0(l.remaining)}</td><td className="num">{r0(l.paid)}</td>
+        <td style={{ whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}><button type="button" className="vlink text-[12px]" onClick={() => setPay(o)}>pay early</button></td>
+      </tr>)}</tbody></table></Card>)}
+
+    {view === 'paid' && (paidRows.length === 0 ? <Card><Empty title="No PO is paid in full yet." body="" /></Card> : <Card><table className="t">
+      <thead><tr><th>PO</th><th>Factory</th><th className="num">Payable</th><th className="num">Paid</th><th>Payments</th><th>Last paid</th></tr></thead>
+      <tbody>{paidRows.map(({ o, l }) => { const ps = [...(o.poPayments ?? [])].sort((a, b) => b.on.localeCompare(a.on));
+        return <tr key={o.id} className="row" onClick={() => u.setOpen(o.id)}>
+          {po(o)}<td className="text-[12.5px]">{nameOf(o.vendorId)}</td><td className="num">{r0(l.payable)}</td><td className="num font-semibold">{r0(l.paid)}</td>
+          <td className="text-[12.5px]">{ps.length} · <span className="mono text-[12px]" style={faint}>{ps.map(x => x.ref).filter(Boolean).join(', ') || '—'}</span></td>
+          <td className="text-[12.5px]">{ps[0] ? fmtDate(ps[0].on) : '—'}</td></tr>; })}</tbody></table></Card>)}
 
     {view === 'upload' && <Card><div className="p-4">
       <div className="flex items-center gap-2 flex-wrap">
@@ -98,13 +111,12 @@ export function Payments() {
         <div className="flex items-center gap-3 pt-3">
           <Button variant="primary" disabled={!good.length || done != null} onClick={() => { const n = addPoPayments(good.map(r => ({ poNo: r.match!.poNo!, on: r.on, amount: r.amount, ref: r.ref, note: r.note }))); setDone(n); }}>Add {good.length} payment{good.length === 1 ? '' : 's'} · {fmtMoney(good.reduce((a, r) => a + r.amount, 0))}</Button>
           {up.length - good.length > 0 && <span className="text-[12px]" style={{ color: 'var(--risk)' }}>{up.length - good.length} row{up.length - good.length === 1 ? '' : 's'} will be skipped</span>}
-          {done != null && <span className="text-[12.5px]" style={{ color: 'var(--good)' }}>{done} payment{done === 1 ? '' : 's'} added to their POs. <button type="button" className="vlink" onClick={() => { setUp([]); setFile(''); setDone(null); set('view', null); }}>See payments by PO</button></span>}
+          {done != null && <span className="text-[12.5px]" style={{ color: 'var(--good)' }}>{done} payment{done === 1 ? '' : 's'} added to their POs. <button type="button" className="vlink" onClick={() => { setUp([]); setFile(''); setDone(null); u.setTab('due'); }}>See what is still due</button></span>}
         </div>
       </>}
     </div></Card>}
 
-    <Drawer open={!!active} onClose={() => set('open', null)} title={active?.poNo ?? ''} subtitle={active && <span>{active.styleName} · {nameOf(active.vendorId)}</span>}>
-      {active && <RtwRequirement key={active.id} o={active} initial="invoices" scope="finance" />}
-    </Drawer>
+    <FinanceDrawer o={active} onClose={() => u.setOpen(null)} />
+    {pay && <PayDialog o={pay} onClose={() => setPay(null)} />}
   </Page>;
 }

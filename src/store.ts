@@ -12,7 +12,7 @@ import { putFile, deleteFile, clearFiles } from './domain/files';
 import { fmtDate, prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
 const SAMPLE_STAGES: SampleStage[] = ['prototype', 'sample', 'trial'];
 const STAGE_NAME: Record<SampleStage, string> = { prototype: 'Prototype', sample: 'Sampling cycle', trial: 'Trial cycle' };
-import { RTW_ONLY } from './domain/edition';
+import { BOM_MULTI_OPTIONS, RTW_ONLY } from './domain/edition';
 import { EMPTY_PACK, packReadyOf, costQueryMail, poMailOf, invoiceMailOf, deliveryLocationOf, poTotalsOf, supplyLinesOf, approvalOf, poEditOf } from './domain/rtwPack';
 import { PEOPLE, MERCHANDISERS, QC_POINTS, FABRIC_BY_LABEL, ORDER_STAGE_NEXT, METRES_PER_SHIRT, STORES, SHEET_LABEL, MILESTONES, MILESTONE_OWNER, PRE_PRODUCTION, SHIRT_PRESETS, defaultSpec, defaultMeasurements, defaultPattern } from './domain/reference';
 
@@ -358,7 +358,7 @@ function makeSupplyInvoice(db: Db, o: ProductionOrder) {
   o.poInvoices = prev ? (o.poInvoices ?? []).map(i => i.id === prev.id ? inv : i) : [...(o.poInvoices ?? []), inv];
   (o.activity = o.activity ?? []).push({ at: new Date(TODAY).toISOString(), who: 'PLM', what: `Invoice ${no} ${prev ? 'regenerated' : 'generated'} for what BSC sends · ₹${amount} · ${lines.length} line${lines.length === 1 ? '' : 's'}` });
 }
-const SEED_VERSION = 168;
+const SEED_VERSION = 170;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 export const useAppStore = create<AppState>()(persist((set, get) => {
@@ -1525,7 +1525,9 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     addBomOptions(orderId, items) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o || !items.length) return;
         items.forEach(({ idx, opt }, k) => { const l = o.bom[idx]; if (!l) return; l.options = [...(l.options ?? []), { ...opt, id: `bo-${Date.now().toString(36)}-${idx}-${k}`, by: who(), on: now() }]; });
-        log(o, `Sourcing added ${items.length} vendor option${items.length === 1 ? '' : 's'} on the BOM`); }, 'Options added. Category picks one per line.');
+        /* several options switched off: the one vendor sourcing names is the line's supplier straight away */
+        if (!BOM_MULTI_OPTIONS) items.forEach(({ idx }) => { const l = o.bom[idx]; const op = l?.options?.slice(-1)[0]; if (!l || !op) return; l.options = [op]; l.chosen = op.id; l.suppliedBy = op.suppliedBy; l.vendor = op.vendor; if (op.rate != null) l.rate = op.rate; l.gstPct = op.gstPct ?? null; l.vendorState = op.state ?? null; });
+        log(o, `Sourcing added ${items.length} vendor${BOM_MULTI_OPTIONS ? ` option${items.length === 1 ? '' : 's'}` : items.length === 1 ? '' : 's'} on the BOM`); }, BOM_MULTI_OPTIONS ? 'Options added. Category picks one per line.' : 'Vendor added.');
     },
     removeBomOption(orderId, idx, optId) {
       touch(db => { const l = db.orders.find(x => x.id === orderId)?.bom[idx]; if (!l) return; l.options = (l.options ?? []).filter(x => x.id !== optId);

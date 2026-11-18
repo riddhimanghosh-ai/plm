@@ -40,7 +40,7 @@ export function Factory() {
   const mine = role === 'merchandiser' || role === 'owner';
   const factories = db.vendors.filter(v => (RTW_ONLY ? v.kind.endsWith('factory') : (v.mtm || (!MTM_ONLY && v.kind.endsWith('factory')))) && v.kind !== 'Hemming unit');
   const v = factories.find(x => x.id === factoryId) ?? factories[0];
-  if (!v) return <Page title="My factory"><Card><Empty title="No MTM factory." body="" /></Card></Page>;
+  if (!v) return <Page title="My factory"><Card><Empty title="No factory." body="" /></Card></Page>;
   const l = factoryLoadOf(db, v.id);
   const orders = [...l.inTransit, ...l.wip, ...l.ready].sort((a, b) => a.promisedOn.localeCompare(b.promisedOn));
   const xf = (db.extraFabric ?? []).filter(r => r.factoryId === v.id);

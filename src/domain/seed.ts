@@ -10,6 +10,7 @@ import type { LostSale, SwatchBookRequest, CreditEntry, OptionRequest, RequestOp
 import { mainSizesOf, FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, SHEET_OPTIONS, MEASUREMENTS, defaultSpec, defaultPattern, PEOPLE, SIZE_SETS, MERCHANDISERS, DELAY_REASONS, RTW_SUBCATS, RANGES, STORES, isBottoms, BOTTOM_SIZES, SHIRT_SIZES, MTM_FITS, TRIM_MASTER, COLLAR_STYLES, POCKETS, EXTRA_FABRIC_REASONS, EXTRA_FABRIC_PANELS, PANEL_METRES, BOOK_EDITION, BIG_STORES, MTM_SWATCH_BOOKS } from './reference';
 import { REAL_MTM_FABRICS, REAL_BLOCKS, REAL_RTW_SHIRTS, REAL_RTW_BOTTOMS, REAL_MERCH, REAL_DROPS, REAL_STO } from './realdata';
 import { poDraftOf, supplyLinesOf } from './rtwPack';
+import { RTW_ONLY } from './edition';
 import { sourcingModeOf, buildMilestones, TODAY, addDays, iso, riskOf, coverageOf, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, daysBetween, consumptionFor, daysAgo, defaultMaterials, mintBespokeCode } from './engines';
 
 /* mulberry32 — same seed, same book, every reload */
@@ -1081,7 +1082,7 @@ VENDORS.filter(v => v.kind.endsWith('mill')).forEach((v, i) => {
   v.enigma = { vendorCode: `${VCODE[v.id] ?? v.name.slice(0, 2).toUpperCase()}-${String(100 + i).padStart(3, '0')}`, country: intl ? (v.location.split(',').pop()?.trim() ?? 'Italy') : 'India', description: `${v.name} · ${v.location}`, currency: intl ? 'EUR' : 'INR', tatHours: v.leadDays * 24,
     vendorType: 'FABRIC', address: intl ? `${v.location}` : `${pick(['12', '41', '7', '118', '23'])}, ${pick(['Kalbadevi', 'Mangaldas Market', 'Swadeshi Market', 'Lower Parel', 'Dadar West'])}, ${v.location} 4000${pick(['02', '13', '28', '01'])}`,
     officePhone: intl ? `+${pick(['39 031', '44 20', '86 512', '34 93'])} ${int(100000, 999999)}` : `+91 22 ${int(2200, 2899)} ${int(1000, 9999)}`, officeEmail: `${pick(['sales', 'orders', 'info', 'export'])}@${v.name.toLowerCase().replace(/[^a-z]+/g, '').slice(0, 12)}.com`,
-    active: i % 9 !== 8, categories: intl ? ['Fabric', 'Bespoke'] : ['Fabric'] };
+    active: i % 9 !== 8, categories: intl && !RTW_ONLY ? ['Fabric', 'Bespoke'] : ['Fabric'] };
 });
 
 /* ---------- Enigma's fabric master — the attribute block its Edit Fabric Info screen shows ---------- */
@@ -1574,7 +1575,7 @@ orders.forEach((o, i) => {
     /* dispatched: the invoice and packing list went to Prince */
     const disp = ms('Dispatch')?.actual;
     if (disp) { const pcs = o.cutQty ?? o.orderQty; const tot = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) || 1;
-      o.invoice = { no: `INV-${2600 + i}`, amount: Math.round(pcs * (o.finalFob ?? o.targetCost)), uploadedOn: iso(addDays(disp, 1)), by: o.merchant ?? 'Nitin Singh', file: `invoice-${2600 + i}.pdf`, packingList: o.sizeBreakup.map(x => ({ size: x.size, qty: Math.round(x.qty * pcs / tot) })), mailedOn: iso(addDays(disp, 1)), mailedTo: ['prince@bombayshirts.com'] }; }
+      o.invoice = { no: `INV-${2600 + i}`, amount: Math.round(pcs * (o.finalFob ?? o.targetCost) * (1 + (o.poDoc?.gstPct ?? 5) / 100) * (i % 5 === 2 ? 1.04 : 1)), uploadedOn: iso(addDays(disp, 1)), by: o.merchant ?? 'Nitin Singh', file: `invoice-${2600 + i}.pdf`, packingList: o.sizeBreakup.map(x => ({ size: x.size, qty: Math.round(x.qty * pcs / tot) })), mailedOn: iso(addDays(disp, 1)), mailedTo: ['prince@bombayshirts.com'] }; }
   }
 });
 /* 17 Nov 2026 — before the PO: of the styles with replies, the first still waits for its SKUs in Enigma; the next are in Enigma and wait on HOD and finance, on HOD alone, on finance alone; one is approved and ready for its PO */

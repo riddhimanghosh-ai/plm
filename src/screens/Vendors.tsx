@@ -19,7 +19,7 @@ import { RISK_TONE } from './Tracker';
 import { ActsBy } from './Who';
 import { RecordTail } from './RecordTail';
 import { FabricDrawer } from './Fabrics';
-import { MTM_ONLY } from '../domain/edition';
+import { MTM_ONLY, RTW_ONLY, kindLabel } from '../domain/edition';
 
 /** A vendor name that opens the 360. Keeps whatever click is already on the row from firing. */
 export function VendorLink({ id, children, className }: { id: string | null; children?: React.ReactNode; className?: string }) {
@@ -49,7 +49,7 @@ export function VendorDrawer() {
     ?? 'the record';
   return (
     <Drawer open={!!v} onClose={close} title={v?.name ?? ''} back={backTo ? { label: backTo, onClick: close } : undefined}
-      subtitle={v && s && <><Pill tone={GRADE_TONE[s.grade]}>{s.grade}</Pill><span>{v.kind} · {v.location} · {v.region}</span></>}>
+      subtitle={v && s && <><Pill tone={GRADE_TONE[s.grade]}>{s.grade}</Pill><span>{kindLabel(v.kind)} · {v.location} · {v.region}</span></>}>
       {v && s && <Vendor360 v={v} s={s} />}
     </Drawer>
   );
@@ -70,7 +70,7 @@ function Vendor360({ v, s }: { v: Vendor; s: ReturnType<typeof vendorStatsOf> })
         <div><KV k="Mill Country" v={v.enigma?.country ?? '—'} /><KV k="Mill Description" v={v.enigma?.description ?? '—'} /><KV k="Currency" v={v.enigma?.currency ?? 'INR'} /><KV k="TAT (hours)" v={v.enigma?.tatHours != null ? `${v.enigma.tatHours} h` : '—'} note={`${v.leadDays} days lead`} /><KV k="MOQ" v={`${v.moq} m`} /><KV k="Cost per Unit" v="per fabric — on each fabric's record" /></div>
       </div>}
     </Section>}
-    {v.mtm && (() => { const l = factoryLoadOf(db, v.id); return <Section title="MTM floor · today" right={<Pill tone={l.load > 2 ? 'warn' : 'good'}>{l.load.toFixed(1)}d load</Pill>}>
+    {v.mtm && !RTW_ONLY && (() => { const l = factoryLoadOf(db, v.id); return <Section title="MTM floor · today" right={<Pill tone={l.load > 2 ? 'warn' : 'good'}>{l.load.toFixed(1)}d load</Pill>}>
       <KV k="Average out / day" v={`${l.avgOut} pcs`} note={`last ${l.daily.length} days: ${l.daily.join(' · ')} · nominal ${l.nominal} (${v.tailors} tailors × 12)`} />
       <KV k="In factory now" v={`${l.wip.length} pcs`} note={l.aging.length ? `${l.aging.length} aging past 5 days` : 'nothing aging'} />
       <KV k="In transit to it" v={`${l.inTransit.length} pcs`} />
@@ -78,7 +78,7 @@ function Vendor360({ v, s }: { v: Vendor; s: ReturnType<typeof vendorStatsOf> })
       <KV k="Headroom today" v={`${l.headroom} pcs`} note="a day's output, less what is already queued" />
     </Section>; })()}
     <Section title="Master" right={<Pill tone="neutral">from the Merchandise Master</Pill>}>
-      <KV k="Type" v={v.kind} note={v.kind === 'CMT factory' ? 'factory — BSC supplies the fabric and trims; it cuts, makes, packs' : v.kind === 'MTM factory' ? 'factory — single-piece MTM' : v.kind === 'Hemming unit' ? 'factory — alterations and hemming only' : `fabric vendor — third party; blocks held ${v.blockWindowDays} days`} />
+      <KV k="Type" v={kindLabel(v.kind)} note={v.kind === 'CMT factory' || (RTW_ONLY && v.kind === 'MTM factory') ? 'factory — BSC supplies the fabric and trims; it cuts, makes, packs' : v.kind === 'MTM factory' ? 'factory — single-piece MTM' : v.kind === 'Hemming unit' ? 'factory — alterations and hemming only' : `fabric vendor — third party; blocks held ${v.blockWindowDays} days`} />
       <KV k="Location" v={`${v.location} · ${v.region}`} />
       <KV k="Lead time" v={`${v.leadDays} days`} note={s.measuredLead != null ? `measured ${s.measuredLead}d on ${s.closed.length} closed PO${s.closed.length === 1 ? '' : 's'} — ${s.measuredLead > v.leadDays ? `${s.measuredLead - v.leadDays}d longer than the master says` : 'holds'}` : 'no closed PO to measure against yet'} />
       <KV k="MOQ" v={v.moq ? `${v.moq} ${isMill ? 'm' : 'pcs'}` : 'none'} />
@@ -92,7 +92,7 @@ function Vendor360({ v, s }: { v: Vendor; s: ReturnType<typeof vendorStatsOf> })
         <KV k="Quotes" v={`${s.quotesWon} won of ${s.quotesGiven}`} note={s.avgQuoteVsWinner != null ? `on average ${s.avgQuoteVsWinner > 0 ? `${fmtMoney(s.avgQuoteVsWinner)} above` : `${fmtMoney(-s.avgQuoteVsWinner)} below`} the winning quote when they lost` : undefined} />
         <KV k="Escalations" v={s.escalations.length} note={s.escalations.filter(e => e.status === 'Open' || e.status === 'Acknowledged').length ? `${s.escalations.filter(e => e.status === 'Open' || e.status === 'Acknowledged').length} still open` : undefined} />
       </>}
-      {isMill && <>
+      {isMill && !RTW_ONLY && <>
         <KV k="Fabrics supplied" v={s.fabrics.length} note={`${s.fabrics.filter(f => f.bucket === 'CORE').length} core · ${s.fabrics.filter(f => f.bucket === 'NON_CORE').length} non-core · ${s.fabrics.filter(f => f.bucket === 'BESPOKE').length} bespoke`} />
         <KV k="Below reorder point" v={s.fabricsBelowRop} note={s.fabricsBelowRop ? (v.kind === 'International mill' ? 'international — a person raises these' : 'domestic — Enigma auto-PO') : undefined} />
         <KV k="Blocks held" v={s.blocksHeld.length} note={s.blocksHeld.length ? `${s.blocksHeld.reduce((a, b) => a + b.metres, 0)} m · nearest expiry ${fmtDate([...s.blocksHeld].sort((a, b) => a.expiresOn.localeCompare(b.expiresOn))[0].expiresOn)}` : undefined} />
@@ -112,7 +112,7 @@ function Vendor360({ v, s }: { v: Vendor; s: ReturnType<typeof vendorStatsOf> })
 
     {isMill && <Section title={`Fabrics · ${s.fabrics.length}`}>
       {s.fabrics.slice(0, 10).map(f => { const c = coverageOf(f, v.leadDays, v); return <div key={f.id} className="kv row" style={{ cursor:'pointer' }} onClick={() => { const n = new URLSearchParams(window.location.hash.split('?')[1] ?? ''); n.set('fabric', f.id); window.location.hash = `${window.location.hash.split('?')[0]}?${n.toString()}`; }}><span className="k">{f.name}<div className="text-[11px] mono">{f.code} · {f.bucket.toLowerCase().replace('_', '-')}</div></span><span className="v">{f.bucket === 'BESPOKE' ? <Pill tone={f.millAvailable === false ? 'risk' : 'good'}>{f.millAvailable === false ? 'sold out at mill' : 'available'}</Pill> : <Pill tone={c.belowRop ? 'risk' : 'good'}>{c.belowRop ? 'below ROP' : `${c.coverDays > 365 ? '1y+' : c.coverDays + 'd'} cover`}</Pill>}</span></div>; })}
-      {s.fabrics.length > 10 && <div className="text-[11.5px] pt-1" style={{ color:'var(--ink-faint)' }}>and {s.fabrics.length - 10} more — all on the MTM fabrics screen</div>}
+      {s.fabrics.length > 10 && !RTW_ONLY && <div className="text-[11.5px] pt-1" style={{ color:'var(--ink-faint)' }}>and {s.fabrics.length - 10} more — all on the MTM fabrics screen</div>}
     </Section>}
 
     {isMill && s.blocksHeld.length > 0 && <Section title="Blocks">

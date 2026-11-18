@@ -53,7 +53,7 @@ export function DesignHome() {
   const [params, setParams] = useSearchParams();
   const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); v ? n.set(k, v) : n.delete(k); setParams(n, { replace:true }); };
   const design = role === 'design' || role === 'planning' || role === 'owner';
-  const [bulk, setBulk] = useState(false);
+  const [bulk, setBulk] = useState(false); const [ratioOnly, setRatioOnly] = useState(false);
   const prod = role === 'production' || role === 'owner';
   /* the kind is in the URL: /concepts, /requests and /requirements now land here with it set */
   const kind = (params.get('kind') as 'all' | Kind | null) ?? 'all';
@@ -141,7 +141,7 @@ export function DesignHome() {
   const flagged = rows.filter(r => r.flag);
   const base = (showAll ? rows : [...flagged, ...sample.filter(r => !r.flag)]).slice().sort((x, y) => Number(!!y.flag) - Number(!!x.flag));
   const isMe = (r: Row) => r.owner === asRole;
-  const shown = base.filter(r => (kind === 'all' || r.kind === kind) && (stage === 'all' || String(r.stage) === stage)
+  const shown = (ratioOnly ? flagged : base).filter(r => (kind === 'all' || r.kind === kind) && (stage === 'all' || String(r.stage) === stage)
     && (who === 'all' || (who === 'me' ? isMe(r) : r.owner === who)) && (pending === 'all' || r.pending === pending)
     && (!q.trim() || q.toLowerCase().split(/\s+/).every(w => `${r.name} ${r.brief} ${r.kind}`.toLowerCase().includes(w))));
   const count = (f: (r: Row) => boolean) => base.filter(f).length;
@@ -183,9 +183,12 @@ export function DesignHome() {
           : <>{sample.length} shown, one of each pending type · <button type="button" className="vlink" onClick={() => set('all', '1')}>show all {rows.length}</button></>}</span>
       </div>
 
-      {flagged.length > 0 && <div className="ratio-flag mb-3">
-        <div className="flex items-center gap-2 flex-wrap"><b className="text-[13px]">New cut ratio needed · {flagged.length}</b><span className="text-[12px]" style={{ color:'var(--ink-soft)' }}>asks from the factory or Production RTW, and POs being revised</span></div>
-        <div className="flex gap-1.5 flex-wrap pt-1.5">{flagged.map(r => <button key={r.id} type="button" className="ratio-chip" onClick={() => set('open', r.href)}><b>{r.name}</b><span>{r.flag}</span></button>)}</div>
+      {/* one line, not a box of cards: the count, and a switch that narrows the list to those styles (they are tinted and first anyway) */}
+      {flagged.length > 0 && <div className="ratio-bar mb-3">
+        <span className="ratio-dot" aria-hidden />
+        <b>{flagged.length} style{flagged.length === 1 ? '' : 's'} need{flagged.length === 1 ? 's' : ''} a new cut ratio</b>
+        <span className="ratio-names">{flagged.slice(0, 3).map(r => r.name).join(' · ')}{flagged.length > 3 ? ` · +${flagged.length - 3} more` : ''}</span>
+        <button type="button" className={`ratio-btn${ratioOnly ? ' on' : ''}`} onClick={() => setRatioOnly(v => !v)}>{ratioOnly ? 'Show everything' : 'Show only these'}</button>
       </div>}
       <Card><div style={{ overflowX:'auto' }}><table className="t compact">
         <thead><tr>

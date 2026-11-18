@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
+import { kindLabel } from '../domain/edition';
 import { VendorLink } from './Vendors';
 import { otifOf, fmtDate, riskOf, daysAgo, iso, TODAY, addDays, trackerConfig, type Risk } from '../domain/engines';
 import { MILESTONES, MERCHANDISERS, GARMENT_CATEGORIES } from '../domain/reference';
@@ -73,7 +74,7 @@ export function Otif() {
           <thead><tr><th>Factory</th><th>Type</th><th className="num">Dispatched</th><th className="num">OTIF</th><th className="num">Late</th><th className="num">Short</th><th className="num">OTIF %</th><th className="num">Open now</th><th className="num">At risk</th></tr></thead>
           <tbody>{byVendor.map(x => <tr key={x.v.id} className="row" onClick={() => openFor(x.v.id)}>
             <td className="font-medium">{x.v.name}<div className="text-[11px] font-normal" style={{ color:'var(--ink-faint)' }}>{x.v.location}</div></td>
-            <td className="text-[12.5px]">{x.v.kind}</td>
+            <td className="text-[12.5px]">{kindLabel(x.v.kind)}</td>
             <td className="num">{x.n}</td><td className="num" style={{ color:'var(--good)' }}>{x.otif}</td><td className="num" style={{ color:'var(--risk)' }}>{x.late}</td><td className="num" style={{ color:'var(--warn)' }}>{x.short}</td>
             <td className="num font-semibold">{x.n ? `${Math.round((x.otif / x.n) * 100)}%` : '—'}</td>
             <td className="num">{x.openN}</td><td className="num" style={{ color: x.atRisk ? 'var(--risk)' : undefined }}>{x.atRisk || '—'}</td>
@@ -82,7 +83,7 @@ export function Otif() {
         <div className="flex justify-end px-3 py-2" style={{ borderTop:'1px solid var(--line)' }}>
           <ExportButton filename="otif-by-factory" rows={byVendor} cols={[
             { label:'Factory', get: (x: typeof byVendor[number]) => x.v.name },
-            { label:'Type', get: x => x.v.kind },
+            { label:'Type', get: x => kindLabel(x.v.kind) },
             { label:'Location', get: x => x.v.location },
             { label:'Dispatched', get: x => x.n },
             { label:'OTIF', get: x => x.otif },

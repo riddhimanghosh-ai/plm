@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { useOverlay } from '../ui';
 import { STORES } from '../domain/reference';
-import { MTM_ONLY, RTW_ONLY, isRtwHref, isMtmHref, OPTIONS_OFF } from '../domain/edition';
+import { MTM_ONLY, RTW_ONLY, isRtwHref, isMtmHref, OPTIONS_OFF, kindLabel } from '../domain/edition';
 
 type Hit = { kind: string; title: string; detail: string; href: string };
 
@@ -46,7 +46,7 @@ export function CommandSearch() {
     /* a mill's 360 opens from the mills screen, a factory's from the factories
         screen — sending both to /vendors bounced sourcing off a production route */
     db.vendors.forEach(v => { const mill = v.kind.endsWith('mill');
-      out.push({ kind: mill ? 'Mill' : 'Factory', title: v.name, detail: `${v.kind} · ${v.location}`, href: `#/${mill ? 'mills' : 'vendors'}?vendor=${v.id}` }); });
+      out.push({ kind: mill ? 'Mill' : 'Factory', title: v.name, detail: `${kindLabel(v.kind)} · ${v.location}`, href: `#/${RTW_ONLY ? (mill ? 'cloth-vendors' : 'factory-db') : (mill ? 'mills' : 'vendors')}?vendor=${v.id}` }); });
     (db.concepts ?? []).forEach(c => (c.designs ?? []).forEach(d => out.push({ kind:'Design', title: `${d.code} · ${d.finalName ?? d.name}`, detail: `on ${db.fabrics.find(f => f.id === c.fabricId)?.name ?? c.naming.newName ?? c.name}`, href: `#/design?open=${c.id}` })));
     (db.concepts ?? []).forEach(c => out.push({ kind:'Concept', title: c.naming.newName ?? c.name, detail: c.kind === 'new-fabric' ? 'new fabric' : 'construction', href: `#/design?open=${c.id}` }));
     db.returns.forEach(r => out.push({ kind:'Return', title: `${r.caseNo} · ${r.styleName}`, detail: `${r.reason} · ${r.wants}`, href: `#/stores?tab=returns&open=${r.id}` }));

@@ -33,6 +33,7 @@ import { PrepDesk } from './screens/Preprod';
 import { Qc } from './screens/Qc';
 import { Approvals } from './screens/Approvals';
 import { Payments } from './screens/Payments';
+import { FinanceInvoices, FinanceLedger } from './screens/Finance';
 import { GoodsIn } from './screens/GoodsIn';
 import { RtwDashboard } from './screens/RtwDashboard';
 import { RtwSourcing } from './screens/RtwSourcing';
@@ -68,13 +69,15 @@ export default function App() {
           <Route path="/finance-cogs" element={MTM_ONLY ? <Navigate to="/" replace /> : <CogsDashboard />} />
           <Route path="/inward" element={MTM_ONLY ? <Navigate to="/" replace /> : <GoodsIn />} />
           <Route path="/payments" element={MTM_ONLY ? <Navigate to="/" replace /> : <Payments />} />
+          <Route path="/invoices" element={MTM_ONLY ? <Navigate to="/" replace /> : <FinanceInvoices />} />
+          <Route path="/ledger" element={MTM_ONLY ? <Navigate to="/" replace /> : <FinanceLedger />} />
           <Route path="/dashboard" element={MTM_ONLY ? <Navigate to="/" replace /> : <RtwDashboard />} />
           <Route path="/mtm" element={RTW_ONLY ? <Navigate to="/" replace /> : <Mtm />} />
           <Route path="/cad" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="cad" step="cad" />} />
           <Route path="/cutting" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="cutting" step="cutting" />} />
           <Route path="/fusing" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="fusing" step="fusing" />} />
           <Route path="/compiling" element={RTW_ONLY ? <Navigate to="/" replace /> : <PrepDesk key="compiling" step="compiling" />} />
-          <Route path="/outbound" element={<OutboundPage />} />
+          <Route path="/outbound" element={RTW_ONLY ? <Navigate to="/" replace /> : <OutboundPage />} />
           <Route path="/otif" element={MTM_ONLY ? <Navigate to="/" replace /> : <Otif />} />
           <Route path="/warehouse" element={<Navigate to="/" replace />} />{/* the warehouse lives on Enigma */}
           <Route path="/stores" element={RTW_ONLY ? <Navigate to="/" replace /> : <Stores />} />
@@ -83,16 +86,16 @@ export default function App() {
           <Route path="/analyse" element={MTM_ONLY ? <Navigate to="/" replace /> : <Analyse />} />
           <Route path="/sheet" element={MTM_ONLY ? <Navigate to="/" replace /> : <Sheet />} />
           <Route path="/launches" element={MTM_ONLY ? <Navigate to="/" replace /> : <Launches />} />
-          <Route path="/insights" element={MTM_ONLY ? <Navigate to="/" replace /> : <Insights />} />
+          <Route path="/insights" element={MTM_ONLY ? <Navigate to="/" replace /> : RTW_ONLY ? <Navigate to="/dashboard" replace /> : <Insights />} />
           <Route path="/grn" element={<Navigate to="/" replace />} />
-          <Route path="/concepts" element={<ToDesign kind="MTM" form="mtm" />} />
+          <Route path="/concepts" element={RTW_ONLY ? <Navigate to="/design" replace /> : <ToDesign kind="MTM" form="mtm" />} />
           <Route path="/swatches" element={RTW_ONLY ? <Navigate to="/" replace /> : <Swatches />} />
           <Route path="/design" element={<DesignHome />} />
           <Route path="/fabrics" element={RTW_ONLY ? <Navigate to="/" replace /> : <Fabrics />} />
           <Route path="/fabric/:id" element={<FabricPage />} />
-          <Route path="/designs" element={<Navigate to="/fabrics?tab=designs" replace />} />
-          <Route path="/vendors" element={<VendorsPage only="factories" />} />
-          <Route path="/mills" element={<VendorsPage only="mills" />} />
+          <Route path="/designs" element={<Navigate to={RTW_ONLY ? "/design" : "/fabrics?tab=designs"} replace />} />
+          <Route path="/vendors" element={RTW_ONLY ? <Navigate to="/factory-db" replace /> : <VendorsPage only="factories" />} />
+          <Route path="/mills" element={RTW_ONLY ? <Navigate to="/cloth-vendors" replace /> : <VendorsPage only="mills" />} />
         </Route>
           <Route path="*" element={<Navigate to="/" replace />} />   {/* a link to a screen that no longer exists lands on your home */}
       </Routes>

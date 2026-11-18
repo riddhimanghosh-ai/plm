@@ -53,9 +53,11 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   { path:'/inward',       label:'Goods in · count and receive', hint:'what factories dispatched: invoice, packing list, the order; count it in', group:'Warehouse', roles:['owner','warehouse'] },
   /* 17 Nov 2026: the PO needs approval before it is drafted; finance also runs the payments */
   { path:'/approvals-hod', label:'PO approvals',              hint:'PO requests waiting on the HOD, and by when', group:'HOD', roles:['owner','hod'] },
-  { path:'/approvals',    label:'PO approvals',               hint:'PO requests waiting on finance, and by when', group:'Finance', roles:['owner','finance'] },
-  { path:'/finance-cogs', label:'COGS and cost',              hint:'COGS per piece and margin for every style', group:'Finance', roles:['owner','finance'] },
-  { path:'/payments',     label:'Payments',                   hint:'every PO: payable, paid, remaining; upload payments across POs', group:'Finance', roles:['owner','finance'] },
+  { path:'/approvals',    label:'PO approvals',               hint:'approve or reject: new POs and revised POs waiting on finance', group:'Finance', roles:['owner','finance'] },
+  { path:'/payments',     label:'Payments to make',           hint:'what is due to factories now, what comes later; record or upload payments', group:'Finance', roles:['owner','finance'] },
+  { path:'/invoices',     label:'Invoices',                   hint:"factories' invoices checked against the PO and the count; BSC's invoices; debit and credit notes", group:'Finance', roles:['owner','finance'] },
+  { path:'/ledger',       label:'Ledger',                     hint:'PO value, deductions, payable, paid and remaining: by PO and by factory', group:'Finance', roles:['owner','finance'] },
+  { path:'/finance-cogs', label:'COGS and margin',            hint:'COGS per piece and margin for every style', group:'Finance', roles:['owner','finance'] },
   { path:'/qc',           label:'QC · samples and inspections', hint:'PP sample, size set, the line inspections: pass or fail with remarks', group:'QC', roles:['owner','qc'] },
   { path:'/factory',      label:'My factory · merchandiser',   hint:"the floor's own day: output, pieces, cloth",     group:'Merchandiser', roles:['owner','merchandiser','production'] , hideFor:['production']},
 

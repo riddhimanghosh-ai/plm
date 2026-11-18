@@ -19,7 +19,7 @@ export const inEdition = (path: string) => !(MTM_ONLY && RTW_PATHS.includes(path
 /* 20 Oct 2026: the warehouse portal is out of the MTM edition too — receiving lives on the fabric PO and the fabric record */
 /* 12 Nov 2026: the RTW site hides planning from its nav for now; the routes still open from links (a launch's design codes) */
 export const RTW_HIDDEN_NAV_GROUPS = ['Planning'];
-export const RTW_PATHS = ['/enigma-marketing', '/inward', '/finance-cogs', '/approvals-hod', '/approvals', '/payments', '/cogs', '/qc', '/dashboard', '/rtw-sourcing', '/factory-db', '/cloth-vendors', '/planning', '/analyse', '/sheet', '/health', '/insights', '/launches', '/tracker', '/otif', '/requirements'];
+export const RTW_PATHS = ['/enigma-marketing', '/inward', '/finance-cogs', '/approvals-hod', '/approvals', '/payments', '/invoices', '/ledger', '/cogs', '/qc', '/dashboard', '/rtw-sourcing', '/factory-db', '/cloth-vendors', '/planning', '/analyse', '/sheet', '/health', '/insights', '/launches', '/tracker', '/otif', '/requirements'];
 /* an alert or search hit that points at an RTW screen or record is dropped in the MTM edition */
 export const isRtwHref = (h: string | undefined | null) => !!h && (RTW_PATHS.some(p => h.startsWith(`#${p}`)) || h.includes('side=rtw') || h.includes('tab=rtw') || h.includes('tab=shelves') || h.includes('tab=rtw-orders') || h.includes('tab=launches'));
 
@@ -28,3 +28,10 @@ export const catLabel = (c: string) => MTM_ONLY ? c.replace(/^RTW (CMT |FOB )?/i
 
 /* 20 Oct 2026: a "several options" request is no longer a flow. Design raises each option as its own MTM fabric ask. */
 export const OPTIONS_OFF = true;
+
+/* the RTW edition never says MTM: a factory that also does single-piece work reads as a CMT factory there */
+export const kindLabel = (k: string) => RTW_ONLY && k === 'MTM factory' ? 'CMT factory' : k;
+
+/* Optional (17 Nov 2026): sourcing may put several vendor options on a BOM line for category to pick from.
+   Set to false to drop it: sourcing then names one vendor per line and it is the line's supplier at once, with no pick step. */
+export const BOM_MULTI_OPTIONS = true;

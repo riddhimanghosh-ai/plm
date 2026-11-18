@@ -4,7 +4,7 @@
    the PO, the invoice to the warehouse). */
 import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc, FabricBy } from './types';
 import { TECH_PACK_ITEMS, QC_POINTS, DELIVERY_LOCATIONS, PEOPLE } from './reference';
-import { fmtDate, daysAgo, addDays, iso, daysBetween, costingOf, receiptOf, netOf } from './engines';
+import { fmtDate, daysAgo, addDays, iso, daysBetween, costingOf, receiptOf, netOf, TODAY } from './engines';
 
 export const EMPTY_PACK: RequirementPack = { techPack: {}, fabric: { description: null, content: null, image: null, swatchAnalyser: null, cpm: null, widthIn: null, vendorId: null, vendorFabricCode: null, blockedMetres: null, readiness: null, readyOn: null }, trimCard: null, trimLines: [], colours: [], brief: null, sentOn: null, sentBy: null };
 export const packOf = (o: ProductionOrder): RequirementPack => o.pack ?? EMPTY_PACK;
@@ -222,6 +222,27 @@ export function poLedgerOf(o: ProductionOrder) {
   const advancePct = o.poDoc?.advancePct ?? 0; const advanceDue = Math.round((poTotal - bscInvoiced) * advancePct / 100);
   return { poTotal, bscInvoiced, factoryInvoiced, payable, paid, remaining: payable - paid, advancePct, advanceDue, advancePending: Math.max(0, advanceDue - paid), advanceWhen: o.poDoc?.advanceWhen ?? null,
     counted: lots.length > 0, poPcs, receivedPcs, rejectedPcs, shortPcs, shortValue };
+}
+/* finance's queue: what of a PO is due now and what comes later. The up-front part falls due on its trigger (with the PO,
+   cloth in-house, PP sample approved); the balance on the payment terms (N days from receipt, or on dispatch). */
+export function payDueOf(o: ProductionOrder) {
+  const l = poLedgerOf(o); const terms = o.poDoc?.paymentTerms ?? ''; const when = l.advanceWhen ?? 'with the PO';
+  const lastIn = (o.receipts ?? []).map(x => x.at).sort().slice(-1)[0] ?? null;
+  const dispatched = o.invoice?.uploadedOn ?? o.shipping?.shippedOn ?? null;
+  const days = Number(/(\d+) days from receipt/.exec(terms)?.[1] ?? NaN);
+  const advOn = when === 'with the PO' ? o.poDate : when === 'on PP sample approval' ? (o.sampleCycle?.approvedOn ?? null) : (o.factoryCloth?.receivedOn ?? null);
+  const balance = Math.max(0, l.remaining - l.advancePending);
+  const balOn = !isNaN(days) ? (lastIn ? addDays(lastIn, days).toISOString() : null) : dispatched;
+  const balWhen = !isNaN(days) ? `${days} days after the warehouse receives it` : 'on dispatch, against the invoice';
+  const isDue = (d: string | null) => !!d && new Date(d).getTime() <= TODAY.getTime();
+  const parts = [
+    { key: 'advance' as const, label: `${l.advancePct}% up front`, when, amount: l.advancePending, dueOn: advOn, due: isDue(advOn) },
+    { key: 'balance' as const, label: 'Balance', when: balWhen, amount: balance, dueOn: balOn, due: isDue(balOn) },
+  ].filter(x => x.amount > 0);
+  const dueParts = parts.filter(x => x.due); const dueNow = dueParts.reduce((a, x) => a + x.amount, 0);
+  const dueOn = dueParts.map(x => x.dueOn!).sort()[0] ?? null;
+  return { l, parts, dueParts, laterParts: parts.filter(x => !x.due), dueNow, later: Math.max(0, l.remaining - dueNow), dueOn, lateDays: dueOn ? Math.max(0, daysAgo(dueOn)) : 0,
+    bucket: (l.remaining < 1 ? 'paid' : dueNow > 0 ? 'due' : 'later') as 'paid' | 'due' | 'later' };
 }
 /* what factories priced for the same category before: the approver's reference */
 export function similarPricesOf(db: Db, o: ProductionOrder) {
