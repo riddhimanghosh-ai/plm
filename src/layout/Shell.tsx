@@ -141,10 +141,30 @@ export function Shell() {
      or close one by hand, that choice sticks for the session */
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const isOpen = (name: string) => open[name] ?? name === here;
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => { setNavOpen(false); }, [loc.pathname, loc.search]);
+  /* phone: on the floor roles' list screens every table row reads as a card; each cell is labelled with its column heading */
+  const CARD_SCREENS = ['/qc', '/factory', '/inward', '/tracker', '/rtw-sourcing', '/design', '/approvals', '/approvals-hod', '/payments', '/dashboard', '/factory-db', '/cloth-vendors'];
+  const cards = CARD_SCREENS.some(p => loc.pathname === p || loc.pathname.startsWith(p + '/'));
+  useEffect(() => {
+    if (!cards) return; const main = document.querySelector('main.app-main'); if (!main) return; let raf = 0;
+    const label = () => { raf = 0; if (!window.matchMedia('(max-width: 820px)').matches) return;
+      main.querySelectorAll('table.t').forEach(t => { const heads = [...t.querySelectorAll('thead th')].map(h => (h.textContent ?? '').trim());
+        if (!heads.length) return; t.classList.add('m-cards');
+        t.querySelectorAll('tbody > tr').forEach(tr => { const tds = [...tr.children] as HTMLElement[]; const plain = tds.length === heads.length;
+          tr.classList.toggle('m-span', !plain); if (plain) tds.forEach((td, i) => { if (td.dataset.th !== heads[i]) td.dataset.th = heads[i]; }); }); }); };
+    const ob = new MutationObserver(() => { if (!raf) raf = requestAnimationFrame(label); }); ob.observe(main, { childList: true, subtree: true }); label();
+    const mq = window.matchMedia('(max-width: 820px)'); mq.addEventListener('change', label);
+    return () => { ob.disconnect(); mq.removeEventListener('change', label); if (raf) cancelAnimationFrame(raf); };
+  }, [cards, loc.pathname]);
 
   return (
-    <div className={`grid min-h-screen${settings.quiet ? ' quiet' : ''}`} style={{ gridTemplateColumns:'264px minmax(0,1fr)' }}>
-      <aside className="flex flex-col gap-4 px-3 py-4 sticky top-0 h-screen overflow-y-auto" style={{ background:'var(--sidebar)', color:'var(--sidebar-ink)' }}>
+    <div className={`app-shell grid min-h-screen${settings.quiet ? ' quiet' : ''}${navOpen ? ' nav-open' : ''}`} style={{ gridTemplateColumns:'264px minmax(0,1fr)' }}>
+      {/* phone: a top bar with the menu; the sidebar slides in over the screen (18 Nov 2026) */}
+      <header className="app-top"><button type="button" className="app-burger" aria-label="Menu" aria-expanded={navOpen} onClick={() => setNavOpen(v => !v)}>☰</button>
+        <img src={`${import.meta.env.BASE_URL}bsc-logo-light.png`} alt="" width={30} height={30} /><b>BSC PLM</b><span className="app-top-where">{NAV.filter(n => n.path !== '/' && loc.pathname.startsWith(n.path)).sort((a, b) => b.path.length - a.path.length)[0]?.label ?? ''}</span></header>
+      {navOpen && <div className="app-scrim" onClick={() => setNavOpen(false)} aria-hidden />}
+      <aside className="app-side flex flex-col gap-4 px-3 py-4 sticky top-0 h-screen overflow-y-auto" style={{ background:'var(--sidebar)', color:'var(--sidebar-ink)' }}>
         <a href="#/" className="px-2 flex items-center gap-3" style={{ textDecoration: 'none', color: 'inherit' }} aria-label="BSC PLM home">
           <img src={`${import.meta.env.BASE_URL}bsc-logo-light.png`} alt="Bombay Shirt Company" width={52} height={52} style={{ flex: 'none' }} />
           <div><div className="uppercase leading-none" style={{ fontFamily:'var(--display)', fontWeight:700, fontSize:22, letterSpacing:'.08em' }}>BSC <span style={{ color:'var(--sidebar-soft)' }}>PLM</span></div>
@@ -229,7 +249,7 @@ export function Shell() {
       </aside>
 
       {/* a screen this role does not work in is not reachable, even by URL — it lands on the role's own first screen */}
-      <main className="px-7 py-4 max-w-[1280px] w-full"><MentionBar /><div style={{ minHeight: 34, paddingRight: 190, display: 'flex', alignItems: 'center' }}><Crumbs /></div><ScreenOwner /> {allowed ? <Outlet /> : <Navigate to={homeFor(role)} replace />}</main>
+      <main className="app-main px-7 py-4 max-w-[1280px] w-full"><MentionBar /><div className="app-crumbs" style={{ minHeight: 34, paddingRight: 190, display: 'flex', alignItems: 'center' }}><Crumbs /></div><ScreenOwner /> {allowed ? <Outlet /> : <Navigate to={homeFor(role)} replace />}</main>
       <VendorDrawer />
       <CommandSearch />
       <Toasts />

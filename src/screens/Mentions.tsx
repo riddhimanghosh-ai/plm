@@ -57,7 +57,7 @@ export function MentionBar() {
        painted straight over the right-hand side of every page header, hiding the
        actions there — "+ Log an MTM concept" sat underneath it and could not be
        clicked. Sticky still keeps it in view as the page scrolls. */
-    <div className="flex justify-end no-print" style={{ position:'sticky', top: 8, zIndex: 30, height: 0, pointerEvents:'none' }}>
+    <div className="mention-wrap flex justify-end no-print" style={{ position:'sticky', top: 8, zIndex: 30, height: 0, pointerEvents:'none' }}>
       <div ref={box} style={{ position:'relative', pointerEvents:'auto', alignSelf:'flex-start' }}>
         <button type="button" onClick={() => setOpen(o => !o)} title={`${waiting} waiting on you`}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] cursor-pointer"
@@ -67,7 +67,7 @@ export function MentionBar() {
           {waiting > 0 && <span className="mono" style={{ background:'var(--risk)', color:'#fff', borderRadius: 999, fontSize: 10, padding:'1px 6px' }}>{waiting}</span>}
         </button>
 
-        {open && <div className="card" style={{ position:'absolute', right: 0, top: 38, width: 420, maxWidth:'92vw', zIndex: 40 }}>
+        {open && <div className="card mention-card" style={{ position:'absolute', right: 0, top: 38, width: 420, maxWidth:'92vw', zIndex: 40 }}>
           <div className="px-3 pt-3 pb-2">
             <div className="flex items-center justify-between gap-2">
               <h3 className="m-0">Waiting on you</h3>

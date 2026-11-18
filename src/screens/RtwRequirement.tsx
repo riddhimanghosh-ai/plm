@@ -4,7 +4,7 @@
    the factory returns planned dates through the merchandiser; the TNA runs with QC at five points;
    the merchandiser uploads the invoice and packing list; Prince receives on Enigma; COGS; launch.
    The same record opens from Requirements, the RTW production tracker, the merchandiser's and QC's screens. */
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../store';
 import type { ProductionOrder, FabricBy } from '../domain/types';
@@ -64,6 +64,8 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
   const readView = (k: string): 'stacked' | 'blocks' => defaultView(k);
   const [view, setView] = useState<'stacked' | 'blocks'>(() => readView(initial && isMine(initial) ? initial : firstMine));
   const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem(viewKey(open), v); } catch { /* storage off */ } };
+  /* phone: the steps are a strip; keep the open one in view */
+  useEffect(() => { document.querySelector(`#rtw-rail-${o.id} [aria-current="step"]`)?.scrollIntoView({ inline: 'center', block: 'nearest' }); }, [open, o.id]);
   const at = (k: string) => open === k && isMine(k);
   const [phaseOpen, setPhaseOpen] = useState<Record<string, boolean>>({});
   /* Draft the PO on a reply: the record moves to step 4 and the PO form opens there */
@@ -92,7 +94,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
 
     <div className="rtw-wrap"><div className="rtw-journey">
       {/* the rail: every step in order, ticked as it lands; the open one is outlined */}
-      <nav className="rtw-rail" aria-label="Steps">
+      <nav className="rtw-rail" id={`rtw-rail-${o.id}`} aria-label="Steps">
         {RTW_PHASES.filter(ph => journey.some(x => x.phase === ph.key)).map(ph => { const steps = journey.filter(x => x.phase === ph.key);
           const allDone = steps.every(x => !!x.on); const hasNow = steps.some(x => journey.indexOf(x) === current); const hasOpen = steps.some(x => x.key === open);
           const lastOn = steps.map(x => x.on).filter(Boolean).sort().slice(-1)[0] ?? null;
