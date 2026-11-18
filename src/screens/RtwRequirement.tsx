@@ -60,7 +60,8 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
   /* how the open step lays its parts out: stacked (one under the other) or blocks (side by side, each part its own card) */
   const viewKey = (k: string) => `rtw-step-view:${k}`;
   const defaultView = (k: string): 'stacked' | 'blocks' => k === 'tna' || k === 'pack' || k === 'cloth' ? 'stacked' : 'blocks';
-  const readView = (k: string): 'stacked' | 'blocks' => { try { const v = localStorage.getItem(viewKey(k)); return v === 'blocks' || v === 'stacked' ? v : defaultView(k); } catch { return defaultView(k); } };
+  /* 18 Nov 2026: no layout switch any more; each step uses the layout that suits it */
+  const readView = (k: string): 'stacked' | 'blocks' => defaultView(k);
   const [view, setView] = useState<'stacked' | 'blocks'>(() => readView(initial && isMine(initial) ? initial : firstMine));
   const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem(viewKey(open), v); } catch { /* storage off */ } };
   const at = (k: string) => open === k && isMine(k);
@@ -118,8 +119,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
 
       <div className="rtw-panel" id={`rtw-step-${o.id}`}>
         {(() => { const i = journey.findIndex(x => x.key === open); const x = journey[i]; if (!x) return null;
-          return <div className="rtw-panel-head"><div className="flex items-center justify-between gap-3 flex-wrap"><div className="flex items-baseline gap-2 flex-wrap"><h2 style={{ margin: 0, fontSize: 15 }}>{x.label}</h2><span className="cap" style={{ margin: 0 }}>Step {i + 1} of {journey.length} · {x.who}</span></div>
-            <div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div></div></div>; })()}
+          return <div className="rtw-panel-head"><div className="flex items-center justify-between gap-3 flex-wrap"><div className="flex items-baseline gap-2 flex-wrap"><h2 style={{ margin: 0, fontSize: 15 }}>{x.label}</h2><span className="cap" style={{ margin: 0 }}>Step {i + 1} of {journey.length} · {x.who}</span></div></div></div>; })()}
         <div className={view === 'blocks' ? 'rtw-blocks' : undefined}>
     {at('raised') && <Section title="The ask" collapsible={false} right={<span className="pill role-design">Category</span>}>
       {editable ? <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
@@ -128,7 +128,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
         <Field label="Target cost / pc"><Input type="number" value={cost} onChange={e => setCost(e.target.value)} /></Field>
       </div> : <>
         <KV k="Order qty" v={`${o.orderQty} pcs`} />
-        <KV k="Target in-house" v={fmtDate(o.targetInhouse)} note={`${-daysAgo(o.targetInhouse)}d from now`} />
+        <KV k="Target in-house" v={fmtDate(o.targetInhouse)} note={daysAgo(o.targetInhouse) > 0 ? `${daysAgo(o.targetInhouse)} days ago` : daysAgo(o.targetInhouse) === 0 ? 'today' : `in ${-daysAgo(o.targetInhouse)} days`} />
         <KV k="Target cost" v={fmtMoney(o.targetCost)} note="per piece" />
       </>}
       <KV k="Style" v={o.styleName} note={`${o.category} · ${o.subCategory}${o.fit ? ` · ${o.fit}` : ''}${o.program ? ` · ${o.program}` : ''}`} />

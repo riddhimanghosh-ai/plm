@@ -262,7 +262,7 @@ export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boole
       <tbody>{rows.map(r => <tr key={r.id}>
         <td><Pill tone={r.doc === 'credit-note' ? 'good' : r.doc === 'debit-note' ? 'risk' : 'neutral'}>{DOC_LABEL[r.doc ?? 'invoice']}</Pill></td>
         <td className="mono text-[12px]">{r.no}</td>
-        <td className="text-[12.5px]" style={{ whiteSpace: 'normal' }}>{r.what}<div className="text-[11px]" style={faint}>{r.by} · {fmtDate(r.on)}{r.note ? ` · ${r.note}` : ''}</div></td>
+        <td className="text-[12.5px]" style={{ whiteSpace: 'normal' }}><span className="rtw-what" title={r.what}>{r.what}</span><div className="text-[11px]" style={faint}>{r.by} · {fmtDate(r.on)}{r.note ? ` · ${r.note}` : ''}</div></td>
         <td className="num">{fmtMoney(r.amount)}</td>
         <td><Pill tone={r.direction === 'factory-to-bsc' ? 'warn' : 'info'}>{PAYER[r.direction]}</Pill></td>
         <td className="text-[12px]">{r.lines?.length ? <button type="button" className="vlink" onClick={() => setView(r)}>view invoice</button> : r.file ? <span className="vlink">{r.file}</span> : <span style={faint}>—</span>}</td>
@@ -415,9 +415,15 @@ export function PoDocView({ o, doc }: { o: ProductionOrder; doc?: PoDoc | null }
   const t = poTotalsOf(d); const sizes = [...new Set(d.lines.flatMap(l => l.sizes.map(x => x.size)))];
   const qtyOf = (l: PoLine) => l.sizes.reduce((a, x) => a + (x.qty || 0), 0);
   return <div className="po-doc my-2">
-    <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Price basis </span><b>{d.priceBasis}</b></span><span><span style={faint}>Payment </span><b>{(d.advancePct ?? 0) > 0 ? `${d.advancePct}% ${d.advanceWhen ?? 'up front'}, balance ` : ''}{d.paymentTerms}</b></span><span><span style={faint}>Delivery date </span><b>{fmtDate(d.shipBy)}</b></span>{d.goodsExpectedBy && <span><span style={faint}>Goods expected by </span><b>{fmtDate(d.goodsExpectedBy)}</b></span>}{d.lines[0]?.hsn && <span><span style={faint}>{isCmt(d) ? 'SAC ' : 'HSN '}</span><b className="mono">{d.lines[0].hsn}</b></span>}<span><span style={faint}>GST </span><b>{d.gstPct}%</b></span>{d.revision && <span><span style={faint}>Rev </span><b>{d.revision}</b></span>}</div>
-    <div className="flex gap-4 flex-wrap text-[12.5px] pb-2"><span><span style={faint}>Delivery date means </span><b>{d.deliveryBasis === 'ex-factory' ? 'leaves the factory' : 'in-house at the warehouse'}</b></span>{d.tolerancePct != null && <span><span style={faint}>Tolerance </span><b>±{d.tolerancePct}%</b></span>}{d.aql && <span><span style={faint}>AQL </span><b>{d.aql}</b></span>}{d.lateDeduction && <span><span style={faint}>Late </span><b>{d.lateDeduction}</b></span>}</div>
-    {d.cloth && <div className="text-[12.5px] pb-2"><span style={faint}>Cloth issued · CMT </span><b>{d.cloth.metresIssued ?? '—'} m</b> · {d.cloth.consumptionPerPc ?? '—'} m/pc · {d.cloth.wastagePct ?? 0}% wastage · {d.cloth.leftover.toLowerCase()}</div>}
+    {(() => { const terms: [string, React.ReactNode][] = [
+        ['Price basis', d.priceBasis], ['Payment', `${(d.advancePct ?? 0) > 0 ? `${d.advancePct}% ${d.advanceWhen ?? 'up front'}, balance ` : ''}${d.paymentTerms}`],
+        ['Delivery date', `${fmtDate(d.shipBy)} · ${d.deliveryBasis === 'ex-factory' ? 'leaves the factory' : 'in-house at the warehouse'}`], ...(d.goodsExpectedBy ? [['Goods expected by', fmtDate(d.goodsExpectedBy)] as [string, React.ReactNode]] : []),
+        [`GST${d.lines[0]?.hsn ? ` · ${isCmt(d) ? 'SAC' : 'HSN'}` : ''}`, `${d.gstPct}%${d.lines[0]?.hsn ? ` · ${d.lines[0].hsn}` : ''}`], ...(d.revision ? [['Revision', String(d.revision)] as [string, React.ReactNode]] : []),
+        ...(d.tolerancePct != null ? [['Tolerance', `±${d.tolerancePct}%`] as [string, React.ReactNode]] : []), ...(d.aql ? [['AQL', d.aql] as [string, React.ReactNode]] : []),
+        ...(d.lateDeduction ? [['Late delivery', d.lateDeduction] as [string, React.ReactNode]] : []),
+        ...(d.cloth ? [['Cloth issued · CMT', `${d.cloth.metresIssued ?? '—'} m · ${d.cloth.consumptionPerPc ?? '—'} m/pc · ${d.cloth.wastagePct ?? 0}% wastage · ${d.cloth.leftover.toLowerCase()}`] as [string, React.ReactNode]] : [])];
+      const pairs: [string, React.ReactNode][][] = []; for (let k = 0; k < terms.length; k += 2) pairs.push(terms.slice(k, k + 2));
+      return <table className="t compact sum-t kv po-terms mb-3"><tbody>{pairs.map((pr, k) => <tr key={k}>{pr.map(([a, b]) => [<th key={a}>{a}</th>, <td key={a + 'v'} colSpan={pr.length === 1 ? 3 : 1}><b>{b}</b></td>])}</tr>)}</tbody></table>; })()}
     <div style={{ overflowX: 'auto' }}><table className="t compact po-lines">
       <thead><tr><th>#</th><th>Colour / option</th>{sizes.map(sz => <th key={sz} className="num">{sz}</th>)}<th className="num">Pcs</th><th className="num">₹ / pc</th><th className="num">Amount</th></tr></thead>
       <tbody>{d.lines.map((l, i) => <tr key={l.id}><td className="mono text-[11px]" style={faint}>{String(i + 1).padStart(2, '0')}</td><td className="font-medium">{l.colour}</td>
@@ -444,7 +450,7 @@ function PoAttachments({ o }: { o: ProductionOrder }) {
   const n = files.length + invs.length + (vs.length ? 1 : 0);
   return <div className="mt-3">
     <div className="cap" style={{ margin: '0 0 6px' }}>Attachments on the PO mail · {n}</div>
-    <table className="t compact sum-t"><thead><tr><th style={{ width: 36 }}>#</th><th>File</th><th>What it is</th><th className="num" style={{ width: 110 }}></th></tr></thead>
+    <table className="t compact sum-t att-t"><colgroup><col style={{ width: 44 }} /><col style={{ width: 190 }} /><col /><col style={{ width: 116 }} /></colgroup><thead><tr><th>#</th><th>File</th><th>What it is</th><th className="num"></th></tr></thead>
       <tbody>
         {files.map((f, k) => <tr key={f}><td className="mono" style={faint}>{String(k + 1).padStart(2, '0')}</td><td className="font-medium">{f.replace(/ · .*$/, '')}</td><td style={soft}>{ATT_WHAT[f] ?? ''}</td><td className="num">{f === 'PO' && o.poDoc ? <Button size="sm" onClick={() => setPoPdf(true)}>View PDF</Button> : <span style={faint}>{/size break|bom/i.test(f) ? 'XLSX' : 'PDF'}</span>}</td></tr>)}
         {vs.length > 0 && <tr><td className="mono" style={faint}>{String(files.length + 1).padStart(2, '0')}</td><td className="font-medium">Vendor details</td><td style={soft}>{vs.length} vendor{vs.length === 1 ? '' : 's'} · {vs.map(v => `${v.name}: ${v.supplies}`).join(' · ')}</td><td className="num"><Button size="sm" onClick={() => downloadVendorsPdf(db, o)}>↓ PDF</Button></td></tr>}
