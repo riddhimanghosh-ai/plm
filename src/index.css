@@ -890,6 +890,8 @@ table.t.sum-t.kv { table-layout: auto; } table.t.sum-t.kv td { white-space: norm
 
 /* ───────── Phone layout (18 Nov 2026): QC, merchandiser, Prince, Production RTW and sourcing work on the floor ───────── */
 .app-top, .app-scrim { display: none; }
+.size-more { border: 1px dashed var(--line); border-radius: 3px; font-size: 11px; color: var(--ink-soft); background: transparent; cursor: pointer; padding: 2px 4px; }
+.size-more:hover { border-style: solid; color: var(--ink); }
 @media (max-width: 820px) {
   /* the shell: one column, a top bar, the sidebar slides in */
   .app-shell { grid-template-columns: minmax(0, 1fr) !important; }
@@ -918,7 +920,18 @@ table.t.sum-t.kv { table-layout: auto; } table.t.sum-t.kv td { white-space: norm
   .stats, .stat-row { grid-template-columns: 1fr 1fr !important; } .stat { border-right: 0; border-bottom: 1px solid var(--line); } .stat .n { font-size: 22px; }
 
   /* any multi-column form or block grid drops to one column */
-  .app-main [style*="grid-template-columns"], .drawer [style*="grid-template-columns"], .rtw-blocks, .rtw-blocks .mp-parts, .bomv-form, .qf-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  /* forms with a few fixed columns go to one; grids that already wrap by themselves (auto-fill / auto-fit) are left alone; a long fixed row (one box per size) wraps into small boxes */
+  :is(.app-main, .drawer) :is([style*="columns: 1fr"], [style*="columns:1fr"], [style*="columns: 2fr"], [style*="columns: 1.2fr"], [style*="columns: 1.4fr"], [style*="columns: 150px"], [style*="columns: 120px"], [style*="repeat(2,"], [style*="repeat(3,"], [style*="repeat(4,"]):not([style*="auto-fi"]), .rtw-blocks, .rtw-blocks .mp-parts, .bomv-form, .qf-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  :is(.app-main, .drawer) [style*="columns: repeat("]:not([style*="auto-fi"]):not([style*="repeat(2,"]):not([style*="repeat(3,"]):not([style*="repeat(4,"]):not(:has(> .stat)) { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)) !important; }
+  .size-grid { grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)) !important; }
+  /* short fields (a number, a date, a pick-list) sit two across; a field you type a sentence into takes the full row */
+  :is(.app-main, .drawer) :is([style*="1fr 1fr"], [style*="repeat(2,"], [style*="repeat(3,"], [style*="repeat(4,"], [style*="repeat(3, 1fr)"]):not([style*="auto-fi"]):not(.rtw-blocks) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  :is(.app-main, .drawer) :is([style*="1fr 1fr"], [style*="repeat(2,"], [style*="repeat(3,"], [style*="repeat(4,"]):not([style*="auto-fi"]) > :is(:has(textarea), :has(input:not([type])), :has(input[type="text"]), :has(input[type="file"]), :has(table), :has(.size-grid)) { grid-column: 1 / -1; }
+  .field label, .field > .cap, label > span.cap { white-space: normal; }
+  /* part pills: one strip you swipe, not three rows */
+  .form-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; scroll-snap-type: x proximity; }
+  .form-tabs button { flex: none; font-size: 13px; padding: 6px 12px 6px 6px; scroll-snap-align: start; } .form-tabs button .n { width: 22px; height: 22px; }
+  .size-grid input { min-height: 26px !important; height: 26px; line-height: 26px; font-size: 15px !important; padding: 0 !important; }
   .rtw-blocks .mp-part.wide { grid-column: auto; }
   .app-main .flex.items-end, .drawer .flex.items-end { align-items: stretch; }
 

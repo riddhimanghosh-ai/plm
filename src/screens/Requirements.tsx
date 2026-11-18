@@ -317,7 +317,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
 
   return <>
     <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-      {view === 'tabs' ? <div className="form-tabs" role="tablist">{PARTS.map((p, i) => <button type="button" key={p.k} role="tab" aria-selected={tab === p.k} className={tab === p.k ? 'on' : p.ok ? 'done' : ''} onClick={() => setTab(p.k)}><span className="n">{p.ok && tab !== p.k ? '✓' : i + 1}</span>{p.label}{'n' in p && p.n ? <span className="text-[11px]" style={{ opacity:.7 }}>{p.n}</span> : null}</button>)}</div> : <span />}
+      {view === 'tabs' ? <div className="form-tabs" role="tablist" ref={el => { el?.querySelector('[aria-selected="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }}>{PARTS.map((p, i) => <button type="button" key={p.k} role="tab" aria-selected={tab === p.k} className={tab === p.k ? 'on' : p.ok ? 'done' : ''} onClick={() => setTab(p.k)}><span className="n">{p.ok && tab !== p.k ? '✓' : i + 1}</span>{p.label}{'n' in p && p.n ? <span className="text-[11px]" style={{ opacity:.7 }}>{p.n}</span> : null}</button>)}</div> : <span />}
     </div>
     <div className={`rtw-form${view === 'blocks' ? ' rtw-blocks' : ''}`}>
     {show('ask') && <Section title="Style and production ask" collapsible={false}>

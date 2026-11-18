@@ -510,12 +510,15 @@ export function FabricFinalisationSection({ o, bare, columns, part, onGiven }: {
 export function SizeGrid({ breakup, edit, onChange }: { breakup: { size: string; qty: number }[]; edit?: boolean; onChange?: (size: string, qty: number) => void }) {
   const q = (sz: string) => breakup.find(x => x.size === sz)?.qty ?? 0;
   const total = breakup.reduce((a, x) => a + x.qty, 0);
-  return <div className="grid gap-1 py-1" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(50px, 1fr))' }}>
-    {RTW_SIZES.filter(sz => edit || q(sz) > 0).map(sz => { const v = q(sz); return <div key={sz} className="rounded-[3px] px-1 py-1 text-center" style={{ background: v ? 'var(--surface-2)' : 'transparent', border: v ? '0' : '1px dashed var(--line-soft)' }}>
+  /* editing: only the sizes in use show, the rest open on one tap, so the grid is one or two rows and not every size BSC has (18 Nov 2026) */
+  const [all, setAll] = useState(false); const used = RTW_SIZES.filter(sz => q(sz) > 0); const rest = RTW_SIZES.length - used.length;
+  return <div className="size-grid grid gap-1 py-1" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(50px, 1fr))' }}>
+    {RTW_SIZES.filter(sz => (edit && (all || !used.length)) || q(sz) > 0).map(sz => { const v = q(sz); return <div key={sz} className="rounded-[3px] px-1 py-1 text-center" style={{ background: v ? 'var(--surface-2)' : 'transparent', border: v ? '0' : '1px dashed var(--line-soft)' }}>
       <div className="text-[9.5px] mono" style={{ color:'var(--ink-faint)' }}>{sz}</div>
       {edit ? <input type="number" min={0} value={v || ''} placeholder="–" onChange={e => onChange?.(sz, Math.max(0, Number(e.target.value) || 0))} className="mono text-[12.5px] text-center" style={{ width:'100%', border:0, background:'transparent', outline:'none' }} />
         : <div className="mono text-[12.5px]" style={{ color: v ? undefined : 'var(--line)' }}>{v || '–'}</div>}
     </div>; })}
     <div className="rounded-[3px] px-1 py-1 text-center" style={{ background:'var(--accent-soft)' }}><div className="text-[9.5px] mono" style={{ color:'var(--ink-faint)' }}>Order qty</div><div className="mono text-[12.5px] font-semibold">{total}</div></div>
+    {edit && used.length > 0 && rest > 0 && <button type="button" className="size-more" onClick={() => setAll(v => !v)}>{all ? '− fewer' : `+ ${rest} sizes`}</button>}
   </div>;
 }
