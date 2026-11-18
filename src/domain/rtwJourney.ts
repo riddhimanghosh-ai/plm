@@ -5,6 +5,7 @@
    warehouse all see the same thing. */
 import type { Db, ProductionOrder } from './types';
 import { fmtDate, daysAgo, receiptOf, riskOf, stageOf, fabricStateOf } from './engines';
+import { PEOPLE } from './reference';
 import { packReadyOf, openQcOf, targetReviseOpenOf, poFabricsOf, approvalOf } from './rtwPack';
 
 export type RtwActor = 'hod' | 'design' | 'sourcing' | 'production' | 'merchandiser' | 'qc' | 'warehouse' | 'planning' | 'finance';
@@ -67,7 +68,7 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
       now: !replies ? 'after a factory reply' : !(o.enigmaProduct || launch) ? 'after the SKUs are in Enigma' : ap.state === 'none' ? 'Nitin to draft the PO on a reply and send it for approval' : ap.state === 'rejected' ? `${ap.line} · Nitin to change the PO and send again` : `${ap.line}${ap.late ? ' · past the date' : ''}` },
     { key: 'po', phase: 'buy', label: 'PO raised · mailed', who: 'on approval', act: 'production', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}${o.poMail ? ` · to ${o.poMail.deliveryLocation}${o.poMail.sentOn ? '' : ' · mail to send'}` : ''}` : null,
       now: !cq ? 'after counter sourcing' : !replies ? 'after a reply' : 'raised and mailed by itself once approved' },
-    { key: 'plan', phase: 'buy', label: 'TNA · planned dates', who: 'Factory · Merchandiser', act: o.poMail && !o.poMail.sentOn ? 'production' : 'merchandiser', on: o.tnaPlan?.submittedOn ?? (o.poNo && !o.tnaPlan ? o.poDate : null), by: o.tnaPlan?.submittedOn ? (o.tnaPlan.by ?? 'submitted') : null,
+    { key: 'plan', phase: 'buy', label: 'TNA · planned dates', who: 'Factory · Merchandiser', act: o.poMail && !o.poMail.sentOn ? 'production' : 'merchandiser', on: o.tnaPlan?.submittedOn ?? (o.poNo && !o.tnaPlan ? o.poDate : null), by: o.tnaPlan?.submittedOn ? tnaByOf(o) : null,
       now: !o.poNo ? 'after the PO' : `merchandiser to return the TNA form${o.tnaPlan ? ` · sent ${fmtDate(o.tnaPlan.sentOn)}` : ''}` },
     { key: 'cloth', phase: 'make', tone: pf.failedOpen.length || fab.short > 0 || (fab.cr && !fab.cr.given) ? 'risk' : pf.held.length || pf.dropped.length || fab.cr?.given ? 'warn' : undefined, label: 'Cloth at the factory · cut ratio', who: o.fabricNominated ? 'Sourcing · Factory · Category' : 'Factory · Category', act: fab.key === 'ratio-asked' ? 'design' : !o.fabricNominated || o.fabricSupply?.sentToFactoryOn ? 'merchandiser' : 'sourcing',
       on: !o.poNo ? null : o.fabricNominated ? (o.fabricSupply?.receipt?.on ?? null) : (o.factoryCloth?.receivedOn ?? ms('Fabric ETA')?.actual ?? (ms('Fabric ETA') && !ms('Fabric ETA')!.skipped ? null : o.poDate)),
@@ -118,4 +119,10 @@ export function rtwStatusOf(db: Db, o: ProductionOrder): { key: RtwStatusKey; la
   const key: RtwStatusKey = on('cogs') ? 'launched' : on('received') ? 'received' : on('dispatch') ? 'dispatched' : on('plan') ? 'making' : on('po') ? (o.tnaPlan?.submittedOn ? 'planned' : 'po') : on('pack') ? 'queried' : 'requested';
   const i = RTW_STATUSES.findIndex(s => s.key === key);
   return { key, label: RTW_STATUSES[i].label, i };
+}
+
+/* the TNA is returned by the merchandiser for the factory; an older record may carry the walkthrough user's name */
+export function tnaByOf(o: ProductionOrder): string {
+  const by = o.tnaPlan?.by; const p = by ? PEOPLE.find(x => x.name === by) : null;
+  return !by ? 'submitted' : p && p.role !== 'merchandiser' ? (o.merchant ?? 'Nitin Singh') : by;
 }

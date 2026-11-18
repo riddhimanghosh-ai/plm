@@ -18,6 +18,7 @@ import { BomSection } from './Costing';
 import { QuoteFormModal } from './QuoteForm';
 import { BomVendors } from './BomVendors';
 import { InvoicePreview, SupplyInvoiceBar } from './InvoicePreview';
+import { MailPreviewButton } from './MailPreview';
 
 const faint = { color: 'var(--ink-faint)' } as const;
 const soft = { color: 'var(--ink-soft)' } as const;
@@ -35,7 +36,7 @@ export function MailCard({ mail, sentOn, label, onSend, sendLabel }: { mail: Mai
   return <div className="mail-card">
     <div className="flex items-center gap-2 flex-wrap"><span className="mail-ic" aria-hidden>✉</span><b>{label}</b><Pill tone={sentOn ? 'good' : 'neutral'}>{sentOn ? `mailed ${fmtDate(sentOn)}` : 'not sent yet'}</Pill>
       {!sentOn && onSend && !editing && <button type="button" className="vlink text-[11.5px]" onClick={() => { setEditing(true); setOpen(true); }}>edit the mail</button>}
-      <button type="button" className="vlink text-[11.5px] ml-auto" onClick={() => setOpen(v => !v)}>{open ? 'hide' : 'show the mail'}</button></div>
+      <span className="ml-auto flex items-center gap-3"><MailPreviewButton mail={{ ...cur, attachments: mail.attachments }} sentOn={sentOn} /><button type="button" className="vlink text-[11.5px]" onClick={() => setOpen(v => !v)}>{open ? 'hide' : 'show the mail'}</button></span></div>
     {editing ? <div className="grid gap-1.5 pt-2">
       <Field label="To"><Input value={d.to.join(', ')} onChange={e => setD(x => ({ ...x, to: list(e.target.value) }))} /></Field>
       <Field label="Cc"><Input value={d.cc.join(', ')} onChange={e => setD(x => ({ ...x, cc: list(e.target.value) }))} /></Field>
@@ -771,7 +772,7 @@ export function PoFabricsSection({ o, factory, prod }: { o: ProductionOrder; fac
           <td><div className="font-medium" style={{ textDecoration: dropped ? 'line-through' : undefined }}>{f.colour}</div>{f.vendorFabricCode && <div className="mono text-[11px]" style={faint}>{f.vendorFabricCode}</div>}</td>
           <td className="num">{f.qty}</td>
           <td className="text-[12px]">{f.vendorId ? <VendorLink id={f.vendorId} /> : <span style={faint}>factory's own</span>}</td>
-          <td className="text-[12px]" style={{ whiteSpace: 'nowrap' }}>{f.receivedOn ? <span style={{ color: (f.metresReceived ?? 0) < f.metresNeeded ? 'var(--risk)' : undefined }}>{f.metresReceived} of {f.metresNeeded} m · {fmtDate(f.receivedOn)}</span> : dropped ? '—' : factory ? <span className="flex gap-1 items-center"><Input type="number" value={metres[f.id] ?? String(f.metresNeeded)} onChange={e => setMetres(x => ({ ...x, [f.id]: e.target.value }))} style={{ width: 80 }} /><Button size="sm" onClick={() => receivePoFabric(o.id, f.id, Number(metres[f.id] ?? f.metresNeeded))}>In</Button></span> : <span style={faint}>{f.metresNeeded} m to come</span>}</td>
+          <td className="text-[12px]" style={{ whiteSpace: 'nowrap' }}>{f.receivedOn ? <span style={{ color: (f.metresReceived ?? 0) < f.metresNeeded ? 'var(--risk)' : undefined }}>{f.metresReceived} of {f.metresNeeded} m · {fmtDate(f.receivedOn)}</span> : dropped ? '—' : o.fabricNominated && !o.sourcing?.fabricPo ? <span style={faint}>{f.metresNeeded} m · fabric PO not raised yet</span> : factory ? <span className="flex gap-1 items-center"><Input type="number" value={metres[f.id] ?? String(f.metresNeeded)} onChange={e => setMetres(x => ({ ...x, [f.id]: e.target.value }))} style={{ width: 80 }} /><Button size="sm" onClick={() => receivePoFabric(o.id, f.id, Number(metres[f.id] ?? f.metresNeeded))}>In</Button></span> : <span style={faint}>{f.metresNeeded} m to come</span>}</td>
           <td style={{ whiteSpace: 'nowrap' }}>{f.qc === 'passed' ? <Pill tone="good">passed{f.resumedOn ? ' · replacement' : ''}</Pill> : f.qc === 'failed' ? <><Pill tone="risk">failed {fmtDate(f.qcOn)}</Pill>{f.qcNote && <div className="text-[11px]" style={{ color: 'var(--risk)', whiteSpace: 'normal', maxWidth: 200 }}>{f.qcNote}</div>}</> : f.receivedOn ? (factory ? <span className="flex gap-1 items-end flex-wrap"><Input value={note[f.id] ?? ''} onChange={e => setNote(x => ({ ...x, [f.id]: e.target.value }))} placeholder="note" style={{ width: 120 }} /><Button size="sm" variant="primary" onClick={() => qcPoFabric(o.id, f.id, 'passed', note[f.id] ?? '')}>Pass</Button><Button size="sm" variant="danger" onClick={() => qcPoFabric(o.id, f.id, 'failed', note[f.id] ?? '')}>Fail</Button></span> : <Pill tone="warn">to check</Pill>) : <span style={faint}>—</span>}</td>
           <td className="text-[12px]" style={{ whiteSpace: 'normal', minWidth: 220 }}>
             {f.qc === 'passed' && !dropped && <span style={{ color: 'var(--good)' }}>in production</span>}

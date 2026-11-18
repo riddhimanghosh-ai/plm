@@ -96,29 +96,39 @@ export const vendorMail = (v: Vendor | undefined) => v?.email ?? `${(v?.id ?? 'f
 
 /* the requirement's files Nitin can share with each factory on the counter-sourcing mail */
 export const QUERY_FILES = ['Style and production ask', 'Fabric info', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'Delivery instruction'] as const;
+const SIGN = '\n\nRegards,\nBombay Shirt Company';
+const money = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+const tidy = (t: string) => t.replace(/\s+-(?=,|\.|$)/g, '');
 export function costQueryMail(db: Db, o: ProductionOrder, factoryIds: string[], deadline: string, files?: Record<string, string[]> | null): Mail {
   const p = packOf(o);
   const sent = (id: string) => files?.[id] ?? [...QUERY_FILES];
   const union = QUERY_FILES.filter(f => factoryIds.some(id => sent(id).includes(f)));
   const differ = factoryIds.some(id => sent(id).length !== union.length);
-  const perFactory = differ ? `\nFiles for each factory:\n${factoryIds.map(id => `${db.vendors.find(v => v.id === id)?.name ?? id}: ${sent(id).join(', ') || 'none'}`).join('\n')}` : '';
+  const perFactory = differ ? `\n\nFILES FOR EACH FACTORY\n${factoryIds.map(id => `• ${db.vendors.find(v => v.id === id)?.name ?? id}: ${sent(id).join(', ') || 'none'}`).join('\n')}` : '';
+  const fab = [p.fabric.description ?? '—', p.fabric.content, p.fabric.widthIn ? `${p.fabric.widthIn}"` : null].filter(Boolean).join(' · ');
   return {
     to: factoryIds.map(id => vendorMail(db.vendors.find(v => v.id === id))), cc: [merch(db, o)],
     subject: `Factory counter sourcing · ${o.styleName} · ${o.orderQty} pcs · reply by ${fmtDate(deadline)}`,
-    body: `Please quote for ${o.orderQty} pcs of ${o.styleName} (${o.category} · ${o.subCategory}) by ${fmtDate(deadline)}. Target in-house ${fmtDate(o.targetInhouse)}.\nFabric: ${p.fabric.description ?? '—'}${p.fabric.content ? ` · ${p.fabric.content}` : ''}${p.fabric.widthIn ? ` · ${p.fabric.widthIn}"` : ''}. Fill your quote on the form at the link below (no login): cost per piece, lead time and any note. It reaches BSC directly.
-https://plm.bombayshirts.com/quote/${o.id}${perFactory}`,
+    body: `Hello,\n\nPlease quote for the style below by ${fmtDate(deadline)}.\n\nTHE STYLE\n• Style: ${o.styleName}\n• Category: ${o.category} · ${o.subCategory}\n• Quantity: ${o.orderQty} pcs\n• Fabric: ${fab}\n• Target in-house: ${fmtDate(o.targetInhouse)}\n\nHOW TO REPLY\nFill your quote on this form, no login needed: cost per piece, lead time and any note. It reaches BSC directly.\nhttps://plm.bombayshirts.com/quote/${o.id}${perFactory}${SIGN}`,
     attachments: union,
   };
 }
 export function poMailOf(db: Db, o: ProductionOrder): Mail {
-  const v = db.vendors.find(x => x.id === o.vendorId); const pm = o.poMail; const p = packOf(o);
+  const v = db.vendors.find(x => x.id === o.vendorId); const pm = o.poMail; const p = packOf(o); const d = o.poDoc;
   const vd = `${db.vendors.find(x => x.id === p.fabric.vendorId)?.name ?? '—'}${p.fabric.vendorFabricCode ? ` · ${p.fabric.vendorFabricCode}` : ''}${p.fabric.blockedMetres != null ? ` · ${p.fabric.blockedMetres} m blocked` : ''}`;
-  const cloth = pm?.fabricBy === 'bsc' ? `BSC sends the cloth: ${vd}; sourcing ships it to you, count it in on arrival.` : pm?.fabricBy === 'bsc-vendor' ? `Buy the cloth from BSC's vendor ${vd}; raise your fabric PO on them and give us the PO and receipt details. Your fabric PO and its receipt are on the TNA.` : 'You source the cloth; give us your fabric PO and receipt details. They are on the TNA.';
+  const cloth = pm?.fabricBy === 'bsc' ? `• BSC sends the cloth: ${vd}\n• Sourcing ships it to you. Count it in on arrival.` : pm?.fabricBy === 'bsc-vendor' ? `• Buy the cloth from BSC's vendor: ${vd}\n• Raise your fabric PO on them and share the PO and receipt details. Both are on the TNA.` : '• You source the cloth. Share your fabric PO and receipt details; both are on the TNA.';
+  const t = d ? poTotalsOf(d) : null; const invs = supplyInvoicesOf(o); const vs = poVendorsOf(db, o);
+  const order = d && t ? [`• Quantity: ${t.pcs} pcs in ${d.lines.length} colour${d.lines.length === 1 ? '' : 's'}`, ...d.lines.map(l => `    – ${l.colour}: ${l.sizes.reduce((a, x) => a + x.qty, 0)} pcs at ₹${l.rate} / pc`), `• Total: ${money(t.total)} incl. ${d.gstPct}% GST`, `• Basis: ${d.priceBasis}`, `• Payment: ${d.paymentTerms}`].join('\n')
+    : `• Quantity: ${o.orderQty} pcs\n• Rate: ₹${o.finalFob ?? '—'} / pc`;
+  const raw = tidy(d?.rawMaterialTerms ?? rawMaterialsOf(db, o).text).split('\n').filter(Boolean).map(x => `• ${x}`).join('\n');
+  const att = [`• PO, tech pack, trim card, size break-up and BOM`, `• TNA form: fill the planned date for every step and return it through your merchandiser`,
+    ...(vs.length ? [`• Vendor details (PDF): who supplies each material, with address and contact${vs.some(x => x.nominated) ? ', and the vendors you raise your own PO on' : ''}`] : []),
+    ...invs.map(i => `• Our invoice ${i.no} for ${money(i.amount)} for the material BSC sends you. It comes off what we pay on this PO.`)].join('\n');
   return {
     to: [vendorMail(v)], cc: [merch(db, o)],
     subject: `${o.poNo ?? 'PO'} · ${o.styleName} · ${o.orderQty} pcs · deliver to ${pm?.deliveryLocation ?? '—'}`,
-    body: `Purchase order ${o.poNo ?? ''} for ${o.poDoc ? poTotalsOf(o.poDoc).pcs : o.orderQty} pcs of ${o.styleName}${o.poDoc ? `, ${o.poDoc.lines.length} line${o.poDoc.lines.length === 1 ? '' : 's'}: ${o.poDoc.lines.map(l => `${l.colour} ${l.sizes.reduce((a, x) => a + x.qty, 0)} pcs at ₹${l.rate}`).join('; ')}. Total ₹${Math.round(poTotalsOf(o.poDoc).total).toLocaleString('en-IN')} incl. ${o.poDoc.gstPct}% GST; ${o.poDoc.priceBasis}; payment ${o.poDoc.paymentTerms}` : ` at ₹${o.finalFob ?? '—'}/pc`}. Deliver to ${pm?.deliveryLocation ?? '—'}${pm?.needsHemming ? ' (hemming / semi-stitching in-house)' : ''} by ${fmtDate(o.targetInhouse)}.\n${cloth}${o.poDoc?.goodsExpectedBy ? `\nGoods expected in-house by ${fmtDate(o.poDoc.goodsExpectedBy)}.` : ''}\nRaw material terms:\n${o.poDoc?.rawMaterialTerms ?? rawMaterialsOf(db, o).text}${supplyInvoicesOf(o).length ? `\nOur invoice ${supplyInvoicesOf(o).map(i => `${i.no} for ₹${i.amount.toLocaleString('en-IN')}`).join(', ')} for the material BSC sends you is attached; it comes off what we pay on this PO.` : ''}${poVendorsOf(db, o).length ? `\nVendor details are attached as a PDF: who supplies each material, their address and contact${poVendorsOf(db, o).some(x => x.nominated) ? ', and the vendors you raise your own PO on' : ''}.` : ''}\nThe TNA form is attached: fill the planned date for every step and return it through your merchandiser.`,
-    attachments: ['PO', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form · planned dates', ...(poVendorsOf(db, o).length ? ['Vendor details · PDF'] : []), ...supplyInvoicesOf(o).map(i => `Invoice ${i.no} · material BSC sends`)],
+    body: `Dear ${v?.name ?? 'factory'} team,\n\nPlease find our purchase order ${o.poNo ?? ''} for ${o.styleName}.\n\nORDER\n${order}\n\nDELIVERY\n• Deliver to: ${pm?.deliveryLocation ?? '—'}${pm?.needsHemming ? ' (hemming / semi-stitching in-house)' : ''}\n• In-house by: ${fmtDate(o.targetInhouse)}${d?.goodsExpectedBy ? `\n• Goods expected by: ${fmtDate(d.goodsExpectedBy)}` : ''}\n\nCLOTH\n${cloth}\n\nRAW MATERIALS\n${raw}\n\nATTACHED\n${att}\n\nPlease confirm you have received this PO.${SIGN}`,
+    attachments: ['PO', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form · planned dates', ...(vs.length ? ['Vendor details · PDF'] : []), ...invs.map(i => `Invoice ${i.no} · material BSC sends`)],
   };
 }
 export function invoiceMailOf(db: Db, o: ProductionOrder): Mail {
@@ -127,7 +137,7 @@ export function invoiceMailOf(db: Db, o: ProductionOrder): Mail {
   return {
     to: ['prince@bombayshirts.com'], cc: [merch(db, o), 'nitin@bombayshirts.com'],
     subject: `Invoice ${inv?.no ?? ''} · ${o.poNo ?? ''} · ${o.styleName} · ${pcs} pcs dispatched`,
-    body: `${v?.name ?? 'The factory'} has dispatched ${pcs} pcs of ${o.styleName} against ${o.poNo ?? 'the PO'} to ${o.poMail?.deliveryLocation ?? 'the warehouse'}. Invoice ${inv?.no ?? ''} for ₹${inv?.amount?.toLocaleString('en-IN') ?? '—'} and the packing list are attached. Receive against the packing list on Enigma.`,
+    body: `Hi Prince,\n\n${v?.name ?? 'The factory'} has dispatched goods against ${o.poNo ?? 'the PO'}.\n\nDISPATCH\n• Style: ${o.styleName}\n• Pieces: ${pcs}\n• To: ${o.poMail?.deliveryLocation ?? 'the warehouse'}\n• Invoice: ${inv?.no ?? '—'} for ₹${inv?.amount?.toLocaleString('en-IN') ?? '—'}\n\nATTACHED\n• The invoice and the packing list\n\nPlease receive against the packing list on Enigma.${SIGN}`,
     attachments: [inv?.file ?? 'Invoice', inv?.packingFile ?? 'Packing list · PDF'],
   };
 }

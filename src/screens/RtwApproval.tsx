@@ -6,10 +6,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store';
 import type { ProductionOrder, FabricBy, ApproverRole } from '../domain/types';
 import { fmtDate, fmtMoney, daysAgo } from '../domain/engines';
-import { approvalOf, poEditOf, poTotalsOf, replyFlagsOf, similarPricesOf, APPROVER_LABEL } from '../domain/rtwPack';
+import { poMailOf, approvalOf, poEditOf, poTotalsOf, replyFlagsOf, similarPricesOf, APPROVER_LABEL } from '../domain/rtwPack';
 import { Section, Pill, Button, Field, Input, Select, KV, Seg } from '../ui';
 import { ActsBy } from './Who';
 import { PoForm, PoDocView } from './RtwChain';
+import { MailPreviewButton } from './MailPreview';
 
 const faint = { color: 'var(--ink-faint)' } as const;
 const soft = { color: 'var(--ink-soft)' } as const;
@@ -77,7 +78,7 @@ export function ApprovalSection({ o, prod, preset, onGo }: { o: ProductionOrder;
             : canDecide(r) ? <span className="flex gap-2 items-center flex-wrap" style={{ flex: 1 }}><Input value={comment} onChange={e => setComment(e.target.value)} placeholder="comment (needed to reject)" style={{ flex: '1 1 200px' }} /><Button size="sm" variant="primary" onClick={() => { decidePoApproval(o.id, r, true, comment.trim() || null); setComment(''); }}>Approve</Button><Button size="sm" disabled={!comment.trim()} onClick={() => { decidePoApproval(o.id, r, false, comment.trim()); setComment(''); }}>Reject</Button></span>
             : <span className="text-[12.5px]" style={{ color: ap.late ? 'var(--risk)' : 'var(--warn)' }}>pending{ap.late ? ` · ${daysAgo(a.deadline)}d past the date` : ` · by ${fmtDate(a.deadline)}`}</span>}
         </div>; })}
-      {ap.state === 'approved' && o.poNo && <div className="text-[12.5px] pt-2" style={{ color: 'var(--good)' }}>{revision ? 'Revised PO' : o.poNo} mailed to the factory and the merchandiser{o.poMail?.sentOn ? ` on ${fmtDate(o.poMail.sentOn)}` : ''}. <button type="button" className="vlink" onClick={() => onGo?.('po')}>See the PO →</button></div>}
+      {ap.state === 'approved' && o.poNo && <div className="text-[12.5px] pt-2" style={{ color: 'var(--good)' }}>{revision ? 'Revised PO' : o.poNo} mailed to the factory and the merchandiser{o.poMail?.sentOn ? ` on ${fmtDate(o.poMail.sentOn)}` : ''}. <button type="button" className="vlink" onClick={() => onGo?.('po')}>See the PO →</button> · <MailPreviewButton mail={{ ...poMailOf(db, o), ...(o.poMail?.mail ?? {}), to: o.poMail?.to ?? poMailOf(db, o).to, cc: o.poMail?.cc ?? poMailOf(db, o).cc }} sentOn={o.poMail?.sentOn ?? null} /></div>}
       {ap.state === 'rejected' && (prod ? <div className="pt-3"><Button onClick={() => setAgain(true)}>Change the PO and send again</Button></div> : null)}
     </Section>
 

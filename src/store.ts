@@ -1460,7 +1460,9 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     submitTnaPlan(orderId, plans) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return;
         if (plans) o.milestones.forEach(m => { const v = plans[m.key]; if (v) m.plan = v; });
-        o.tnaPlan = { sentOn: o.tnaPlan?.sentOn ?? o.poDate ?? now(), submittedOn: now(), by: who() }; o.poAckOn = o.poAckOn ?? now(); o.poAckBy = o.poAckBy ?? who();
+        /* the TNA comes back from the factory through the merchandiser: record the merchandiser, not whoever clicked in the walkthrough */
+        const me = PEOPLE.find(p => p.id === get().personId); const merch = o.merchant ?? 'Nitin Singh'; const by = me?.role === 'merchandiser' ? me.name : merch;
+        o.tnaPlan = { sentOn: o.tnaPlan?.sentOn ?? o.poDate ?? now(), submittedOn: now(), by }; o.poAckOn = o.poAckOn ?? now(); o.poAckBy = o.poAckBy ?? by;
         log(o, `TNA form back from the factory · planned dates for ${o.milestones.filter(m => !m.skipped).length} steps`); },
         'Planned dates on the TNA. The merchandiser follows them up from here.');
     },
