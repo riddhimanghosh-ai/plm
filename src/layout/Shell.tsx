@@ -160,7 +160,7 @@ export function Shell() {
                 Open, it fills; the screens drop out underneath it on a rail, so a team and a screen never look the same */}
             <button type="button" aria-expanded={on} onClick={() => setOpen(o => ({ ...o, [g.name]: !on }))} className="nav-pill">
               <span className="nav-dot" style={{ background: `var(--role-${role})` }} />
-              <span className="nav-pill-name">{g.name}</span>
+              <span className="nav-pill-name">{g.name === 'Warehouse' ? 'Warehouse (Prince)' : g.name}</span>
               <span className="nav-count">{g.items.length}</span>
               <span className="nav-chev" aria-hidden>▾</span>
             </button>

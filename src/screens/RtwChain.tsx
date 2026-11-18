@@ -120,7 +120,7 @@ export function PackSection({ o, design, sourcing, only }: { o: ProductionOrder;
       {canDesign && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updateRequirement(o.id, { sizeBreakup: sizes.filter(x => x.qty > 0), orderQty: sizes.reduce((a, x) => a + x.qty, 0) })}>Save break-up</Button></div>}
     </div>}
     {tab === 'bom' && <>
-      {!only && <BomSection o={o} editable={canDesign} open />}
+      {!only && <BomSection o={o} editable={canDesign} open summary />}
       <div className={only ? '' : 'pt-3 mt-3'} style={only ? undefined : { borderTop: '1px solid var(--line-soft)' }}>
         <div className="cap flex items-center gap-2 pb-1">Vendors on each BOM line <span className="pill role-sourcing">Sourcing adds</span><span className="pill role-design">Category picks</span></div>
         <BomVendors o={o} canDesign={canDesign} canSourcing={canSourcing} />
@@ -843,7 +843,7 @@ export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boole
     </Section></div>
   </>;
 
-  return <Section title={ep ? 'Edit in Enigma' : 'Add the SKUs to Enigma'} collapsible={false} right={<span className="pill role-design">Charanjeet</span>}>
+  return <Section title={ep ? 'Edit in Enigma' : 'Add the SKUs to Enigma'} collapsible={false} right={<span className="pill role-design">Category</span>}>
     {!ep && !o.poNo && <div className="text-[12.5px] pb-2" style={{ color: 'var(--warn)' }}>The PO cannot be drafted until the SKUs are in Enigma.</div>}
     <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
       <Field label="Design code"><Input value={f.code} onChange={e => recode(e.target.value)} disabled={!design} /></Field>

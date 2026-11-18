@@ -14,7 +14,8 @@ import { ActsBy, OwnerPill } from './Who';
 
 const KIND_LABEL: Record<BomLine['kind'], string> = { fabric:'Fabric', trim:'Trim card', packaging:'Packaging' };
 
-export function BomSection({ o, editable, open }: { o: ProductionOrder; editable: boolean; open?: boolean }) {
+/* summary: on the requirement the vendors table below already lists every line, so the BOM shows its totals and the edit, not the same lines again */
+export function BomSection({ o, editable, open, summary }: { o: ProductionOrder; editable: boolean; open?: boolean; summary?: boolean }) {
   const { db, updateBom } = useApp();
   const bc = bomCostOf(db, o);
   const [lines, setLines] = useState<BomLine[]>(o.bom);
@@ -23,8 +24,16 @@ export function BomSection({ o, editable, open }: { o: ProductionOrder; editable
   const upd = (i: number, patch: Partial<BomLine>) => setLines(ls => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
   const groups = (['fabric', 'trim', 'packaging'] as const).map(k => ({ k, rows: (editing ? lines : o.bom).map((l, i) => ({ l, i })).filter(x => x.l.kind === k) }));
   return (
-    <Section title={`BOM · ${o.bom.length} lines`} defaultOpen={open} right={<div className="flex gap-2 items-center"><OwnerPill editable={editable} owner="Design" />{!editable && <ActsBy role="design" does="edits the BOM" inline />}{editable && !editing && <Button size="sm" onClick={() => { setLines(o.bom); setEditing(true); }}>Edit</Button>}</div>}>
-      {editing ? <BomEditor lines={lines} onChange={setLines} orderQty={o.orderQty} /> : <div style={{ overflowX: 'auto' }}><table className="t compact bom-t">
+    <Section title={summary ? `BOM · ${o.bom.length} lines · the lines and their vendors are below` : `BOM · ${o.bom.length} lines`} defaultOpen={open} right={<div className="flex gap-2 items-center"><OwnerPill editable={editable} owner="Design" />{!editable && <ActsBy role="design" does="edits the BOM" inline />}{editable && !editing && <Button size="sm" onClick={() => { setLines(o.bom); setEditing(true); }}>Edit</Button>}</div>}>
+      {!editing && summary && <div className="bom-sum">
+        <div><span>Material cost</span><b>{fmtMoney(bc.total)}</b><i>{fmtMoney(Math.round(bc.perPc))} per piece · {bc.pcs} pcs</i></div>
+        <div><span>Sent by BSC</span><b>{fmtMoney(bc.bsc)}</b><i>{bc.rows.filter(r => r.by === 'bsc').length} lines</i></div>
+        <div><span>Nominated by BSC</span><b>{fmtMoney(bc.nominated)}</b><i>{bc.rows.filter(r => r.by === 'nominated').length} lines</i></div>
+        <div><span>By the factory</span><b>{fmtMoney(bc.factory)}</b><i>{bc.rows.filter(r => r.by === 'factory').length} lines</i></div>
+        {c.fabricMetres != null && <div><span>Fabric for the order</span><b>{c.fabricMetres} {o.bom[0]?.unit ?? 'm'}</b><i>{o.costing.consumption} × {o.orderQty} pcs</i></div>}
+        {bc.unpriced > 0 && <div><span>Without a rate</span><b style={{ color: 'var(--warn)' }}>{bc.unpriced}</b><i>line{bc.unpriced === 1 ? '' : 's'}</i></div>}
+      </div>}
+      {editing ? <BomEditor lines={lines} onChange={setLines} orderQty={o.orderQty} /> : summary ? null : <div style={{ overflowX: 'auto' }}><table className="t compact bom-t">
         <thead><tr><th>Item</th><th className="num">Per pc</th><th className="num">For {bc.pcs} pcs</th><th>Supplied by</th><th>Vendor</th><th className="num">Rate ₹</th><th className="num">Cost ₹</th></tr></thead>
         <tbody>{groups.map(g => g.rows.length > 0 && [
           <tr key={g.k} className="bom-g"><td colSpan={7}>{KIND_LABEL[g.k]}</td></tr>,
@@ -39,9 +48,9 @@ export function BomSection({ o, editable, open }: { o: ProductionOrder; editable
         <tfoot><tr><td colSpan={6} className="text-[12.5px]" style={{ textAlign: 'right' }}>Material cost for the order{bc.unpriced ? ` · ${bc.unpriced} line${bc.unpriced === 1 ? '' : 's'} without a rate` : ''}</td><td className="num font-semibold">{fmtMoney(bc.total)}</td></tr>
           <tr><td colSpan={6} className="text-[12px]" style={{ textAlign: 'right', color: 'var(--ink-soft)' }}>per piece</td><td className="num">{fmtMoney(Math.round(bc.perPc))}</td></tr></tfoot>
       </table></div>}
-      {!editing && <div className="flex gap-4 flex-wrap text-[12.5px] pt-2"><span><span style={{ color: 'var(--ink-faint)' }}>Sent by BSC </span><b>{fmtMoney(bc.bsc)}</b></span><span><span style={{ color: 'var(--ink-faint)' }}>Nominated by BSC </span><b>{fmtMoney(bc.nominated)}</b></span><span><span style={{ color: 'var(--ink-faint)' }}>By the factory </span><b>{fmtMoney(bc.factory)}</b></span></div>}
+      {!editing && !summary && <div className="flex gap-4 flex-wrap text-[12.5px] pt-2"><span><span style={{ color: 'var(--ink-faint)' }}>Sent by BSC </span><b>{fmtMoney(bc.bsc)}</b></span><span><span style={{ color: 'var(--ink-faint)' }}>Nominated by BSC </span><b>{fmtMoney(bc.nominated)}</b></span><span><span style={{ color: 'var(--ink-faint)' }}>By the factory </span><b>{fmtMoney(bc.factory)}</b></span></div>}
       {!editing && <SupplyInvoiceBar o={o} editable={editable} className="mt-2" />}
-      {!editing && c.fabricMetres != null && <KV k="Fabric for the order" v={<b>{c.fabricMetres} {o.bom[0]?.unit ?? 'm'}</b>} note={`${o.costing.consumption} × ${o.orderQty} pcs — what the job card issues${o.fabricNominated ? '; deducted against the vendor invoice (CMT)' : ''}`} />}
+      {!editing && !summary && c.fabricMetres != null && <KV k="Fabric for the order" v={<b>{c.fabricMetres} {o.bom[0]?.unit ?? 'm'}</b>} note={`${o.costing.consumption} × ${o.orderQty} pcs — what the job card issues${o.fabricNominated ? '; deducted against the vendor invoice (CMT)' : ''}`} />}
       {editing && <div className="flex gap-2 pt-2">
         <Button variant="primary" size="sm" onClick={() => { updateBom(o.id, lines); setEditing(false); }}>Save BOM</Button>
         <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>

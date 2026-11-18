@@ -358,7 +358,7 @@ function makeSupplyInvoice(db: Db, o: ProductionOrder) {
   o.poInvoices = prev ? (o.poInvoices ?? []).map(i => i.id === prev.id ? inv : i) : [...(o.poInvoices ?? []), inv];
   (o.activity = o.activity ?? []).push({ at: new Date(TODAY).toISOString(), who: 'PLM', what: `Invoice ${no} ${prev ? 'regenerated' : 'generated'} for what BSC sends · ₹${amount} · ${lines.length} line${lines.length === 1 ? '' : 's'}` });
 }
-const SEED_VERSION = 170;
+const SEED_VERSION = 171;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 export const useAppStore = create<AppState>()(persist((set, get) => {
