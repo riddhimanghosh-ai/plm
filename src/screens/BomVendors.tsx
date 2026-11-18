@@ -2,13 +2,13 @@
    supplies it (BSC sources and sends, a vendor BSC nominates, or the factory), the vendor and the rate. Sourcing can
    put several options on a line; category picks one. The picked option is the line's supplied-by, vendor and rate. */
 import { useState } from 'react';
-import { useApp } from '../store';
+import { useApp, useAppStore } from '../store';
 import type { ProductionOrder, SuppliedBy } from '../domain/types';
 import { fmtMoney } from '../domain/engines';
 import { Button, Input, Select, Pill } from '../ui';
 import { BOM_MULTI_OPTIONS } from '../domain/edition';
 import { STATES, GST_RATES, BSC_STATE, defaultGstOf, gstSplit, stateOfPlace } from '../domain/invoicePdf';
-import { bomCostOf } from '../domain/rtwPack';
+import { bomCostOf, bomOpenOf } from '../domain/rtwPack';
 
 const BY: Record<SuppliedBy, string> = { bsc: 'We source · BSC sends', nominated: 'Nominated vendor', factory: 'By the factory' };
 const KIND = { fabric: 'Fabric', trim: 'Trims', packaging: 'Packaging' } as const;
@@ -16,13 +16,14 @@ const faint = { color: 'var(--ink-faint)' } as const;
 const SAMPLE_VENDORS = { fabric: ['Soktas', 'Arvind Mills'], trim: ['Trimco Accessories', 'Movium'], packaging: ['Packwell', 'Trimco Accessories'] } as const;
 
 export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; canDesign: boolean; canSourcing: boolean }) {
-  const { db, addBomOptions, removeBomOption, pickBomOptions } = useApp();
+  const { db, addBomOptions, removeBomOption, pickBomOptions } = useApp(); const store = useAppStore;
   const [addFor, setAddFor] = useState<number | null>(null);
   const [f, setF] = useState<{ by: SuppliedBy; vendor: string; rate: string; gst: string; state: string; code: string; note: string }>({ by: 'bsc', vendor: '', rate: '', gst: '5', state: BSC_STATE, code: '', note: '' });
   const pcs = o.orderQty; const qtyOf = (i: number) => { const l = o.bom[i]; return l.qtyPerPc != null ? Math.round(l.qtyPerPc * pcs * 100) / 100 : null; };
   /* a line is settled when an option is picked, a supplier is set on it, or (older records) the requirement went out with the supplier the BOM derives */
   const bc = bomCostOf(db, o);
-  const legacyOf = (i: number) => { const l = o.bom[i]; return (l.options ?? []).length ? (!!l.suppliedBy && !l.chosen) : (!!l.suppliedBy || !!bc.rows[i]?.vendor || !!o.pack?.sentOn); };
+  const { legacyDone, open: openLines } = bomOpenOf(o);
+  const legacyOf = (i: number) => { const l = o.bom[i]; return (l.options ?? []).length ? (!!l.suppliedBy && !l.chosen) : (!!l.suppliedBy || legacyDone); };
   const rateOf = (i: number) => { const l = o.bom[i]; return (l.options ?? []).length ? (l.suppliedBy ? l.rate : null) : legacyOf(i) ? (bc.rows[i]?.rate ?? null) : null; };
   const vendors = db.vendors.filter(v => v.kind.endsWith('mill') || v.kind === 'Trims').map(v => v.name);
   const open = (i: number) => { setAddFor(i); setF({ by: 'bsc', vendor: '', rate: o.bom[i].rate != null ? String(o.bom[i].rate) : '', gst: String(defaultGstOf(o.bom[i].kind)), state: BSC_STATE, code: '', note: '' }); };
@@ -32,6 +33,11 @@ export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; 
     const base = l.rate ?? (l.kind === 'fabric' ? (o.pack?.fabric.rate ?? o.pack?.fabric.cpm ?? 240) : l.unit === 'pc' ? 3 : 30); const vs = SAMPLE_VENDORS[l.kind];
     return [{ idx, opt: { suppliedBy: 'bsc' as SuppliedBy, vendor: vs[0], rate: base, gstPct: defaultGstOf(l.kind), state: BSC_STATE, code: l.kind === 'fabric' ? `${vs[0].slice(0, 3).toUpperCase()}#${24000 + idx * 37 + pcs}` : null, note: 'in stock with the vendor' } },
       { idx, opt: l.kind === 'fabric' ? { suppliedBy: 'nominated' as SuppliedBy, vendor: vs[1], rate: Math.round(base * 0.94), gstPct: defaultGstOf(l.kind), state: 'Gujarat', code: `${vs[1].slice(0, 3).toUpperCase()}#${31000 + idx}`, note: 'factory raises its own PO · 12 days' } : { suppliedBy: 'factory' as SuppliedBy, vendor: null, rate: Math.round(base * 1.1 * 100) / 100, gstPct: defaultGstOf(l.kind), state: BSC_STATE, code: null, note: "factory's own supplier" } }].slice(0, BOM_MULTI_OPTIONS ? 2 : 1); }));
+  /* prototype only: put sample vendors on every open line and, for category, pick the lowest rate so the BOM is done in one click */
+  const sampleFill = () => { sample(); if (!canDesign) return;
+    const o2 = store.getState().db.orders.find(x => x.id === o.id); if (!o2) return;
+    const picks = o2.bom.flatMap((l, idx) => !l.suppliedBy && (l.options ?? []).length ? [{ idx, optId: [...l.options!].sort((a, b) => (a.rate ?? 1e9) - (b.rate ?? 1e9))[0].id }] : []);
+    if (picks.length) pickBomOptions(o.id, picks); };
   const unpicked = o.bom.map((l, idx) => ({ l, idx })).filter(x => !x.l.suppliedBy && (x.l.options ?? []).length);
   const cheapest = () => pickBomOptions(o.id, unpicked.map(({ l, idx }) => ({ idx, optId: [...l.options!].sort((a, b) => (a.rate ?? 1e9) - (b.rate ?? 1e9))[0].id })));
   const noOpts = o.bom.filter((l, i) => !legacyOf(i) && !(l.options ?? []).length).length;
@@ -46,8 +52,9 @@ export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; 
     <div className="flex items-center gap-2 flex-wrap pb-2">
       <Pill tone={noOpts ? 'warn' : 'good'}>{noOpts ? `${noOpts} line${noOpts === 1 ? '' : 's'} waiting on sourcing` : 'sourcing has filled every line'}</Pill>
       <Pill tone={unpicked.length ? 'warn' : 'good'}>{unpicked.length ? `${unpicked.length} line${unpicked.length === 1 ? '' : 's'} for category to pick` : 'nothing to pick'}</Pill>
-      <span className="ml-auto flex gap-2">{canSourcing && noOpts > 0 && <Button size="sm" variant="ghost" onClick={sample}>Fill sample options</Button>}{canDesign && unpicked.length > 0 && <Button size="sm" onClick={cheapest}>Pick the lowest rate on every line</Button>}</span>
+      <span className="ml-auto flex gap-2">{(canSourcing || canDesign) && openLines.length > 0 && <Button size="sm" variant="ghost" onClick={sampleFill}>Sample fill{canDesign ? ' · vendors and picks' : ' · vendor options'}</Button>}{canDesign && unpicked.length > 0 && <Button size="sm" onClick={cheapest}>Pick the lowest rate on every line</Button>}</span>
     </div>
+    {openLines.length > 0 && <div className="text-[12px] pb-2" style={{ color: 'var(--warn)' }}>Until every line has its vendor, the requirement cannot go to Production RTW and no invoice is generated.</div>}
     <div style={{ overflowX: 'auto' }}><table className="t compact bom-t bomv"><thead><tr><th>BOM line</th><th className="num">Per pc</th><th className="num">For {pcs} pcs</th><th>Supplied by</th><th>Vendor</th><th className="num">Rate ₹</th><th className="num">Cost ₹</th><th>GST · vendor state</th><th>Code · note</th><th></th></tr></thead>
       <tbody>{(['fabric', 'trim', 'packaging'] as const).flatMap(k => { const rows = o.bom.map((l, i) => ({ l, i })).filter(x => x.l.kind === k); if (!rows.length) return [];
         return [<tr key={k} className="grp"><td colSpan={10}>{KIND[k]}</td></tr>, ...rows.flatMap(({ l, i }) => { const opts = l.options ?? []; const q = qtyOf(i); const legacy = legacyOf(i); const r = bc.rows[i];

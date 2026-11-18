@@ -13,7 +13,7 @@ import { fmtDate, prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factory
 const SAMPLE_STAGES: SampleStage[] = ['prototype', 'sample', 'trial'];
 const STAGE_NAME: Record<SampleStage, string> = { prototype: 'Prototype', sample: 'Sampling cycle', trial: 'Trial cycle' };
 import { BOM_MULTI_OPTIONS, RTW_ONLY } from './domain/edition';
-import { EMPTY_PACK, packReadyOf, costQueryMail, poMailOf, invoiceMailOf, deliveryLocationOf, poTotalsOf, supplyLinesOf, approvalOf, poEditOf } from './domain/rtwPack';
+import { EMPTY_PACK, packReadyOf, costQueryMail, poMailOf, invoiceMailOf, deliveryLocationOf, poTotalsOf, supplyLinesOf, approvalOf, poEditOf, bomOpenOf } from './domain/rtwPack';
 import { PEOPLE, MERCHANDISERS, QC_POINTS, FABRIC_BY_LABEL, ORDER_STAGE_NEXT, METRES_PER_SHIRT, STORES, SHEET_LABEL, MILESTONES, MILESTONE_OWNER, PRE_PRODUCTION, SHIRT_PRESETS, defaultSpec, defaultMeasurements, defaultPattern } from './domain/reference';
 
 /* `undoAt` is the depth of the stack this toast was raised at: its Undo button
@@ -351,6 +351,7 @@ const BOOT = Date.now();
 /* bump to reseed the demo data in every browser */
 /* the invoice BSC raises on the factory for the BOM lines BSC sends; one live invoice per style, regenerated in place until the PO mail has gone */
 function makeSupplyInvoice(db: Db, o: ProductionOrder) {
+  if (bomOpenOf(o).open.length) return;   // 18 Nov 2026: no invoice until every BOM line has its vendor
   const lines = supplyLinesOf(o); const amount = lines.reduce((a, l) => a + l.amount, 0); if (!lines.length || !amount) return;
   const prev = (o.poInvoices ?? []).find(i => i.lines?.length);
   const no = prev?.no ?? `BSC/INV/${String(4100 + db.orders.reduce((a, x) => a + (x.poInvoices ?? []).filter(i => i.lines).length, 0) + 1)}`;
@@ -1546,6 +1547,8 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, `Category picked the vendor option on ${picks.length} BOM line${picks.length === 1 ? '' : 's'}`); }, 'Picked.');
     },
     generateSupplyInvoice(orderId) {
+      { const o = get().db.orders.find(x => x.id === orderId); const n = o ? bomOpenOf(o).open.length : 0;
+        if (n) { touch(() => {}, `${n} BOM line${n === 1 ? '' : 's'} still without a vendor. Finish the BOM first.`, 'warn'); return; } }
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; makeSupplyInvoice(db, o); },
         'Invoice generated and logged. It goes with the PO mail and comes off what BSC owes on the PO.');
     },

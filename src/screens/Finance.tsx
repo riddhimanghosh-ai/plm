@@ -7,7 +7,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { ProductionOrder, PoInvoice } from '../domain/types';
 import { fmtDate, fmtMoney } from '../domain/engines';
-import { poLedgerOf, payDueOf, poTotalsOf, packedPcsOf, supplyInvoicesOf, supplyLinesOf } from '../domain/rtwPack';
+import { poLedgerOf, payDueOf, poTotalsOf, packedPcsOf, supplyInvoicesOf, supplyLinesOf, bomOpenOf } from '../domain/rtwPack';
 import { invoiceDocOf, downloadInvoicePdf } from '../domain/invoicePdf';
 import { Page, Card, Pill, Drawer, Empty, Tabs, Stats, Input, Button, MultiFilter, passes, ExportButton, dateInput, fromDateInput } from '../ui';
 import { RtwRequirement } from './RtwRequirement';
@@ -134,7 +134,7 @@ export function FinanceInvoices() {
         <td className="num font-semibold">{doc ? r0(doc.total) : '—'}</td>
         <td style={{ whiteSpace: 'normal' }}><Pill tone={BSC[state][1]}>{BSC[state][0]}</Pill></td>
         <td style={{ whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>{inv && state === 'ok' ? <><button type="button" className="vlink text-[12px]" onClick={() => setView({ o, inv })}>view</button> · <button type="button" className="vlink text-[12px]" onClick={() => downloadInvoicePdf(db, o, inv)}>↓ PDF</button></>
-          : <button type="button" className="cta" disabled={!total} onClick={() => generateSupplyInvoice(o.id)}>{inv ? 'Generate again →' : 'Generate →'}</button>}</td>
+          : <button type="button" className="cta" disabled={!total || bomOpenOf(o).open.length > 0} title={bomOpenOf(o).open.length ? 'the BOM still has lines without a vendor' : undefined} onClick={() => generateSupplyInvoice(o.id)}>{inv ? 'Generate again →' : 'Generate →'}</button>}</td>
       </tr>)}</tbody></table></Card>)}
 
     {u.tab === 'notes' && (notes.length === 0 ? <Card><Empty title="No debit or credit note logged." body="They are added on a PO, in its invoices and payments step." /></Card> : <Card><table className="t">

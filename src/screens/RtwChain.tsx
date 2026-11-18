@@ -8,7 +8,7 @@ import { useApp } from '../store';
 import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy, PoDoc, PoLine, ApproverRole } from '../domain/types';
 import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
 import { TECH_PACK_ITEMS, QC_POINTS, FABRIC_BY_LABEL } from '../domain/reference';
-import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, supplyInvoicesOf, packedPcsOf, packingFileOf, orderedBySizeOf, isCmt, taxCodeOf, AQL_LEVELS, clothNeedOf, approvalOf, poLedgerOf, supplyLinesOf, rawMaterialsOf, type Mail } from '../domain/rtwPack';
+import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, supplyInvoicesOf, packedPcsOf, packingFileOf, orderedBySizeOf, isCmt, taxCodeOf, AQL_LEVELS, clothNeedOf, approvalOf, poLedgerOf, supplyLinesOf, rawMaterialsOf, type Mail, bomOpenOf } from '../domain/rtwPack';
 import { Section, Pill, Button, KV, Field, Input, Select, fromDateInput, dateInput } from '../ui';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
@@ -289,7 +289,7 @@ export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boole
     </table></div>
     {supply.length > 0 && <div className="supply-inv mt-3">
       <div className="flex items-center gap-2 flex-wrap"><b className="text-[13px]">What BSC sends on this style</b><span className="text-[12px]" style={faint}>{supply.map(l => `${l.item} ${l.qty} ${l.unit}`).join(' · ')}</span>
-        <span className="ml-auto flex items-center gap-2"><b className="text-[13px]">{fmtMoney(supplyTotal)}</b>{prod && <Button size="sm" variant={generated ? 'ghost' : 'primary'} disabled={!supplyTotal} onClick={() => generateSupplyInvoice(o.id)}>{generated ? 'Generate again' : 'Generate the invoice'}</Button>}</span></div>
+        <span className="ml-auto flex items-center gap-2"><b className="text-[13px]">{fmtMoney(supplyTotal)}</b>{prod && <Button size="sm" variant={generated ? 'ghost' : 'primary'} disabled={!supplyTotal || bomOpenOf(o).open.length > 0} onClick={() => generateSupplyInvoice(o.id)}>{generated ? 'Generate again' : 'Generate the invoice'}</Button>}</span></div>
       {!supplyTotal && <div className="text-[11.5px] pt-1" style={{ color: 'var(--warn)' }}>Add a rate to the BOM lines BSC sends to price the invoice.</div>}
     </div>}
 

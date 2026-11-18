@@ -11,6 +11,16 @@ export const packOf = (o: ProductionOrder): RequirementPack => o.pack ?? EMPTY_P
 
 /* the five parts and what each still needs; the requirement goes to Production RTW only when every list is empty */
 export type PackPart = { key: 'techPack' | 'fabric' | 'trimCard' | 'sizes' | 'bom' | 'vendors'; label: string; who: 'design' | 'sourcing'; missing: string[]; total: number; done: number; na?: boolean };
+/* 18 Nov 2026: a BOM line is done once it says who supplies it (an option picked, or set on the line). Requirements filled
+   the earlier way (cloth choice plus sourcing's cloth fields) count as done. Until every line is done nothing moves on:
+   the requirement cannot be sent and no invoice is generated. */
+export function bomOpenOf(o: ProductionOrder) {
+  const p = packOf(o); const f = p.fabric; const clothBy = p.clothBy ?? null;
+  const sourcingFab = [!!f.vendorId, !!f.vendorFabricCode, f.blockedMetres != null, f.readiness === 'available' || (f.readiness === 'date' && !!f.readyOn), !!f.trimVendorId];
+  const legacyDone = !!clothBy && (clothBy === 'factory' || sourcingFab.every(Boolean));
+  const open = legacyDone ? [] : o.bom.filter(l => !l.suppliedBy);
+  return { legacyDone, open };
+}
 export function packReadyOf(o: ProductionOrder): { ready: boolean; parts: PackPart[]; missing: string[]; sourcingMissing: string[] } {
   const p = packOf(o);
   const tp = TECH_PACK_ITEMS.filter(x => !p.techPack[x.key]?.trim()).map(x => x.label);
@@ -20,11 +30,8 @@ export function packReadyOf(o: ProductionOrder): { ready: boolean; parts: PackPa
   const clothBy = p.clothBy ?? null;
   const fabMissing = designFab.filter(x => !x[1]).map(x => x[0]);
   /* sourcing's part is needed only when BSC is involved in the cloth: BSC sends it, or hands the factory its vendor */
-  const vendorsNeeded = clothBy !== 'factory';
-  /* 17 Nov 2026: sourcing fills vendor options against each BOM line and category picks one. A line is settled once it says who supplies it.
-     Requirements filled the earlier way (cloth choice plus sourcing's cloth fields) stay complete. */
-  const legacyDone = !!clothBy && (!vendorsNeeded || sourcingFab.every(x => x[1]));
-  const open = legacyDone ? [] : o.bom.filter(l => !l.suppliedBy);
+  void sourcingFab; void clothBy;
+  const { open } = bomOpenOf(o);
   const toFill = open.filter(l => !(l.options ?? []).length).map(l => `${l.item || 'a line'}: vendor options (sourcing)`);
   const toPick = open.filter(l => (l.options ?? []).length).map(l => `${l.item || 'a line'}: pick an option (category)`);
   const srcMissing = !o.bom.length ? ['BOM lines first (category)'] : [...toFill, ...toPick];
