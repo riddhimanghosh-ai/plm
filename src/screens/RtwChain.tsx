@@ -4,11 +4,12 @@
    the invoice and packing list to the warehouse; receipt on Enigma; COGS. */
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { downloadVendorsPdf } from '../domain/invoicePdf';
 import { useApp } from '../store';
 import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy, PoDoc, PoLine, ApproverRole } from '../domain/types';
 import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
 import { TECH_PACK_ITEMS, QC_POINTS, FABRIC_BY_LABEL } from '../domain/reference';
-import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, supplyInvoicesOf, packedPcsOf, packingFileOf, orderedBySizeOf, isCmt, taxCodeOf, AQL_LEVELS, clothNeedOf, approvalOf, poLedgerOf, supplyLinesOf, rawMaterialsOf, type Mail, bomOpenOf } from '../domain/rtwPack';
+import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, supplyInvoicesOf, packedPcsOf, packingFileOf, orderedBySizeOf, isCmt, taxCodeOf, AQL_LEVELS, clothNeedOf, approvalOf, poLedgerOf, supplyLinesOf, rawMaterialsOf, type Mail, bomOpenOf, poVendorsOf } from '../domain/rtwPack';
 import { Section, Pill, Button, KV, Field, Input, Select, fromDateInput, dateInput } from '../ui';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
@@ -447,11 +448,12 @@ export function PoDocView({ o, doc }: { o: ProductionOrder; doc?: PoDoc | null }
 /* what rides with the PO mail, as files; the invoice generated from the BOM opens */
 function PoAttachments({ o }: { o: ProductionOrder }) {
   const { db } = useApp(); const [view, setView] = useState<PoInvoice | null>(null);
-  const invs = supplyInvoicesOf(o); const files = poMailOf(db, o).attachments.filter(a => !a.startsWith('Invoice '));
+  const invs = supplyInvoicesOf(o); const files = poMailOf(db, o).attachments.filter(a => !a.startsWith('Invoice ') && !a.startsWith('Vendor details')); const vs = poVendorsOf(db, o);
   return <div className="po-att mt-3">
-    <div className="text-[11px] uppercase tracking-wide pb-1.5" style={faint}>Attachments on the PO mail · {files.length + invs.length}</div>
+    <div className="text-[11px] uppercase tracking-wide pb-1.5" style={faint}>Attachments on the PO mail · {files.length + invs.length + (vs.length ? 1 : 0)}</div>
     <div className="flex gap-1.5 flex-wrap">
       {files.map(f => <span key={f} className="att-chip"><span aria-hidden>📎</span>{f}</span>)}
+      {vs.length > 0 && <button type="button" className="att-chip inv" title={vs.map(v => `${v.name}: ${v.supplies}`).join(' · ')} onClick={() => downloadVendorsPdf(db, o)}><span aria-hidden>🏷</span>Vendor details · {vs.length} vendor{vs.length === 1 ? '' : 's'} · {vs.map(v => v.supplies).join(' / ')}<span className="vlink">↓ PDF</span></button>}
       {invs.map(i => <button key={i.id} type="button" className="att-chip inv" onClick={() => setView(i)}><span aria-hidden>🧾</span>Invoice {i.no} · material BSC sends · <b>{fmtMoney(i.amount)}</b><span className="vlink">view</span></button>)}
       {!invs.length && <span className="att-chip" style={faint}>{supplyLinesOf(o).length ? 'invoice for what BSC sends · not generated' : 'no invoice · nothing is sent by BSC'}</span>}
     </div>

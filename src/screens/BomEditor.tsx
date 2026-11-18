@@ -28,7 +28,13 @@ export function lineStatus(trims: TrimItem[], db: Parameters<typeof trimCoverage
   return { tone: 'risk' as const, text: `short by ${short.toLocaleString('en-IN')} ${t.unit}${c.incoming ? ` · ${c.incoming.toLocaleString('en-IN')} on order` : ' · nothing on order'} — sourcing buys the rest` };
 }
 
-export function BomEditor({ lines, onChange, orderQty, editable = true }: { lines: BomLine[]; onChange: (l: BomLine[]) => void; orderQty: number; editable?: boolean }) {
+const SUP = { bsc: 'BSC sends', nominated: 'Nominated', factory: 'By the factory' } as const;
+/* 18 Nov 2026: on the requirement, sourcing's columns show beside each line, faded until sourcing fills them */
+function SourcingCells({ l }: { l: BomLine }) {
+  const cell = (label: string, v: string | number | null | undefined) => <span className={`bom-src-c${v == null || v === '' ? ' empty' : ''}`}><i>{label}</i>{v == null || v === '' ? 'sourcing adds' : v}</span>;
+  return <div className="bom-src">{cell('Supplied by', l.suppliedBy ? SUP[l.suppliedBy] : null)}{cell('Vendor', l.vendor)}{cell('Rate ₹', l.rate)}{cell('GST', l.gstPct != null ? `${l.gstPct}%` : null)}{cell('Vendor state', l.vendorState)}</div>;
+}
+export function BomEditor({ lines, onChange, orderQty, editable = true, sourcingCols }: { lines: BomLine[]; onChange: (l: BomLine[]) => void; orderQty: number; editable?: boolean; sourcingCols?: boolean }) {
   const { db } = useApp();
   const trims = db.trims ?? [];
   const [pick, setPick] = useState('');
@@ -43,6 +49,7 @@ export function BomEditor({ lines, onChange, orderQty, editable = true }: { line
     <div className="flex gap-2 flex-wrap pb-2 text-[12px]">
       <Pill tone={notOnMaster ? 'warn' : 'good'}>{notOnMaster ? `${notOnMaster} line${notOnMaster === 1 ? '' : 's'} not on the trims master` : 'every trim is on the master'}</Pill>
       <Pill tone={short ? 'risk' : 'good'}>{short ? `${short} line${short === 1 ? '' : 's'} short at the unit for ${orderQty} pcs` : `stock covers ${orderQty} pcs`}</Pill>
+      {sourcingCols && <span className="pill role-sourcing">faded fields · sourcing adds them once the requirement is saved</span>}
     </div>
     {groups.map(g => g.rows.length > 0 && <div key={g.k} className="py-1">
       <div className="label">{KIND_LABEL[g.k]}</div>
@@ -55,6 +62,7 @@ export function BomEditor({ lines, onChange, orderQty, editable = true }: { line
           <button type="button" className="vlink text-[11.5px]" onClick={() => remove(i)}>remove</button>
         </div> : <div className="flex items-baseline gap-2 flex-wrap"><span className="font-medium">{l.item}</span><span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>{l.spec ?? ''}</span><span className="flex-1" /><span className="mono text-[12px]">{l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit} / pc` : '—'}</span></div>}
         <div className="text-[11.5px] pt-0.5" style={{ color: st.tone === 'risk' ? 'var(--risk)' : st.tone === 'warn' ? 'var(--warn)' : st.tone === 'good' ? 'var(--good)' : 'var(--ink-faint)' }}>{st.text}{st.tone === 'warn' && <> · <a className="vlink" href="#/fabrics?tab=trims">trims master →</a></>}</div>
+        {sourcingCols && <SourcingCells l={l} />}
       </div>; })}
     </div>)}
     {editable && <div className="flex gap-2 items-end flex-wrap pt-2">

@@ -117,8 +117,8 @@ export function poMailOf(db: Db, o: ProductionOrder): Mail {
   return {
     to: [vendorMail(v)], cc: [merch(db, o)],
     subject: `${o.poNo ?? 'PO'} · ${o.styleName} · ${o.orderQty} pcs · deliver to ${pm?.deliveryLocation ?? '—'}`,
-    body: `Purchase order ${o.poNo ?? ''} for ${o.poDoc ? poTotalsOf(o.poDoc).pcs : o.orderQty} pcs of ${o.styleName}${o.poDoc ? `, ${o.poDoc.lines.length} line${o.poDoc.lines.length === 1 ? '' : 's'}: ${o.poDoc.lines.map(l => `${l.colour} ${l.sizes.reduce((a, x) => a + x.qty, 0)} pcs at ₹${l.rate}`).join('; ')}. Total ₹${Math.round(poTotalsOf(o.poDoc).total).toLocaleString('en-IN')} incl. ${o.poDoc.gstPct}% GST; ${o.poDoc.priceBasis}; payment ${o.poDoc.paymentTerms}` : ` at ₹${o.finalFob ?? '—'}/pc`}. Deliver to ${pm?.deliveryLocation ?? '—'}${pm?.needsHemming ? ' (hemming / semi-stitching in-house)' : ''} by ${fmtDate(o.targetInhouse)}.\n${cloth}${o.poDoc?.goodsExpectedBy ? `\nGoods expected in-house by ${fmtDate(o.poDoc.goodsExpectedBy)}.` : ''}\nRaw material terms:\n${o.poDoc?.rawMaterialTerms ?? rawMaterialsOf(db, o).text}${supplyInvoicesOf(o).length ? `\nOur invoice ${supplyInvoicesOf(o).map(i => `${i.no} for ₹${i.amount.toLocaleString('en-IN')}`).join(', ')} for the material BSC sends you is attached; it comes off what we pay on this PO.` : ''}\nThe TNA form is attached: fill the planned date for every step and return it through your merchandiser.`,
-    attachments: ['PO', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form · planned dates', ...supplyInvoicesOf(o).map(i => `Invoice ${i.no} · material BSC sends`)],
+    body: `Purchase order ${o.poNo ?? ''} for ${o.poDoc ? poTotalsOf(o.poDoc).pcs : o.orderQty} pcs of ${o.styleName}${o.poDoc ? `, ${o.poDoc.lines.length} line${o.poDoc.lines.length === 1 ? '' : 's'}: ${o.poDoc.lines.map(l => `${l.colour} ${l.sizes.reduce((a, x) => a + x.qty, 0)} pcs at ₹${l.rate}`).join('; ')}. Total ₹${Math.round(poTotalsOf(o.poDoc).total).toLocaleString('en-IN')} incl. ${o.poDoc.gstPct}% GST; ${o.poDoc.priceBasis}; payment ${o.poDoc.paymentTerms}` : ` at ₹${o.finalFob ?? '—'}/pc`}. Deliver to ${pm?.deliveryLocation ?? '—'}${pm?.needsHemming ? ' (hemming / semi-stitching in-house)' : ''} by ${fmtDate(o.targetInhouse)}.\n${cloth}${o.poDoc?.goodsExpectedBy ? `\nGoods expected in-house by ${fmtDate(o.poDoc.goodsExpectedBy)}.` : ''}\nRaw material terms:\n${o.poDoc?.rawMaterialTerms ?? rawMaterialsOf(db, o).text}${supplyInvoicesOf(o).length ? `\nOur invoice ${supplyInvoicesOf(o).map(i => `${i.no} for ₹${i.amount.toLocaleString('en-IN')}`).join(', ')} for the material BSC sends you is attached; it comes off what we pay on this PO.` : ''}${poVendorsOf(db, o).length ? `\nVendor details are attached as a PDF: who supplies each material, their address and contact${poVendorsOf(db, o).some(x => x.nominated) ? ', and the vendors you raise your own PO on' : ''}.` : ''}\nThe TNA form is attached: fill the planned date for every step and return it through your merchandiser.`,
+    attachments: ['PO', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form · planned dates', ...(poVendorsOf(db, o).length ? ['Vendor details · PDF'] : []), ...supplyInvoicesOf(o).map(i => `Invoice ${i.no} · material BSC sends`)],
   };
 }
 export function invoiceMailOf(db: Db, o: ProductionOrder): Mail {
@@ -186,6 +186,20 @@ export function rawMaterialsOf(db: Db, o: ProductionOrder, clothBy?: FabricBy | 
     of('factory').length ? `By the factory: ${of('factory').map(r => r.item).join(', ')}.` : null,
   ].filter(Boolean).join('\n');
   return { rows, text, nominated: of('nominated') };
+}
+/* 18 Nov 2026: the vendors on a PO, one entry each, with what they supply and how to reach them; this goes to the factory as its own PDF */
+export function poVendorsOf(db: Db, o: ProductionOrder, clothBy?: FabricBy | null) {
+  const rm = rawMaterialsOf(db, o, clothBy);
+  const byName = new Map<string, { name: string; how: Set<string>; kinds: Set<string>; items: string[]; codes: Set<string>; state: string | null }>();
+  rm.rows.forEach((r, i) => { if (!r.vendor || r.by === 'factory') return; const l = o.bom[i]; const key = r.vendor.trim().toLowerCase();
+    const e = byName.get(key) ?? { name: r.vendor.trim(), how: new Set<string>(), kinds: new Set<string>(), items: [], codes: new Set<string>(), state: null };
+    e.how.add(r.by === 'bsc' ? 'BSC buys it and sends it to you' : 'Nominated by BSC: raise your PO on this vendor'); e.kinds.add(r.kind === 'fabric' ? 'Fabric' : r.kind === 'trim' ? 'Trims' : 'Packaging'); e.items.push(r.item);
+    const op = l?.options?.find(x => x.id === l.chosen); if (op?.code) e.codes.add(op.code); if (r.kind === 'fabric' && o.pack?.fabric.vendorFabricCode) e.codes.add(o.pack.fabric.vendorFabricCode);
+    e.state = e.state ?? l?.vendorState ?? op?.state ?? null; byName.set(key, e); });
+  return [...byName.values()].map(e => { const v = db.vendors.find(x => x.name.toLowerCase() === e.name.toLowerCase());
+    return { name: e.name, supplies: [...e.kinds].join(', '), items: e.items, how: [...e.how].join('; '), nominated: [...e.how].some(h => h.startsWith('Nominated')),
+      address: v?.enigma?.address ?? v?.location ?? null, location: v?.location ?? null, phone: v?.enigma?.officePhone ?? null, email: v?.enigma?.officeEmail ?? v?.email ?? null,
+      state: e.state, code: [...e.codes].join(', ') || v?.enigma?.vendorCode || null, known: !!v }; });
 }
 export const SUPPLIED_LABEL = { bsc: 'Sent by BSC', nominated: 'Nominated by BSC · factory raises the PO', factory: 'By the factory' } as const;
 /* the invoices BSC generated for what it sends on this style; they ride with the PO mail */

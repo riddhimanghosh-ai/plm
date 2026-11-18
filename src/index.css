@@ -729,3 +729,10 @@ table.t.bomv tr.bomv-grp:hover td { background: var(--surface-3, var(--surface-2
 
 /* start a BOM from another style (18 Nov 2026) */
 .bom-copy { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; margin-bottom: 8px; border: 1px dashed var(--line); border-radius: 8px; background: var(--surface-2); }
+
+/* sourcing's columns, faded until sourcing fills them (18 Nov 2026) */
+.bom-src { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; padding-top: 5px; }
+.bom-src-c { display: flex; flex-direction: column; min-width: 0; padding: 4px 8px; border: 1px solid var(--line-soft); border-radius: 6px; font-size: 12.5px; background: var(--surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bom-src-c i { font-style: normal; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
+.bom-src-c.empty { border-style: dashed; color: var(--ink-faint); opacity: .55; filter: blur(.3px); background: var(--surface-2); }
+td.bomv-blank { color: var(--ink-faint); opacity: .5; font-size: 11.5px; font-style: italic; filter: blur(.3px); }

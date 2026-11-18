@@ -389,7 +389,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
     {show('bom') && <Section title="BOM / consumption" collapsible={false}>
       <CopyBomPicker category={category} onPick={(lines, from) => { setBom(lines); setBomFrom(from); }} />
       {bomFrom && <div className="text-[12px] pb-2" style={{ color: 'var(--good)' }}>Copied from {bomFrom}. Change any line below; sourcing confirms the vendors.</div>}
-      <BomEditor lines={bom} onChange={setBom} orderQty={pcs} />
+      <BomEditor lines={bom} onChange={setBom} orderQty={pcs} sourcingCols />
     </Section>}
     {show('delivery') && <Section title="Delivery instruction" collapsible={false}>
       <div className="flex gap-2 py-1">{(['3PL warehouse', 'Vasai · in-house'] as const).map(l => <button key={l} type="button" className={`dest-opt${dest === l ? ' on' : ''}`} onClick={() => setDeliverTo(l)}><span className="dest-dot" />{l}</button>)}</div>
