@@ -37,7 +37,8 @@ const MINE: Record<string, string[]> = {
 const SCOPE: Record<'hod' | 'finance' | 'warehouse' | 'sourcing', string[]> = { sourcing: ['pack'], warehouse: ['po', 'dispatch', 'received'], hod: ['raised', 'pack', 'query', 'launch', 'approval', 'po'], finance: ['raised', 'pack', 'query', 'launch', 'approval', 'po', 'cogs', 'invoices'] };
 export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; initial?: string; scope?: 'hod' | 'finance' | 'warehouse' | 'sourcing' }) {
   const { db, role, myRole, demoAll, updateRequirement } = useApp();
-  const scoped = scope ?? (!demoAll && (myRole === 'hod' || myRole === 'finance' || myRole === 'warehouse' || myRole === 'sourcing') ? myRole : null);
+  /* 18 Nov 2026: the whole record shows for every role; only a screen that asks for one part (scope) narrows it */
+  const scoped = scope ?? null; void myRole; void demoAll;
   const design = role === 'design' || role === 'owner';
 
   const prod = role === 'production' || role === 'owner';
@@ -66,7 +67,8 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
   const pickView = (v: 'stacked' | 'blocks') => { setView(v); try { localStorage.setItem(viewKey(open), v); } catch { /* storage off */ } };
   /* phone: the steps are a strip; keep the open one in view */
   useEffect(() => { document.querySelector(`#rtw-rail-${o.id} [aria-current="step"]`)?.scrollIntoView({ inline: 'center', block: 'nearest' }); }, [open, o.id]);
-  const at = (k: string) => open === k && isMine(k);
+  /* 18 Nov 2026: every step opens for everyone; a step that is not yours is view only (the edit buttons follow the role) */
+  const at = (k: string) => open === k;
   const [phaseOpen, setPhaseOpen] = useState<Record<string, boolean>>({});
   /* Draft the PO on a reply: the record moves to step 4 and the PO form opens there */
   const [apPreset, setApPreset] = useState<{ vendorId: string; fabricBy: FabricBy } | null>(null);
@@ -88,7 +90,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
         <span className="rtw-next-k">{mine ? 'Your move' : 'Next'}</span>
         <span className="rtw-next-v">{next.now ?? next.label}</span>
         {next.act && <span className={`pill role-${roleClass(next.act)}`}>{RTW_ACTOR_LABEL[next.act]}</span>}
-        {!at(next.key) && isMine(next.key) && <button type="button" className="cta" onClick={() => panel(next.key)}>go there →</button>}
+        {!at(next.key) && <button type="button" className="cta" onClick={() => panel(next.key)}>go there →</button>}
       </> : <><span className="rtw-next-k">Done</span><span className="rtw-next-v">launched {fmtDate(launch?.launchedOn)}</span></>}
     </div>; return headSlot ? createPortal(bar, headSlot) : bar; })()}
 
@@ -106,12 +108,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
             {shut && <span className={`rtw-ph-sum${allDone ? ' done' : ''}`}>{allDone ? `✓ ${steps.length} done${lastOn ? ` · ${fmtDate(lastOn)}` : ''}` : `${steps.filter(x => x.on).length ? `${steps.filter(x => x.on).length} of ${steps.length} done` : `${steps.length} step${steps.length === 1 ? '' : 's'} ahead`}`}</span>}
           </button>
           {!shut && journey.map((x, i) => x.phase === ph.key && (() => { const done = !!x.on; const now = i === current;
-            if (!isMine(x.key)) return <div key={x.key} className={`rtw-step flat${done ? ' done' : now ? ' now' : ''}${x.tone ? ` ${x.tone}` : ''}`} title={x.who}>
-              <span className="cl-box" aria-hidden>{done ? '✓' : i + 1}</span>
-              <span className="rtw-step-main"><span className="rtw-step-label">{x.label}</span>
-                <span className="rtw-step-sub">{done ? `${fmtDate(x.on!)}${x.by ? ` · ${x.by}` : ''}` : now ? (x.now ?? 'now') : x.who}</span></span>
-            </div>;
-            return <button type="button" key={x.key} onClick={() => panel(x.key)} aria-current={at(x.key) ? 'step' : undefined} className={`rtw-step${done ? ' done' : now ? ' now' : ''}${x.tone ? ` ${x.tone}` : ''}`} title={x.who}>
+            return <button type="button" key={x.key} onClick={() => panel(x.key)} aria-current={at(x.key) ? 'step' : undefined} title={isMine(x.key) ? x.who : `${x.who} · view only for you`} className={`rtw-step${isMine(x.key) ? '' : ' other'}${done ? ' done' : now ? ' now' : ''}${x.tone ? ` ${x.tone}` : ''}`}>
               <span className="cl-box" aria-hidden>{done ? '✓' : i + 1}</span>
               <span className="rtw-step-main"><span className="rtw-step-label">{x.label}</span>
                 <span className="rtw-step-sub">{done ? `${fmtDate(x.on!)}${x.by ? ` · ${x.by}` : ''}` : now ? (x.now ?? 'now') : x.who}</span></span>
@@ -121,7 +118,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
 
       <div className="rtw-panel" id={`rtw-step-${o.id}`}>
         {(() => { const i = journey.findIndex(x => x.key === open); const x = journey[i]; if (!x) return null;
-          return <div className="rtw-panel-head"><div className="flex items-center justify-between gap-3 flex-wrap"><div className="flex items-baseline gap-2 flex-wrap"><h2 style={{ margin: 0, fontSize: 15 }}>{x.label}</h2><span className="cap" style={{ margin: 0 }}>Step {i + 1} of {journey.length} · {x.who}</span></div></div></div>; })()}
+          return <div className="rtw-panel-head"><div className="flex items-center justify-between gap-3 flex-wrap"><div className="flex items-baseline gap-2 flex-wrap"><h2 style={{ margin: 0, fontSize: 15 }}>{x.label}</h2><span className="cap" style={{ margin: 0 }}>Step {i + 1} of {journey.length} · {x.who}</span>{!isMine(x.key) && <span className="view-only-pill">View only · not your step</span>}</div></div></div>; })()}
         <div className={view === 'blocks' ? 'rtw-blocks' : undefined}>
     {at('raised') && <Section title="The ask" collapsible={false} right={<span className="pill role-design">Category</span>}>
       {editable ? <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>

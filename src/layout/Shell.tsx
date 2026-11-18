@@ -104,43 +104,47 @@ function Crumbs() {
   </div>;
 }
 
+/* the team each sidebar group belongs to; the portal you are in makes you that team (18 Nov 2026) */
+export const GROUP_ROLE: Record<string, string> = { Design:'design', Category:'design', Sourcing:'sourcing', Planning:'planning', Production:'production', 'Production · MTM':'production', 'Production · RTW':'production', Merchandiser:'merchandiser', QC:'qc', Warehouse:'warehouse', Store:'store', Finance:'finance', HOD:'hod', Owner:'owner', Company:'owner' };
+
 function ScreenOwner() {
-  const { myRole, demoAll } = useApp();
-  const loc = useLocation();
-  const entry = NAV.find(n => loc.pathname.startsWith(n.path));
-  if (demoAll || !entry || myRole === 'owner' || entry.roles.includes(myRole)) return null;   // a super admin needs no reminder of whose desk this is
-  const owners = entry.roles.filter(r => r !== 'owner');
-  return <div className="mb-3 text-[11.5px] flex items-center gap-2 flex-wrap" style={{ color:'var(--ink-faint)' }}>
-    <span className={`pill role-${owners[0]}`}>{owners.map(r => ROLE_LABEL[r]).join(' & ')}</span> work this screen.
-  </div>;
+  /* 18 Nov 2026: every screen is yours: you act as the team whose portal you are in, so no "whose screen" line */
+  return null;
 }
 
 export function Shell() {
-  const { db, role, myRole, demoAll, setDemoAll, settings, setQuiet, personId, setPerson, storeId, setStore, factoryId, setFactory, reset, views, saveView, deleteView } = useApp();
+  const { db, role, myRole, demoAll, setDemoAll, settings, personId, setPerson, storeId, setStore, factoryId, setFactory, reset, views, saveView, deleteView } = useApp();
   const loc = useLocation();
   useEffect(() => { window.scrollTo(0, 0); }, [loc.pathname]);
   /* design and planning work from the one Design requirements screen; the per-record lists stay reachable by link and drawer */
   /* Walkthrough mode is a super admin: every screen, whoever you are signed in
      as. Off, each team sees only the screens it works in. */
-  const items = (demoAll ? NAV : NAV.filter(n => n.roles.includes(role) && !(n.hideFor ?? []).includes(myRole))).filter(n => inEdition(n.path) && !(RTW_ONLY && RTW_HIDDEN_NAV_GROUPS.includes(n.group ?? '')) && !(RTW_ONLY && RTW_HIDDEN_PATHS.includes(n.path))).map(n => RTW_ONLY && n.path === '/sourcing' ? { ...n, label: 'Sourcing · vendors and sending', hint: 'vendor details on requirements; cloth and trims BSC sends' } : n).map(n => RTW_ONLY && n.group === 'Production · MTM' ? { ...n, group: 'Production · RTW' } : RTW_ONLY && n.group === 'Design' ? { ...n, group: 'Category' } : n);
+  /* 18 Nov 2026: every portal shows for everyone; outside walkthrough a team's screens are view-only to the others */
+  const items = NAV.filter(n => inEdition(n.path) && !(RTW_ONLY && RTW_HIDDEN_NAV_GROUPS.includes(n.group ?? '')) && !(RTW_ONLY && RTW_HIDDEN_PATHS.includes(n.path))).map(n => RTW_ONLY && n.path === '/sourcing' ? { ...n, label: 'Sourcing · vendors and sending', hint: 'vendor details on requirements; cloth and trims BSC sends' } : n).map(n => RTW_ONLY && n.group === 'Production · MTM' ? { ...n, group: 'Production · RTW' } : RTW_ONLY && n.group === 'Design' ? { ...n, group: 'Category' } : n);
   const allowedItems = NAV.filter(n => n.roles.includes(role));
   /* a path that is not a screen at all (the old /concepts, /requests, /requirements redirects) passes through to the router untouched — with its query intact */
-  const allowed = loc.pathname === '/' || !NAV.some(n => loc.pathname.startsWith(n.path)) || allowedItems.some(n => loc.pathname.startsWith(n.path));
+  const allowed = true; void allowedItems;
   const me = PEOPLE.find(p => p.id === personId)!;
   /* the sidebar's sections, in the order of the flow, with the one you are in marked */
   /* a record page sits under the screen that lists it: a fabric's page is part of the MTM fabric master */
   const navPath = loc.pathname.startsWith('/fabric/') ? '/fabrics' : loc.pathname;
   const here = items.find(n => navPath.startsWith(n.path))?.group;
-  const GROUP_ROLE: Record<string, string> = { Design:'design', Category:'design', Sourcing:'sourcing', Planning:'planning', Production:'production', 'Production · MTM':'production', 'Production · RTW':'production', Merchandiser:'merchandiser', QC:'qc', Warehouse:'warehouse', Store:'store', Finance:'finance', Owner:'owner', Company:'owner' };
+
   const groups = useMemo(() => {
     const out: { name: string; items: typeof items; hasActive: boolean }[] = [];
     items.forEach(n => { const name = n.group ?? '—'; const g = out.find(x => x.name === name) ?? (out.push({ name, items: [], hasActive: false }), out[out.length - 1]); g.items.push(n); });
-    return out.map(g => ({ ...g, hasActive: g.name === here }));
-  }, [items, here]);
+    const mine = (g: { items: typeof items }) => !demoAll && myRole !== 'owner' && g.items.some(n => n.roles.includes(myRole));
+    return out.map(g => ({ ...g, hasActive: g.name === here, mine: mine(g) }));
+  }, [items, here, demoAll, myRole]);
   /* a section you have not touched follows the screen you are on; once you open
      or close one by hand, that choice sticks for the session */
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const isOpen = (name: string) => open[name] ?? name === here;
+  /* the portal you are in makes you its team (18 Nov 2026) */
+  const { setPortalRole } = useApp();
+  const portalEntry = NAV.filter(n => n.path !== '/' && (loc.pathname.startsWith('/fabric/') ? '/fabrics' : loc.pathname).startsWith(n.path)).sort((a, b) => b.path.length - a.path.length)[0];
+  const portalRole = (portalEntry?.group ? GROUP_ROLE[portalEntry.group] : null) as RoleId | null;
+  useLayoutEffect(() => { setPortalRole(portalRole && portalRole !== 'owner' ? portalRole : null); }, [portalRole, setPortalRole]);
   const [navOpen, setNavOpen] = useState(false);
   useEffect(() => { setNavOpen(false); }, [loc.pathname, loc.search]);
   /* phone: on the floor roles' list screens every table row reads as a card; each cell is labelled with its column heading */
@@ -213,7 +217,7 @@ export function Shell() {
         {/* who you are is one quiet line; the switches under it are demo scaffolding
             and fold away until asked for */}
         <div className="mt-auto flex flex-col gap-2 px-1">
-          <div className="px-1 text-[12.5px] leading-snug" style={{ color:'var(--sidebar-ink)' }}>{me.name}<div className="text-[11px]" style={{ color:'var(--sidebar-soft)' }}>{me.title}{demoAll ? ' · walkthrough' : ''}</div></div>
+          <div className="px-1 text-[12.5px] leading-snug" style={{ color:'var(--sidebar-ink)' }}>{me.name}<div className="text-[11px]" style={{ color:'var(--sidebar-soft)' }}>{me.title}{demoAll ? ' · walkthrough' : ''}</div>{!demoAll && portalRole && portalRole !== 'owner' && portalRole !== me.role && <div className="acting-as">Working here as <b>{ROLE_LABEL[portalRole] ?? portalRole}</b></div>}</div>
           <details className="demo-fold flex flex-col gap-2 px-1">
           <summary>Demo settings</summary>
           <div className="flex flex-col gap-2 pt-1">
@@ -235,11 +239,7 @@ export function Shell() {
               one still labelled with whose step it is. */}
           <label className="flex items-start gap-2 text-[12.5px] leading-snug cursor-pointer pt-1" style={{ color:'var(--sidebar-soft)' }}>
             <input type="checkbox" checked={demoAll} onChange={e => setDemoAll(e.target.checked)} className="mt-[2px]" />
-            <span><b style={{ color:'var(--sidebar-ink)' }}>Walkthrough mode</b><br/>{demoAll ? 'Super admin: every screen and every button, whoever you are signed in as.' : 'You only see and click what ' + me.name.split(' ')[0] + ' does.'}</span>
-          </label>
-          <label className="flex items-start gap-2 text-[12.5px] leading-snug cursor-pointer pt-1" style={{ color:'var(--sidebar-soft)' }}>
-            <input type="checkbox" checked={!!settings.quiet} onChange={e => setQuiet(e.target.checked)} className="mt-[2px]" />
-            <span><b style={{ color:'var(--sidebar-ink)' }}>Quiet mode</b><br/>{settings.quiet ? 'Guidance off: no explainers, no example strips, full lists.' : 'Hide the explainers and example strips — the tool as the team will use it.'}</span>
+            <span><b style={{ color:'var(--sidebar-ink)' }}>Walkthrough mode</b><br/>{demoAll ? 'Super admin: every screen and every button, whoever you are signed in as.' : `Every screen opens; ${me.name.split(' ')[0]} changes only what ${me.name.split(' ')[0]}'s team does. The rest is view only.`}</span>
           </label>
           <Button size="sm" variant="ghost" onClick={reset} style={{ color:'var(--sidebar-soft)', justifyContent:'flex-start', padding:'4px 2px', fontSize: 12.5 }}>Reset demo data</Button>
           <div className="text-[11px] pt-2 leading-relaxed" style={{ color:'var(--sidebar-soft)', borderTop:'1px solid rgb(255 255 255/.08)' }}>Prototype · illustrative data<br/>Clock fixed at 12 Sep 2026</div>
@@ -249,7 +249,7 @@ export function Shell() {
       </aside>
 
       {/* a screen this role does not work in is not reachable, even by URL — it lands on the role's own first screen */}
-      <main className="app-main px-7 py-4 max-w-[1280px] w-full"><MentionBar /><div className="app-crumbs" style={{ minHeight: 34, paddingRight: 190, display: 'flex', alignItems: 'center' }}><Crumbs /></div><ScreenOwner /> {allowed ? <Outlet /> : <Navigate to={homeFor(role)} replace />}</main>
+      <main className="app-main px-7 py-4 max-w-[1280px] w-full"><MentionBar /><div className="app-crumbs" style={{ minHeight: 34, paddingRight: 190, display: 'flex', alignItems: 'center' }}><Crumbs />{!demoAll && portalRole && portalRole !== 'owner' && <span className={`acting-chip pill role-${portalRole === 'hod' ? 'owner' : portalRole}`}>You are {ROLE_LABEL[portalRole] ?? portalRole} here</span>}</div><ScreenOwner /> {allowed ? <Outlet /> : <Navigate to={homeFor(role)} replace />}</main>
       <VendorDrawer />
       <CommandSearch />
       <Toasts />

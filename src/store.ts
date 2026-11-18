@@ -35,6 +35,10 @@ export interface AppState {
      whose step it is — it just no longer stops you. */
   demoAll: boolean;
   setDemoAll(v: boolean): void;
+  /* 18 Nov 2026: the portal you are in decides who you act as: in Sourcing you are sourcing, in Category you are design.
+     The signed-in name is only shown. null = no portal (use the signed-in role). */
+  portalRole: RoleId | null;
+  setPortalRole(r: RoleId | null): void;
   personId: string;
   storeId: string;
   toasts: Toast[];
@@ -363,7 +367,10 @@ const SEED_VERSION = 173;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 export const useAppStore = create<AppState>()(persist((set, get) => {
-  const who = () => PEOPLE.find(p => p.id === get().personId)?.name ?? 'System';
+  /* who did it: the acting team's person (the portal you are in), else the signed-in person */
+  const who = () => { const st = get(); const pr = !st.demoAll ? st.portalRole : null; const me = PEOPLE.find(p => p.id === st.personId);
+    if (pr && me?.role !== pr) { const p = PEOPLE.find(x => x.role === pr && (pr !== 'warehouse' || x.id === 'prince')); if (p) return p.name; }
+    return me?.name ?? 'System'; };
   /* the desk log: one line per action with its time, never edited; the data behind how long each desk takes */
   const logPrep = (o: CustomerOrder, step: PrepStep, action: PrepEvent['action'], note: string | null = null) => {
     o.prepLog = [...(o.prepLog ?? []), { step, action, by: who(), at: now(), note }]; };
@@ -439,8 +446,8 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         'Revised PO approved and mailed to the factory.');
     };
   return {
-    db: SEED, role: 'design', personId: 'kunal', storeId: 'plh', factoryId: 'mahendra', toasts: [], undoStack: [], views: [], settings: { ppFreezeHours: 2, quiet: true }, demoAll: true,
-    setDemoAll: v => { set({ demoAll: v }); get().toast(v ? 'Walkthrough mode on — every team\u2019s screens and buttons are open to you. Each one still says whose step it is.' : 'Walkthrough mode off — you only see and click what your own role does.'); },
+    db: SEED, role: 'design', personId: 'kunal', storeId: 'plh', factoryId: 'mahendra', toasts: [], undoStack: [], views: [], settings: { ppFreezeHours: 2, quiet: true }, demoAll: true, portalRole: null, setPortalRole: r => { if (get().portalRole !== r) set({ portalRole: r }); },
+    setDemoAll: v => { set({ demoAll: v }); get().toast(v ? 'Walkthrough mode on — every team\u2019s screens and buttons are open to you. Each one still says whose step it is.' : 'Walkthrough mode off — every screen still opens, but you only change what your team does; the rest is view only.'); },
     setQuiet: on => { set(s => ({ settings: { ...s.settings, quiet: on } })); },
     setFreezeHours: h => { set(s => ({ settings: { ...s.settings, ppFreezeHours: Math.max(0, Math.min(24, h)) } })); get().toast(`Freeze window set to ${Math.max(0, Math.min(24, h))} h — orders punched since then are held back from the plan.`); },
     setRole: r => set({ role: r, personId: PEOPLE.find(p => p.role === r)!.id }),
@@ -2132,7 +2139,9 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
    from. Turn walkthrough mode off and the two are the same again. */
 export function useApp(): AppState & { myRole: RoleId } {
   const s = useAppStore();
-  return { ...s, myRole: s.role, role: s.demoAll ? 'owner' : s.role };
+  /* 18 Nov 2026: quiet mode is no longer a switch; guidance stays off */
+  const acting = s.demoAll ? 'owner' : (s.portalRole ?? s.role);
+  return { ...s, myRole: s.demoAll ? s.role : acting, role: acting, settings: s.settings.quiet ? s.settings : { ...s.settings, quiet: true } };
 }
 
 export type { RtwOption };
