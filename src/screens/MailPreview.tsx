@@ -80,10 +80,10 @@ export function MailPreviewModal({ mail: mail0, sentOn, onClose, onSave }: { mai
 }
 
 /** a small link that opens the mail in the sample inbox view */
-export function MailPreviewButton({ mail, sentOn, label, onSave }: { mail: Mail; sentOn: string | null; label?: string; onSave?: (m: Mail) => void }) {
+export function MailPreviewButton({ mail, sentOn, label, onSave, button }: { mail: Mail; sentOn: string | null; label?: string; onSave?: (m: Mail) => void; button?: boolean }) {
   const [open, setOpen] = useState(false);
   return <>
-    <button type="button" className="vlink text-[11.5px]" onClick={() => setOpen(true)}>{label ?? (sentOn ? 'see it in the inbox ✉' : onSave ? 'preview and edit in the inbox ✉' : 'preview in the inbox ✉')}</button>
+    <button type="button" className={button ? 'btn sm' : 'vlink text-[11.5px]'} onClick={() => setOpen(true)}>{label ?? (sentOn ? 'see it in the inbox ✉' : onSave ? 'preview and edit in the inbox ✉' : 'preview in the inbox ✉')}</button>
     {open && <MailPreviewModal mail={mail} sentOn={sentOn} onSave={onSave} onClose={() => setOpen(false)} />}
   </>;
 }

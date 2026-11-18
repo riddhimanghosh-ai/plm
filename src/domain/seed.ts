@@ -1588,6 +1588,14 @@ orders.forEach((o, i) => {
   if ((k - 2) % 4 === 3) o.poApproval.decisions = [{ role: 'hod', by: 'HOD', on: iso(addDays(TODAY, -1)), approved: true, comment: null }, { role: 'finance', by: 'Finance', on: iso(addDays(TODAY, -1)), approved: false, comment: 'payment terms: no advance for a first order' }];
   if ((k - 2) % 4 === 0 && k > 2) o.poApproval.decisions = [{ role: 'hod', by: 'HOD', on: iso(addDays(TODAY, -1)), approved: true, comment: null }];
 }); }
+/* 18 Nov 2026: one PO already with the factory is back for approval as a revision: the factory asked for a higher rate,
+   two sizes moved, logistics went up and the payment terms changed, so HOD and finance see what changed against the PO in force */
+{ const o = orders.find(x => x.poNo && x.poDoc && !x.invoice && x.poMail?.sentOn && x.status !== 'Closed');
+  if (o?.poDoc) { const d: typeof o.poDoc = JSON.parse(JSON.stringify(o.poDoc)); const l = d.lines[0];
+    l.rate += 24; const big = [...l.sizes].sort((a, b) => b.qty - a.qty); if (big[0]) big[0].qty += 10; if (big[1] && big[1].qty > 6) big[1].qty -= 4;
+    const lg = d.charges.find(c => c.label === 'Logistics'); if (lg) lg.amount += 1500; else d.charges.push({ label: 'Logistics', amount: 6000 });
+    d.charges.push({ label: 'Washing', amount: 3500 }); d.paymentTerms = '30 days from receipt at the warehouse'; d.revision = (d.revision ?? 1) + 1;
+    o.poApproval = { doc: d, kind: 'revision', vendorId: o.vendorId!, fabricBy: o.poMail?.fabricBy ?? 'bsc', needs: ['hod', 'finance'], deadline: iso(addDays(TODAY, 2)), askedOn: iso(addDays(TODAY, -1)), by: 'Nitin Singh', note: 'factory asked for a higher rate after the wash was added; two sizes moved', decisions: [] }; } }
 /* 17 Nov 2026: every trim and packaging line carries a cost, so the BOM adds up */
 { const RATE: Record<string, number> = { Button: 1.2, Pocketing: 38, 'Wash-care label': 0.8, 'Compostable inner Bag': 3.5, 'Courier Bag': 6, 'Packaging Box': 42, 'Paper Bag': 14, Flasher: 2.5, 'Outer Hanger Bag': 4, 'Outer Hanger': 9, 'Additional Consumable': 3 };
   orders.forEach(o => o.bom.forEach(l => { if (l.kind !== 'fabric') l.rate = RATE[l.item] ?? (l.unit === 'pc' ? 3 : 30); })); }

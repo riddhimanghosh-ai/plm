@@ -863,3 +863,12 @@ table.t.sum-t { flex: 1; }
 .po-diff-area { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
 .po-diff-was s { color: var(--ink-faint); } .po-diff-row.removed .po-diff-what { text-decoration: line-through; color: var(--ink-soft); }
 @media (max-width: 700px) { .po-diff-row { grid-template-columns: 1fr; } }
+
+/* the mail card as a small table (18 Nov 2026) */
+.mail-card.v2 { border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 10px; padding: 0; overflow: hidden; background: var(--surface); }
+.mail-card.v2.sent { border-left-color: var(--good); }
+.mail-card.v2 .mail-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 12px; background: var(--surface-2); border-bottom: 1px solid var(--line-soft, var(--line)); font-size: 13px; }
+.mail-t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.mail-t th { width: 84px; text-align: left; vertical-align: top; padding: 6px 12px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500; }
+.mail-t td { padding: 6px 12px 6px 0; } .mail-t tr + tr > * { border-top: 1px solid var(--line-soft, var(--line)); }
+.mail-chip { display: inline-block; background: var(--surface-2); border: 1px solid var(--line-soft, var(--line)); border-radius: 999px; padding: 1px 9px; margin: 0 4px 2px 0; font-size: 12px; }

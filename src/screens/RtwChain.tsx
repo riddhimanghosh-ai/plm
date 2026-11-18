@@ -26,31 +26,21 @@ const soft = { color: 'var(--ink-soft)' } as const;
 /* a mail PLM composed: who it goes to, what it says, what rides with it. Before it is sent the sender can edit every
    line and sends it from here; once sent it is read-only with the time it went. */
 export function MailCard({ mail, sentOn, label, onSend, sendLabel }: { mail: Mail; sentOn: string | null; label: string; onSend?: (m: Mail) => void; sendLabel?: string }) {
-  const [open, setOpen] = useState(!!onSend && !sentOn);
-  const [editing, setEditing] = useState(false);
   const [d, setD] = useState<Mail>(mail);
   const [seed, setSeed] = useState(mail.subject + mail.body + mail.to.join());
-  const key = mail.subject + mail.body + mail.to.join(); if (!editing && key !== seed) { setSeed(key); setD(mail); }
-  const list = (v: string) => v.split(/[,;]\s*/).map(x => x.trim()).filter(Boolean);
-  const cur = editing ? d : (sentOn ? mail : d);
-  return <div className="mail-card">
-    <div className="flex items-center gap-2 flex-wrap"><span className="mail-ic" aria-hidden>✉</span><b>{label}</b><Pill tone={sentOn ? 'good' : 'neutral'}>{sentOn ? `mailed ${fmtDate(sentOn)}` : 'not sent yet'}</Pill>
-      {!sentOn && onSend && !editing && <button type="button" className="vlink text-[11.5px]" onClick={() => { setEditing(true); setOpen(true); }}>edit the mail</button>}
-      <span className="ml-auto flex items-center gap-3"><MailPreviewButton mail={{ ...cur, attachments: mail.attachments }} sentOn={sentOn} onSave={!sentOn && onSend ? m => setD({ to: m.to, cc: m.cc, subject: m.subject, body: m.body, attachments: mail.attachments }) : undefined} /><button type="button" className="vlink text-[11.5px]" onClick={() => setOpen(v => !v)}>{open ? 'hide' : 'show the mail'}</button></span></div>
-    {editing ? <div className="grid gap-1.5 pt-2">
-      <Field label="To"><Input value={d.to.join(', ')} onChange={e => setD(x => ({ ...x, to: list(e.target.value) }))} /></Field>
-      <Field label="Cc"><Input value={d.cc.join(', ')} onChange={e => setD(x => ({ ...x, cc: list(e.target.value) }))} /></Field>
-      <Field label="Subject"><Input value={d.subject} onChange={e => setD(x => ({ ...x, subject: e.target.value }))} /></Field>
-      <Field label="Body"><textarea className="input" rows={6} value={d.body} onChange={e => setD(x => ({ ...x, body: e.target.value }))} style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4 }} /></Field>
-      <div className="text-[11.5px]" style={faint}>Attached: {mail.attachments.join(' · ')} (from the record; not editable here)</div>
-      <div className="flex gap-2"><Button size="sm" onClick={() => setEditing(false)}>Done editing</Button><Button size="sm" variant="ghost" onClick={() => { setD(mail); setEditing(false); }}>Back to PLM's text</Button></div>
-    </div> : <>
-      <div className="text-[11.5px] pt-1" style={soft}><b>To</b> {cur.to.join(', ')}{cur.cc.length ? <> · <b>cc</b> {cur.cc.join(', ')}</> : null}</div>
-      <div className="text-[12px] pt-0.5"><b>{cur.subject}</b></div>
-      {open && <><div className="text-[12px] pt-1" style={{ whiteSpace: 'pre-wrap', ...soft }}>{cur.body}</div>
-        <div className="text-[11.5px] pt-1" style={faint}>Attached: {mail.attachments.join(' · ')}</div></>}
-    </>}
-    {!sentOn && onSend && !editing && <div className="pt-2 flex items-center gap-2 flex-wrap"><Button variant="primary" disabled={!cur.to.length} onClick={() => onSend({ ...cur, attachments: mail.attachments })}>{sendLabel ?? 'Send ✉'}</Button>{(cur.subject !== mail.subject || cur.body !== mail.body || cur.to.join() !== mail.to.join() || cur.cc.join() !== mail.cc.join()) && <span className="text-[11.5px]" style={faint}>edited · PLM keeps what was sent</span>}</div>}
+  const key = mail.subject + mail.body + mail.to.join(); if (key !== seed) { setSeed(key); setD(mail); }
+  const cur = sentOn ? mail : d; const canEdit = !sentOn && !!onSend;
+  const edited = canEdit && (cur.subject !== mail.subject || cur.body !== mail.body || cur.to.join() !== mail.to.join() || cur.cc.join() !== mail.cc.join());
+  return <div className={`mail-card v2${sentOn ? ' sent' : ''}`}>
+    <div className="mail-h"><span className="mail-ic" aria-hidden>✉</span><b>{label}</b><Pill tone={sentOn ? 'good' : 'warn'}>{sentOn ? `sent ${fmtDate(sentOn)}` : 'not sent yet'}</Pill>{edited && <span className="text-[11.5px]" style={faint}>edited · PLM keeps what was sent</span>}
+      <span className="ml-auto flex items-center gap-2"><MailPreviewButton button mail={{ ...cur, attachments: mail.attachments }} sentOn={sentOn} label={canEdit ? 'Open and edit the mail' : 'Open the mail'} onSave={canEdit ? m => setD({ to: m.to, cc: m.cc, subject: m.subject, body: m.body, attachments: mail.attachments }) : undefined} />
+        {canEdit && <Button size="sm" variant="primary" disabled={!cur.to.length} onClick={() => onSend!({ ...cur, attachments: mail.attachments })}>{sendLabel ?? 'Send ✉'}</Button>}</span></div>
+    <table className="mail-t"><tbody>
+      <tr><th>To</th><td>{cur.to.length ? cur.to.map(x => <span key={x} className="mail-chip">{x}</span>) : <span style={{ color: 'var(--warn)' }}>no one yet</span>}</td></tr>
+      {cur.cc.length > 0 && <tr><th>Cc</th><td>{cur.cc.map(x => <span key={x} className="mail-chip">{x}</span>)}</td></tr>}
+      <tr><th>Subject</th><td><b>{cur.subject}</b></td></tr>
+      <tr><th>Attached</th><td style={soft}>{mail.attachments.length ? `${mail.attachments.length} file${mail.attachments.length === 1 ? '' : 's'} · ${mail.attachments.map(a => a.replace(/ · .*$/, '')).join(', ')}` : 'nothing'}</td></tr>
+    </tbody></table>
   </div>;
 }
 
