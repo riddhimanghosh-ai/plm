@@ -2,7 +2,7 @@
    is the five-part requirement complete; which factories to recommend for a cost query; where the
    goods are delivered; which QC point is open on a PO; and the mails PLM composes (the cost query,
    the PO, the invoice to the warehouse). */
-import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc, FabricBy } from './types';
+import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc, FabricBy, BomLine } from './types';
 import { TECH_PACK_ITEMS, QC_POINTS, DELIVERY_LOCATIONS, PEOPLE } from './reference';
 import { fmtDate, daysAgo, addDays, iso, daysBetween, costingOf, receiptOf, netOf, TODAY } from './engines';
 
@@ -210,6 +210,19 @@ export function bomCostOf(db: Db, o: ProductionOrder) {
   const total = rows.reduce((a, r) => a + (r.cost ?? 0), 0);
   const sum = (b: string) => rows.filter(r => r.by === b).reduce((a, r) => a + (r.cost ?? 0), 0);
   return { pcs, rows, total, perPc: pcs ? total / pcs : 0, bsc: sum('bsc'), nominated: sum('nominated'), factory: sum('factory'), unpriced: rows.filter(r => r.rate == null).length };
+}
+/* 18 Nov 2026: start a BOM from another style, any category. Trims and packaging come with who supplies them, the vendor
+   and the rate; the cloth line comes with its consumption only, since the new style's cloth is its own. */
+export function bomCopyOf(db: Db, src: ProductionOrder): BomLine[] {
+  const bc = bomCostOf(db, src);
+  return src.bom.map((l, i) => { const r = bc.rows[i];
+    if (l.kind === 'fabric') return { kind: 'fabric', item: l.item, spec: null, qtyPerPc: l.qtyPerPc, unit: l.unit };
+    return { kind: l.kind, item: l.item, spec: l.spec, qtyPerPc: l.qtyPerPc, unit: l.unit, suppliedBy: r?.by ?? l.suppliedBy, vendor: r?.vendor ?? l.vendor ?? null, rate: r?.rate ?? l.rate ?? null, gstPct: l.gstPct ?? null, vendorState: l.vendorState ?? null }; });
+}
+/* the styles to copy from: the same category first, newest first, then every other category */
+export function bomSourcesOf(db: Db, category: string, excludeId?: string | null) {
+  const all = db.orders.filter(x => x.id !== excludeId && x.bom.length > 1).sort((a, b) => (b.poDate ?? b.styleHandover ?? '').localeCompare(a.poDate ?? a.styleHandover ?? ''));
+  return { same: all.filter(x => x.category === category), other: all.filter(x => x.category !== category) };
 }
 /* the PO's money: what the PO is worth, less what BSC invoiced the factory (material it sent, debit notes), what is paid and what is left */
 export function poLedgerOf(o: ProductionOrder) {

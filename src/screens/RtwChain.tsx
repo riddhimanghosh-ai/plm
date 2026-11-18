@@ -122,7 +122,6 @@ export function PackSection({ o, design, sourcing, only }: { o: ProductionOrder;
     {tab === 'bom' && <>
       {!only && <BomSection o={o} editable={canDesign} open summary />}
       <div className={only ? '' : 'pt-3 mt-3'} style={only ? undefined : { borderTop: '1px solid var(--line-soft)' }}>
-        <div className="cap flex items-center gap-2 pb-1">Vendors on each BOM line <span className="pill role-sourcing">Sourcing adds</span><span className="pill role-design">Category picks</span></div>
         <BomVendors o={o} canDesign={canDesign} canSourcing={canSourcing} />
       </div>
     </>}

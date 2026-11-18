@@ -24,6 +24,7 @@ import { FILE_LABELS } from '../domain/reference';
 import { BomSection } from './Costing';
 import { BomEditor } from './BomEditor';
 import { defaultBom } from '../domain/engines';
+import { CopyBomPicker } from './BomVendors';
 import type { BomLine } from '../domain/types';
 import { ORDER_STEPS } from '../domain/reference';
 import { ActsBy, OwnerPill } from './Who';
@@ -276,8 +277,9 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const curve = typed ? Object.entries(typed).filter(([, n]) => n > 0).map(([size, q]) => ({ size, qty: q })) : spread;
   const pcs = typed ? curve.reduce((a, x) => a + x.qty, 0) : Number(qty) || 0;
 
-  const [view, setView] = useState<'stacked' | 'blocks' | 'tabs'>(() => { try { const v = localStorage.getItem('rtw-new-view'); return v === 'stacked' || v === 'blocks' ? v : 'tabs'; } catch { return 'tabs'; } });
-  const pickView = (v: 'stacked' | 'blocks' | 'tabs') => { setView(v); try { localStorage.setItem('rtw-new-view', v); } catch { /* storage off */ } };
+  /* 18 Nov 2026: one part at a time, picked from the toggles; the stacked and blocks layouts are gone */
+  const view = 'tabs' as 'stacked' | 'blocks' | 'tabs';
+  const [bomFrom, setBomFrom] = useState<string | null>(null);
   const tpDone = TECH_PACK_ITEMS.filter(it => (tp[it.key] ?? '').trim() || tpFiles[it.key]).length;
   const PARTS = [
     { k:'ask', label:'Style and production ask', ok: !!style.trim() && !!Number(qty) },
@@ -314,9 +316,8 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   };
 
   return <>
-    <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+    <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
       {view === 'tabs' ? <div className="form-tabs" role="tablist">{PARTS.map((p, i) => <button type="button" key={p.k} role="tab" aria-selected={tab === p.k} className={tab === p.k ? 'on' : p.ok ? 'done' : ''} onClick={() => setTab(p.k)}><span className="n">{p.ok && tab !== p.k ? '✓' : i + 1}</span>{p.label}{'n' in p && p.n ? <span className="text-[11px]" style={{ opacity:.7 }}>{p.n}</span> : null}</button>)}</div> : <span />}
-      <div className="seg rtw-view" role="group" aria-label="Layout"><button type="button" className={view === 'tabs' ? 'on' : ''} onClick={() => pickView('tabs')}>Tabs</button><button type="button" className={view === 'stacked' ? 'on' : ''} onClick={() => pickView('stacked')}>Stacked</button><button type="button" className={view === 'blocks' ? 'on' : ''} onClick={() => pickView('blocks')}>Blocks</button></div>
     </div>
     <div className={`rtw-form${view === 'blocks' ? ' rtw-blocks' : ''}`}>
     {show('ask') && <Section title="Style and production ask" collapsible={false}>
@@ -386,6 +387,8 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
       </div>
     </Section>}
     {show('bom') && <Section title="BOM / consumption" collapsible={false}>
+      <CopyBomPicker category={category} onPick={(lines, from) => { setBom(lines); setBomFrom(from); }} />
+      {bomFrom && <div className="text-[12px] pb-2" style={{ color: 'var(--good)' }}>Copied from {bomFrom}. Change any line below; sourcing confirms the vendors.</div>}
       <BomEditor lines={bom} onChange={setBom} orderQty={pcs} />
     </Section>}
     {show('delivery') && <Section title="Delivery instruction" collapsible={false}>

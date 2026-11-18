@@ -3,12 +3,12 @@
    put several options on a line; category picks one. The picked option is the line's supplied-by, vendor and rate. */
 import { useState } from 'react';
 import { useApp, useAppStore } from '../store';
-import type { ProductionOrder, SuppliedBy } from '../domain/types';
+import type { ProductionOrder, SuppliedBy, BomLine } from '../domain/types';
 import { fmtMoney } from '../domain/engines';
 import { Button, Input, Select, Pill } from '../ui';
 import { BOM_MULTI_OPTIONS } from '../domain/edition';
 import { STATES, GST_RATES, BSC_STATE, defaultGstOf, gstSplit, stateOfPlace } from '../domain/invoicePdf';
-import { bomCostOf, bomOpenOf } from '../domain/rtwPack';
+import { bomCostOf, bomOpenOf, bomCopyOf, bomSourcesOf } from '../domain/rtwPack';
 
 const BY: Record<SuppliedBy, string> = { bsc: 'We source · BSC sends', nominated: 'Nominated vendor', factory: 'By the factory' };
 const KIND = { fabric: 'Fabric', trim: 'Trims', packaging: 'Packaging' } as const;
@@ -18,6 +18,8 @@ const SAMPLE_VENDORS = { fabric: ['Soktas', 'Arvind Mills'], trim: ['Trimco Acce
 export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; canDesign: boolean; canSourcing: boolean }) {
   const { db, addBomOptions, removeBomOption, pickBomOptions } = useApp(); const store = useAppStore;
   const [addFor, setAddFor] = useState<number | null>(null);
+  /* each group folds; fabric starts open, a group with a line still open starts open, a finished group starts closed */
+  const [fold, setFold] = useState<Record<string, boolean>>({});
   const [f, setF] = useState<{ by: SuppliedBy; vendor: string; rate: string; gst: string; state: string; code: string; note: string }>({ by: 'bsc', vendor: '', rate: '', gst: '5', state: BSC_STATE, code: '', note: '' });
   const pcs = o.orderQty; const qtyOf = (i: number) => { const l = o.bom[i]; return l.qtyPerPc != null ? Math.round(l.qtyPerPc * pcs * 100) / 100 : null; };
   /* a line is settled when an option is picked, a supplier is set on it, or (older records) the requirement went out with the supplier the BOM derives */
@@ -50,14 +52,17 @@ export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; 
   if (!o.bom.length) return <div className="text-[12.5px] py-2" style={{ color: 'var(--warn)' }}>Category adds the BOM first (part 5). Sourcing then fills the vendor against each line.</div>;
   return <div>
     <div className="flex items-center gap-2 flex-wrap pb-2">
+      <span className="cap" style={{ margin: 0 }}>Vendors on each BOM line</span><span className="pill role-sourcing">Sourcing adds</span>{BOM_MULTI_OPTIONS && <span className="pill role-design">Category picks</span>}
       <Pill tone={noOpts ? 'warn' : 'good'}>{noOpts ? `${noOpts} line${noOpts === 1 ? '' : 's'} waiting on sourcing` : 'sourcing has filled every line'}</Pill>
       <Pill tone={unpicked.length ? 'warn' : 'good'}>{unpicked.length ? `${unpicked.length} line${unpicked.length === 1 ? '' : 's'} for category to pick` : 'nothing to pick'}</Pill>
       <span className="ml-auto flex gap-2">{(canSourcing || canDesign) && openLines.length > 0 && <Button size="sm" variant="ghost" onClick={sampleFill}>Sample fill{canDesign ? ' · vendors and picks' : ' · vendor options'}</Button>}{canDesign && unpicked.length > 0 && <Button size="sm" onClick={cheapest}>Pick the lowest rate on every line</Button>}</span>
     </div>
-    {openLines.length > 0 && <div className="text-[12px] pb-2" style={{ color: 'var(--warn)' }}>Until every line has its vendor, the requirement cannot go to Production RTW and no invoice is generated.</div>}
+    {openLines.length > 0 && <div className="text-[12px] pb-1.5" style={{ color: 'var(--warn)' }}>Until every line has its vendor, the requirement cannot go to Production RTW and no invoice is generated.</div>}
     <div style={{ overflowX: 'auto' }}><table className="t compact bom-t bomv"><thead><tr><th>BOM line</th><th className="num">Per pc</th><th className="num">For {pcs} pcs</th><th>Supplied by</th><th>Vendor</th><th className="num">Rate ₹</th><th className="num">Cost ₹</th><th>GST · vendor state</th><th>Code · note</th><th></th></tr></thead>
       <tbody>{(['fabric', 'trim', 'packaging'] as const).flatMap(k => { const rows = o.bom.map((l, i) => ({ l, i })).filter(x => x.l.kind === k); if (!rows.length) return [];
-        return [<tr key={k} className="grp"><td colSpan={10}>{KIND[k]}</td></tr>, ...rows.flatMap(({ l, i }) => { const opts = l.options ?? []; const q = qtyOf(i); const legacy = legacyOf(i); const r = bc.rows[i];
+        const pend = rows.filter(x => !legacyOf(x.i) && !x.l.chosen && !x.l.suppliedBy).length; const sub = rows.reduce((a, x) => { const r0 = rateOf(x.i); const q0 = qtyOf(x.i); return a + (r0 != null && q0 != null ? r0 * q0 : 0); }, 0);
+        const shut = fold[k] ?? (k !== 'fabric' && pend === 0 && addFor == null);
+        return [<tr key={k} className="grp bomv-grp" onClick={() => setFold(x => ({ ...x, [k]: !shut }))}><td colSpan={10}><span className="flex items-center gap-2"><span className="bomv-car">{shut ? '▸' : '▾'}</span><b>{KIND[k]}</b><span style={faint}>{rows.length} line{rows.length === 1 ? '' : 's'}{sub ? ` · ${fmtMoney(Math.round(sub))}` : ''}</span>{pend > 0 ? <Pill tone="warn">{pend} without a vendor</Pill> : <span style={{ color: 'var(--good)' }}>✓ every line has a vendor</span>}</span></td></tr>, ...(shut ? [] : rows).flatMap(({ l, i }) => { const opts = l.options ?? []; const q = qtyOf(i); const legacy = legacyOf(i); const r = bc.rows[i];
           const head = (span: number) => <td rowSpan={span} style={{ whiteSpace: 'normal', verticalAlign: 'top' }}><div className="font-medium">{l.item || '—'}</div>{l.spec && <div className="text-[11.5px]" style={faint}>{l.spec}</div>}</td>;
           const qty = (span: number) => <><td rowSpan={span} className="num" style={{ verticalAlign: 'top' }}>{l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit}` : '—'}</td><td rowSpan={span} className="num" style={{ verticalAlign: 'top' }}>{q != null ? `${q.toLocaleString('en-IN')} ${l.unit}` : '—'}</td></>;
           const adding = addFor === i; const showNone = !opts.length && !legacy && !canSourcing;
@@ -92,5 +97,21 @@ export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; 
     </table></div>
     <datalist id="bomv-vendors">{[...new Set([...vendors, 'Movium'])].map(v => <option key={v} value={v} />)}</datalist>
     {!canDesign && !canSourcing && <div className="text-[11.5px] pt-1.5" style={faint}>Sourcing fills the options; category picks one per line.</div>}
+  </div>;
+}
+
+/* pick any style and start this BOM from its lines; the same category is listed first */
+export function CopyBomPicker({ category, excludeId, onPick, note }: { category: string; excludeId?: string | null; onPick: (lines: BomLine[], from: string) => void; note?: string }) {
+  const { db } = useApp(); const [id, setId] = useState('');
+  const { same, other } = bomSourcesOf(db, category, excludeId);
+  const label = (x: ProductionOrder) => `${x.styleName} · ${x.bom.length} lines${x.poNo ? ` · ${x.poNo}` : ''}`;
+  const groups = [...(same.length ? [{ label: `Same category · ${category}`, options: same.map(x => ({ value: x.id, label: label(x) })) }] : []),
+    ...[...new Set(other.map(x => x.category))].map(c => ({ label: c, options: other.filter(x => x.category === c).map(x => ({ value: x.id, label: label(x) })) }))];
+  const src = db.orders.find(x => x.id === id) ?? null;
+  return <div className="bom-copy">
+    <span className="text-[12.5px] font-medium">Start from another style</span>
+    <Select value={id} onChange={setId} groups={[{ label: 'Pick a style', options: [{ value: '', label: 'pick a style, any category' }] }, ...groups]} style={{ minWidth: 260, maxWidth: 380 }} />
+    <Button size="sm" disabled={!src} onClick={() => { if (src) { onPick(bomCopyOf(db, src), src.styleName); setId(''); } }}>Copy its BOM</Button>
+    <span className="text-[11.5px]" style={faint}>{note ?? 'trims and packaging come with their vendor and rate; the cloth line with its consumption only'}</span>
   </div>;
 }

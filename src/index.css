@@ -721,3 +721,11 @@ tr.ratio-row > td:first-child { box-shadow: inset 3px 0 0 var(--risk); }
 .bom-sum span { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 .bom-sum b { font-size: 15px; font-variant-numeric: tabular-nums; }
 .bom-sum i { font-style: normal; font-size: 11.5px; color: var(--ink-faint); }
+
+/* BOM groups fold (18 Nov 2026) */
+table.t.bomv tr.bomv-grp td { cursor: pointer; text-transform: none; letter-spacing: 0; font-size: 12.5px; color: var(--ink); padding: 6px 8px !important; }
+table.t.bomv tr.bomv-grp:hover td { background: var(--surface-3, var(--surface-2)); }
+.bomv-car { width: 12px; color: var(--ink-faint); }
+
+/* start a BOM from another style (18 Nov 2026) */
+.bom-copy { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; margin-bottom: 8px; border: 1px dashed var(--line); border-radius: 8px; background: var(--surface-2); }

@@ -10,6 +10,7 @@ import { Section, Pill, Button, Input, KV, Note } from '../ui';
 import { bomCostOf } from '../domain/rtwPack';
 import { SupplyInvoiceBar } from './InvoicePreview';
 import { BomEditor } from './BomEditor';
+import { CopyBomPicker } from './BomVendors';
 import { ActsBy, OwnerPill } from './Who';
 
 const KIND_LABEL: Record<BomLine['kind'], string> = { fabric:'Fabric', trim:'Trim card', packaging:'Packaging' };
@@ -25,6 +26,7 @@ export function BomSection({ o, editable, open, summary }: { o: ProductionOrder;
   const groups = (['fabric', 'trim', 'packaging'] as const).map(k => ({ k, rows: (editing ? lines : o.bom).map((l, i) => ({ l, i })).filter(x => x.l.kind === k) }));
   return (
     <Section title={summary ? `BOM · ${o.bom.length} lines · the lines and their vendors are below` : `BOM · ${o.bom.length} lines`} defaultOpen={open} right={<div className="flex gap-2 items-center"><OwnerPill editable={editable} owner="Design" />{!editable && <ActsBy role="design" does="edits the BOM" inline />}{editable && !editing && <Button size="sm" onClick={() => { setLines(o.bom); setEditing(true); }}>Edit</Button>}</div>}>
+      {!editing && summary && editable && !o.poNo && <CopyBomPicker category={o.category} excludeId={o.id} note="replaces this BOM; trims and packaging come with their vendor and rate" onPick={(ls, from) => { if (window.confirm(`Replace this BOM with the ${ls.length} lines of ${from}?`)) updateBom(o.id, ls); }} />}
       {!editing && summary && <div className="bom-sum">
         <div><span>Material cost</span><b>{fmtMoney(bc.total)}</b><i>{fmtMoney(Math.round(bc.perPc))} per piece · {bc.pcs} pcs</i></div>
         <div><span>Sent by BSC</span><b>{fmtMoney(bc.bsc)}</b><i>{bc.rows.filter(r => r.by === 'bsc').length} lines</i></div>

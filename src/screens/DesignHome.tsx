@@ -147,7 +147,8 @@ export function DesignHome() {
   const count = (f: (r: Row) => boolean) => base.filter(f).length;
   /* everything opens in place: ?open=<id> is a concept, an order or a request; ?new= is the chooser or one of the four forms */
   const openId = params.get('open');
-  const newKind = params.get('new');   // '1' = chooser · mtm · options · rtw · fob
+  /* on the RTW site there is one kind of requirement: any "new" link opens the RTW form, never the MTM chooser */
+  const newKind = RTW_ONLY && params.get('new') && params.get('new') !== 'fob' ? 'rtw' : params.get('new');   // '1' = chooser · mtm · options · rtw · fob
   const activeConcept = openId ? (db.concepts ?? []).find(c => c.id === openId) ?? null : null;
   const activeOrder = openId ? db.orders.find(o => o.id === openId) ?? null : null;
   const activeRequest = openId ? (db.optionRequests ?? []).find(r => r.id === openId) ?? null : null;
