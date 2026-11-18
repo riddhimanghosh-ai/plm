@@ -5,7 +5,7 @@
    ========================================================================== */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { SuppliedBy, PoApproval, ApproverRole, PoDoc, TechPackKey, RequirementPack, CostReply, QcPoint, CutRatioTrigger, PoInvoice, FabricBy, MailDraft, PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails, SampleStage } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
@@ -366,6 +366,7 @@ function makeSupplyInvoice(db: Db, o: ProductionOrder) {
 const SEED_VERSION = 173;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
+let saveWarned = false;
 export const useAppStore = create<AppState>()(persist((set, get) => {
   /* who did it: the acting team's person (the portal you are in), else the signed-in person */
   const who = () => { const st = get(); const pr = !st.demoAll ? st.portalRole : null; const me = PEOPLE.find(p => p.id === st.personId);
@@ -2113,6 +2114,14 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
 }, {
   name: 'bsc-plm-v1',
   version: SEED_VERSION,
+  /* 18 Nov 2026: a browser's storage holds about 5 MB per site. A save that does not fit is skipped instead of crashing the app */
+  storage: createJSONStorage(() => ({
+    getItem: k => { try { return localStorage.getItem(k); } catch { return null; } },
+    setItem: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { if (!saveWarned) { saveWarned = true; console.warn('BSC PLM: the demo data is too large for this browser\'s storage; changes last until the page is reloaded.', e); } } },
+    removeItem: k => { try { localStorage.removeItem(k); } catch { /* storage off */ } },
+  })),
+  /* the saved data lays over the sample data, so anything not saved (the MTM customer orders on the RTW edition) comes from the sample */
+  merge: (persisted, current) => { const p = (persisted ?? {}) as Partial<AppState>; return { ...current, ...p, db: p.db ? { ...current.db, ...p.db } : current.db } as AppState; },
   /* A record shape change resets the demo data rather than rendering half-formed rows. */
   migrate: (persisted, version) => {
     const p = persisted as Partial<AppState>;
@@ -2130,7 +2139,8 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       ...(version < SEED_VERSION ? { db: structuredClone(SEED) } : {}) } as AppState;   // any bump of the version reseeds the demo data
   },
   onRehydrateStorage: () => (state) => { applyTrackerConfig(state?.db?.trackerConfig); },
-  partialize: s => ({ db: s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),
+  /* the RTW edition never touches the MTM customer orders (3.6 MB), so they are not saved there */
+  partialize: s => ({ db: RTW_ONLY ? (({ customerOrders: _co, ...rest }) => rest)(s.db) as Db : s.db, role: s.role, personId: s.personId, storeId: s.storeId, factoryId: s.factoryId, settings: s.settings, demoAll: s.demoAll, views: s.views }),
 }));
 
 /* Screens read the role through this, never off the raw store. `role` is what
