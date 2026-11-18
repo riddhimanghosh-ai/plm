@@ -8,7 +8,8 @@ import { costingOf, fmtMoney, fmtDate } from '../domain/engines';
 import { DISCOUNT_BAU, DISCOUNT_ADDITIONAL } from '../domain/reference';
 import { Section, Pill, Button, Input, KV, Note } from '../ui';
 import { bomCostOf, supplyInvoicesOf, supplyLinesOf } from '../domain/rtwPack';
-import { SupplyInvoiceBar } from './InvoicePreview';
+import { SupplyInvoiceBar, InvoicePreview } from './InvoicePreview';
+import { bomOpenOf } from '../domain/rtwPack';
 import { BomEditor } from './BomEditor';
 import { CopyBomPicker } from './BomVendors';
 import { ActsBy, OwnerPill } from './Who';
@@ -20,22 +21,27 @@ export function BomSection({ o, editable, open, summary }: { o: ProductionOrder;
   const { db, updateBom } = useApp();
   const bc = bomCostOf(db, o);
   const [lines, setLines] = useState<BomLine[]>(o.bom);
-  const [editing, setEditing] = useState(false); const [menu, setMenu] = useState(false);
+  const [editing, setEditing] = useState(false); const [menu, setMenu] = useState(false); const [showInv, setShowInv] = useState(false);
+  const { generateSupplyInvoice } = useApp(); const inv0 = supplyInvoicesOf(o)[0] ?? null; const supply = supplyLinesOf(o); const openN = bomOpenOf(o).open.length;
   const c = costingOf(o);
   const upd = (i: number, patch: Partial<BomLine>) => setLines(ls => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
   const groups = (['fabric', 'trim', 'packaging'] as const).map(k => ({ k, rows: (editing ? lines : o.bom).map((l, i) => ({ l, i })).filter(x => x.l.kind === k) }));
   return (
     <Section title={`BOM · ${o.bom.length} lines`} defaultOpen={open} right={<div className="flex gap-2 items-center"><OwnerPill editable={editable} owner="Design" />{!editable && <ActsBy role="design" does="edits the BOM" inline />}{editable && !editing && <Button size="sm" onClick={() => { setLines(o.bom); setEditing(true); }}>Edit</Button>}</div>}>
       {!editing && summary && <div className="bom-line">
-        <span><b>{fmtMoney(bc.total)}</b> material · {fmtMoney(Math.round(bc.perPc))} per pc</span>
-        {bc.bsc > 0 && <span>sent by BSC <b>{fmtMoney(bc.bsc)}</b></span>}
-        {bc.nominated > 0 && <span>nominated <b>{fmtMoney(bc.nominated)}</b></span>}
-        {bc.factory > 0 && <span>by the factory <b>{fmtMoney(bc.factory)}</b></span>}
-        {c.fabricMetres != null && <span>fabric <b>{c.fabricMetres} {o.bom[0]?.unit ?? 'm'}</b></span>}
-        {bc.unpriced > 0 && <span style={{ color: 'var(--warn)' }}>{bc.unpriced} without a rate</span>}
-        <span className="ml-auto">{(() => { const inv = supplyInvoicesOf(o)[0]; return inv ? <span style={{ color: 'var(--good)' }}>invoice {inv.no}</span> : supplyLinesOf(o).length ? <span style={{ color: 'var(--ink-faint)' }}>invoice not generated</span> : null; })()}</span>
-        <button type="button" className={`bom-more${menu ? ' on' : ''}`} aria-expanded={menu} onClick={() => setMenu(v => !v)} title="invoice, copy from another style">⋯</button>
+        <div className="bom-stat"><span>Material</span><b>{fmtMoney(bc.total)}</b><i>{fmtMoney(Math.round(bc.perPc))} per pc</i></div>
+        {bc.bsc > 0 && <div className="bom-stat"><span>Sent by BSC</span><b>{fmtMoney(bc.bsc)}</b><i>on our invoice</i></div>}
+        {bc.nominated > 0 && <div className="bom-stat"><span>Nominated</span><b>{fmtMoney(bc.nominated)}</b><i>factory buys</i></div>}
+        {bc.factory > 0 && <div className="bom-stat"><span>By the factory</span><b>{fmtMoney(bc.factory)}</b><i>in its rate</i></div>}
+        {c.fabricMetres != null && <div className="bom-stat"><span>Fabric</span><b>{c.fabricMetres} {o.bom[0]?.unit ?? 'm'}</b><i>{o.costing.consumption} × {o.orderQty} pcs</i></div>}
+        {bc.unpriced > 0 && <div className="bom-stat warn"><span>Without a rate</span><b>{bc.unpriced}</b><i>line{bc.unpriced === 1 ? '' : 's'}</i></div>}
+        <span className="ml-auto flex items-center gap-2">
+          {inv0 ? <button type="button" className="bom-inv" onClick={() => setShowInv(true)}><span className="bom-inv-ic" aria-hidden>₹</span><span><b>Invoice {inv0.no}</b><i>{fmtMoney(inv0.amount)} · {fmtDate(inv0.on)} · goes with the PO</i></span><span aria-hidden>→</span></button>
+            : supply.length ? (editable && !openN ? <Button size="sm" variant="primary" onClick={() => generateSupplyInvoice(o.id)}>Generate the invoice</Button> : <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>{openN ? `invoice after ${openN} line${openN === 1 ? '' : 's'} get a vendor` : 'invoice not generated'}</span>) : null}
+          <button type="button" className={`bom-more${menu ? ' on' : ''}`} aria-expanded={menu} onClick={() => setMenu(v => !v)} title="invoice details, copy from another style">⋯</button>
+        </span>
       </div>}
+      {showInv && inv0 && <InvoicePreview o={o} inv={inv0} onClose={() => setShowInv(false)} />}
       {!editing && summary && menu && <div className="bom-menu">
         <SupplyInvoiceBar o={o} editable={editable} />
         {editable && !o.poNo && <CopyBomPicker category={o.category} excludeId={o.id} note="replaces this BOM; trims and packaging come with their vendor and rate" onPick={(ls, from) => { if (window.confirm(`Replace this BOM with the ${ls.length} lines of ${from}?`)) updateBom(o.id, ls); }} />}

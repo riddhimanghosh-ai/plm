@@ -761,9 +761,21 @@ td.bomv-blank { color: var(--ink-faint); opacity: .5; font-size: 11.5px; font-st
 
 /* the BOM, quieter (18 Nov 2026): extra columns behind a switch, totals on one line, the rest behind ⋯ */
 table.t.bomv.lean .c-x { display: none; }
-.bom-line { display: flex; align-items: center; gap: 6px 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-soft); padding: 2px 0 8px; }
+.bom-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--ink-soft); padding: 4px 0 12px; }
+.bom-stat { display: flex; flex-direction: column; gap: 1px; padding: 7px 14px; border: 1px solid var(--line-soft, var(--line)); border-radius: 8px; background: var(--surface); min-width: 120px; }
+.bom-stat > span { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.bom-stat > b { font-size: 16px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.bom-stat > i { font-style: normal; font-size: 11.5px; color: var(--ink-faint); }
+.bom-stat.warn > b { color: var(--warn); }
+.bom-inv { display: flex; align-items: center; gap: 10px; text-align: left; padding: 7px 12px; border: 1px solid color-mix(in srgb, var(--good) 45%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--good) 7%, var(--surface)); color: var(--ink); cursor: pointer; }
+.bom-inv:hover { border-color: var(--good); background: color-mix(in srgb, var(--good) 12%, var(--surface)); }
+.bom-inv > span:nth-child(2) { display: flex; flex-direction: column; } .bom-inv b { font-size: 13px; } .bom-inv i { font-style: normal; font-size: 11.5px; color: var(--ink-soft); }
+.bom-inv-ic { width: 28px; height: 28px; border-radius: 6px; background: var(--good); color: #fff; display: grid; place-items: center; font-weight: 700; }
+.bom-cols { font-size: 12px; padding: 3px 10px; border: 1px dashed var(--line); border-radius: 999px; color: var(--ink-soft); background: transparent; cursor: pointer; }
+.bom-cols:hover, .bom-cols[aria-pressed="true"] { border-style: solid; color: var(--ink); }
+table.t.bomv { width: 100%; }
 .bom-line b { color: var(--ink); font-variant-numeric: tabular-nums; }
-.bom-more { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; width: 30px; height: 26px; font-size: 16px; line-height: 1; cursor: pointer; color: var(--ink-soft); }
+.bom-more { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; width: 34px; height: 34px; font-size: 16px; line-height: 1; cursor: pointer; color: var(--ink-soft); }
 .bom-more.on, .bom-more:hover { border-color: var(--ink-faint); color: var(--ink); }
 .bom-menu { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
 
