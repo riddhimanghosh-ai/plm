@@ -2,7 +2,7 @@
    is the five-part requirement complete; which factories to recommend for a cost query; where the
    goods are delivered; which QC point is open on a PO; and the mails PLM composes (the cost query,
    the PO, the invoice to the warehouse). */
-import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc, FabricBy, BomLine } from './types';
+import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc, PoLine, FabricBy, BomLine } from './types';
 import { TECH_PACK_ITEMS, QC_POINTS, DELIVERY_LOCATIONS, PEOPLE } from './reference';
 import { fmtDate, daysAgo, addDays, iso, daysBetween, costingOf, receiptOf, netOf, TODAY } from './engines';
 
@@ -380,3 +380,24 @@ export const packedPcsOf = (inv: NonNullable<ProductionOrder['invoice']>) => inv
 export const packingFileOf = (inv: NonNullable<ProductionOrder['invoice']>) => inv.packingFile ?? `packing-list-${inv.no.replace(/[^A-Za-z0-9]+/g, '-')}.pdf`;
 /* pieces ordered by size: off the PO when it has lines, else the requirement's break-up */
 export function orderedBySizeOf(o: ProductionOrder) { const out: Record<string, number> = {}; (o.poDoc?.lines ?? []).forEach(l => l.sizes.forEach(x => { out[x.size] = (out[x.size] ?? 0) + x.qty; })); if (!o.poDoc) o.sizeBreakup.forEach(x => { out[x.size] = x.qty; }); return out; }
+
+/* 18 Nov 2026: what a revised PO changes against the PO in force, for HOD and finance to see at a glance */
+export type PoChange = { kind: 'added' | 'removed' | 'changed'; area: string; what: string; was?: string; now?: string };
+export function poDiffOf(old: PoDoc, nu: PoDoc): PoChange[] {
+  const out: PoChange[] = []; const rs = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+  const pcs = (l: PoLine) => l.sizes.reduce((a, x) => a + (x.qty || 0), 0);
+  nu.lines.forEach(l => { const o = old.lines.find(x => x.colour === l.colour);
+    if (!o) { out.push({ kind: 'added', area: 'Line', what: `${l.colour} · ${pcs(l)} pcs at ₹${l.rate}` }); return; }
+    if (o.rate !== l.rate) out.push({ kind: 'changed', area: 'Rate', what: l.colour, was: `₹${o.rate} / pc`, now: `₹${l.rate} / pc` });
+    const sizes = [...new Set([...o.sizes, ...l.sizes].map(x => x.size))]; const moved = sizes.filter(z => (o.sizes.find(x => x.size === z)?.qty ?? 0) !== (l.sizes.find(x => x.size === z)?.qty ?? 0));
+    if (moved.length) out.push({ kind: 'changed', area: 'Quantity', what: `${l.colour} · ${moved.map(z => `${z}: ${o.sizes.find(x => x.size === z)?.qty ?? 0}→${l.sizes.find(x => x.size === z)?.qty ?? 0}`).join(', ')}`, was: `${pcs(o)} pcs`, now: `${pcs(l)} pcs` }); });
+  old.lines.forEach(o => { if (!nu.lines.find(x => x.colour === o.colour)) out.push({ kind: 'removed', area: 'Line', what: `${o.colour} · ${pcs(o)} pcs at ₹${o.rate}` }); });
+  nu.charges.forEach(c => { const o = old.charges.find(x => x.label === c.label); if (!o) { if (c.amount) out.push({ kind: 'added', area: 'Charge', what: `${c.label} · ${rs(c.amount)}` }); } else if (o.amount !== c.amount) out.push({ kind: 'changed', area: 'Charge', what: c.label, was: rs(o.amount), now: rs(c.amount) }); });
+  old.charges.forEach(o => { if (o.amount && !nu.charges.find(x => x.label === o.label)) out.push({ kind: 'removed', area: 'Charge', what: `${o.label} · ${rs(o.amount)}` }); });
+  const day = (x?: string | null) => x ? fmtDate(x) : '—';
+  const fields: [string, (d: PoDoc) => string][] = [['GST', d => `${d.gstPct}%`], ['Price basis', d => d.priceBasis], ['Payment', d => `${d.advancePct ? `${d.advancePct}% advance, then ` : ''}${d.paymentTerms}`], ['Delivery date', d => day(d.shipBy)], ['Goods expected by', d => day(d.goodsExpectedBy)],
+    ['Tolerance', d => d.tolerancePct != null ? `±${d.tolerancePct}%` : '—'], ['AQL', d => d.aql ?? '—'], ['Late delivery', d => d.lateDeduction ?? '—'], ['Raw material terms', d => d.rawMaterialTerms ?? '—'], ['Notes', d => d.notes ?? '—'],
+    ['Cloth issued', d => d.cloth ? `${d.cloth.metresIssued ?? '—'} m · ${d.cloth.wastagePct ?? '—'}% wastage` : '—']];
+  fields.forEach(([k, f]) => { const a = f(old), b = f(nu); if (a !== b) out.push({ kind: 'changed', area: 'Terms', what: k, was: a, now: b }); });
+  return out;
+}

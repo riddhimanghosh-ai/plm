@@ -837,3 +837,29 @@ table.t.bomv tr.bomv-grp b { color: color-mix(in srgb, var(--g) 70%, var(--ink))
 .bomv-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--g); flex: none; }
 table.t.sum-t td.num button { font-family: var(--body); letter-spacing: 0; }
 table.t.sum-t { flex: 1; }
+.gm-edit { background: #c2e7ff; color: #001d35 !important; border-radius: 14px; padding: 2px 12px; font-size: 12px !important; }
+.gm-compose-box { display: flex; flex-direction: column; gap: 0; padding-top: 14px; }
+.gm-c-h { background: #f2f6fc; border-radius: 10px 10px 0 0; padding: 9px 14px; font-size: 14px; font-weight: 500; }
+.gm-c-row { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e0e0e0; padding: 6px 14px; font-size: 14px; }
+.gm-c-row > span { width: 60px; color: #5e5e5e; } .gm-c-row input { flex: 1; border: 0; outline: 0; font: inherit; padding: 4px 0; background: transparent; color: #1f1f1f; }
+.gm-c-body { border: 0; outline: 0; font: 14px/1.55 Roboto, Arial, sans-serif; padding: 12px 14px; resize: vertical; color: #222; min-height: 320px; }
+.gm-c-att { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; border-top: 1px solid #e0e0e0; } .gm-c-att span { font-size: 12px; background: #f1f3f4; border-radius: 6px; padding: 3px 8px; }
+.gm-c-acts { display: flex; gap: 10px; padding: 12px 14px; align-items: center; }
+.gm-save { background: #0b57d0; color: #fff; border-radius: 18px; padding: 9px 22px; font-size: 14px; font-weight: 500; } .gm-save:disabled { opacity: .5; }
+.gm-cancel { color: #444746; font-size: 14px; padding: 9px 12px; border-radius: 18px; } .gm-cancel:hover { background: #f1f3f4; }
+
+/* the revised PO against the one in force (18 Nov 2026): green added, red removed, amber changed */
+.po-diff { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.po-diff-h { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 14px; background: var(--surface-2); font-size: 13px; }
+.po-diff-h > span:nth-child(2) { color: var(--ink-faint); font-size: 12px; }
+.po-diff-tot { margin-left: auto; font-size: 12.5px; } .po-diff-tot.up b { color: var(--risk); } .po-diff-tot.down b { color: var(--good); }
+.po-diff-grid { display: grid; gap: 6px; padding: 10px; }
+.po-diff-row { display: grid; grid-template-columns: 92px 90px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; border-left: 4px solid; }
+.po-diff-row.added { background: color-mix(in srgb, var(--good) 10%, var(--surface)); border-color: var(--good); }
+.po-diff-row.removed { background: color-mix(in srgb, var(--risk) 9%, var(--surface)); border-color: var(--risk); }
+.po-diff-row.changed { background: color-mix(in srgb, var(--warn) 12%, var(--surface)); border-color: var(--warn); }
+.po-diff-row.same { display: block; margin: 10px; border-color: var(--line); background: var(--surface-2); }
+.po-diff-tag { font-weight: 700; font-size: 11.5px; } .po-diff-row.added .po-diff-tag { color: var(--good); } .po-diff-row.removed .po-diff-tag { color: var(--risk); } .po-diff-row.changed .po-diff-tag { color: color-mix(in srgb, var(--warn) 75%, var(--ink)); }
+.po-diff-area { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
+.po-diff-was s { color: var(--ink-faint); } .po-diff-row.removed .po-diff-what { text-decoration: line-through; color: var(--ink-soft); }
+@media (max-width: 700px) { .po-diff-row { grid-template-columns: 1fr; } }

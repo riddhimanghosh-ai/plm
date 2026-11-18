@@ -13,12 +13,17 @@ const fileOf = (a: string) => {
 };
 const nameOf = (email: string) => email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-export function MailPreviewModal({ mail, sentOn, onClose }: { mail: Mail; sentOn: string | null; onClose: () => void }) {
+export function MailPreviewModal({ mail: mail0, sentOn, onClose, onSave }: { mail: Mail; sentOn: string | null; onClose: () => void; onSave?: (m: Mail) => void }) {
+  const [mail, setMail] = useState<Mail>(mail0); const [edit, setEdit] = useState(false); const [d, setD] = useState<Mail>(mail0);
+  const list = (v: string) => v.split(/[,;]\s*/).map(x => x.trim()).filter(Boolean);
+  const canEdit = !!onSave && !sentOn;
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   const to = mail.to[0] ?? '';
   return createPortal(<div className="gm-back" onClick={onClose}>
     <div className="gm" onClick={e => e.stopPropagation()} role="dialog" aria-label="The mail as the receiver sees it">
-      <div className="gm-demo"><span>Sample · how this mail lands in {to ? `${nameOf(to)}'s` : 'the'} inbox{sentOn ? '' : ' once sent'}</span><button type="button" onClick={onClose} aria-label="close">✕</button></div>
+      <div className="gm-demo"><span>{edit ? 'Editing the mail · PLM sends what you save here' : `Sample · how this mail lands in ${to ? `${nameOf(to)}'s` : 'the'} inbox${sentOn ? '' : ' once sent'}`}</span>
+        <span className="flex items-center gap-3">{canEdit && !edit && <button type="button" className="gm-edit" onClick={() => { setD(mail); setEdit(true); }}>✎ Edit the mail</button>}
+          {sentOn && <span style={{ opacity: .7 }}>sent · read-only</span>}<button type="button" onClick={onClose} aria-label="close">✕</button></span></div>
       <div className="gm-top">
         <span className="gm-burger" aria-hidden>☰</span>
         <span className="gm-logo"><span className="gm-env" aria-hidden>✉</span>Mail</span>
@@ -35,6 +40,17 @@ export function MailPreviewModal({ mail, sentOn, onClose }: { mail: Mail; sentOn
           <div className="gm-nav"><span>Drafts</span></div>
           <div className="gm-nav"><span>More</span></div>
         </aside>
+        {edit ? <section className="gm-read gm-compose-box">
+          <div className="gm-c-h">Edit message</div>
+          <label className="gm-c-row"><span>To</span><input value={d.to.join(', ')} onChange={e => setD(x => ({ ...x, to: list(e.target.value) }))} /></label>
+          <label className="gm-c-row"><span>Cc</span><input value={d.cc.join(', ')} onChange={e => setD(x => ({ ...x, cc: list(e.target.value) }))} /></label>
+          <label className="gm-c-row"><span>Subject</span><input value={d.subject} onChange={e => setD(x => ({ ...x, subject: e.target.value }))} /></label>
+          <textarea className="gm-c-body" value={d.body} onChange={e => setD(x => ({ ...x, body: e.target.value }))} rows={18} />
+          <div className="gm-c-att">{mail.attachments.map(a => <span key={a}>📎 {fileOf(a).name}</span>)}</div>
+          <div className="gm-c-acts"><button type="button" className="gm-save" disabled={!d.to.length} onClick={() => { const m = { ...d, attachments: mail.attachments }; setMail(m); onSave?.(m); setEdit(false); }}>Save changes</button>
+            <button type="button" className="gm-cancel" onClick={() => { setD(mail0); setMail(mail0); onSave?.(mail0); setEdit(false); }}>Back to PLM's text</button>
+            <button type="button" className="gm-cancel" onClick={() => setEdit(false)}>Cancel</button></div>
+        </section> :
         <section className="gm-read">
           <div className="gm-tools" aria-hidden><span>←</span><span>⤓</span><span>⚠</span><span>🗑</span><span className="gm-sep" /><span>✉</span><span>⏱</span><span>⋮</span><span className="gm-count">1 of 3</span></div>
           <h2 className="gm-subj">{mail.subject}<span className="gm-label">Inbox ×</span></h2>
@@ -57,17 +73,17 @@ export function MailPreviewModal({ mail, sentOn, onClose }: { mail: Mail; sentOn
             </div>; })}</div>
           </div>}
           <div className="gm-reply"><span>↩ Reply</span><span>↪ Forward</span></div>
-        </section>
+        </section>}
       </div>
     </div>
   </div>, document.body);
 }
 
 /** a small link that opens the mail in the sample inbox view */
-export function MailPreviewButton({ mail, sentOn, label }: { mail: Mail; sentOn: string | null; label?: string }) {
+export function MailPreviewButton({ mail, sentOn, label, onSave }: { mail: Mail; sentOn: string | null; label?: string; onSave?: (m: Mail) => void }) {
   const [open, setOpen] = useState(false);
   return <>
-    <button type="button" className="vlink text-[11.5px]" onClick={() => setOpen(true)}>{label ?? (sentOn ? 'see it in the inbox ✉' : 'preview in the inbox ✉')}</button>
-    {open && <MailPreviewModal mail={mail} sentOn={sentOn} onClose={() => setOpen(false)} />}
+    <button type="button" className="vlink text-[11.5px]" onClick={() => setOpen(true)}>{label ?? (sentOn ? 'see it in the inbox ✉' : onSave ? 'preview and edit in the inbox ✉' : 'preview in the inbox ✉')}</button>
+    {open && <MailPreviewModal mail={mail} sentOn={sentOn} onSave={onSave} onClose={() => setOpen(false)} />}
   </>;
 }

@@ -4,7 +4,7 @@
    the invoice and packing list to the warehouse; receipt on Enigma; COGS. */
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { downloadVendorsPdf } from '../domain/invoicePdf';
+import { downloadVendorsPdf, poPdfOf, poPdfName } from '../domain/invoicePdf';
 import { useApp } from '../store';
 import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy, PoDoc, PoLine, ApproverRole } from '../domain/types';
 import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
@@ -17,7 +17,7 @@ import { SizeGrid, ReceiptLots } from './RtwGates';
 import { BomSection } from './Costing';
 import { QuoteFormModal } from './QuoteForm';
 import { BomVendors } from './BomVendors';
-import { InvoicePreview, SupplyInvoiceBar } from './InvoicePreview';
+import { InvoicePreview, SupplyInvoiceBar, PdfPreview } from './InvoicePreview';
 import { MailPreviewButton } from './MailPreview';
 
 const faint = { color: 'var(--ink-faint)' } as const;
@@ -36,7 +36,7 @@ export function MailCard({ mail, sentOn, label, onSend, sendLabel }: { mail: Mai
   return <div className="mail-card">
     <div className="flex items-center gap-2 flex-wrap"><span className="mail-ic" aria-hidden>✉</span><b>{label}</b><Pill tone={sentOn ? 'good' : 'neutral'}>{sentOn ? `mailed ${fmtDate(sentOn)}` : 'not sent yet'}</Pill>
       {!sentOn && onSend && !editing && <button type="button" className="vlink text-[11.5px]" onClick={() => { setEditing(true); setOpen(true); }}>edit the mail</button>}
-      <span className="ml-auto flex items-center gap-3"><MailPreviewButton mail={{ ...cur, attachments: mail.attachments }} sentOn={sentOn} /><button type="button" className="vlink text-[11.5px]" onClick={() => setOpen(v => !v)}>{open ? 'hide' : 'show the mail'}</button></span></div>
+      <span className="ml-auto flex items-center gap-3"><MailPreviewButton mail={{ ...cur, attachments: mail.attachments }} sentOn={sentOn} onSave={!sentOn && onSend ? m => setD({ to: m.to, cc: m.cc, subject: m.subject, body: m.body, attachments: mail.attachments }) : undefined} /><button type="button" className="vlink text-[11.5px]" onClick={() => setOpen(v => !v)}>{open ? 'hide' : 'show the mail'}</button></span></div>
     {editing ? <div className="grid gap-1.5 pt-2">
       <Field label="To"><Input value={d.to.join(', ')} onChange={e => setD(x => ({ ...x, to: list(e.target.value) }))} /></Field>
       <Field label="Cc"><Input value={d.cc.join(', ')} onChange={e => setD(x => ({ ...x, cc: list(e.target.value) }))} /></Field>
@@ -449,23 +449,24 @@ export function PoDocView({ o, doc }: { o: ProductionOrder; doc?: PoDoc | null }
 /* what rides with the PO mail, as files; the invoice generated from the BOM opens */
 const ATT_WHAT: Record<string, string> = { 'PO': 'the order: lines, rates, GST, terms', 'Tech pack': 'specs and construction', 'Trim card': 'every trim with its placement', 'Size break-up': 'pieces by colour and size', 'BOM': 'material per piece and who supplies it', 'TNA form · planned dates': 'the factory fills a planned date per step' };
 function PoAttachments({ o }: { o: ProductionOrder }) {
-  const { db } = useApp(); const [view, setView] = useState<PoInvoice | null>(null);
+  const { db } = useApp(); const [view, setView] = useState<PoInvoice | null>(null); const [poPdf, setPoPdf] = useState(false);
   const invs = supplyInvoicesOf(o); const files = poMailOf(db, o).attachments.filter(a => !a.startsWith('Invoice ') && !a.startsWith('Vendor details')); const vs = poVendorsOf(db, o);
   const n = files.length + invs.length + (vs.length ? 1 : 0);
   return <div className="mt-3">
     <div className="cap" style={{ margin: '0 0 6px' }}>Attachments on the PO mail · {n}</div>
     <table className="t compact sum-t"><thead><tr><th style={{ width: 36 }}>#</th><th>File</th><th>What it is</th><th className="num" style={{ width: 110 }}></th></tr></thead>
       <tbody>
-        {files.map((f, k) => <tr key={f}><td className="mono" style={faint}>{String(k + 1).padStart(2, '0')}</td><td className="font-medium">{f.replace(/ · .*$/, '')}</td><td style={soft}>{ATT_WHAT[f] ?? ''}</td><td className="num" style={faint}>{/size break|bom/i.test(f) ? 'XLSX' : 'PDF'}</td></tr>)}
+        {files.map((f, k) => <tr key={f}><td className="mono" style={faint}>{String(k + 1).padStart(2, '0')}</td><td className="font-medium">{f.replace(/ · .*$/, '')}</td><td style={soft}>{ATT_WHAT[f] ?? ''}</td><td className="num">{f === 'PO' && o.poDoc ? <Button size="sm" onClick={() => setPoPdf(true)}>View PDF</Button> : <span style={faint}>{/size break|bom/i.test(f) ? 'XLSX' : 'PDF'}</span>}</td></tr>)}
         {vs.length > 0 && <tr><td className="mono" style={faint}>{String(files.length + 1).padStart(2, '0')}</td><td className="font-medium">Vendor details</td><td style={soft}>{vs.length} vendor{vs.length === 1 ? '' : 's'} · {vs.map(v => `${v.name}: ${v.supplies}`).join(' · ')}</td><td className="num"><Button size="sm" onClick={() => downloadVendorsPdf(db, o)}>↓ PDF</Button></td></tr>}
         {invs.map((iv, k) => <tr key={iv.id}><td className="mono" style={faint}>{String(files.length + (vs.length ? 1 : 0) + k + 1).padStart(2, '0')}</td><td className="font-medium">Invoice {iv.no}</td><td style={soft}>material BSC sends · <b style={{ color: 'var(--ink)' }}>{fmtMoney(iv.amount)}</b> · comes off what we pay</td><td className="num"><Button size="sm" onClick={() => setView(iv)}>View</Button></td></tr>)}
         {!invs.length && <tr><td></td><td colSpan={3} style={faint}>{supplyLinesOf(o).length ? 'Invoice for what BSC sends · not generated yet' : 'No invoice · nothing on this PO is sent by BSC'}</td></tr>}
       </tbody></table>
     {view && <InvoicePreview o={o} inv={view} onClose={() => setView(null)} />}
+    {poPdf && <PdfPreview name={poPdfName(o)} make={() => poPdfOf(db, o)} onClose={() => setPoPdf(false)} />}
   </div>;
 }
 export function PoSection({ o }: { o: ProductionOrder }) {
-  const { db } = useApp();
+  const { db, sendPoMail } = useApp();
   const pm = o.poMail; const p = packOf(o); const rp = o.costQuery?.replies.find(r => r.vendorId === o.vendorId);
   if (!o.poNo) return <Section title="PO" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>No PO yet.</div></Section>;
   return <Section title={`${o.poNo} · ${db.vendors.find(v => v.id === o.vendorId)?.name ?? ''}`} collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone="good">raised {fmtDate(o.poDate)}</Pill><Pill tone={pm?.sentOn ? 'good' : 'warn'}>{pm?.sentOn ? `mailed ${fmtDate(pm.sentOn)}` : 'mail to send'}</Pill>{o.poAckOn && <Pill tone="good">acknowledged {fmtDate(o.poAckOn)}</Pill>}</span>}>
@@ -480,7 +481,7 @@ export function PoSection({ o }: { o: ProductionOrder }) {
       </tbody></table>; })()}
     <PoDocView o={o} />
     <PoAttachments o={o} />
-    <div className="pt-2"><MailCard label="PO · with the TNA form" mail={{ ...poMailOf(db, o), ...(pm?.mail ?? {}), to: pm?.to ?? [], cc: pm?.cc ?? [] }} sentOn={pm?.sentOn ?? null} /></div>
+    <div className="pt-2"><MailCard label="PO · with the TNA form" mail={{ ...poMailOf(db, o), ...(pm?.mail ?? {}), to: pm?.to?.length ? pm.to : poMailOf(db, o).to, cc: pm?.cc?.length ? pm.cc : poMailOf(db, o).cc }} sentOn={pm?.sentOn ?? null} onSend={pm && !pm.sentOn ? m => sendPoMail(o.id, { to: m.to, cc: m.cc, subject: m.subject, body: m.body }) : undefined} sendLabel="Send the PO to the factory ✉" /></div>
   </Section>;
 }
 

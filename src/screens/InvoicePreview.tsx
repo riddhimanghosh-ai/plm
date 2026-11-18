@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../store';
 import type { ProductionOrder, PoInvoice, FabricBy } from '../domain/types';
@@ -51,4 +51,14 @@ export function SupplyInvoiceBar({ o, editable, className, clothBy }: { o: Produ
     {show && inv && <InvoicePreview o={o} inv={inv} onClose={() => setShow(false)} />}
     {sample && <InvoicePreview o={o} inv={sampleInvoiceOf(o)} sample onClose={() => setSample(false)} />}
   </div>;
+}
+
+/* 18 Nov 2026: any generated PDF shown as the PDF itself, in a pop-up, with download */
+export function PdfPreview({ make, name, onClose }: { make: () => import('jspdf').jsPDF | null; name: string; onClose: () => void }) {
+  const [url] = useState(() => { const p = make(); return p ? URL.createObjectURL(p.output('blob')) : null; });
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  return createPortal(<div className="qf-back" onClick={onClose}><div className="qf" style={{ width: 'min(900px, 100%)' }} onClick={e => e.stopPropagation()} role="dialog" aria-label={name}>
+    <div className="qf-bar"><span className="mono text-[11px]" style={faint}>{name}</span><span className="flex items-center gap-3">{url && <a className="btn primary sm" href={url} download={name}>↓ Download PDF</a>}<button type="button" className="vlink" onClick={onClose}>✕ close</button></span></div>
+    {url ? <iframe title={name} src={url} style={{ width: '100%', height: '78vh', border: 0, display: 'block', background: '#525659' }} /> : <div className="qf-body" style={faint}>No PO document yet.</div>}
+  </div></div>, document.body);
 }

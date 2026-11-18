@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store';
 import type { ProductionOrder, FabricBy, ApproverRole } from '../domain/types';
 import { fmtDate, fmtMoney, daysAgo } from '../domain/engines';
-import { poMailOf, approvalOf, poEditOf, poTotalsOf, replyFlagsOf, similarPricesOf, APPROVER_LABEL } from '../domain/rtwPack';
+import { poDiffOf, poMailOf, approvalOf, poEditOf, poTotalsOf, replyFlagsOf, similarPricesOf, APPROVER_LABEL } from '../domain/rtwPack';
 import { Section, Pill, Button, Field, Input, Select, KV, Seg } from '../ui';
 import { ActsBy } from './Who';
 import { PoForm, PoDocView } from './RtwChain';
@@ -66,6 +66,17 @@ export function ApprovalSection({ o, prod, preset, onGo }: { o: ProductionOrder;
         <KV k="Sent by" v={a.by} note={`${fmtDate(a.askedOn)} · approve by ${fmtDate(a.deadline)}`} />
         {revision && o.poDoc && <KV k="PO now" v={fmtMoney(Math.round(poTotalsOf(o.poDoc).total))} note={`revision ${o.poDoc.revision ?? 1} · ${poTotalsOf(o.poDoc).pcs} pcs`} />}
       </div>
+      {revision && o.poDoc && a.doc && ap.state === 'pending' && (() => { const ch = poDiffOf(o.poDoc!, a.doc!); const t0 = poTotalsOf(o.poDoc!), t1 = poTotalsOf(a.doc!); const dv = t1.total - t0.total;
+        return <div className="po-diff">
+          <div className="po-diff-h"><b>What changed in this revision</b><span>{ch.length} change{ch.length === 1 ? '' : 's'}</span>
+            <span className={`po-diff-tot ${dv > 0 ? 'up' : dv < 0 ? 'down' : ''}`}>PO total {fmtMoney(Math.round(t0.total))} → <b>{fmtMoney(Math.round(t1.total))}</b>{dv ? ` · ${dv > 0 ? '+' : '−'}${fmtMoney(Math.abs(Math.round(dv)))}` : ' · no change'}</span></div>
+          {ch.length === 0 ? <div className="po-diff-row same">Nothing on the PO changed except the revision number.</div>
+            : <div className="po-diff-grid">{ch.map((c, k) => <div key={k} className={`po-diff-row ${c.kind}`}>
+              <span className="po-diff-tag">{c.kind === 'added' ? '+ Added' : c.kind === 'removed' ? '− Removed' : '✎ Changed'}</span>
+              <span className="po-diff-area">{c.area}</span><span className="po-diff-what">{c.what}</span>
+              {c.kind === 'changed' && c.was != null && <span className="po-diff-was"><s>{c.was}</s> → <b>{c.now}</b></span>}
+            </div>)}</div>}
+        </div>; })()}
       {revision && a.doc && o.poDoc && (() => { const g: Record<string, number> = {}; a.doc.lines.forEach(l => l.sizes.forEach(x => { g[x.size] = (g[x.size] ?? 0) + x.qty; })); return <RatioCompare o={o} given={Object.entries(g).map(([size, qty]) => ({ size, qty }))} label="Sizes on the revised PO" />; })()}
       {rp?.breakdown && rp.breakdown.length > 0 && <div className="text-[12px] pt-1" style={soft}>Quote made up of: {rp.breakdown.map(b => `${b.head} ${fmtMoney(b.amount)}`).join(' · ')}</div>}
       {a.note && <div className="text-[12.5px] pt-2"><span style={faint}>Note </span>{a.note}</div>}
