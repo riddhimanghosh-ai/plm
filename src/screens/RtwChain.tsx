@@ -447,17 +447,20 @@ export function PoDocView({ o, doc }: { o: ProductionOrder; doc?: PoDoc | null }
 }
 
 /* what rides with the PO mail, as files; the invoice generated from the BOM opens */
+const ATT_WHAT: Record<string, string> = { 'PO': 'the order: lines, rates, GST, terms', 'Tech pack': 'specs and construction', 'Trim card': 'every trim with its placement', 'Size break-up': 'pieces by colour and size', 'BOM': 'material per piece and who supplies it', 'TNA form · planned dates': 'the factory fills a planned date per step' };
 function PoAttachments({ o }: { o: ProductionOrder }) {
   const { db } = useApp(); const [view, setView] = useState<PoInvoice | null>(null);
   const invs = supplyInvoicesOf(o); const files = poMailOf(db, o).attachments.filter(a => !a.startsWith('Invoice ') && !a.startsWith('Vendor details')); const vs = poVendorsOf(db, o);
-  return <div className="po-att mt-3">
-    <div className="text-[11px] uppercase tracking-wide pb-1.5" style={faint}>Attachments on the PO mail · {files.length + invs.length + (vs.length ? 1 : 0)}</div>
-    <div className="flex gap-1.5 flex-wrap">
-      {files.map(f => <span key={f} className="att-chip"><span aria-hidden>📎</span>{f}</span>)}
-      {vs.length > 0 && <button type="button" className="att-chip inv" title={vs.map(v => `${v.name}: ${v.supplies}`).join(' · ')} onClick={() => downloadVendorsPdf(db, o)}><span aria-hidden>🏷</span>Vendor details · {vs.length} vendor{vs.length === 1 ? '' : 's'} · {vs.map(v => v.supplies).join(' / ')}<span className="vlink">↓ PDF</span></button>}
-      {invs.map(i => <button key={i.id} type="button" className="att-chip inv" onClick={() => setView(i)}><span aria-hidden>🧾</span>Invoice {i.no} · material BSC sends · <b>{fmtMoney(i.amount)}</b><span className="vlink">view</span></button>)}
-      {!invs.length && <span className="att-chip" style={faint}>{supplyLinesOf(o).length ? 'invoice for what BSC sends · not generated' : 'no invoice · nothing is sent by BSC'}</span>}
-    </div>
+  const n = files.length + invs.length + (vs.length ? 1 : 0);
+  return <div className="mt-3">
+    <div className="cap" style={{ margin: '0 0 6px' }}>Attachments on the PO mail · {n}</div>
+    <table className="t compact sum-t"><thead><tr><th style={{ width: 36 }}>#</th><th>File</th><th>What it is</th><th className="num" style={{ width: 110 }}></th></tr></thead>
+      <tbody>
+        {files.map((f, k) => <tr key={f}><td className="mono" style={faint}>{String(k + 1).padStart(2, '0')}</td><td className="font-medium">{f.replace(/ · .*$/, '')}</td><td style={soft}>{ATT_WHAT[f] ?? ''}</td><td className="num" style={faint}>{/size break|bom/i.test(f) ? 'XLSX' : 'PDF'}</td></tr>)}
+        {vs.length > 0 && <tr><td className="mono" style={faint}>{String(files.length + 1).padStart(2, '0')}</td><td className="font-medium">Vendor details</td><td style={soft}>{vs.length} vendor{vs.length === 1 ? '' : 's'} · {vs.map(v => `${v.name}: ${v.supplies}`).join(' · ')}</td><td className="num"><Button size="sm" onClick={() => downloadVendorsPdf(db, o)}>↓ PDF</Button></td></tr>}
+        {invs.map((iv, k) => <tr key={iv.id}><td className="mono" style={faint}>{String(files.length + (vs.length ? 1 : 0) + k + 1).padStart(2, '0')}</td><td className="font-medium">Invoice {iv.no}</td><td style={soft}>material BSC sends · <b style={{ color: 'var(--ink)' }}>{fmtMoney(iv.amount)}</b> · comes off what we pay</td><td className="num"><Button size="sm" onClick={() => setView(iv)}>View</Button></td></tr>)}
+        {!invs.length && <tr><td></td><td colSpan={3} style={faint}>{supplyLinesOf(o).length ? 'Invoice for what BSC sends · not generated yet' : 'No invoice · nothing on this PO is sent by BSC'}</td></tr>}
+      </tbody></table>
     {view && <InvoicePreview o={o} inv={view} onClose={() => setView(null)} />}
   </div>;
 }
@@ -466,10 +469,15 @@ export function PoSection({ o }: { o: ProductionOrder }) {
   const pm = o.poMail; const p = packOf(o); const rp = o.costQuery?.replies.find(r => r.vendorId === o.vendorId);
   if (!o.poNo) return <Section title="PO" collapsible={false}><div className="text-[12.5px] py-1" style={faint}>No PO yet.</div></Section>;
   return <Section title={`${o.poNo} · ${db.vendors.find(v => v.id === o.vendorId)?.name ?? ''}`} collapsible={false} right={<span className="flex gap-2 items-center"><Pill tone="good">raised {fmtDate(o.poDate)}</Pill><Pill tone={pm?.sentOn ? 'good' : 'warn'}>{pm?.sentOn ? `mailed ${fmtDate(pm.sentOn)}` : 'mail to send'}</Pill>{o.poAckOn && <Pill tone="good">acknowledged {fmtDate(o.poAckOn)}</Pill>}</span>}>
-    <KV k="Factory" v={<VendorLink id={o.vendorId} />} note={rp ? `${rp.leadDays} days quoted` : undefined} />
-    {o.poDoc ? null : <KV k="Pieces" v={`${o.orderQty} × ${fmtMoney(o.finalFob ?? o.targetCost)}`} note={fmtMoney((o.finalFob ?? o.targetCost) * o.orderQty)} />}
-    <KV k="Deliver to" v={<b>{pm?.deliveryLocation ?? '—'}</b>} note={pm?.needsHemming ? 'semi-stitched product · hemming in-house, so Vasai' : 'nothing to hem, so the 3PL warehouse'} />
-    <KV k="Cloth" v={FABRIC_BY_LABEL[pm?.fabricBy ?? 'factory']} note={pm?.fabricBy === 'factory' ? "the factory gives its fabric PO and receipt details; they are TNA steps" : `${db.vendors.find(v => v.id === p.fabric.vendorId)?.name ?? '—'}${p.fabric.vendorFabricCode ? ` · ${p.fabric.vendorFabricCode}` : ''}${p.fabric.blockedMetres != null ? ` · ${p.fabric.blockedMetres} m blocked` : ''}${pm?.fabricBy === 'bsc' ? ' · sourcing ships it to the factory' : ' · vendor details sent; the factory raises its own PO on them, no cloth PO in PLM'}`} />
+    {(() => { const fv = db.vendors.find(v => v.id === p.fabric.vendorId)?.name ?? '—'; const t = o.poDoc ? poTotalsOf(o.poDoc) : null;
+      return <table className="t compact sum-t kv"><tbody>
+        <tr><th>Factory</th><td><VendorLink id={o.vendorId} /></td><td style={soft}>{rp ? `${rp.leadDays} days quoted` : ''}</td></tr>
+        <tr><th>Order</th><td><b>{t ? `${t.pcs} pcs · ${fmtMoney(Math.round(t.total))}` : `${o.orderQty} × ${fmtMoney(o.finalFob ?? o.targetCost)}`}</b></td><td style={soft}>{o.poDoc ? `${o.poDoc.lines.length} colour${o.poDoc.lines.length === 1 ? '' : 's'} · incl. ${o.poDoc.gstPct}% GST · ${o.poDoc.paymentTerms}` : fmtMoney((o.finalFob ?? o.targetCost) * o.orderQty)}</td></tr>
+        <tr><th>Deliver to</th><td><b>{pm?.deliveryLocation ?? '—'}</b> by {fmtDate(o.targetInhouse)}</td><td style={soft}>{pm?.needsHemming ? 'semi-stitched · hemming in-house, so Vasai' : 'nothing to hem, so the 3PL warehouse'}</td></tr>
+        <tr><th>Cloth</th><td>{FABRIC_BY_LABEL[pm?.fabricBy ?? 'factory']}</td><td style={soft}>{pm?.fabricBy === 'factory' ? 'the factory gives its fabric PO and receipt details on the TNA' : `${fv}${p.fabric.vendorFabricCode ? ` · ${p.fabric.vendorFabricCode}` : ''}${p.fabric.blockedMetres != null ? ` · ${p.fabric.blockedMetres} m blocked` : ''}${pm?.fabricBy === 'bsc' ? ' · sourcing ships it' : ' · the factory raises its own PO'}`}</td></tr>
+        <tr><th>Mailed</th><td>{pm?.sentOn ? <span style={{ color: 'var(--good)' }}>✓ {fmtDate(pm.sentOn)}</span> : <span style={{ color: 'var(--warn)' }}>not sent yet</span>}</td><td style={soft}>{(pm?.to ?? []).join(', ')}{pm?.cc?.length ? ` · cc ${pm.cc.join(', ')}` : ''}</td></tr>
+        <tr><th>Acknowledged</th><td>{o.poAckOn ? <span style={{ color: 'var(--good)' }}>✓ {fmtDate(o.poAckOn)}</span> : <span style={faint}>waiting on the factory</span>}</td><td style={soft}>{o.poAckBy ?? ''}</td></tr>
+      </tbody></table>; })()}
     <PoDocView o={o} />
     <PoAttachments o={o} />
     <div className="pt-2"><MailCard label="PO · with the TNA form" mail={{ ...poMailOf(db, o), ...(pm?.mail ?? {}), to: pm?.to ?? [], cc: pm?.cc ?? [] }} sentOn={pm?.sentOn ?? null} /></div>

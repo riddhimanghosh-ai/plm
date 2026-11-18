@@ -819,3 +819,21 @@ table.t.bomv { width: 100%; }
 .gm-ico { flex: none; font-size: 8px; font-weight: 700; color: #fff; background: #d93025; padding: 2px 3px; border-radius: 2px; } .gm-ico.xlsx { background: #188038; }
 .gm-reply { display: flex; gap: 10px; margin: 22px 0 0 52px; } .gm-reply span { border: 1px solid #747775; border-radius: 18px; padding: 8px 20px; font-size: 14px; color: #444746; }
 @media (max-width: 760px) { .gm-side, .gm-logo { display: none; } .gm-subj, .gm-body, .gm-att, .gm-reply { margin-left: 0; padding-left: 0; } }
+
+/* summary tables (18 Nov 2026): the BOM totals and the PO at a glance, as rows instead of loose figures */
+table.t.sum-t { width: 100%; }
+table.t.sum-t.kv th { width: 150px; text-align: left; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500; background: var(--surface-2); white-space: nowrap; }
+table.t.sum-t.kv td { font-size: 13px; }
+table.t.sum-t.kv td.num { width: 130px; font-variant-numeric: tabular-nums; }
+table.t.sum-t tr.sum-hi > td, table.t.sum-t tr.sum-hi > th { background: color-mix(in srgb, var(--good) 7%, transparent); }
+.bom-sum-wrap { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0 12px; }
+.bom-sum-wrap > table { flex: 1; }
+
+/* BOM groups each carry a colour (18 Nov 2026): fabric blue, trims amber, packaging violet */
+table.t.bomv tr.bomv-grp td { --g: #3b6fb6; background: color-mix(in srgb, var(--g) 9%, var(--surface)) !important; border-left: 3px solid var(--g); }
+table.t.bomv tr.bomv-grp.g-trim td { --g: #b7791f; } table.t.bomv tr.bomv-grp.g-packaging td { --g: #7a5bb5; }
+table.t.bomv tr.bomv-grp:hover td { background: color-mix(in srgb, var(--g) 15%, var(--surface)) !important; }
+table.t.bomv tr.bomv-grp b { color: color-mix(in srgb, var(--g) 70%, var(--ink)); }
+.bomv-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--g); flex: none; }
+table.t.sum-t td.num button { font-family: var(--body); letter-spacing: 0; }
+table.t.sum-t { flex: 1; }
