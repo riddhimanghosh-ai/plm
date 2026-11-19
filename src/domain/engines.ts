@@ -1115,7 +1115,8 @@ export function fabricStateOf(o: ProductionOrder) {
   }
   /* after the fabric PO — get the cloth to the factory and counted in */
   if (fs?.receipt) {
-    if (cr && !cr.given) return mk('ratio-asked', cr.kind === 'cut-short' ? `short ${short} m · cut-short proposed — design to approve` : `short ${short} m · modified ratio asked of design`, 'design', 'risk');
+    const cat = RTW_ONLY ? 'category' : 'design';
+    if (cr && !cr.given) return mk('ratio-asked', cr.kind === 'cut-short' ? `${short > 0 ? `short ${short} m · ` : ''}cut-short proposed · ${cat} to approve` : `${short > 0 ? `short ${short} m · ` : ''}new cut ratio asked · with ${cat}`, 'design', 'risk');
     if (cr && cr.given && !cr.sentToFactoryOn) return mk('ratio-given', `new ${cr.kind === 'cut-short' ? 'cut-short' : 'cut ratio'} given · send it to the factory`, 'production', 'warn');
     if (short > 0 && !cr) return mk('short', `received short by ${short} m`, 'production', 'risk');
     return mk('received', `received at the factory · ${fs.receipt.metresOk} m`, 'production', 'good');

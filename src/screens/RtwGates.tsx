@@ -1,6 +1,7 @@
 /* The RTW gates the tracker sheet never had columns for: the sample the
    production unit approves before bulk, the materials it checks and issues,
    and the audit BSC's own QC does at the factory before goods leave. */
+import { RTW_ONLY } from '../domain/edition';
 import { useState } from 'react';
 import type React from 'react';
 import { useApp } from '../store';
@@ -362,7 +363,8 @@ export function FactoryFinalisationSection({ o, columns, bare }: { o: Production
 /* part: 'sourcing' = vendor → fabric PO (the fabric details); 'factory' = cloth sent → counted → cut ratio. Omitted = both. */
 /* Every cut-ratio ask on the order, oldest first, with where it stands: with design → given (to send) → at the factory.
    The same trail shows to design (who answers) and to the factory (who waits), so both read one status. */
-export function CutRatioTrail({ o }: { o: ProductionOrder }) {
+type EditRow = { label: string; who: string; values: Record<string, string>; base: Record<string, number>; onChange: (size: string, v: string) => void; allow: number | null; on: 'open' | 'given' };
+export function CutRatioTrail({ o, edit }: { o: ProductionOrder; edit?: EditRow | null }) {
   const pcs = (b: { size: string; qty: number }[]) => b.reduce((a, x) => a + x.qty, 0);
   const kindOf = (k?: string) => k === 'cut-short' ? 'cut-short' : 'cut ratio';
   return <>{(o.cutRatios ?? []).map((cr, i) => {
@@ -371,7 +373,7 @@ export function CutRatioTrail({ o }: { o: ProductionOrder }) {
     const lines: { label: string; who: string; b: { size: string; qty: number }[]; tone?: 'good' | 'warn' }[] = [
       { label: 'Was', who: 'the PO', b: cr.originalBreakup },
       ...(cr.proposedBreakup ? [{ label: cr.kind === 'cut-short' ? 'Proposed' : 'Asked', who: `${cr.by}${cr.askedByRole === 'merchandiser' ? ' · factory' : ''}`, b: cr.proposedBreakup, tone: 'warn' as const }] : []),
-      ...(cr.given ? [{ label: 'Given', who: `${cr.given.by} · design`, b: cr.given.breakup, tone: 'good' as const }] : []),
+      ...(cr.given ? [{ label: 'Given', who: `${cr.given.by} · ${RTW_ONLY ? 'category' : 'design'}`, b: cr.given.breakup, tone: 'good' as const }] : []),
     ];
     const diff = cr.given ? pcs(cr.given.breakup) - pcs(cr.originalBreakup) : cr.proposedBreakup ? pcs(cr.proposedBreakup) - pcs(cr.originalBreakup) : 0;
     return <div key={i} className="cr-ask">
@@ -380,7 +382,7 @@ export function CutRatioTrail({ o }: { o: ProductionOrder }) {
           <div className="font-medium">{cr.kind === 'cut-short' ? 'Cut fewer' : 'Change the sizes'}{(o.cutRatios ?? []).length > 1 ? ` · ${i + 1}` : ''} <span style={{ color:'var(--ink-soft)', fontWeight: 400 }}>· {cr.reason}</span></div>
           <div className="text-[11.5px]" style={{ color:'var(--ink-faint)' }}>asked {fmtRel(cr.askedOn)} by {cr.by}{cr.askedByRole === 'merchandiser' ? ' at the factory' : ''}{cr.given ? ` · answered ${fmtRel(cr.given.on)} by ${cr.given.by}` : ''}{cr.sentToFactoryOn ? ` · at the factory ${fmtRel(cr.sentToFactoryOn)}` : ''}</div>
         </div>
-        <Pill tone={cr.sentToFactoryOn ? 'good' : cr.given ? 'warn' : 'risk'}>{cr.sentToFactoryOn ? `new ${kindOf(cr.kind)} at the factory` : cr.given ? `new ${kindOf(cr.kind)} given · to send` : 'with design'}</Pill>
+        <Pill tone={cr.sentToFactoryOn ? 'good' : cr.given ? 'warn' : 'risk'}>{cr.sentToFactoryOn ? `new ${kindOf(cr.kind)} at the factory` : cr.given ? `new ${kindOf(cr.kind)} given · to send` : `with ${RTW_ONLY ? 'category' : 'design'}`}</Pill>
       </div>
       <div style={{ overflowX:'auto' }}><table className="t compact cr-sizes">
         <thead><tr><th></th>{cols.map(c => <th key={c} className="num">{c}</th>)}<th className="num">Total</th><th></th></tr></thead>
@@ -390,7 +392,17 @@ export function CutRatioTrail({ o }: { o: ProductionOrder }) {
             return <td key={c} className="num" style={ch ? { fontWeight: 600, color: q < was ? 'var(--risk)' : 'var(--good)' } : undefined}>{q || '—'}</td>; })}
           <td className="num font-medium">{pcs(l.b)}</td>
           <td className="text-[11px]" style={{ color:'var(--ink-faint)', whiteSpace:'nowrap' }}>{l.label === 'Was' ? '' : `${pcs(l.b) - pcs(cr.originalBreakup) >= 0 ? '+' : ''}${pcs(l.b) - pcs(cr.originalBreakup)} pcs`}</td>
-        </tr>)}</tbody>
+        </tr>)}
+        {(() => { const last = i === (o.cutRatios ?? []).length - 1; if (!edit || !last || (edit.on === 'open') !== !cr.given) return null;
+          const v = (c: string) => Number(edit.values[c] ?? edit.base[c] ?? 0) || 0; const tot = cols.reduce((a, c) => a + v(c), 0); const was = pcs(cr.originalBreakup);
+          const over = edit.allow != null && tot > edit.allow;
+          return <tr className="cr-edit">
+            <td className="font-medium" style={{ whiteSpace:'nowrap' }}>{edit.label}<div className="text-[10.5px]" style={{ color:'var(--ink-faint)', fontWeight: 400 }}>{edit.who}</div></td>
+            {cols.map(c => { const q = v(c); const w = qty(cr.originalBreakup, c); return <td key={c} className="num"><input className={`cr-in${q !== w ? (q < w ? ' dn' : ' up') : ''}`} type="number" min={0} value={edit.values[c] ?? String(edit.base[c] ?? 0)} onChange={e => edit.onChange(c, e.target.value)} aria-label={`size ${c}`} /></td>; })}
+            <td className={`num font-semibold${over ? ' cr-over' : ''}`}>{tot}</td>
+            <td className="text-[11px]" style={{ color: over ? 'var(--risk)' : 'var(--ink-faint)', whiteSpace:'nowrap' }}>{tot - was >= 0 ? '+' : ''}{tot - was} pcs{edit.allow != null ? <div>cloth allows ~{edit.allow}</div> : null}</td>
+          </tr>; })()}
+        </tbody>
       </table></div>
       {!cr.given && diff < 0 && <div className="text-[11.5px] pt-1" style={{ color:'var(--ink-soft)' }}>{-diff} pcs fewer than the PO if approved as proposed.</div>}
     </div>; })}</>;
@@ -477,13 +489,14 @@ export function FabricFinalisationSection({ o, bare, columns, part, onGiven }: {
                   <Button size="sm" variant="ghost" onClick={() => setCutShort(false)}>Cancel</Button></div>
               </div>}
             </> : <ActsBy role={['production', 'merchandiser']} does="asks design for a modified ratio or proposes a cut-short; sourcing can top the cloth up instead" />}</div>}
-          <CutRatioTrail o={o} />
+          {(() => { const allow = o.costing.consumption ? Math.floor((fs?.receipt?.metresOk ?? 0) / o.costing.consumption) : null;
+            const openBase = Object.fromEntries(o.sizeBreakup.map(x => [x.size, st.cr?.proposedBreakup?.find(p => p.size === x.size)?.qty ?? st.cr?.originalBreakup.find(p => p.size === x.size)?.qty ?? x.qty]));
+            const givenBase = Object.fromEntries((st.cr?.given?.breakup ?? []).map(x => [x.size, x.qty]));
+            const ed: EditRow | null = st.key === 'ratio-asked' && isDesign ? { label: 'New', who: `you · ${RTW_ONLY ? 'category' : 'design'}`, values: ratio, base: openBase, onChange: (c, v) => setRatio(r => ({ ...r, [c]: v })), allow, on: 'open' }
+              : isDesign && st.cr?.given && revising ? { label: 'Change to', who: 'you', values: ratio, base: givenBase, onChange: (c, v) => setRatio(r => ({ ...r, [c]: v })), allow, on: 'given' } : null;
+            return <CutRatioTrail o={o} edit={ed} />; })()}
           {st.key === 'ratio-asked' && (isDesign ? <div className="pt-1">
-            <div className="text-[11.5px] pb-1" style={faint}>New quantities per size for the cloth that is there ({fs?.receipt?.metresOk} m usable{o.costing.consumption ? ` ≈ ${Math.floor((fs?.receipt?.metresOk ?? 0) / o.costing.consumption)} pcs` : ''})</div>
-            <div className="grid gap-1.5 py-1" style={{ gridTemplateColumns:`repeat(${o.sizeBreakup.length}, minmax(52px, 1fr))` }}>{o.sizeBreakup.map(x => { const prop = st.cr?.proposedBreakup?.find(p => p.size === x.size)?.qty; return <Field key={x.size} label={`${x.size}${prop != null ? ` · proposed ${prop}` : ''}`}><Input type="number" min={0} value={ratio[x.size] ?? String(prop ?? x.qty)} onChange={e => setRatio(r => ({ ...r, [x.size]: e.target.value }))} style={{ padding:'4px 6px' }} /></Field>; })}</div>
-            {(() => { const total = o.sizeBreakup.reduce((a, x) => a + (Number(ratio[x.size] ?? st.cr?.proposedBreakup?.find(p => p.size === x.size)?.qty ?? x.qty) || 0), 0);
-              const allow = o.costing.consumption ? Math.floor((fs?.receipt?.metresOk ?? 0) / o.costing.consumption) : null; const over = allow != null && total > allow;
-              return <div className="text-[11.5px] pb-1" style={{ color: over ? 'var(--risk)' : 'var(--ink-soft)' }}>Total {total} pcs · was {o.orderQty}{allow != null ? ` · the cloth allows about ${allow}` : ''}{over ? ' · more than the cloth covers' : ''}</div>; })()}
+            <div className="text-[11.5px] pb-1.5" style={faint}>Type the new quantity for each size in the New row. {fs?.receipt?.metresOk != null ? `${fs.receipt.metresOk} m of cloth is usable at the factory${o.costing.consumption ? `, about ${Math.floor((fs.receipt.metresOk) / o.costing.consumption)} pcs` : ''}.` : ''}</div>
             <div className="flex gap-2 items-center flex-wrap"><Button size="sm" variant="primary" onClick={() => { giveCutRatio(o.id, o.sizeBreakup.map(x => ({ size: x.size, qty: Number(ratio[x.size] ?? st.cr?.proposedBreakup?.find(p => p.size === x.size)?.qty ?? x.qty) || 0 }))); onGiven?.(); }}>{st.cr?.kind === 'cut-short' ? 'Approve the cut-short' : 'Give this cut ratio'}</Button>{st.cr?.kind === 'cut-short' && <span className="text-[11.5px]" style={faint}>change any size before approving if the mix should differ</span>}</div>
           </div> : <ActsBy role="design" does="gives the new size-wise quantities for the cloth that is there" />)}
           {st.key === 'ratio-given' && (isProd ? <div className="pt-1"><Button size="sm" variant="primary" onClick={() => sendCutRatio(o.id)}>Send the new {st.cr?.kind === 'cut-short' ? 'cut-short' : 'ratio'} to {nameOf(o.vendorId)}</Button></div> : <ActsBy role="production" does={`sends the new ${st.cr?.kind === 'cut-short' ? 'cut-short' : 'cut ratio'} to the factory`} />)}
@@ -492,8 +505,7 @@ export function FabricFinalisationSection({ o, bare, columns, part, onGiven }: {
             {/* the PO still carries the earlier sizes until it is changed and approved again */}
             {onGiven && (() => { const on: Record<string, number> = {}; (o.poDoc?.lines ?? []).forEach(l => l.sizes.forEach(x => { on[x.size] = (on[x.size] ?? 0) + x.qty; })); return st.cr!.given!.breakup.some(b => (on[b.size] ?? 0) !== b.qty); })() && <Button size="sm" variant="primary" onClick={onGiven}>Go to the PO to change it →</Button>}</div>}
           {isDesign && st.cr?.given && revising && <div className="pt-1">
-            <div className="text-[11.5px] pb-1" style={faint}>Change any size; the factory sees the new sizes, the cloth count stays as it was ({fs?.receipt?.metresOk} m usable)</div>
-            <div className="grid gap-1.5 py-1" style={{ gridTemplateColumns:`repeat(${o.sizeBreakup.length}, minmax(52px, 1fr))` }}>{st.cr.given.breakup.map(x => <Field key={x.size} label={`${x.size} · now ${x.qty}`}><Input type="number" min={0} value={ratio[x.size] ?? String(x.qty)} onChange={e => setRatio(r => ({ ...r, [x.size]: e.target.value }))} style={{ padding:'4px 6px' }} /></Field>)}</div>
+            <div className="text-[11.5px] pb-1.5" style={faint}>Change any size in the Change to row; the factory sees the new sizes, the cloth count stays as it was.</div>
             <div className="flex gap-2 items-center"><Button size="sm" variant="primary" onClick={() => { reviseCutRatio(o.id, st.cr!.given!.breakup.map(x => ({ size: x.size, qty: Number(ratio[x.size] ?? x.qty) || 0 }))); setRevising(false); onGiven?.(); }}>Give the changed ratio</Button><Button size="sm" variant="ghost" onClick={() => setRevising(false)}>Cancel</Button></div>
           </div>}
         </div>}

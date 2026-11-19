@@ -18,7 +18,7 @@ import { MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
 import { PackSection, CostQuerySection, PoSection, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, WarehouseCount, CogsSection, RemarksLog, remarksCountOf, PoFabricsSection, EnigmaSection } from './RtwChain';
 import { SOURCE_LABEL } from '../domain/rtwJourney';
-import { countedBy3plOf } from '../domain/rtwPack';
+import { countedBy3plOf, poFabricsOf } from '../domain/rtwPack';
 import { ApprovalSection, PoEditSection } from './RtwApproval';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
@@ -159,8 +159,9 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
           {!onTracker && <div className="pt-2"><a className="cta" href={`#/tracker?open=${o.id}`}>Open on the RTW production tracker →</a></div>}
         </>}
     </Section>}
-    {at('cloth') && o.poNo && <div className="rtw-full"><PoFabricsSection o={o} factory={merchant} prod={prod} /></div>}
-    {at('cloth') && <div className="rtw-full"><Section title={!o.poNo || o.fabricNominated ? "Cloth at the factory" : "Cloth and trims at the factory"} collapsible={false} right={<Pill tone={o.poNo ? (o.fabricNominated ? (!o.sourcing?.fabricPo ? 'warn' : fab.tone) : (o.factoryCloth?.receivedOn ? 'good' : 'info')) : 'neutral'}>{o.poNo ? (o.fabricNominated ? (!o.sourcing?.fabricPo ? 'sourcing to buy the cloth' : fab.label) : (o.factoryCloth?.receivedOn ? 'cloth in at the factory' : 'factory buying the cloth')) : 'after the PO'}</Pill>}>
+    {/* 19 Nov 2026: one cloth section: the colours on the PO first, then the cloth sent and counted, then the cut ratio */}
+    {at('cloth') && (() => { const pfx = poFabricsOf(o); const colourAlert = !!o.poNo && pfx.all.length > 0 && (pfx.failedOpen.length > 0 || pfx.held.length > 0); return <div className="rtw-full"><Section title={`${!o.poNo || o.fabricNominated ? 'Cloth at the factory' : 'Cloth and trims at the factory'}${o.poNo && pfx.all.length ? ` · ${pfx.all.length} colour${pfx.all.length === 1 ? '' : 's'}` : ''}`} collapsible={false} right={<span className="flex gap-2 items-center flex-wrap">{colourAlert && <Pill tone={pfx.tone}>{pfx.line}</Pill>}<Pill tone={o.poNo ? (o.fabricNominated ? (!o.sourcing?.fabricPo ? 'warn' : fab.tone) : (o.factoryCloth?.receivedOn ? 'good' : 'info')) : 'neutral'}>{o.poNo ? (o.fabricNominated ? (!o.sourcing?.fabricPo ? 'sourcing to buy the cloth' : fab.label) : (o.factoryCloth?.receivedOn ? 'cloth in at the factory' : 'factory buying the cloth')) : 'after the PO'}</Pill></span>}>
+      {o.poNo && pfx.all.length > 0 && <div className="cloth-colours"><PoFabricsSection o={o} factory={merchant} prod={prod} bare /></div>}
       {!o.poNo ? <div className="text-[12.5px] py-1" style={faint}>Decided by Nitin before the PO: BSC sends the cloth and trims (sourcing ships them, the factory counts them in), or the factory buys it — from BSC's vendor on the details in the PO, or its own — and gives back its fabric PO and receipt. Less or more than the PO needs comes back to category for a new cut ratio.</div>
         : !o.fabricNominated ? <FactoryClothSection o={o} merchant={merchant} />
         : !o.sourcing?.fabricPo ? <div className="text-[12.5px] py-1"><b>Cloth not bought yet.</b> <span style={{ color: 'var(--ink-soft)' }}>Sourcing raises the fabric PO on {db.vendors.find(v => v.id === o.pack?.fabric.vendorId)?.name ?? 'the cloth vendor'}{fab.need ? ` for ${fab.need} m` : ''}, then ships the cloth to {db.vendors.find(v => v.id === o.vendorId)?.name ?? 'the factory'}. The factory counts it in on the table above once it arrives.</span></div>
@@ -168,7 +169,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
     </Section>
     {o.poNo && !o.fabricNominated && <div className="pt-3"><Section title="Trims and the cut ratio" collapsible={false} right={<Pill tone={fab.cr && !fab.cr.given ? 'risk' : fab.cr?.given ? 'info' : 'neutral'}>{fab.cr && !fab.cr.given ? 'new cut ratio with category' : fab.cr?.given ? 'new cut ratio given' : 'on the PO sizes'}</Pill>}>
       {(merchant && !design && !prod) || (role === 'owner' && location.hash.startsWith('#/factory')) ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" onGiven={o.poNo && o.poDoc ? () => panel('po') : undefined} />}
-    </Section></div>}</div>}
+    </Section></div>}</div>; })()}
 
     {at('dispatch') && <div className="rtw-full"><InvoiceSection o={o} merchant={merchant} /></div>}
 

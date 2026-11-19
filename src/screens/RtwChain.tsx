@@ -784,13 +784,14 @@ export const remarksCountOf = (o: ProductionOrder) => (o.qcChecks ?? []).length 
 
 /* ── the fabrics on the PO, one per colour: received and checked by the factory each on its own; a fail holds the colour
    for a replacement under the same PO, or drops it (an alternative comes as a separate PO). The rest carry on. ── */
-export function PoFabricsSection({ o, factory, prod }: { o: ProductionOrder; factory: boolean; prod: boolean }) {
+export function PoFabricsSection({ o, factory, prod, bare }: { o: ProductionOrder; factory: boolean; prod: boolean; bare?: boolean }) {
   const { db, receivePoFabric, qcPoFabric, decidePoFabric, resumePoFabric, raiseAlternativeFor } = useApp();
   const pf = poFabricsOf(o);
   const [metres, setMetres] = useState<Record<string, string>>({}); const [note, setNote] = useState<Record<string, string>>({}); const [by, setBy] = useState<Record<string, string>>({});
   if (!o.poNo || !pf.all.length) return null;
-  return <Section title={`Fabrics on this PO · ${pf.all.length} colour${pf.all.length === 1 ? '' : 's'}`} collapsible={false} right={<Pill tone={pf.tone}>{pf.line}</Pill>}>
-    <div style={{ overflowX: 'auto' }}><table className="t compact">
+  const got = pf.all.filter(f => f.receivedOn); const need = pf.all.reduce((a, f) => a + f.metresNeeded, 0); const rec = got.reduce((a, f) => a + (f.metresReceived ?? 0), 0);
+  const inner = <>
+    <div style={{ overflowX: 'auto' }}><table className="t compact fab-t">
       <thead><tr><th>Colour</th><th className="num">Pcs</th><th>Vendor</th><th>Cloth</th><th>Factory check</th><th>Then</th></tr></thead>
       <tbody>{pf.all.map(f => { const dropped = f.decision?.kind === 'drop'; const held = f.qc === 'failed' && f.decision?.kind === 'hold' && !f.resumedOn;
         return <tr key={f.id} style={{ opacity: dropped ? .55 : 1, verticalAlign: 'top', background: f.qc === 'failed' && !f.decision ? 'color-mix(in srgb, var(--risk) 5%, transparent)' : held ? 'color-mix(in srgb, var(--warn) 7%, transparent)' : undefined }}>
@@ -801,14 +802,22 @@ export function PoFabricsSection({ o, factory, prod }: { o: ProductionOrder; fac
           <td style={{ whiteSpace: 'nowrap' }}>{f.qc === 'passed' ? <Pill tone="good">passed{f.resumedOn ? ' · replacement' : ''}</Pill> : f.qc === 'failed' ? <><Pill tone="risk">failed {fmtDate(f.qcOn)}</Pill>{f.qcNote && <div className="text-[11px]" style={{ color: 'var(--risk)', whiteSpace: 'normal', maxWidth: 200 }}>{f.qcNote}</div>}</> : f.receivedOn ? (factory ? <span className="flex gap-1 items-end flex-wrap"><Input value={note[f.id] ?? ''} onChange={e => setNote(x => ({ ...x, [f.id]: e.target.value }))} placeholder="note" style={{ width: 120 }} /><Button size="sm" variant="primary" onClick={() => qcPoFabric(o.id, f.id, 'passed', note[f.id] ?? '')}>Pass</Button><Button size="sm" variant="danger" onClick={() => qcPoFabric(o.id, f.id, 'failed', note[f.id] ?? '')}>Fail</Button></span> : <Pill tone="warn">to check</Pill>) : <span style={faint}>—</span>}</td>
           <td className="text-[12px]" style={{ whiteSpace: 'normal', minWidth: 220 }}>
             {f.qc === 'passed' && !dropped && <span style={{ color: 'var(--good)' }}>in production</span>}
-            {f.qc === 'failed' && !f.decision && (prod ? <div className="flex gap-1.5 items-end flex-wrap"><Field label="Replacement by"><Input type="date" value={by[f.id] ?? ''} onChange={e => setBy(x => ({ ...x, [f.id]: e.target.value }))} style={{ width: 135 }} /></Field><Button size="sm" variant="primary" onClick={() => decidePoFabric(o.id, f.id, 'hold', fromDateInput(by[f.id] ?? ''))}>Hold · replace</Button><Button size="sm" variant="danger" onClick={() => decidePoFabric(o.id, f.id, 'drop')}>Drop from this run</Button></div> : <ActsBy role="production" does="holds the colour for a replacement, or drops it" />)}
+            {f.qc === 'failed' && !f.decision && (prod ? <div className="fab-decide">
+              <div className="fab-decide-row"><span className="fab-decide-k">Hold for a replacement by</span><Input type="date" value={by[f.id] ?? ''} onChange={e => setBy(x => ({ ...x, [f.id]: e.target.value }))} style={{ width: 140 }} /><Button size="sm" variant="primary" disabled={!by[f.id]} onClick={() => decidePoFabric(o.id, f.id, 'hold', fromDateInput(by[f.id] ?? ''))}>Hold</Button></div>
+              <div className="fab-decide-row"><span className="fab-decide-k">or</span><button type="button" className="vlink fab-drop" onClick={() => decidePoFabric(o.id, f.id, 'drop')}>drop {f.colour} from this run ({f.qty} pcs)</button></div>
+            </div> : <ActsBy role="production" does="holds the colour for a replacement, or drops it" />)}
             {held && <div><Pill tone="warn">on hold</Pill> <span style={soft}>replacement{f.decision?.kind === 'hold' && f.decision.replacementBy ? ` by ${fmtDate(f.decision.replacementBy)}` : ''} · same PO</span>{factory && <div className="flex gap-1 items-center pt-1"><Input type="number" value={metres[f.id] ?? String(f.metresNeeded)} onChange={e => setMetres(x => ({ ...x, [f.id]: e.target.value }))} style={{ width: 80 }} /><Button size="sm" variant="primary" onClick={() => resumePoFabric(o.id, f.id, Number(metres[f.id] ?? f.metresNeeded))}>Replacement in · passed</Button></div>}</div>}
             {dropped && <div><Pill tone="neutral">dropped {fmtDate(f.decision!.on)}</Pill> <span style={soft}>{f.qty} pcs off this run</span>{f.decision?.kind === 'drop' && (f.decision.newRequirementId ? <div className="pt-1"><a className="vlink text-[12px]" href={`#/design?open=${f.decision.newRequirementId}`}>alternative raised as a separate requirement →</a></div> : prod ? <div className="pt-1"><Button size="sm" onClick={() => raiseAlternativeFor(o.id, f.id)}>Raise the alternative as a separate requirement</Button></div> : null)}</div>}
           </td>
         </tr>; })}</tbody>
+      {pf.all.length > 1 && <tfoot><tr><td className="font-semibold">Total</td><td className="num font-semibold">{pf.all.reduce((a, f) => a + f.qty, 0)}</td><td></td>
+        <td className="text-[12px] font-semibold" style={{ whiteSpace: 'nowrap', color: got.length && rec < need ? 'var(--risk)' : undefined }}>{got.length ? `${rec} of ${need} m` : `${need} m needed`}{got.length && rec < need ? <div className="text-[11px] font-normal">{need - rec} m short</div> : null}</td>
+        <td className="text-[12px]">{pf.all.filter(f => f.qc === 'passed').length} of {pf.all.length} passed</td><td></td></tr></tfoot>}
     </table></div>
     {(pf.held.length > 0 || pf.dropped.length > 0) && <div className="text-[12.5px] pt-2" style={soft}>{pf.running.length} colour{pf.running.length === 1 ? '' : 's'} · {pf.running.reduce((a, f) => a + f.qty, 0)} pcs in production{pf.held.length ? ` · ${pf.heldPcs} pcs on hold` : ''}{pf.dropped.length ? ` · ${pf.dropped.reduce((a, f) => a + f.qty, 0)} pcs dropped (category gives the cut ratio for the rest)` : ''}.</div>}
-  </Section>;
+  </>;
+  if (bare) return inner;
+  return <Section title={`Fabrics on this PO · ${pf.all.length} colour${pf.all.length === 1 ? '' : 's'}`} collapsible={false} right={<Pill tone={pf.tone}>{pf.line}</Pill>}>{inner}</Section>;
 }
 
 /* ── the last step: the style into Enigma with every size, ready to sell; editable before and after; then AI drafts the product and marketing details ── */

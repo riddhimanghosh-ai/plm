@@ -1141,3 +1141,16 @@ input.bom-cell::placeholder { color: var(--ink-faint); }
 .bom-form-t tfoot td { padding: 6px; background: var(--surface-2); }
 .bom-form-t select.bom-cell { min-width: 96px; } .bom-form-t td.num input.bom-cell { width: 64px; } .bom-form-t td.num input.bom-cell.sm { width: 52px; }
 .bom-form-t th:nth-child(5), .bom-form-t td:nth-child(5) { width: 72px; }
+
+/* cut ratio: the new sizes are typed as a row of the same table */
+table.cr-sizes tr.cr-edit > td { background: color-mix(in srgb, var(--accent) 5%, transparent); border-top: 1.5px solid var(--accent); }
+.cr-in { width: 100%; min-width: 44px; max-width: 70px; text-align: right; font: inherit; font-weight: 600; font-variant-numeric: tabular-nums; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface, #fff); }
+.cr-in:focus { outline: none; border-color: var(--accent); } .cr-in.up { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); } .cr-in.dn { color: var(--risk); border-color: color-mix(in srgb, var(--risk) 45%, var(--line)); }
+td.cr-over { color: var(--risk); }
+/* a failed colour: one line to hold, one to drop */
+.fab-decide { display: flex; flex-direction: column; gap: 6px; } .fab-decide-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fab-decide-k { font-size: 11.5px; color: var(--ink-soft); } .fab-drop { color: var(--risk) !important; font-size: 12px; }
+
+/* one cloth section: the colour table sits at the top, the cloth sent and counted under it */
+.cloth-colours { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
+table.fab-t tfoot td { border-top: 1.5px solid var(--line); background: var(--surface-2); }

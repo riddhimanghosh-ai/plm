@@ -1623,6 +1623,13 @@ orders.forEach(o => { const f = o.bom.find(l => l.kind === 'fabric'); if (f) { f
 /* counting follows where the goods land: one PO delivered to the 3PL still waits for the merchandiser to upload the 3PL's consignment report */
 { const o = [...orders].reverse().find(x => x.status === 'Closed' && x.invoice?.mailedOn && x.poDoc && x.poMail?.deliveryLocation === '3PL warehouse' && (x.receipts ?? []).length > 0);
   if (o) { o.receipts = []; o.status = 'Open'; o.cogsClosedOn = null; } }
+/* 19 Nov 2026: the size break-up adds up to the order qty. Where a PO exists its sizes are the truth; otherwise the
+   largest size takes the difference. A cut-ratio ask's "was" row is the corrected break-up. */
+orders.forEach(o => { if (!o.sizeBreakup?.length) return; const sum = (b: { qty: number }[]) => b.reduce((a, x) => a + x.qty, 0);
+  if (o.poDoc?.lines.length) { const by: Record<string, number> = {}; o.poDoc.lines.forEach(l => l.sizes.forEach(x => { by[x.size] = (by[x.size] ?? 0) + x.qty; }));
+    if (sum(Object.entries(by).map(([, q]) => ({ qty: q }))) === o.orderQty) o.sizeBreakup = o.sizeBreakup.map(x => ({ ...x, qty: by[x.size] ?? 0 })); }
+  const d = o.orderQty - sum(o.sizeBreakup); if (d) { const big = [...o.sizeBreakup].sort((a, b) => b.qty - a.qty)[0]; big.qty += d; }
+  (o.cutRatios ?? []).forEach(cr => { if (sum(cr.originalBreakup) !== o.orderQty) cr.originalBreakup = o.sizeBreakup.map(x => ({ ...x })); }); });
 export const SEED: Db = {
   lostSales,
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,
