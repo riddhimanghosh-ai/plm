@@ -1650,7 +1650,10 @@ orders.forEach(o => { if (!o.sizeBreakup?.length) return; const sum = (b: { qty:
     else { o.transfers = [{ id: `tn-${o.id}`, no, on: o.poDate!, lines, sentOn: inv?.on ?? o.poDate!, by: 'Desai', invoiceNo: inv?.no ?? null, mail: { to: [], cc: [], attachments: [`Transfer note ${no}`, ...(inv ? [`Invoice ${inv.no} · material BSC sent`] : [])] }, dispatch: 'by road · BSC tempo' }];
       /* a sent note means the cloth went: the factory counts it in next */
       const fl = lines.find(l => o.bom[l.idx]?.kind === 'fabric');
-      if (o.fabricNominated && fl && !o.fabricSupply?.sentToFactoryOn) { o.fabricSupply = o.fabricSupply ?? { boughtOn: o.poDate!, sentToFactoryOn: null, metresSent: null, receipt: null }; o.fabricSupply.sentToFactoryOn = inv?.on ?? o.poDate!; o.fabricSupply.metresSent = fl.sendQty; } } }); }
+      if (o.fabricNominated && fl && !o.fabricSupply?.sentToFactoryOn) { o.fabricSupply = o.fabricSupply ?? { boughtOn: o.poDate!, sentToFactoryOn: null, metresSent: null, receipt: null }; o.fabricSupply.sentToFactoryOn = inv?.on ?? o.poDate!; o.fabricSupply.metresSent = fl.sendQty;
+        /* past the cloth stage (closed, dispatched, or cutting started): the factory counted it in */
+        const eta = o.milestones.find(m => m.key === 'Fabric ETA')?.actual ?? o.milestones.find(m => m.key === 'Cutting Start')?.actual ?? null;
+        if (!o.fabricSupply.receipt && (o.status !== 'Open' || eta)) o.fabricSupply.receipt = { on: eta ?? iso(addDays(o.fabricSupply.sentToFactoryOn, 2)), by: o.merchant ?? 'Nitin Singh', metresOk: fl.sendQty, metresDamaged: 0, note: '' }; } } }); }
 /* 19 Nov 2026: marketing's details — done for what has landed, a draft saved on a few in Enigma, the rest still to start */
 orders.forEach((o, i) => { if (!o.enigmaProduct) return; const d = marketingDraftOf(o);
   if (o.status === 'Closed' || o.enigmaProduct.copy) o.marketing = { ...d, savedOn: o.enigmaProduct.addedOn, by: 'Marketing', doneOn: o.enigmaProduct.addedOn };

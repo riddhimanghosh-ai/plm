@@ -390,7 +390,7 @@ function makeTransfer(db: Db, o: ProductionOrder, only?: number[]) {
   o.transfers = open ? (o.transfers ?? []).map(x => x.id === open.id ? t : x) : [...(o.transfers ?? []), t];
   (o.activity = o.activity ?? []).push({ at: new Date(TODAY).toISOString(), who: 'PLM', what: `Transfer note ${t.no} ${open ? 'rewritten' : 'written'} for what BSC sends · ${lines.length} line${lines.length === 1 ? '' : 's'} · with Desai` });
 }
-const SEED_VERSION = 183;
+const SEED_VERSION = 184;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 let saveWarned = false;
