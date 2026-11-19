@@ -5,7 +5,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { BSC_LOGO_PNG } from './logoData';
 import type { Db, ProductionOrder, PoInvoice, PoDoc } from './types';
-import { poVendorsOf, poTotalsOf, rawMaterialsOf } from './rtwPack';
+import { poVendorsOf, poTotalsOf, rawMaterialsOf, poGroupOf } from './rtwPack';
 
 export const SELLER = { name: 'Bombay Shirt Company Pvt. Ltd.', addr: 'Unit 4, Sun Mill Compound, Lower Parel, Mumbai 400013, Maharashtra', gstin: '27AAECB1234F1Z5', state: 'Maharashtra (27)', bank: 'HDFC Bank · A/c 5020 0012 3456 78 · IFSC HDFC0000060' };
 /* GST: the same state as the buyer splits into CGST + SGST; another state is IGST */
@@ -106,7 +106,14 @@ export function downloadVendorsPdf(db: Db, o: ProductionOrder) {
 export function poPdfOf(db: Db, o: ProductionOrder, docIn?: PoDoc | null): jsPDF | null {
   const d = docIn ?? o.poDoc; if (!d) return null;
   const a = (x: string) => x.replace(/\s*·\s*/g, ' - ').replace(/[—–]/g, '-').replace(/₹/g, 'Rs. ');
-  const f = db.vendors.find(v => v.id === (o.vendorId ?? o.poApproval?.vendorId)) ?? null; const t = poTotalsOf(d); const pm = o.poMail;
+  const f = db.vendors.find(v => v.id === (o.vendorId ?? o.poApproval?.vendorId)) ?? null; const pm = o.poMail;
+  /* 19 Nov 2026: one PO can carry several styles; the PDF is then one document with every style's lines and one total */
+  const grp = docIn ? null : poGroupOf(db, o);
+  const items = (grp?.many ? grp.rows.map(r => ({ o: r.o, d: (r.o.poDoc ?? r.o.poApproval?.doc) ?? null })).filter((x): x is { o: ProductionOrder; d: PoDoc } => !!x.d) : [{ o, d }]);
+  const many = items.length > 1; const ts = items.map(x => poTotalsOf(x.d));
+  const t = { pcs: ts.reduce((x, y) => x + y.pcs, 0), value: ts.reduce((x, y) => x + y.value, 0), gst: ts.reduce((x, y) => x + y.gst, 0), total: ts.reduce((x, y) => x + y.total, 0) };
+  const charges = items.flatMap(x => x.d.charges.filter(c => c.amount).map(c => ({ label: many ? `${c.label} - ${x.o.styleName}` : c.label, amount: c.amount })));
+  const places = [...new Set(items.map(x => x.o.poMail?.deliveryLocation ?? x.o.deliverTo ?? (x.o.semiStitched ? 'Vasai · in-house' : '3PL warehouse')))];
   const pdf = new jsPDF({ unit: 'pt', format: 'a4' }); const W = pdf.internal.pageSize.getWidth(); const H = pdf.internal.pageSize.getHeight(); const L = 40; const R = W - 40;
   pdf.setFillColor(31, 92, 66); pdf.rect(0, 0, W, 6, 'F');
   pdf.addImage(BSC_LOGO_PNG, 'PNG', L, 26, 50, 50); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.text(SELLER.name, L + 60, 46);
@@ -118,27 +125,28 @@ export function poPdfOf(db: Db, o: ProductionOrder, docIn?: PoDoc | null): jsPDF
   const col = (x: number, title: string, rows: string[]) => { pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(120); pdf.text(title.toUpperCase(), x, 104); pdf.setTextColor(0); pdf.setFontSize(10); pdf.text(a(rows[0]), x, 119); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); rows.slice(1).forEach((r, i) => pdf.text(a(r), x, 133 + i * 12, { maxWidth: (R - L) / 3 - 10 })); };
   const third = (R - L) / 3;
   col(L, 'Factory', [f?.name ?? 'The factory', f?.location ?? '', f?.email ?? `${f?.id ?? 'factory'}@factory.in`]);
-  col(L + third, 'Deliver to', [pm?.deliveryLocation ?? (d.deliveryBasis === 'in-house' ? 'BSC warehouse' : 'Ex-factory'), pm?.needsHemming ? 'Hemming in-house' : 'Ready to sell', `By ${day(o.targetInhouse)}`]);
-  col(L + third * 2, 'Style', [o.styleName, `${o.category} - ${o.subCategory}`, `${t.pcs} pcs - ${d.lines.length} colour${d.lines.length === 1 ? '' : 's'}`]);
-  const sizes = [...new Set(d.lines.flatMap(l => l.sizes.map(x => x.size)))];
+  many ? col(L + third, 'Deliver to', [places.join(' and '), places.length > 1 ? 'by style, see the lines' : '', `By ${day(items.map(x => x.o.targetInhouse).sort()[0])} onwards`]) : col(L + third, 'Deliver to', [pm?.deliveryLocation ?? (d.deliveryBasis === 'in-house' ? 'BSC warehouse' : 'Ex-factory'), pm?.needsHemming ? 'Hemming in-house' : 'Ready to sell', `By ${day(o.targetInhouse)}`]);
+  many ? col(L + third * 2, 'Styles on this PO', [`${items.length} styles`, `${t.pcs} pcs in all`, `${items.reduce((x, y) => x + y.d.lines.length, 0)} lines`]) : col(L + third * 2, 'Style', [o.styleName, `${o.category} - ${o.subCategory}`, `${t.pcs} pcs - ${d.lines.length} colour${d.lines.length === 1 ? '' : 's'}`]);
+  const allLines = items.flatMap(x => x.d.lines.map((l, j) => ({ l, o: x.o, first: j === 0 })));
+  const sizes = [...new Set(allLines.flatMap(x => x.l.sizes.map(y => y.size)))];
   autoTable(pdf, { startY: 172, margin: { left: L, right: 40 }, styles: { fontSize: 8.5, cellPadding: 5 }, headStyles: { fillColor: [31, 92, 66], textColor: 255 },
-    head: [['#', 'Colour', ...sizes, 'Pcs', 'Rate', 'Amount']],
-    body: d.lines.map((l, i) => { const pcs = l.sizes.reduce((x, y) => x + (y.qty || 0), 0); return [String(i + 1), l.colour, ...sizes.map(z => String(l.sizes.find(x => x.size === z)?.qty ?? '-')), String(pcs), money(l.rate), money(l.rate * pcs)]; }),
-    foot: [['', 'Total', ...sizes.map(z => String(d.lines.reduce((x, l) => x + (l.sizes.find(y => y.size === z)?.qty ?? 0), 0))), String(t.pcs), '', money(t.value)]],
+    head: [['#', many ? 'Style - colour' : 'Colour', ...sizes, 'Pcs', 'Rate', 'Amount']],
+    body: allLines.map(({ l, o: so }, i) => { const pcs = l.sizes.reduce((x, y) => x + (y.qty || 0), 0); return [String(i + 1), many ? a(`${so.styleName} - ${l.colour} (to ${so.poMail?.deliveryLocation ?? so.deliverTo ?? '3PL warehouse'}, by ${day(so.targetInhouse)})`) : l.colour, ...sizes.map(z => String(l.sizes.find(x => x.size === z)?.qty ?? '-')), String(pcs), money(l.rate), money(l.rate * pcs)]; }),
+    foot: [['', 'Total', ...sizes.map(z => String(allLines.reduce((x, r) => x + (r.l.sizes.find(y => y.size === z)?.qty ?? 0), 0))), String(t.pcs), '', money(t.value)]],
     footStyles: { fillColor: [240, 240, 236], textColor: 20, fontStyle: 'bold' },
     columnStyles: Object.fromEntries([...Array(sizes.length + 3)].map((_, k) => [k + 2, { halign: 'right' }])) });
   let y = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 18;
   const tot = (k: string, v: string, bold = false) => { pdf.setFont('helvetica', bold ? 'bold' : 'normal'); pdf.setFontSize(bold ? 10.5 : 9.5); pdf.text(k, R - 200, y); pdf.text(v, R, y, { align: 'right' }); y += 15; };
-  const ty = y; tot('Goods', `Rs. ${money(t.value)}`); d.charges.filter(c => c.amount).forEach(c => tot(a(c.label), `Rs. ${money(c.amount)}`)); tot(`GST ${d.gstPct}%`, `Rs. ${money(t.gst)}`); tot('PO total', `Rs. ${money(t.total)}`, true);
+  const ty = y; tot('Goods', `Rs. ${money(t.value)}`); charges.forEach(c => tot(a(c.label), `Rs. ${money(c.amount)}`)); tot(`GST ${d.gstPct}%`, `Rs. ${money(t.gst)}`); tot('PO total', `Rs. ${money(t.total)}`, true);
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.text(`In words: ${rupeesInWords(t.total)}`, L, y + 4, { maxWidth: R - L });
   autoTable(pdf, { startY: Math.max(y + 18, ty), margin: { left: L, right: 40 }, theme: 'plain', styles: { fontSize: 8.5, cellPadding: 3.5, valign: 'top' }, columnStyles: { 0: { cellWidth: 130, textColor: 110, fontStyle: 'bold' } },
     body: [
       ['Price basis', d.priceBasis], ['Payment', `${d.advancePct ? `${d.advancePct}% advance${d.advanceWhen ? ` ${d.advanceWhen}` : ''}, then ` : ''}${d.paymentTerms}`],
-      ['Delivery date', `${d.shipBy ? day(d.shipBy) : day(o.targetInhouse)}${d.deliveryBasis ? ` (${d.deliveryBasis === 'in-house' ? 'in-house at the warehouse' : 'ex-factory'})` : ''}`],
+      many ? ['Delivery date', 'By style, as on each line'] : ['Delivery date', `${d.shipBy ? day(d.shipBy) : day(o.targetInhouse)}${d.deliveryBasis ? ` (${d.deliveryBasis === 'in-house' ? 'in-house at the warehouse' : 'ex-factory'})` : ''}`],
       ...(d.goodsExpectedBy ? [['Goods expected by', day(d.goodsExpectedBy)]] : []),
       ...(d.tolerancePct != null ? [['Quantity tolerance', `+/-${d.tolerancePct}%`]] : []), ...(d.aql ? [['AQL', d.aql]] : []), ...(d.lateDeduction ? [['Late delivery', d.lateDeduction]] : []),
       ...(d.cloth ? [['Cloth issued (CMT)', `${d.cloth.metresIssued ?? '-'} m - ${d.cloth.consumptionPerPc ?? '-'} m/pc - ${d.cloth.wastagePct ?? '-'}% wastage - ${d.cloth.leftover}`]] : []),
-      ['Raw material', d.rawMaterialTerms ?? rawMaterialsOf(db, o).text], ...(d.notes ? [['Notes', d.notes]] : []),
+      ...(many ? items.map(x => [`Raw material - ${x.o.styleName}`, x.d.rawMaterialTerms ?? rawMaterialsOf(db, x.o).text]) : [['Raw material', d.rawMaterialTerms ?? rawMaterialsOf(db, o).text]]), ...(d.notes ? [['Notes', d.notes]] : []),
       ['With this PO', 'Tech pack, trim card, size break-up, BOM, TNA form (return the planned dates through your merchandiser), vendor details'],
     ].map(r => r.map(x => a(String(x)))) });
   y = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 40;
