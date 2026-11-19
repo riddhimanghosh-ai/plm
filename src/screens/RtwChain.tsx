@@ -466,14 +466,15 @@ const ATT_WHAT: Record<string, string> = { 'PO': 'the order: lines, rates, GST, 
 function PoAttachments({ o }: { o: ProductionOrder }) {
   const { db } = useApp(); const [view, setView] = useState<PoInvoice | null>(null); const [poPdf, setPoPdf] = useState(false);
   const invs = supplyInvoicesOf(o); const files = poMailOf(db, o).attachments.filter(a => !a.startsWith('Invoice ') && !a.startsWith('Vendor details')); const vs = poVendorsOf(db, o);
-  const n = files.length + (vs.length ? 1 : 0);
+  const n = files.length + invs.length + (vs.length ? 1 : 0);
   return <div className="mt-3">
     <div className="cap" style={{ margin: '0 0 6px' }}>Attachments on the PO mail · {n}</div>
     <table className="t compact sum-t att-t"><colgroup><col style={{ width: 44 }} /><col style={{ width: 190 }} /><col /><col style={{ width: 116 }} /></colgroup><thead><tr><th>#</th><th>File</th><th>What it is</th><th className="num"></th></tr></thead>
       <tbody>
         {files.map((f, k) => <tr key={f}><td className="mono" style={faint}>{String(k + 1).padStart(2, '0')}</td><td className="font-medium">{f.replace(/ · .*$/, '')}</td><td style={soft}>{ATT_WHAT[f] ?? ''}</td><td className="num">{f === 'PO' && o.poDoc ? <Button size="sm" onClick={() => setPoPdf(true)}>View PDF</Button> : <span style={faint}>{/size break|bom/i.test(f) ? 'XLSX' : 'PDF'}</span>}</td></tr>)}
         {vs.length > 0 && <tr><td className="mono" style={faint}>{String(files.length + 1).padStart(2, '0')}</td><td className="font-medium">Vendor details</td><td style={soft}>{vs.length} vendor{vs.length === 1 ? '' : 's'} · {vs.map(v => `${v.name}: ${v.supplies}`).join(' · ')}</td><td className="num"><Button size="sm" onClick={() => downloadVendorsPdf(db, o)}>↓ PDF</Button></td></tr>}
-        <tr><td></td><td className="font-medium">Material BSC sends</td><td colSpan={2}><div className="text-[12px]" style={soft}>not on this mail: Desai's transfer note and the invoice for what he sends go in their own mail</div><TransferStatus o={o} />{invs.map(iv => <span key={iv.id}> · <button type="button" className="vlink text-[12px]" onClick={() => setView(iv)}>view {iv.no}</button></span>)}</td></tr>
+        {invs.map((iv, k) => <tr key={iv.id}><td className="mono" style={faint}>{String(files.length + (vs.length ? 1 : 0) + k + 1).padStart(2, '0')}</td><td className="font-medium">Invoice {iv.no}</td><td style={soft}>material BSC sends, as Desai confirmed it · <b style={{ color: 'var(--ink)' }}>{fmtMoney(iv.amount)}</b> · comes off what we pay</td><td className="num"><Button size="sm" onClick={() => setView(iv)}>View</Button></td></tr>)}
+        {!invs.length && <tr><td></td><td colSpan={3} style={faint}>{supplyLinesOf(o).length ? 'Invoice for what BSC sends · made when the PO is raised, from the BOM Desai confirmed' : 'No invoice · nothing on this PO is sent by BSC'}</td></tr>}
       </tbody></table>
     {view && <InvoicePreview o={o} inv={view} onClose={() => setView(null)} />}
     {poPdf && <PdfPreview name={poPdfName(o)} make={() => poPdfOf(db, o)} onClose={() => setPoPdf(false)} />}

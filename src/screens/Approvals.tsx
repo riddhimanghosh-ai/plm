@@ -22,7 +22,7 @@ export function Approvals({ as }: { as: ApproverRole }) {
   const all: Row[] = db.orders.flatMap(o => { const out: Row[] = [];
     if (o.poApproval?.needs.includes(as)) { const ap = approvalOf(o); const a = o.poApproval; const d = [...a.decisions].reverse().find(x => x.role === as) ?? null; const mine = ap.state === 'pending' && ap.pending.includes(as);
       out.push({ o, kind: a.kind === 'revision' ? 'revision' : 'po', mine, late: mine && ap.late, deadline: a.deadline, needs: a.needs, value: a.doc ? poTotalsOf(a.doc).total : (o.costQuery?.replies.find(r => r.vendorId === a.vendorId)?.cost ?? 0) * o.orderQty,
-        status: mine ? 'waiting on you' : d ? (d.approved ? 'you approved' : 'you rejected') : ap.line, tone: mine ? (ap.late ? 'risk' : 'warn') : d && !d.approved ? 'risk' : 'good' }); }
+        status: mine ? 'waiting on you' : d ? (d.approved ? 'you approved' : 'you rejected') : ap.line, tone: mine ? (ap.late ? 'risk' : 'warn') : ap.withDesai ? 'neutral' : d && !d.approved ? 'risk' : 'good' }); }
     if (o.poEdit?.needs.includes(as)) { const ed = poEditOf(o); const g = [...o.poEdit.grants].reverse().find(x => x.role === as) ?? null; const mine = ed.state === 'pending' && ed.pending.includes(as);
       out.push({ o, kind: 'edit', mine, late: false, deadline: null, needs: o.poEdit.needs, value: o.poDoc ? poTotalsOf(o.poDoc).total : 0, status: mine ? 'waiting on you' : g ? (g.granted ? 'you gave access' : 'you declined') : 'pending', tone: mine ? 'warn' : g && !g.granted ? 'risk' : 'good' }); }
     return out; });

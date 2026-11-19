@@ -1637,31 +1637,16 @@ orders.forEach(o => { if (!o.sizeBreakup?.length) return; const sum = (b: { qty:
   orders.forEach(o => { if (o.sizeBreakup.length && !o.sizesBy) o.sizesBy = { on: o.styleHandover, by: 'Charanjeet' }; });
   const early = orders.find(o => o.status === 'Quoting' && !o.poNo && (o.costQuery?.replies.length ?? 0) > 0 && !o.enigmaProduct);
   if (early) { early.sizeBreakup = []; early.sizesBy = null; early.queryEarly = true; } }
-/* 19 Nov 2026: no invoice straight off the BOM. Each PO where BSC sends material has a transfer note: the two newest wait with
-   Desai; the rest were sent, and their invoice is the one on the PO. */
-{ let n = 0; const withSupply = orders.filter(o => o.poNo && o.poDoc && supplyLinesOf(o).length).sort((a, b) => (b.poDate ?? '').localeCompare(a.poDate ?? ''));
-  const waiting = new Set(withSupply.filter(o => o.status === 'Open' && !o.milestones.some(m => m.key === 'Cutting Start' && m.actual)).slice(0, 3).map(o => o.id));
-  withSupply.forEach(o => { const pcs = o.poDoc!.lines.reduce((a, l) => a + l.sizes.reduce((x, y) => x + y.qty, 0), 0) || o.orderQty;
-    const lines = o.bom.map((l, idx) => ({ l, idx })).filter(({ l }) => supplyLinesOf(o).some(x => x.item === l.item) && l.qtyPerPc != null).map(({ l, idx }) => { const q = Math.round(l.qtyPerPc! * pcs * 100) / 100; const rate = l.rate ?? (l.kind === 'fabric' ? (o.pack?.fabric.rate ?? o.pack?.fabric.cpm ?? 0) : 0);
-      return { idx, item: l.item, unit: l.unit, rate, bomQty: q, sendQty: q, rest: null, remark: null }; });
-    const inv = (o.poInvoices ?? []).find(i => i.id === `sinv-${o.id}`); const no = `BSC/TN/${2201 + n++}`;
-    if (waiting.has(o.id)) { o.poInvoices = (o.poInvoices ?? []).filter(i => i.id !== `sinv-${o.id}`); o.transfers = [{ id: `tn-${o.id}`, no, on: o.poDate!, lines, sentOn: null, by: null, invoiceNo: null, mail: null, dispatch: null }];
-      if (o.fabricSupply) { o.fabricSupply.sentToFactoryOn = null; o.fabricSupply.metresSent = null; o.fabricSupply.receipt = null; } }
-    else { o.transfers = [{ id: `tn-${o.id}`, no, on: o.poDate!, lines, sentOn: inv?.on ?? o.poDate!, by: 'Desai', invoiceNo: inv?.no ?? null, mail: { to: [], cc: [], attachments: [`Transfer note ${no}`, ...(inv ? [`Invoice ${inv.no} · material BSC sent`] : [])] }, dispatch: 'by road · BSC tempo' }];
-      /* a sent note means the cloth went: the factory counts it in next */
-      const fl = lines.find(l => o.bom[l.idx]?.kind === 'fabric');
-      if (o.fabricNominated && fl && !o.fabricSupply?.sentToFactoryOn) { o.fabricSupply = o.fabricSupply ?? { boughtOn: o.poDate!, sentToFactoryOn: null, metresSent: null, receipt: null }; o.fabricSupply.sentToFactoryOn = inv?.on ?? o.poDate!; o.fabricSupply.metresSent = fl.sendQty;
-        /* past the cloth stage (closed, dispatched, or cutting started): the factory counted it in */
-        const eta = o.milestones.find(m => m.key === 'Fabric ETA')?.actual ?? o.milestones.find(m => m.key === 'Cutting Start')?.actual ?? null;
-        if (!o.fabricSupply.receipt && (o.status !== 'Open' || eta)) o.fabricSupply.receipt = { on: eta ?? iso(addDays(o.fabricSupply.sentToFactoryOn, 2)), by: o.merchant ?? 'Nitin Singh', metresOk: fl.sendQty, metresDamaged: 0, note: '' }; } } }); }
-/* 19 Nov 2026 (user): Desai checks BSC's stock during counter sourcing. Every query where BSC supplies material has a stock
-   check: confirmed for anything past the PO draft and most others; two still wait with Desai, so the PO waits for them. */
-{ let waiting = 0; orders.forEach(o => { const cq = o.costQuery; if (!cq || o.status === 'Cancelled') return; const pcs = o.orderQty || 0;
+/* 20 Nov 2026 (user): Desai comes in once, on the PO draft, before the approvers. Every raised PO where BSC supplies material
+   carries his confirmation; one PO draft still waiting for approval is with him now. */
+{ let waiting = 0; orders.forEach(o => { if (!o.poApproval && !o.poNo) return; if (o.status === 'Cancelled') return;
+  const pcs = o.poDoc ? o.poDoc.lines.reduce((a, l) => a + l.sizes.reduce((x, y) => x + y.qty, 0), 0) || o.orderQty : o.orderQty;
   const lines = o.bom.map((l, idx) => ({ l, idx })).filter(({ l }) => supplyLinesOf(o).some(x => x.item === l.item) && l.qtyPerPc != null).map(({ l, idx }) => { const q = Math.round(l.qtyPerPc! * pcs * 100) / 100; const rate = l.rate ?? (l.kind === 'fabric' ? (o.pack?.fabric.rate ?? o.pack?.fabric.cpm ?? 0) : 0);
     return { idx, item: l.item, unit: l.unit, rate, bomQty: q, sendQty: q, rest: null, remark: null }; });
   if (!lines.length) return;
-  const pending = !o.poNo && !o.poApproval && waiting < 2 && !o.enigmaProduct; if (pending) waiting++;
-  o.stockCheck = { on: cq.sentOn, checkedOn: pending ? null : iso(addDays(cq.sentOn, 1)), by: pending ? null : 'Desai', lines }; }); }
+  const on = o.poApproval?.askedOn ?? (o.poDate ? iso(addDays(o.poDate, -2)) : iso(TODAY));
+  const pending = !o.poNo && !!o.poApproval && waiting < 1 && !o.poApproval.decisions.length; if (pending) waiting++;
+  o.stockCheck = { on, checkedOn: pending ? null : iso(addDays(on, 1)), by: pending ? null : 'Desai', lines }; }); }
 /* 19 Nov 2026: marketing's details — done for what has landed, a draft saved on a few in Enigma, the rest still to start */
 orders.forEach((o, i) => { if (!o.enigmaProduct) return; const d = marketingDraftOf(o);
   if (o.status === 'Closed' || o.enigmaProduct.copy) o.marketing = { ...d, savedOn: o.enigmaProduct.addedOn, by: 'Marketing', doneOn: o.enigmaProduct.addedOn };

@@ -389,9 +389,9 @@ function applyDesai(db: Db, o: ProductionOrder, lines: TransferNote['lines'], re
   if (changed.length) o.bomRevisions = [...(o.bomRevisions ?? []), { on: at, by, why: `Desai on ${ref}: ${changed.join('; ')}` }];
   return changed;
 }
-/* 19 Nov 2026 (user): the stock check for the BOM lines BSC sends, written when the counter-sourcing query goes out; Desai confirms it before the PO */
-function makeStockCheck(o: ProductionOrder) {
-  const pcs = o.orderQty || 0;
+/* 20 Nov 2026 (user): when a PO draft is sent for approval it goes to Desai first: the BOM lines BSC supplies, for the pcs on the PO; he confirms or updates them, then the approvers act */
+function makeStockCheck(o: ProductionOrder, pcsOn?: number) {
+  const pcs = pcsOn || o.orderQty || 0;
   const lines = o.bom.map((l, idx) => ({ l, idx })).filter(({ l }) => suppliedByOf(o, l) === 'bsc' && l.qtyPerPc != null).map(({ l, idx }) => { const q = Math.round(l.qtyPerPc! * pcs * 100) / 100;
     const rate = l.rate ?? (l.kind === 'fabric' ? (o.pack?.fabric.rate ?? o.pack?.fabric.cpm ?? 0) : 0);
     return { idx, item: l.item, unit: l.unit, rate, bomQty: q, sendQty: q, rest: null, remark: null }; });
@@ -413,7 +413,7 @@ function makeTransfer(db: Db, o: ProductionOrder, only?: number[]) {
   o.transfers = open ? (o.transfers ?? []).map(x => x.id === open.id ? t : x) : [...(o.transfers ?? []), t];
   (o.activity = o.activity ?? []).push({ at: new Date(TODAY).toISOString(), who: 'PLM', what: `Transfer note ${t.no} ${open ? 'rewritten' : 'written'} for what BSC sends · ${lines.length} line${lines.length === 1 ? '' : 's'} · with Desai` });
 }
-const SEED_VERSION = 185;
+const SEED_VERSION = 186;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 let saveWarned = false;
@@ -492,7 +492,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       else touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.poDoc) return; const rev = (o.poDoc.revision ?? 1) + 1; const t = poTotalsOf(a.doc!);
         o.poDoc = { ...a.doc!, revision: rev }; o.finalFob = Math.round(t.avgRate * 100) / 100 || o.finalFob; o.orderQty = t.pcs || o.orderQty;
         const logi = a.doc!.charges.find(c => /logistic|freight|transport/i.test(c.label)); o.poCosts = { logistics: logi?.amount ?? null, other: a.doc!.charges.filter(c => c !== logi) };
-        if ((o.transfers ?? []).some(t => !t.sentOn)) makeTransfer(db, o); o.poEdit = null; if (o.poMail) { o.poMail.sentOn = now(); o.poMail.mail = null; }
+        makeSupplyInvoice(db, o); o.poEdit = null; if (o.poMail) { o.poMail.sentOn = now(); o.poMail.mail = null; }
         log(o, `${o.poNo} revised to revision ${rev} and mailed to the factory and the merchandiser · ${t.pcs} pcs · ₹${Math.round(t.total)}`); },
         'Revised PO approved and mailed to the factory.');
     };
@@ -1496,8 +1496,14 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
           return { ...l, sendQty: q, vendor: i.vendor, rest: short ? (i.rest ?? 'bsc') : null, restVendor: short ? i.restVendor : null, restRate: short ? i.restRate : null, remark: i.remark }; });
         const changed = applyDesai(db, o, sc.lines, 'the stock check', at, by);
         sc.checkedOn = at; sc.by = by;
-        log(o, `Stock check confirmed by Desai during counter sourcing${changed.length ? ` · BOM updated (${changed.length} change${changed.length === 1 ? '' : 's'})` : ' · BSC has all of it'}`); },
-        'Confirmed. The BOM shows what BSC supplies and who supplies the rest; the PO can be drafted on it.');
+        log(o, `BOM confirmed by Desai on the PO draft${changed.length ? ` · updated (${changed.length} change${changed.length === 1 ? '' : 's'})` : ' · BSC has all of it'} · on to ${o.poApproval?.needs.length ? 'the approvers' : 'the PO'}`); },
+        'Confirmed. The PO draft moves on to the approvers.');
+      /* approval was skipped: the PO is raised now; a group waits until every style on it is confirmed */
+      const o = get().db.orders.find(x => x.id === orderId); const a = o?.poApproval;
+      if (o && a && !o.poNo && approvalOf(o).approved) {
+        const grp = a.group ? get().db.orders.filter(x => x.poApproval?.group === a.group && !x.poNo) : [o];
+        if (grp.every(x => approvalOf(x).approved)) { let shared: string | null = null; grp.forEach((x, k) => { finishPoApproval(x.id, x.poApproval!, false, a.group ? shared : null); if (k === 0 && a.group) shared = get().db.orders.find(y => y.id === x.id)?.poNo ?? null; }); }
+      }
     },
     newTransfer(orderId) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; makeTransfer(db, o); }, 'Transfer note written. It is with Desai.');
@@ -1523,7 +1529,6 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     sendCostQuery(orderId, factoryIds, deadline, mail = null, files = null) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o || !factoryIds.length) return; const m = mail ?? costQueryMail(db, o, factoryIds, deadline, files);
         o.costQuery = { sentOn: now(), by: who(), deadline, to: m.to, cc: m.cc, factoryIds, replies: [], mail, files };
-        if (!o.stockCheck) makeStockCheck(o);   // Desai checks BSC's stock while the factories quote
         log(o, `Cost query mailed to ${factoryIds.map(id => db.vendors.find(v => v.id === id)?.name ?? id).join(', ')} · reply by ${fmtDate(deadline)} · cc merchandiser`); },
         'Cost query mailed to the factories with the requirement and the cost form; the merchandiser is copied.');
     },
@@ -1545,7 +1550,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         if (!o.materials?.length) o.materials = defaultMaterials(o); if (!o.sampleVendorId) o.sampleVendorId = vendorId;
         const needsHemming = !!o.semiStitched;
         o.poMail = { on: now(), to: [], cc: [], deliveryLocation: o.deliverTo ?? deliveryLocationOf(needsHemming), needsHemming, fabricBy, clothVendorSent: fabricBy !== 'factory' };
-        makeTransfer(db, o);   // 19 Nov 2026: a transfer note to Desai; the invoice follows when he sends
+        makeSupplyInvoice(db, o);   // 20 Nov 2026: the invoice for what BSC sends, from the BOM Desai confirmed, goes with the PO mail
         const m = poMailOf(db, o); o.poMail.to = m.to; o.poMail.cc = m.cc; o.poMail.sentOn = null;
         /* BSC supplies the cloth: the factory raises no fabric PO, so that block is not needed on this TNA; it still logs the cloth received (Fabric ETA) */
         if (fabricBy === 'bsc') o.milestones.forEach(m => { if (m.key === 'Fabric PO' || m.key === 'Yarn PO') { m.skipped = { on: now(), by: who() }; m.actual = m.plan; } });
@@ -1587,15 +1592,15 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o || !o.enigmaProduct) return;   // no PO draft before the SKUs are in Enigma
         const revision = !!o.poNo;   // 17 Nov 2026: a raised PO is changed directly and sent for approval again; no separate edit access
         o.poApproval = { vendorId, fabricBy, needs, deadline, askedOn: now(), by: who(), note, decisions: [], doc, kind: revision ? 'revision' : 'new' }; made = o.poApproval; rev = revision;
-        const t = poTotalsOf(doc);
+        const t = poTotalsOf(doc); o.stockCheck = null; makeStockCheck(o, t.pcs);
         log(o, `${revision ? `Revised ${o.poNo}` : 'PO draft'} sent for approval · ${db.vendors.find(v => v.id === vendorId)?.name ?? vendorId} · ${t.pcs} pcs · ₹${Math.round(t.total)} · ${needs.length ? `needs ${needs.map(r => r === 'hod' ? 'HOD' : 'finance').join(' and ')} · by ${fmtDate(deadline)}` : `approval skipped${note ? ` · ${note}` : ''}`}`); },
-        needs.length ? 'Sent for approval. It is raised and mailed by itself once approved.' : 'Approval skipped.');
-      if (made && !needs.length) finishPoApproval(orderId, made as PoApproval, rev);
+        get().db.orders.find(x => x.id === orderId)?.stockCheck ? 'Sent. It goes to Desai first to confirm the BOM, then to the approvers.' : needs.length ? 'Sent for approval. It is raised and mailed by itself once approved.' : 'Approval skipped.');
+      if (made && !needs.length && !get().db.orders.find(x => x.id === orderId)?.stockCheck) finishPoApproval(orderId, made as PoApproval, rev);
     },
     decidePoApproval(orderId, role, approved, comment) {
       /* a PO that carries several requirements is approved or rejected once, for all of them */
       const done: { id: string; a: PoApproval; revision: boolean }[] = [];
-      touch(db => { const o0 = db.orders.find(x => x.id === orderId); if (!o0?.poApproval || !o0.poApproval.needs.includes(role)) return;
+      touch(db => { const o0 = db.orders.find(x => x.id === orderId); if (!o0?.poApproval || !o0.poApproval.needs.includes(role) || approvalOf(o0).withDesai) return;
         const g = o0.poApproval.group ?? null; const all = g && !o0.poNo ? db.orders.filter(x => x.poApproval?.group === g && !x.poNo) : [o0];
         all.forEach(o => { if (!o.poApproval || !o.poApproval.needs.includes(role)) return;
           o.poApproval.decisions.push({ role, by: who(), on: now(), approved, comment });
@@ -1611,10 +1616,11 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         if (!os.length) return; const group = os.length > 1 ? `pog-${Date.now().toString(36)}` : null; const fac = db.vendors.find(v => v.id === vendorId)?.name ?? vendorId;
         os.forEach(o => { const rp = o.costQuery!.replies.find(r => r.vendorId === vendorId)!; const fabricBy = (o.pack?.clothBy ?? 'bsc-vendor') as FabricBy; const doc = poDraftOf(o, rp.cost, rp.lines);
           o.poApproval = { vendorId, fabricBy, needs, deadline, askedOn: now(), by: who(), note, decisions: [], doc, kind: 'new', group }; const t = poTotalsOf(doc);
+          o.stockCheck = null; makeStockCheck(o, t.pcs);
           if (!o.bomFrozen) o.bomFrozen = { on: now(), by: who(), from: 'the PO draft' };
           log(o, `PO draft sent for approval · ${fac} · ${t.pcs} pcs · ₹${Math.round(t.total)}${group ? ` · one PO with ${os.length - 1} other style${os.length === 2 ? '' : 's'}` : ''} · ${needs.length ? `needs ${needs.map(r => r === 'hod' ? 'HOD' : 'finance').join(' and ')} · by ${fmtDate(deadline)}` : 'approval skipped'}`);
-          if (!needs.length) fin.push({ id: o.id, a: o.poApproval }); }); },
-        `One PO drafted for ${orderIds.length} style${orderIds.length === 1 ? '' : 's'} and sent for approval.`);
+          if (!needs.length && !o.stockCheck) fin.push({ id: o.id, a: o.poApproval }); }); },
+        `One PO drafted for ${orderIds.length} style${orderIds.length === 1 ? '' : 's'}. It goes to Desai first to confirm the BOM, then to the approvers.`);
       let shared: string | null = null;
       fin.forEach((d, k) => { finishPoApproval(d.id, d.a, false, shared); if (k === 0) shared = get().db.orders.find(x => x.id === d.id)?.poNo ?? null; });
     },

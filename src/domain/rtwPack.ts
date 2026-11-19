@@ -124,12 +124,12 @@ export function poMailOf(db: Db, o: ProductionOrder): Mail {
   const raw = tidy(d?.rawMaterialTerms ?? rawMaterialsOf(db, o).text).split('\n').filter(Boolean).map(x => `• ${x}`).join('\n');
   const att = [`• PO, tech pack, trim card, size break-up and BOM`, `• TNA form: fill the planned date for every step and return it through your merchandiser`,
     ...(vs.length ? [`• Vendor details (PDF): who supplies each material, with address and contact${vs.some(x => x.nominated) ? ', and the vendors you raise your own PO on' : ''}`] : []),
-    ...(transfersOf(o).length || supplyLinesOf(o).length ? [`• The material BSC sends you comes separately: our transfer note and invoice follow once it is dispatched. The invoice comes off what we pay on this PO.`] : invs.map(i => `• Our invoice ${i.no} for ${money(i.amount)} for the material BSC sends you. It comes off what we pay on this PO.`))].join('\n');
+    ...invs.map(i => `• Our invoice ${i.no} for ${money(i.amount)} for the material BSC sends you, as Desai confirmed it. It comes off what we pay on this PO.`)].join('\n');
   return {
     to: [vendorMail(v)], cc: [merch(db, o)],
     subject: `${o.poNo ?? 'PO'} · ${o.styleName} · ${o.orderQty} pcs · deliver to ${pm?.deliveryLocation ?? '—'}`,
     body: `Dear ${v?.name ?? 'factory'} team,\n\nPlease find our purchase order ${o.poNo ?? ''} for ${o.styleName}.\n\nORDER\n${order}\n\nDELIVERY\n• Deliver to: ${pm?.deliveryLocation ?? '—'}${pm?.needsHemming ? ' (hemming / semi-stitching in-house)' : ''}\n• In-house by: ${fmtDate(o.targetInhouse)}${d?.goodsExpectedBy ? `\n• Goods expected by: ${fmtDate(d.goodsExpectedBy)}` : ''}\n\nCLOTH\n${cloth}\n\nRAW MATERIALS\n${raw}\n\nATTACHED\n${att}\n\nPlease confirm you have received this PO.${SIGN}`,
-    attachments: ['PO', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form · planned dates', ...(vs.length ? ['Vendor details · PDF'] : [])],
+    attachments: ['PO', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form · planned dates', ...(vs.length ? ['Vendor details · PDF'] : []), ...invs.map(i => `Invoice ${i.no} · material BSC sends`)],
   };
 }
 export function invoiceMailOf(db: Db, o: ProductionOrder): Mail {
@@ -161,15 +161,17 @@ export function poDraftOf(o: ProductionOrder, rate: number, quoted?: { colour: s
 export const APPROVER_LABEL = { hod: 'HOD', finance: 'Finance' } as const;
 export function approvalOf(o: ProductionOrder) {
   const a = o.poApproval ?? null;
-  if (!a) return { a: null, state: 'none' as const, pending: [] as ('hod' | 'finance')[], approved: false, rejected: null, late: false, line: 'not sent for approval' };
+  if (!a) return { a: null, state: 'none' as const, pending: [] as ('hod' | 'finance')[], approved: false, rejected: null, late: false, withDesai: false, line: 'not sent for approval' };
   const last = (r: 'hod' | 'finance') => [...a.decisions].reverse().find(d => d.role === r) ?? null;
   const rejected = a.needs.map(last).find(d => d && !d.approved) ?? null;
   const pending = a.needs.filter(r => !last(r));
   const approved = !rejected && pending.length === 0;
   const late = !approved && !rejected && daysAgo(a.deadline) > 0;
   const need = !a.needs.length ? 'no one' : a.needs.length === 2 ? 'HOD and finance' : APPROVER_LABEL[a.needs[0]];
-  return { a, state: (rejected ? 'rejected' : approved ? 'approved' : 'pending') as 'rejected' | 'approved' | 'pending', pending, approved, rejected, late, need,
-    line: rejected ? `rejected by ${APPROVER_LABEL[rejected.role]}` : !a.needs.length ? `approval skipped by ${a.by}` : approved ? `approved by ${need}` : `with ${pending.map(r => APPROVER_LABEL[r]).join(' and ')} · by ${fmtDate(a.deadline)}` };
+  /* 20 Nov 2026 (user): a drafted PO goes to Desai first; he confirms or updates the BOM lines BSC supplies, then it moves to the approvers */
+  const withDesai = !!o.stockCheck && !o.stockCheck.checkedOn && !rejected;
+  return { a, state: (rejected ? 'rejected' : approved && !withDesai ? 'approved' : 'pending') as 'rejected' | 'approved' | 'pending', pending: withDesai ? [] as ('hod' | 'finance')[] : pending, approved: approved && !withDesai, rejected, late, need, withDesai,
+    line: rejected ? `rejected by ${APPROVER_LABEL[rejected.role]}` : withDesai ? `with Desai to confirm the BOM · then ${a.needs.length ? need : 'raised'}` : !a.needs.length ? `approval skipped by ${a.by}` : approved ? `approved by ${need}` : `with ${pending.map(r => APPROVER_LABEL[r]).join(' and ')} · by ${fmtDate(a.deadline)}` };
 }
 export function poEditOf(o: ProductionOrder) {
   const e = o.poEdit ?? null; if (!e) return { e: null, state: 'none' as const, pending: [] as ('hod' | 'finance')[] };

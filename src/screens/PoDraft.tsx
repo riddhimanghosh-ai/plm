@@ -44,7 +44,7 @@ export function PoDraft() {
   /* every counter-sourcing query without a PO or a draft with the approvers */
   const all = db.orders.filter(o => !o.poNo && o.status !== 'Cancelled' && !!o.costQuery && (approvalOf(o).state === 'none' || approvalOf(o).state === 'rejected')).map(o => {
     const cq = o.costQuery!; const rec = recommendOf(o, by); const vendorId = choice[o.id] && cq.replies.some(r => r.vendorId === choice[o.id]) ? choice[o.id] : (rec?.r.vendorId ?? null);
-    const st = !cq.replies.length ? 'waiting' : !o.enigmaProduct ? 'enigma' : !o.sizeBreakup.some(x => x.qty > 0) ? 'sizes' : o.stockCheck && !o.stockCheck.checkedOn ? 'desai' : 'ready';
+    const st = !cq.replies.length ? 'waiting' : !o.enigmaProduct ? 'enigma' : !o.sizeBreakup.some(x => x.qty > 0) ? 'sizes' : 'ready';
     return { o, cq, rec, vendorId, st: st as 'waiting' | 'enigma' | 'sizes' | 'desai' | 'ready' }; });
   const n = (k: string) => all.filter(x => x.st === k).length;
   const recFacs = [...new Set(all.map(x => x.rec?.r.vendorId).filter(Boolean))] as string[];
@@ -78,7 +78,7 @@ export function PoDraft() {
         <div className="text-[11.5px]" style={faint}>A PO is drafted only after the style is in Enigma. Requirements ticked for the same factory go on one PO.</div>
       </div>
       <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
-        <Field label="Show"><Select value={state} onChange={setState} options={[{ value: 'all', label: `Every query · ${all.length}` }, { value: 'ready', label: `Ready for a PO · ${n('ready')}` }, { value: 'enigma', label: `SKUs not in Enigma yet · ${n('enigma')}` }, { value: 'desai', label: `Stock check with Desai · ${n('desai')}` }, { value: 'sizes', label: `Sizes with Charanjeet · ${n('sizes')}` }, { value: 'waiting', label: `No reply yet · ${n('waiting')}` }]} /></Field>
+        <Field label="Show"><Select value={state} onChange={setState} options={[{ value: 'all', label: `Every query · ${all.length}` }, { value: 'ready', label: `Ready for a PO · ${n('ready')}` }, { value: 'enigma', label: `SKUs not in Enigma yet · ${n('enigma')}` }, { value: 'sizes', label: `Sizes with Charanjeet · ${n('sizes')}` }, { value: 'waiting', label: `No reply yet · ${n('waiting')}` }]} /></Field>
         <Field label="Recommend on"><Select value={by} onChange={v => setBy(v as By)} options={[{ value: 'both', label: 'Price and in-house date' }, { value: 'price', label: 'Lowest price' }, { value: 'date', label: 'Earliest in-house' }]} /></Field>
         <MultiFilter label="Recommended factory" value={recFac} onChange={setRecFac} width={230} options={[{ id: 'all', label: 'Any factory' }, ...recFacs.map(id => ({ id, label: nameOf(id), count: all.filter(x => x.rec?.r.vendorId === id).length }))]} />
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style or factory" style={{ width: 190 }} />

@@ -27,7 +27,7 @@ import { ApprovalSection, PoEditSection } from './RtwApproval';
 const MINE: Record<string, string[]> = {
   design: ['pack', 'query', 'launch', 'approval', 'po', 'cloth', 'tna', 'cogs'],
   marketing: ['marketing', 'launch'],   // 19 Nov 2026: marketing's details beside the Enigma entry
-  materials: ['query', 'cloth', 'po'],           // 19 Nov 2026: Desai sends against the transfer note   // 19 Nov 2026 (Parag): category drafts the PO and does everything on it
+  materials: ['approval', 'po'],   // 20 Nov 2026: Desai confirms the BOM on the PO draft           // 19 Nov 2026: Desai sends against the transfer note   // 19 Nov 2026 (Parag): category drafts the PO and does everything on it
   hod: ['query', 'launch', 'approval', 'po', 'invoices'],
   finance: ['query', 'launch', 'approval', 'po', 'cogs', 'invoices'],
   planning: ['pack'],   // 19 Nov 2026: Charanjeet adds the sizes
@@ -147,11 +147,11 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
 
     {at('pack') && <div className="rtw-full"><PackSection o={o} design={design && scoped !== 'sourcing'} sourcing={sourcing} only={scoped === 'sourcing' ? 'bom' : undefined} /></div>}
 
-    {at('query') && o.stockCheck && <div className="rtw-full pb-3"><StockCheckSection o={o} /></div>}
     {at('query') && <div className="rtw-full"><CostQuerySection o={o} prod={prod} merchant={merchant} design={design} onAskApproval={(vendorId, fabricBy) => { setApPreset({ vendorId, fabricBy }); setOpen('approval'); }} onGo={setOpen} /></div>}
 
     {at('launch') && <div className="rtw-full"><EnigmaSection o={o} design={design} /></div>}
     {at('marketing') && <div className="rtw-full"><MarketingSection o={o} /></div>}
+    {at('approval') && o.stockCheck && <div className="rtw-full pb-3"><StockCheckSection o={o} /></div>}
     {at('approval') && packReadyOf(o).sizesMissing && !o.poApproval && <div className="rtw-full pb-3"><div className="early-q text-[12.5px]"><b>The PO waits for the sizes.</b> Counter sourcing ran on a per-piece quote; Charanjeet adds the size-wise quantities on the Requirement step, then the PO can be drafted. <button type="button" className="vlink" onClick={() => panel('pack')}>go to the sizes →</button></div></div>}
     {at('approval') && !(packReadyOf(o).sizesMissing && !o.poApproval) && <div className="rtw-full"><ApprovalSection key={(apPreset?.vendorId ?? '') + (o.poApproval?.askedOn ?? '')} o={o} prod={design} preset={apPreset} onGo={k => { setApPreset(null); setOpen(k); }} /></div>}
     {at('po') && <div className="rtw-full"><PoSection o={o} /></div>}
