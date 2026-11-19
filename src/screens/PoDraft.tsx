@@ -44,12 +44,12 @@ export function PoDraft() {
   /* every counter-sourcing query without a PO or a draft with the approvers */
   const all = db.orders.filter(o => !o.poNo && o.status !== 'Cancelled' && !!o.costQuery && (approvalOf(o).state === 'none' || approvalOf(o).state === 'rejected')).map(o => {
     const cq = o.costQuery!; const rec = recommendOf(o, by); const vendorId = choice[o.id] && cq.replies.some(r => r.vendorId === choice[o.id]) ? choice[o.id] : (rec?.r.vendorId ?? null);
-    const st = !cq.replies.length ? 'waiting' : !o.enigmaProduct ? 'enigma' : 'ready';
-    return { o, cq, rec, vendorId, st: st as 'waiting' | 'enigma' | 'ready' }; });
+    const st = !cq.replies.length ? 'waiting' : !o.enigmaProduct ? 'enigma' : !o.sizeBreakup.some(x => x.qty > 0) ? 'sizes' : 'ready';
+    return { o, cq, rec, vendorId, st: st as 'waiting' | 'enigma' | 'sizes' | 'ready' }; });
   const n = (k: string) => all.filter(x => x.st === k).length;
   const recFacs = [...new Set(all.map(x => x.rec?.r.vendorId).filter(Boolean))] as string[];
   const rows = all.filter(x => state === 'all' || x.st === state).filter(x => passes(recFac, x.rec?.r.vendorId ?? '')).filter(x => !q.trim() || `${x.o.styleName} ${x.cq.factoryIds.map(nameOf).join(' ')}`.toLowerCase().includes(q.trim().toLowerCase()))
-    .sort((a, b) => ['ready', 'enigma', 'waiting'].indexOf(a.st) - ['ready', 'enigma', 'waiting'].indexOf(b.st));
+    .sort((a, b) => ['ready', 'enigma', 'sizes', 'waiting'].indexOf(a.st) - ['ready', 'enigma', 'sizes', 'waiting'].indexOf(b.st));
   const sel = all.filter(x => picked.has(x.o.id) && x.st === 'ready' && x.vendorId);
   /* one PO per factory: the ticked requirements grouped by the factory picked on each */
   const drafts = [...new Set(sel.map(x => x.vendorId!))].map(vid => { const items = sel.filter(x => x.vendorId === vid).map(x => { const r = x.cq.replies.find(y => y.vendorId === vid)!; const doc = poDraftOf(x.o, r.cost, r.lines); return { o: x.o, r, doc, t: poTotalsOf(doc) }; });
@@ -78,7 +78,7 @@ export function PoDraft() {
         <div className="text-[11.5px]" style={faint}>A PO is drafted only after the style is in Enigma. Requirements ticked for the same factory go on one PO.</div>
       </div>
       <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
-        <Field label="Show"><Select value={state} onChange={setState} options={[{ value: 'all', label: `Every query · ${all.length}` }, { value: 'ready', label: `Ready for a PO · ${n('ready')}` }, { value: 'enigma', label: `SKUs not in Enigma yet · ${n('enigma')}` }, { value: 'waiting', label: `No reply yet · ${n('waiting')}` }]} /></Field>
+        <Field label="Show"><Select value={state} onChange={setState} options={[{ value: 'all', label: `Every query · ${all.length}` }, { value: 'ready', label: `Ready for a PO · ${n('ready')}` }, { value: 'enigma', label: `SKUs not in Enigma yet · ${n('enigma')}` }, { value: 'sizes', label: `Sizes with Charanjeet · ${n('sizes')}` }, { value: 'waiting', label: `No reply yet · ${n('waiting')}` }]} /></Field>
         <Field label="Recommend on"><Select value={by} onChange={v => setBy(v as By)} options={[{ value: 'both', label: 'Price and in-house date' }, { value: 'price', label: 'Lowest price' }, { value: 'date', label: 'Earliest in-house' }]} /></Field>
         <MultiFilter label="Recommended factory" value={recFac} onChange={setRecFac} width={230} options={[{ id: 'all', label: 'Any factory' }, ...recFacs.map(id => ({ id, label: nameOf(id), count: all.filter(x => x.rec?.r.vendorId === id).length }))]} />
         <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style or factory" style={{ width: 190 }} />
@@ -87,7 +87,7 @@ export function PoDraft() {
         <thead><tr><th style={{ width: 34 }}></th><th>Requirement</th><th>Target</th><th>Replies · pick the factory for the PO</th><th className="num">PO value</th><th>Status</th></tr></thead>
         <tbody>{rows.map(({ o, cq, rec, vendorId, st }) => { const on = picked.has(o.id); const pr = cq.replies.find(r => r.vendorId === vendorId) ?? null; const t = pr ? poTotalsOf(poDraftOf(o, pr.cost, pr.lines)) : null; const waiting = cq.factoryIds.filter(id => !cq.replies.some(r => r.vendorId === id));
           return <tr key={o.id} className={on ? 'po-pick-on' : ''}>
-            <td><input type="checkbox" checked={on} disabled={!can || st !== 'ready'} onChange={() => toggle(o.id)} aria-label={o.styleName} title={st === 'enigma' ? 'add the SKUs to Enigma first' : st === 'waiting' ? 'no factory has replied yet' : undefined} /></td>
+            <td><input type="checkbox" checked={on} disabled={!can || st !== 'ready'} onChange={() => toggle(o.id)} aria-label={o.styleName} title={st === 'sizes' ? "the PO waits for Charanjeet's size-wise quantities" : st === 'enigma' ? 'add the SKUs to Enigma first' : st === 'waiting' ? 'no factory has replied yet' : undefined} /></td>
             <td style={{ whiteSpace: 'normal', minWidth: 190 }}><button type="button" className="vlink font-medium" style={{ textAlign: 'left' }} onClick={() => set('open', `${o.id}:query`)}>{o.styleName}</button><div className="text-[11.5px]" style={faint}>{o.category} · {o.orderQty} pcs · to {landsAtOf(o)}{approvalOf(o).state === 'rejected' ? <span style={{ color: 'var(--risk)' }}> · earlier draft rejected</span> : null}</div></td>
             <td className="text-[12px]" style={{ whiteSpace: 'nowrap' }}><b>{fmtMoney(o.targetCost)}</b>/pc<div style={faint}>in-house {fmtDate(o.targetInhouse)}</div></td>
             <td style={{ whiteSpace: 'normal' }}><div className="po-reps">
@@ -99,7 +99,7 @@ export function PoDraft() {
               {waiting.length > 0 && <span className="po-rep-wait">no reply: {waiting.map(nameOf).join(', ')}</span>}
             </div>{rec && <div className="text-[11px] pt-1" style={faint}>{rec.why}{vendorId !== rec.r.vendorId ? <> · <span style={{ color: 'var(--warn)' }}>you picked {nameOf(vendorId!)}</span> · <button type="button" className="vlink" onClick={() => setChoice(c => { const m = { ...c }; delete m[o.id]; return m; })}>back to the recommended</button></> : null}</div>}</td>
             <td className="num font-semibold">{t ? fmtMoney(Math.round(t.total)) : '—'}{t && <div className="text-[10.5px] font-normal" style={faint}>incl. GST</div>}</td>
-            <td>{st === 'ready' ? <Pill tone="good">ready · SKUs in Enigma</Pill> : st === 'enigma' ? <button type="button" onClick={() => set('open', `${o.id}:launch`)}><Pill tone="warn">add the SKUs to Enigma first →</Pill></button> : <Pill tone="neutral">waiting on replies · due {fmtDate(cq.deadline)}</Pill>}</td>
+            <td>{st === 'ready' ? <Pill tone="good">ready · SKUs in Enigma</Pill> : st === 'sizes' ? <button type="button" onClick={() => set('open', `${o.id}:pack`)}><Pill tone="warn">quoted per piece · sizes with Charanjeet →</Pill></button> : st === 'enigma' ? <button type="button" onClick={() => set('open', `${o.id}:launch`)}><Pill tone="warn">add the SKUs to Enigma first →</Pill></button> : <Pill tone="neutral">waiting on replies · due {fmtDate(cq.deadline)}</Pill>}</td>
           </tr>; })}</tbody>
       </table></Card>}
     </>}

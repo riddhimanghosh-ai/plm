@@ -301,7 +301,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
   const create = async () => {
     const id = createRequirement({
       category, subCategory: sub, styleName: style.trim(), program: null, launchMonth: null, fit: category.includes('hirt') ? 'Tailored Fit' : null,
-      orderQty: pcs, sizeBreakup: curve, targetInhouse: fromDateInput(target)!, targetCost: Number(cost), styleHandover: iso(TODAY), fabricNominated: nominated, remarks: '', semiStitched: semi, deliverTo: dest,
+      orderQty: Number(qty) || pcs, sizeBreakup: [], targetInhouse: fromDateInput(target)!, targetCost: Number(cost), styleHandover: iso(TODAY), fabricNominated: nominated, remarks: '', semiStitched: semi, deliverTo: dest,
       fabricBrief: { look: fab.description.trim() || style.trim(), composition: fab.content.trim() || null, colour: colours.split(/[,;]/)[0]?.trim() || null, weightGsm: null, referenceFabricId: null, notes: brief.trim() },
       bom: bom.map(l => l.kind === 'fabric' ? { ...l, item: (fab.description.trim() || style.trim()) } : l).filter(l => l.item.trim()),
     });
@@ -332,13 +332,11 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
         <Field label="Colour options" hint="comma-separated; each becomes a fabric line on the PO"><Input value={colours} onChange={e => setColours(e.target.value)} placeholder="White, Navy, Ecru" /></Field>
       </div>
       <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns:'repeat(3,1fr)' }}>
-        <Field label="Order qty"><Input type="number" value={qty} onChange={e => setQty(e.target.value)} /></Field>
+        <Field label="Order qty · about" hint="planning sets the sizes"><Input type="number" value={qty} onChange={e => setQty(e.target.value)} /></Field>
         <Field label="Target in-house / delivery date"><Input type="date" value={target} onChange={e => setTarget(e.target.value)} /></Field>
         <Field label="Target cost / pc (₹)"><Input type="number" value={cost} onChange={e => setCost(e.target.value)} /></Field>
       </div>
-      <div className="cap pt-2">Size-wise quantity · cut ratio · {pcs} pcs</div>
-      <div className="flex justify-end pb-1">{typed ? <Button size="sm" variant="ghost" onClick={() => setTyped(null)}>Spread {qty || 0} over the usual sizes again</Button> : <span className="text-[11.5px]" style={faint}>spread over the usual sizes — type over any of them</span>}</div>
-      <SizeGrid breakup={curve} edit onChange={(sz, n) => setTyped(t => { const base = t ?? Object.fromEntries(spread.map(x => [x.size, x.qty])); return { ...base, [sz]: n }; })} />
+      <div className="early-q text-[12.5px] mt-2 flex gap-2 items-center flex-wrap"><span className="pill role-planning">Planning · Charanjeet</span><span>adds the quantity for each size once this is created. You can start counter sourcing before that; only the PO waits for the sizes.</span></div>
       <div className="mt-3">
         <div className="cap pb-1">Files</div>
         <label className="drop-zone" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const fs = [...e.dataTransfer.files]; if (fs.length) setAskFiles(x => [...x, ...fs]); }}>

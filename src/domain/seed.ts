@@ -9,7 +9,7 @@
 import type { LostSale, SwatchBookRequest, CreditEntry, OptionRequest, RequestOption, ConceptFabricOption, FabricBrief, ReturnCase, StockWriteOff, FitSample, Grn, Attachment, Concept, Block, Db, Escalation, Fabric, ProductionOrder, RtwOption, Vendor, GarmentCategory, Thread, Comment, RoleId, CustomerOrder, StockRequest, Launch, ProductionPlan, ExtraFabricRequest, FactoryOutput, Scan, SwatchBook, TrimItem, StockTransfer, FabricQuote, FabricPo, SampleRound , PlanningReview, RequirementPack, PrepStep, PrepEvent, SwatchDispatch } from './types';
 import { mainSizesOf, FIT_SAMPLE_FITS, FIT_SAMPLE_SIZES, SHEET_OPTIONS, MEASUREMENTS, defaultSpec, defaultPattern, PEOPLE, SIZE_SETS, MERCHANDISERS, DELAY_REASONS, RTW_SUBCATS, RANGES, STORES, isBottoms, BOTTOM_SIZES, SHIRT_SIZES, MTM_FITS, TRIM_MASTER, COLLAR_STYLES, POCKETS, EXTRA_FABRIC_REASONS, EXTRA_FABRIC_PANELS, PANEL_METRES, BOOK_EDITION, BIG_STORES, MTM_SWATCH_BOOKS } from './reference';
 import { REAL_MTM_FABRICS, REAL_BLOCKS, REAL_RTW_SHIRTS, REAL_RTW_BOTTOMS, REAL_MERCH, REAL_DROPS, REAL_STO } from './realdata';
-import { poDraftOf, supplyLinesOf } from './rtwPack';
+import { poDraftOf, supplyLinesOf, marketingDraftOf } from './rtwPack';
 import { RTW_ONLY } from './edition';
 import { sourcingModeOf, buildMilestones, TODAY, addDays, iso, riskOf, coverageOf, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, daysBetween, consumptionFor, daysAgo, defaultMaterials, mintBespokeCode } from './engines';
 
@@ -1630,6 +1630,31 @@ orders.forEach(o => { if (!o.sizeBreakup?.length) return; const sum = (b: { qty:
     if (sum(Object.entries(by).map(([, q]) => ({ qty: q }))) === o.orderQty) o.sizeBreakup = o.sizeBreakup.map(x => ({ ...x, qty: by[x.size] ?? 0 })); }
   const d = o.orderQty - sum(o.sizeBreakup); if (d) { const big = [...o.sizeBreakup].sort((a, b) => b.qty - a.qty)[0]; big.qty += d; }
   (o.cutRatios ?? []).forEach(cr => { if (sum(cr.originalBreakup) !== o.orderQty) cr.originalBreakup = o.sizeBreakup.map(x => ({ ...x })); }); });
+/* 19 Nov 2026 (second call): the requirement in two halves — two asks wait for Charanjeet's sizes, and one went to counter
+   sourcing before its sizes (the PO waits for them). Every other requirement carries planning's stamp. */
+{ const reqs = orders.filter(o => o.status === 'Requirement');
+  reqs.slice(0, 2).forEach(o => { o.sizeBreakup = []; o.sizesBy = null; });
+  orders.forEach(o => { if (o.sizeBreakup.length && !o.sizesBy) o.sizesBy = { on: o.styleHandover, by: 'Charanjeet' }; });
+  const early = orders.find(o => o.status === 'Quoting' && !o.poNo && (o.costQuery?.replies.length ?? 0) > 0 && !o.enigmaProduct);
+  if (early) { early.sizeBreakup = []; early.sizesBy = null; early.queryEarly = true; } }
+/* 19 Nov 2026: no invoice straight off the BOM. Each PO where BSC sends material has a transfer note: the two newest wait with
+   Desai; the rest were sent, and their invoice is the one on the PO. */
+{ let n = 0; const withSupply = orders.filter(o => o.poNo && o.poDoc && supplyLinesOf(o).length).sort((a, b) => (b.poDate ?? '').localeCompare(a.poDate ?? ''));
+  const waiting = new Set(withSupply.filter(o => o.status === 'Open' && !o.milestones.some(m => m.key === 'Cutting Start' && m.actual)).slice(0, 3).map(o => o.id));
+  withSupply.forEach(o => { const pcs = o.poDoc!.lines.reduce((a, l) => a + l.sizes.reduce((x, y) => x + y.qty, 0), 0) || o.orderQty;
+    const lines = o.bom.map((l, idx) => ({ l, idx })).filter(({ l }) => supplyLinesOf(o).some(x => x.item === l.item) && l.qtyPerPc != null).map(({ l, idx }) => { const q = Math.round(l.qtyPerPc! * pcs * 100) / 100; const rate = l.rate ?? (l.kind === 'fabric' ? (o.pack?.fabric.rate ?? o.pack?.fabric.cpm ?? 0) : 0);
+      return { idx, item: l.item, unit: l.unit, rate, bomQty: q, sendQty: q, rest: null, remark: null }; });
+    const inv = (o.poInvoices ?? []).find(i => i.id === `sinv-${o.id}`); const no = `BSC/TN/${2201 + n++}`;
+    if (waiting.has(o.id)) { o.poInvoices = (o.poInvoices ?? []).filter(i => i.id !== `sinv-${o.id}`); o.transfers = [{ id: `tn-${o.id}`, no, on: o.poDate!, lines, sentOn: null, by: null, invoiceNo: null, mail: null, dispatch: null }];
+      if (o.fabricSupply) { o.fabricSupply.sentToFactoryOn = null; o.fabricSupply.metresSent = null; o.fabricSupply.receipt = null; } }
+    else { o.transfers = [{ id: `tn-${o.id}`, no, on: o.poDate!, lines, sentOn: inv?.on ?? o.poDate!, by: 'Desai', invoiceNo: inv?.no ?? null, mail: { to: [], cc: [], attachments: [`Transfer note ${no}`, ...(inv ? [`Invoice ${inv.no} · material BSC sent`] : [])] }, dispatch: 'by road · BSC tempo' }];
+      /* a sent note means the cloth went: the factory counts it in next */
+      const fl = lines.find(l => o.bom[l.idx]?.kind === 'fabric');
+      if (o.fabricNominated && fl && !o.fabricSupply?.sentToFactoryOn) { o.fabricSupply = o.fabricSupply ?? { boughtOn: o.poDate!, sentToFactoryOn: null, metresSent: null, receipt: null }; o.fabricSupply.sentToFactoryOn = inv?.on ?? o.poDate!; o.fabricSupply.metresSent = fl.sendQty; } } }); }
+/* 19 Nov 2026: marketing's details — done for what has landed, a draft saved on a few in Enigma, the rest still to start */
+orders.forEach((o, i) => { if (!o.enigmaProduct) return; const d = marketingDraftOf(o);
+  if (o.status === 'Closed' || o.enigmaProduct.copy) o.marketing = { ...d, savedOn: o.enigmaProduct.addedOn, by: 'Marketing', doneOn: o.enigmaProduct.addedOn };
+  else if (i % 2) o.marketing = { ...d, savedOn: o.enigmaProduct.addedOn, by: 'Marketing', doneOn: null }; });
 export const SEED: Db = {
   lostSales,
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,

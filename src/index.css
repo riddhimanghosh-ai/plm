@@ -1154,3 +1154,11 @@ td.cr-over { color: var(--risk); }
 /* one cloth section: the colour table sits at the top, the cloth sent and counted under it */
 .cloth-colours { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
 table.fab-t tfoot td { border-top: 1.5px solid var(--line); background: var(--surface-2); }
+
+/* 19 Nov 2026: Desai's transfer note */
+.tn-t .tn-in { width: 84px; text-align: right; padding: 3px 6px; }
+.tn-t tr.tn-short td { background: color-mix(in srgb, var(--warn) 7%, transparent); }
+.tn-t tfoot td { border-top: 1px solid var(--line); font-size: 12.5px; padding-top: 6px; }
+.pill.role-materials { background: #e6eef7; color: #2b4f7a; border-color: transparent; }
+.pill.role-marketing { background: #fbe9dc; color: #8a4a1c; border-color: transparent; }
+.early-q { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface-2); }

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../store';
 import type { ProductionOrder, PoInvoice, FabricBy } from '../domain/types';
 import { fmtDate, fmtMoney } from '../domain/engines';
+import { TransferStatus } from './Transfers';
 import { supplyInvoicesOf, supplyLinesOf, bomOpenOf } from '../domain/rtwPack';
 import { Button } from '../ui';
 import { invoiceDocOf, downloadInvoicePdf, sampleInvoiceOf } from '../domain/invoicePdf';
@@ -35,19 +36,19 @@ export function InvoicePreview({ o, inv, onClose, sample }: { o: ProductionOrder
 
 /* the invoice generated from the BOM lines BSC sends, wherever the BOM matters: the BOM itself, counter sourcing, the PO */
 export function SupplyInvoiceBar({ o, editable, className, clothBy }: { o: ProductionOrder; editable?: boolean; className?: string; clothBy?: FabricBy }) {
-  const { db, generateSupplyInvoice } = useApp(); const [show, setShow] = useState(false); const [sample, setSample] = useState(false);
+  const { db } = useApp(); void editable; const [show, setShow] = useState(false); const [sample, setSample] = useState(false);
   const inv = supplyInvoicesOf(o)[0] ?? null; const lines = supplyLinesOf(o, clothBy);
   /* the cloth choice on this screen is not saved until the PO is drafted; the invoice is then made for it */
   const pending = clothBy != null && supplyLinesOf(o).length !== lines.length; const total = lines.reduce((a, l) => a + l.amount, 0);
-  const openN = bomOpenOf(o).open.length;
+  const openN = bomOpenOf(o).open.length; void pending;
   return <div className={`supply-inv ${className ?? ''}`}>
-    <div className="flex items-center gap-2 flex-wrap"><b className="text-[13px]">Invoice from the BOM · what BSC sends</b>
+    <div className="flex items-center gap-2 flex-wrap"><b className="text-[13px]">What BSC sends · transfer note and invoice</b><TransferStatus o={o} />
       {openN > 0 ? <span className="text-[12.5px]" style={{ color: 'var(--warn)' }}>waiting on the BOM · {openN} line{openN === 1 ? '' : 's'} without a vendor. The invoice is generated once every line has one.</span>
         : !lines.length ? <span className="text-[12.5px]" style={faint}>no BOM line is sent by BSC on this style, so no invoice</span>
-        : inv ? <span className="text-[12.5px]"><span className="mono">{inv.no}</span> · {inv.lines?.length ?? 0} line{inv.lines?.length === 1 ? '' : 's'} · <b>{fmtMoney(inv.amount)}</b> · {fmtDate(inv.on)} <button type="button" className="vlink" onClick={() => setShow(true)}>view invoice</button> · <button type="button" className="vlink" onClick={() => downloadInvoicePdf(db, o, inv)}>↓ PDF</button>{inv.amount !== total && <span style={{ color: 'var(--warn)' }}> · BOM changed since, generate again</span>}</span>
+        : !inv ? null : inv ? <span className="text-[12.5px]"><span className="mono">{inv.no}</span> · {inv.lines?.length ?? 0} line{inv.lines?.length === 1 ? '' : 's'} · <b>{fmtMoney(inv.amount)}</b> · {fmtDate(inv.on)} <button type="button" className="vlink" onClick={() => setShow(true)}>view invoice</button> · <button type="button" className="vlink" onClick={() => downloadInvoicePdf(db, o, inv)}>↓ PDF</button></span>
         : <span className="text-[12.5px]" style={faint}>{total ? `not generated yet · ${lines.length} line${lines.length === 1 ? '' : 's'} · ${fmtMoney(total)}` : 'add a rate to the lines BSC sends'}</span>}
       {!inv && o.bom.length > 0 && <Button size="sm" variant="ghost" onClick={() => setSample(true)}>Sample invoice · PDF</Button>}
-      {lines.length > 0 && <span className="ml-auto flex items-center gap-2"><span className="text-[11.5px]" style={faint}>{pending ? 'generated when the PO is raised · goes with the PO mail' : 'goes with the PO mail'}</span>{editable && !pending && !openN && <Button size="sm" variant={inv ? 'ghost' : 'primary'} disabled={!total} onClick={() => generateSupplyInvoice(o.id)}>{inv ? 'Generate again' : 'Generate the invoice'}</Button>}</span>}</div>
+      {lines.length > 0 && !o.poNo && <span className="ml-auto text-[11.5px]" style={faint}>{lines.length} line{lines.length === 1 ? '' : 's'} · about {fmtMoney(total)} if all of it goes</span>}</div>
     {show && inv && <InvoicePreview o={o} inv={inv} onClose={() => setShow(false)} />}
     {sample && <InvoicePreview o={o} inv={sampleInvoiceOf(o)} sample onClose={() => setSample(false)} />}
   </div>;

@@ -8,7 +8,7 @@
    Tracker itself.
    ========================================================================== */
 
-export type RoleId = 'hod' | 'owner' | 'design' | 'planning' | 'sourcing' | 'production' | 'warehouse' | 'store' | 'finance' | 'merchandiser' | 'qc' | 'cad' | 'cutting' | 'fusing' | 'compiling';   // qc (14 Nov 2026): PP sample, size set and the line inspections   // the four pre-production desks: each person signs in, a team shares one desk
+export type RoleId = 'hod' | 'owner' | 'design' | 'planning' | 'materials' | 'marketing' | 'sourcing' | 'production' | 'warehouse' | 'store' | 'finance' | 'merchandiser' | 'qc' | 'cad' | 'cutting' | 'fusing' | 'compiling';   // qc (14 Nov 2026): PP sample, size set and the line inspections   // the four pre-production desks: each person signs in, a team shares one desk
 
 export interface Person { id: string; name: string; role: RoleId; title: string }
 
@@ -162,6 +162,7 @@ export interface BomLine {
   qtyPerPc: number | null;
   unit: string;                  // 'm', 'kg', 'pc'
   suppliedBy?: SuppliedBy;       // 17 Nov 2026: who gets this line to the factory
+  backToSourcing?: { on: string; by: string; qty: number } | null;   // 19 Nov 2026: what Desai could not send, back with sourcing to buy
   rate?: number | null;          // ₹ per unit: the line's cost, and the price on the invoice BSC raises on what it sends
   vendor?: string | null;        // who it is bought from: BSC's vendor, or the one BSC nominates
   options?: BomOption[];         // 17 Nov 2026: what sourcing offers for this line; category picks one, which sets suppliedBy, vendor and rate
@@ -366,6 +367,16 @@ export interface ProductionOrder {
   bomFrozen?: { on: string; by: string; from: string | null } | null; bomRevisions?: { on: string; by: string; why: string }[];
   /* delivered to the 3PL: the merchandiser uploads the 3PL's consignment report and the count fills from it */
   consignment?: { file: string; on: string; by: string } | null;
+  /* 19 Nov 2026 (second call): the requirement has two halves. Category fills the style, tech pack, fabric, trims and BOM;
+     planning (Charanjeet) adds the quantity for each size. sizesBy is planning's stamp. queryEarly: category sent it to
+     counter sourcing before the sizes (factories quote per piece); only the PO draft then waits for the sizes. */
+  sizesBy?: { on: string; by: string } | null; queryEarly?: boolean;
+  /* 19 Nov 2026: no invoice straight off the BOM. When the PO is raised PLM writes a transfer note for the lines BSC sends;
+     Desai checks what he can actually send, changes the quantities (the BOM follows), and on Send the invoice is made for
+     what went and mailed to the factory with the note. */
+  transfers?: TransferNote[] | null;
+  /* 19 Nov 2026: marketing fills the product and marketing details while category adds the style to Enigma; go-live waits for it */
+  marketing?: MarketingDetails | null;
   poDoc?: PoDoc | null;
   poApproval?: PoApproval | null;
   poPayments?: PoPayment[] | null;
@@ -1129,3 +1140,7 @@ export interface Db {
      the sum — a field on the customer's master data that the stores can trust. */
   creditLedger?: CreditEntry[];
 }
+
+export interface TransferLine { idx: number; item: string; unit: string; rate: number; bomQty: number; sendQty: number; rest: 'factory' | 'sourcing' | null; remark: string | null }
+export interface TransferNote { id: string; no: string; on: string; lines: TransferLine[]; sentOn: string | null; by: string | null; invoiceNo: string | null; mail: { to: string[]; cc: string[]; attachments: string[] } | null; dispatch: string | null }
+export interface MarketingDetails { title: string; description: string; buzzwords: string[]; bullets: string[]; fabricCare: string; fitNotes: string; seo: string; pointers: string[]; savedOn: string | null; by: string | null; doneOn: string | null }

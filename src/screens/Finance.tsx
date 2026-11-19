@@ -80,8 +80,8 @@ export function FinanceInvoices() {
 
   /* BSC's invoices: generated from the BOM lines BSC sends */
   const bsc = orders.map(o => { const lines = supplyLinesOf(o); const inv = supplyInvoicesOf(o)[0] ?? null; const total = lines.reduce((a, l) => a + l.amount, 0);
-    const state = !inv ? 'missing' : inv.amount !== total ? 'stale' : 'ok'; return { o, lines, inv, total, state, doc: inv ? invoiceDocOf(db, o, inv) : null }; }).filter(x => x.lines.length || x.inv);
-  const BSC: Record<string, [string, Tone]> = { missing: ['not generated', 'risk'], stale: ['BOM changed since · generate again', 'warn'], ok: ['sent with the PO', 'good'] };
+    const state = !inv ? 'missing' : 'ok'; return { o, lines, inv, total, state, doc: inv ? invoiceDocOf(db, o, inv) : null }; }).filter(x => x.lines.length || x.inv);
+  const BSC: Record<string, [string, Tone]> = { missing: ['with Desai · made when he sends', 'warn'], ok: ['made on Desai\'s send · mailed', 'good'] };
   const bscRows = bsc.filter(x => hit(x.o, x.inv?.no ?? '') && passes(st, x.state)).sort((a, b) => ['missing', 'stale', 'ok'].indexOf(a.state) - ['missing', 'stale', 'ok'].indexOf(b.state));
 
   /* debit and credit notes, both ways */
@@ -100,7 +100,7 @@ export function FinanceInvoices() {
     ]} />
     <Tabs active={u.tab} onChange={t => { setSt([]); u.setTab(t); }} tabs={[
       { id: 'factory', label: 'From factories · check', count: facAll.filter(x => x !== 'ok' && x !== 'wait').length, hint: "the factory's invoice against the PO value and the pieces the warehouse counted in" },
-      { id: 'bsc', label: "BSC's invoices · material sent", count: bsc.filter(x => x.state !== 'ok').length, hint: 'the tax invoice BSC raises on the factory for the BOM lines it sends' },
+      { id: 'bsc', label: "BSC's invoices · material sent", count: bsc.filter(x => x.state !== 'ok').length, hint: 'made when Desai sends the material on the transfer note, for what actually went' },
       { id: 'notes', label: 'Debit and credit notes', hint: 'deductions and credits logged on a PO' }]} />
     <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
       {statusOpts.length > 0 && <MultiFilter label="Status" value={st} onChange={setSt} width={230} options={[{ id: 'all', label: 'Every invoice' }, ...statusOpts]} />}
@@ -134,7 +134,7 @@ export function FinanceInvoices() {
         <td className="num font-semibold">{doc ? r0(doc.total) : '—'}</td>
         <td style={{ whiteSpace: 'normal' }}><Pill tone={BSC[state][1]}>{BSC[state][0]}</Pill></td>
         <td style={{ whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>{inv && state === 'ok' ? <><button type="button" className="vlink text-[12px]" onClick={() => setView({ o, inv })}>view</button> · <button type="button" className="vlink text-[12px]" onClick={() => downloadInvoicePdf(db, o, inv)}>↓ PDF</button></>
-          : <button type="button" className="cta" disabled={!total || bomOpenOf(o).open.length > 0} title={bomOpenOf(o).open.length ? 'the BOM still has lines without a vendor' : undefined} onClick={() => generateSupplyInvoice(o.id)}>{inv ? 'Generate again →' : 'Generate →'}</button>}</td>
+          : <a className="vlink text-[12px]" href={`#/transfers?open=${o.id}`}>Desai's transfer →</a>}</td>
       </tr>)}</tbody></table></Card>)}
 
     {u.tab === 'notes' && (notes.length === 0 ? <Card><Empty title="No debit or credit note logged." body="They are added on a PO, in its invoices and payments step." /></Card> : <Card><table className="t">

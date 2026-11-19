@@ -7,6 +7,7 @@ import type { BomLine, Costing, ProductionOrder } from '../domain/types';
 import { costingOf, fmtMoney, fmtDate } from '../domain/engines';
 import { DISCOUNT_BAU, DISCOUNT_ADDITIONAL } from '../domain/reference';
 import { Section, Pill, Button, Input, KV, Note } from '../ui';
+import { TransferStatus } from './Transfers';
 import { bomCostOf, supplyInvoicesOf, supplyLinesOf } from '../domain/rtwPack';
 import { SupplyInvoiceBar, InvoicePreview } from './InvoicePreview';
 import { bomOpenOf } from '../domain/rtwPack';
@@ -22,7 +23,7 @@ export function BomSection({ o, editable, open, summary }: { o: ProductionOrder;
   const bc = bomCostOf(db, o);
   const [lines, setLines] = useState<BomLine[]>(o.bom);
   const [editing, setEditing] = useState(false); const [menu, setMenu] = useState(false); const [showInv, setShowInv] = useState(false);
-  const { generateSupplyInvoice } = useApp(); const inv0 = supplyInvoicesOf(o)[0] ?? null; const supply = supplyLinesOf(o); const openN = bomOpenOf(o).open.length;
+  const inv0 = supplyInvoicesOf(o)[0] ?? null; const supply = supplyLinesOf(o); const openN = bomOpenOf(o).open.length;
   const c = costingOf(o);
   const upd = (i: number, patch: Partial<BomLine>) => setLines(ls => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
   const groups = (['fabric', 'trim', 'packaging'] as const).map(k => ({ k, rows: (editing ? lines : o.bom).map((l, i) => ({ l, i })).filter(x => x.l.kind === k) }));
@@ -31,7 +32,7 @@ export function BomSection({ o, editable, open, summary }: { o: ProductionOrder;
       {!editing && summary && <div className="bom-sum-wrap sheet">
         <BomSheet o={o} />
         <div className="bom-sheet-foot">
-          {supply.length > 0 && <span className="flex items-center gap-2 flex-wrap"><span style={{ color: 'var(--ink-faint)' }}>BSC's invoice for what it sends</span>{inv0 ? <><b>{fmtMoney(inv0.amount)}</b><span className="mono">{inv0.no}</span><span style={{ color: 'var(--ink-faint)' }}>{fmtDate(inv0.on)}</span><Button size="sm" onClick={() => setShowInv(true)}>View</Button></> : <><span>{openN ? `after ${openN} line${openN === 1 ? '' : 's'} get a vendor` : 'not generated yet'}</span>{editable && !openN && <Button size="sm" variant="primary" onClick={() => generateSupplyInvoice(o.id)}>Generate</Button>}</>}</span>}
+          {supply.length > 0 && <span className="flex items-center gap-2 flex-wrap"><span style={{ color: 'var(--ink-faint)' }}>What BSC sends</span><TransferStatus o={o} />{inv0 && <Button size="sm" onClick={() => setShowInv(true)}>View {inv0.no}</Button>}</span>}
           {bc.unpriced > 0 && <span style={{ color: 'var(--warn)' }}>{bc.unpriced} line{bc.unpriced === 1 ? '' : 's'} without a rate</span>}
         </div>
         <button type="button" className={`bom-more${menu ? ' on' : ''}`} aria-expanded={menu} onClick={() => setMenu(v => !v)} title="invoice details, copy from another style">⋯</button>
@@ -136,7 +137,7 @@ export function BomSheet({ o }: { o: ProductionOrder }) {
         <td className="num">{r.rate != null ? money2(r.rate) : '—'}</td>
         <td className="num">{r.per != null ? money2(r.per) : '—'}</td>
         <td><span className={`sup sup-${r.by}`}>{SUP[r.by]}</span></td>
-        <td className="rm">{r.by === 'factory' ? (r.vendor ?? "factory's own") : (r.vendor ?? '—')}</td>
+        <td className="rm">{r.l.backToSourcing && !r.l.suppliedBy ? <span style={{ color: 'var(--warn)' }}>short on transfer · back with sourcing</span> : r.by === 'factory' ? (r.vendor ?? "factory's own") : (r.vendor ?? '—')}</td>
       </tr>)}</tbody>
       <tfoot>
         <tr><td colSpan={8} className="r">Total material cost per piece</td><td className="num b">{money2(perPc)}</td><td colSpan={2}></td></tr>

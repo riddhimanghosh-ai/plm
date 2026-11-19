@@ -18,15 +18,19 @@ import { MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
 import { PackSection, CostQuerySection, PoSection, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, WarehouseCount, CogsSection, RemarksLog, remarksCountOf, PoFabricsSection, EnigmaSection } from './RtwChain';
 import { SOURCE_LABEL } from '../domain/rtwJourney';
-import { countedBy3plOf, poFabricsOf } from '../domain/rtwPack';
+import { countedBy3plOf, poFabricsOf, packReadyOf } from '../domain/rtwPack';
+import { MarketingSection } from './Marketing';
+import { TransferSection } from './Transfers';
 import { ApprovalSection, PoEditSection } from './RtwApproval';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
 const MINE: Record<string, string[]> = {
-  design: ['pack', 'query', 'launch', 'approval', 'po', 'cloth', 'tna', 'cogs'],   // 19 Nov 2026 (Parag): category drafts the PO and does everything on it
+  design: ['pack', 'query', 'launch', 'approval', 'po', 'cloth', 'tna', 'cogs'],
+  marketing: ['marketing', 'launch'],   // 19 Nov 2026: marketing's details beside the Enigma entry
+  materials: ['cloth', 'po'],           // 19 Nov 2026: Desai sends against the transfer note   // 19 Nov 2026 (Parag): category drafts the PO and does everything on it
   hod: ['query', 'launch', 'approval', 'po', 'invoices'],
   finance: ['query', 'launch', 'approval', 'po', 'cogs', 'invoices'],
-  planning: ['pack', 'cogs', 'launch'],
+  planning: ['pack'],   // 19 Nov 2026: Charanjeet adds the sizes
   sourcing: ['pack', 'cloth', 'invoices'],
   production: ['pack', 'query', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'invoices'],
   merchandiser: ['query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'invoices'],
@@ -35,11 +39,12 @@ const MINE: Record<string, string[]> = {
 };
 
 /* HOD and finance follow a style up to the PO; finance also keeps the invoices and payments log. Nothing of the making (TNA, cloth, QC, dispatch). */
-const SCOPE: Record<'hod' | 'finance' | 'warehouse' | 'sourcing', string[]> = { sourcing: ['pack'], warehouse: ['po', 'dispatch', 'received'], hod: ['pack', 'query', 'launch', 'approval', 'po'], finance: ['pack', 'query', 'launch', 'approval', 'po', 'cogs', 'invoices'] };
-export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; initial?: string; scope?: 'hod' | 'finance' | 'warehouse' | 'sourcing' }) {
+/* 19 Nov 2026: marketing sees only its part: the style going into Enigma and its own details */
+const SCOPE: Record<'hod' | 'finance' | 'warehouse' | 'sourcing' | 'marketing', string[]> = { marketing: ['launch', 'marketing'], sourcing: ['pack'], warehouse: ['po', 'dispatch', 'received'], hod: ['pack', 'query', 'launch', 'approval', 'po'], finance: ['pack', 'query', 'launch', 'approval', 'po', 'cogs', 'invoices'] };
+export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; initial?: string; scope?: 'hod' | 'finance' | 'warehouse' | 'sourcing' | 'marketing' }) {
   const { db, role, myRole, demoAll, updateRequirement } = useApp();
   /* 18 Nov 2026: the whole record shows for every role; only a screen that asks for one part (scope) narrows it */
-  const scoped = scope ?? null; void myRole; void demoAll;
+  const scoped = scope ?? (role === 'marketing' ? 'marketing' : null); void myRole; void demoAll;
   const design = role === 'design' || role === 'owner';
 
   const prod = role === 'production' || role === 'owner';
@@ -52,7 +57,9 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
   const launch = (db.launches ?? []).find(l => l.orderId === o.id) ?? null;
   const raised = o.activity?.find(a => /created|raised/i.test(a.what)) ?? null;
   const faint = { color: 'var(--ink-faint)' } as const;
-  const full = rtwJourneyOf(db, o); const next = full.next;
+  const full = rtwJourneyOf(db, o);
+  /* a scoped view (marketing) only talks about its own steps */
+  const next = scope === 'marketing' || (!scope && role === 'marketing') ? (full.steps.find(x => x.key === 'marketing' && !x.on) ?? null) : full.next;
   const journey = scoped ? full.steps.filter(x => SCOPE[scoped].includes(x.key)) : full.steps;
   const current = scoped ? journey.findIndex(x => x.key === full.steps[full.current]?.key) : full.current;
   const mineKeys = role === 'owner' ? null : (MINE[role] ?? []);
@@ -91,7 +98,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
         <span className="rtw-next-v">{next.now ?? next.label}</span>
         {next.act && <span className={`pill role-${roleClass(next.act)}`}>{RTW_ACTOR_LABEL[next.act]}</span>}
         {!at(next.key) && <button type="button" className="cta" onClick={() => panel(next.key)}>go there →</button>}
-      </> : <><span className="rtw-next-k">Done</span><span className="rtw-next-v">launched {fmtDate(launch?.launchedOn)}</span></>}
+      </> : <><span className="rtw-next-k">Done</span><span className="rtw-next-v">{scoped === 'marketing' ? `marketing details done ${fmtDate(o.marketing?.doneOn)}` : `launched ${fmtDate(launch?.launchedOn)}`}</span></>}
     </div>; return headSlot ? createPortal(bar, headSlot) : bar; })()}
 
     <div className="rtw-wrap"><div className="rtw-journey">
@@ -143,7 +150,9 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
     {at('query') && <div className="rtw-full"><CostQuerySection o={o} prod={prod} merchant={merchant} design={design} onAskApproval={(vendorId, fabricBy) => { setApPreset({ vendorId, fabricBy }); setOpen('approval'); }} onGo={setOpen} /></div>}
 
     {at('launch') && <div className="rtw-full"><EnigmaSection o={o} design={design} /></div>}
-    {at('approval') && <div className="rtw-full"><ApprovalSection key={(apPreset?.vendorId ?? '') + (o.poApproval?.askedOn ?? '')} o={o} prod={design} preset={apPreset} onGo={k => { setApPreset(null); setOpen(k); }} /></div>}
+    {at('marketing') && <div className="rtw-full"><MarketingSection o={o} /></div>}
+    {at('approval') && packReadyOf(o).sizesMissing && !o.poApproval && <div className="rtw-full pb-3"><div className="early-q text-[12.5px]"><b>The PO waits for the sizes.</b> Counter sourcing ran on a per-piece quote; Charanjeet adds the size-wise quantities on the Requirement step, then the PO can be drafted. <button type="button" className="vlink" onClick={() => panel('pack')}>go to the sizes →</button></div></div>}
+    {at('approval') && !(packReadyOf(o).sizesMissing && !o.poApproval) && <div className="rtw-full"><ApprovalSection key={(apPreset?.vendorId ?? '') + (o.poApproval?.askedOn ?? '')} o={o} prod={design} preset={apPreset} onGo={k => { setApPreset(null); setOpen(k); }} /></div>}
     {at('po') && <div className="rtw-full"><PoSection o={o} /></div>}
     {at('po') && o.poNo && <div className="rtw-full pt-3"><PoEditSection key={(o.poEdit?.askedOn ?? '') + (o.poDoc?.revision ?? 1) + (o.cutRatios ?? []).filter(c => c.given).length} o={o} prod={design} design={design} onGo={setOpen} /></div>}
     {at('po') && o.poNo && <div className="rtw-full pt-3"><PoCostsSection o={o} design={design} factory={merchant} /></div>}
@@ -167,6 +176,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
         : !o.sourcing?.fabricPo ? <div className="text-[12.5px] py-1"><b>Cloth not bought yet.</b> <span style={{ color: 'var(--ink-soft)' }}>Sourcing raises the fabric PO on {db.vendors.find(v => v.id === o.pack?.fabric.vendorId)?.name ?? 'the cloth vendor'}{fab.need ? ` for ${fab.need} m` : ''}, then ships the cloth to {db.vendors.find(v => v.id === o.vendorId)?.name ?? 'the factory'}. The factory counts it in on the table above once it arrives.</span></div>
         : (merchant && !design && !prod) || (role === 'owner' && location.hash.startsWith('#/factory')) ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" onGiven={o.poNo && o.poDoc ? () => panel('po') : undefined} />}
     </Section>
+    {o.poNo && (o.transfers ?? []).length > 0 && <div className="pt-3"><TransferSection o={o} /></div>}
     {o.poNo && !o.fabricNominated && <div className="pt-3"><Section title="Trims and the cut ratio" collapsible={false} right={<Pill tone={fab.cr && !fab.cr.given ? 'risk' : fab.cr?.given ? 'info' : 'neutral'}>{fab.cr && !fab.cr.given ? 'new cut ratio with category' : fab.cr?.given ? 'new cut ratio given' : 'on the PO sizes'}</Pill>}>
       {(merchant && !design && !prod) || (role === 'owner' && location.hash.startsWith('#/factory')) ? <MaterialsPanel o={o} mine /> : <FabricFinalisationSection o={o} bare part="factory" onGiven={o.poNo && o.poDoc ? () => panel('po') : undefined} />}
     </Section></div>}</div>; })()}

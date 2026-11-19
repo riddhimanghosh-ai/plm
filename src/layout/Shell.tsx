@@ -21,6 +21,10 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   { path:'/design',       label:'Requirements',        hint: RTW_ONLY ? 'every RTW style at its stage; open any row, raise a new one' : 'every ask — MTM fabric, RTW style — at its stage; open any row, raise any kind', group:'Design',   roles:['owner','design','planning','sourcing'] , hideFor:['sourcing']},
   { path:'/po-draft',     label:'Draft a PO',                 hint:'one PO for one or several requirements; sent to the HOD and finance', group:'Design',   roles:['owner','design'] },
   { path:'/cogs',         label:'COGS and cost',              hint:'COGS per piece and margin for every style', group:'Design',   roles:['owner','design','production'], hideFor:['production'] },
+  /* 19 Nov 2026: planning's half of the requirement; Desai's transfers; marketing's details */
+  { path:'/sizes',        label:'Sizes to add',               hint:'requirements waiting on the quantity for each size', group:'Planning · sizes', roles:['owner','planning'] },
+  { path:'/transfers',    label:'Material transfers',         hint:'transfer notes to send to factories; the invoice is made for what goes', group:'Transfers', roles:['owner','materials'] },
+  { path:'/marketing',    label:'Marketing details',          hint:'product and marketing details while category adds the style to Enigma', group:'Marketing', roles:['owner','marketing'] },
   { path:'/enigma-marketing', label:'Enigma and marketing',   hint:'add received styles to Enigma; product and marketing details', group:'Design',   roles:['owner','design'] },
   { path:'/swatches',     label:'Swatch desk',                hint:'cloth in → swatches cut → stores told → live; the sticker prints off the record', group:'Design',   roles:['owner','design','production','warehouse'] , hideFor:['production']},
   { path:'/fabrics',      label:'MTM fabric master',          hint:'core, non-core and bespoke: stock and blocks',   group:'Design',   roles:['owner','design','sourcing','production'] , hideFor:['production']},
@@ -104,7 +108,7 @@ function Crumbs() {
 }
 
 /* the team each sidebar group belongs to; the portal you are in makes you that team (18 Nov 2026) */
-export const GROUP_ROLE: Record<string, string> = { Design:'design', Category:'design', Sourcing:'sourcing', Planning:'planning', Production:'production', 'Production · MTM':'production', 'Production · RTW':'production', Merchandiser:'merchandiser', QC:'qc', Warehouse:'warehouse', Store:'store', Finance:'finance', HOD:'hod', Owner:'owner', Company:'owner' };
+export const GROUP_ROLE: Record<string, string> = { Design:'design', Category:'design', Sourcing:'sourcing', Planning:'planning', Production:'production', 'Production · MTM':'production', 'Production · RTW':'production', Merchandiser:'merchandiser', QC:'qc', Warehouse:'warehouse', Store:'store', Finance:'finance', HOD:'hod', 'Planning · sizes':'planning', Transfers:'materials', Marketing:'marketing', Owner:'owner', Company:'owner' };
 
 function ScreenOwner() {
   /* 18 Nov 2026: every screen is yours: you act as the team whose portal you are in, so no "whose screen" line */
@@ -147,7 +151,7 @@ export function Shell() {
   const [navOpen, setNavOpen] = useState(false);
   useEffect(() => { setNavOpen(false); }, [loc.pathname, loc.search]);
   /* phone: on the floor roles' list screens every table row reads as a card; each cell is labelled with its column heading */
-  const CARD_SCREENS = ['/po-draft', '/qc', '/factory', '/inward', '/tracker', '/rtw-sourcing', '/design', '/approvals', '/approvals-hod', '/payments', '/dashboard', '/factory-db', '/cloth-vendors'];
+  const CARD_SCREENS = ['/sizes', '/transfers', '/marketing', '/po-draft', '/qc', '/factory', '/inward', '/tracker', '/rtw-sourcing', '/design', '/approvals', '/approvals-hod', '/payments', '/dashboard', '/factory-db', '/cloth-vendors'];
   const cards = CARD_SCREENS.some(p => loc.pathname === p || loc.pathname.startsWith(p + '/'));
   useEffect(() => {
     if (!cards) return; const main = document.querySelector('main.app-main'); if (!main) return; let raf = 0;
@@ -206,7 +210,7 @@ export function Shell() {
           {!demoAll && <>
             <div className="text-[11px] uppercase tracking-[.1em]" style={{ color:'var(--sidebar-soft)' }}>Signed in as</div>
             <Select value={personId} onChange={setPerson} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
-              groups={(Object.keys(ROLE_LABEL) as RoleId[]).filter(r => !(RTW_ONLY && r === 'planning')).filter(r => RTW_ONLY || r !== 'warehouse').filter(r => MTM_ONLY ? (r !== 'planning') : RTW_ONLY ? NAV.some(n => n.roles.includes(r) && inEdition(n.path) && r !== 'owner') || r === 'owner' : true).map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
+              groups={(Object.keys(ROLE_LABEL) as RoleId[]).filter(r => RTW_ONLY || r !== 'warehouse').filter(r => MTM_ONLY ? (r !== 'planning') : RTW_ONLY ? NAV.some(n => n.roles.includes(r) && inEdition(n.path) && r !== 'owner') || r === 'owner' : true).map(r => ({ label: ROLE_LABEL[r], options: PEOPLE.filter(p => p.role === r).map(p => ({ value:p.id, label:`${p.name} · ${p.title}` })) })).filter(g => g.options.length)} />
           </>}
           {myRole === 'merchandiser' && !demoAll && <Select value={factoryId} onChange={setFactory} style={{ background:'rgb(255 255 255/.06)', color:'var(--sidebar-ink)', borderColor:'rgb(255 255 255/.12)', fontSize: 14 }}
             options={db.vendors.filter(v => (RTW_ONLY ? v.kind.endsWith('factory') : v.mtm) && v.kind !== 'Hemming unit').map(v => ({ value:v.id, label:v.name }))} />}

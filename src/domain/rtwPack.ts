@@ -2,7 +2,7 @@
    is the five-part requirement complete; which factories to recommend for a cost query; where the
    goods are delivered; which QC point is open on a PO; and the mails PLM composes (the cost query,
    the PO, the invoice to the warehouse). */
-import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc, PoLine, FabricBy, BomLine } from './types';
+import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc, PoLine, FabricBy, BomLine, TransferNote, MarketingDetails } from './types';
 import { TECH_PACK_ITEMS, QC_POINTS, DELIVERY_LOCATIONS, PEOPLE } from './reference';
 import { fmtDate, daysAgo, addDays, iso, daysBetween, costingOf, receiptOf, netOf, TODAY } from './engines';
 
@@ -10,7 +10,7 @@ export const EMPTY_PACK: RequirementPack = { techPack: {}, fabric: { description
 export const packOf = (o: ProductionOrder): RequirementPack => o.pack ?? EMPTY_PACK;
 
 /* the five parts and what each still needs; the requirement goes to Production RTW only when every list is empty */
-export type PackPart = { key: 'techPack' | 'fabric' | 'trimCard' | 'sizes' | 'bom' | 'vendors'; label: string; who: 'design' | 'sourcing'; missing: string[]; total: number; done: number; na?: boolean };
+export type PackPart = { key: 'techPack' | 'fabric' | 'trimCard' | 'sizes' | 'bom' | 'vendors'; label: string; who: 'design' | 'sourcing' | 'planning'; missing: string[]; total: number; done: number; na?: boolean };
 /* 18 Nov 2026: a BOM line is done once it says who supplies it (an option picked, or set on the line). Requirements filled
    the earlier way (cloth choice plus sourcing's cloth fields) count as done. Until every line is done nothing moves on:
    the requirement cannot be sent and no invoice is generated. */
@@ -21,7 +21,7 @@ export function bomOpenOf(o: ProductionOrder) {
   const open = legacyDone ? [] : o.bom.filter(l => !l.suppliedBy);
   return { legacyDone, open };
 }
-export function packReadyOf(o: ProductionOrder): { ready: boolean; parts: PackPart[]; missing: string[]; sourcingMissing: string[] } {
+export function packReadyOf(o: ProductionOrder): { ready: boolean; parts: PackPart[]; missing: string[]; sourcingMissing: string[]; categoryReady: boolean; sizesMissing: boolean } {
   const p = packOf(o);
   const tp = TECH_PACK_ITEMS.filter(x => !p.techPack[x.key]?.trim()).map(x => x.label);
   const f = p.fabric;
@@ -40,12 +40,13 @@ export function packReadyOf(o: ProductionOrder): { ready: boolean; parts: PackPa
     { key: 'techPack', label: 'Tech pack', who: 'design', missing: tp, total: TECH_PACK_ITEMS.length, done: TECH_PACK_ITEMS.length - tp.length },
     { key: 'fabric', label: 'Fabric info', who: 'design', missing: fabMissing, total: designFab.length, done: designFab.length - fabMissing.length },
     { key: 'trimCard', label: 'Trim card', who: 'design', missing: p.trimCard?.trim() ? [] : ['trim card'], total: 1, done: p.trimCard?.trim() ? 1 : 0 },
-    { key: 'sizes', label: 'Size · qty break-up', who: 'design', missing: sizesOk ? [] : ['size-wise quantities (the cut ratio)'], total: 1, done: sizesOk ? 1 : 0 },
+    /* 19 Nov 2026: the sizes are planning's half (Charanjeet), added after category's */
+    { key: 'sizes', label: 'Size · qty · planning', who: 'planning', missing: sizesOk ? [] : ['size-wise quantities (planning)'], total: 1, done: sizesOk ? 1 : 0 },
     /* the BOM and its vendors are one part: category adds the lines, sourcing adds vendors against each, category picks */
     { key: 'bom', label: 'BOM · vendors', who: 'design', missing: o.bom.length ? srcMissing : ['at least one BOM line'], total: Math.max(o.bom.length, 1), done: o.bom.length ? o.bom.length - open.length : 0 },
   ];
   const missing = parts.flatMap(x => x.missing);
-  return { ready: missing.length === 0, parts, missing, sourcingMissing: toFill };
+  return { ready: missing.length === 0, parts, missing, sourcingMissing: toFill, categoryReady: parts.filter(x => x.key !== 'sizes').every(x => !x.missing.length), sizesMissing: !sizesOk };
 }
 
 /* the factory database: factories that specialise in this category first, then the rest, by region */
@@ -123,12 +124,12 @@ export function poMailOf(db: Db, o: ProductionOrder): Mail {
   const raw = tidy(d?.rawMaterialTerms ?? rawMaterialsOf(db, o).text).split('\n').filter(Boolean).map(x => `• ${x}`).join('\n');
   const att = [`• PO, tech pack, trim card, size break-up and BOM`, `• TNA form: fill the planned date for every step and return it through your merchandiser`,
     ...(vs.length ? [`• Vendor details (PDF): who supplies each material, with address and contact${vs.some(x => x.nominated) ? ', and the vendors you raise your own PO on' : ''}`] : []),
-    ...invs.map(i => `• Our invoice ${i.no} for ${money(i.amount)} for the material BSC sends you. It comes off what we pay on this PO.`)].join('\n');
+    ...(transfersOf(o).length || supplyLinesOf(o).length ? [`• The material BSC sends you comes separately: our transfer note and invoice follow once it is dispatched. The invoice comes off what we pay on this PO.`] : invs.map(i => `• Our invoice ${i.no} for ${money(i.amount)} for the material BSC sends you. It comes off what we pay on this PO.`))].join('\n');
   return {
     to: [vendorMail(v)], cc: [merch(db, o)],
     subject: `${o.poNo ?? 'PO'} · ${o.styleName} · ${o.orderQty} pcs · deliver to ${pm?.deliveryLocation ?? '—'}`,
     body: `Dear ${v?.name ?? 'factory'} team,\n\nPlease find our purchase order ${o.poNo ?? ''} for ${o.styleName}.\n\nORDER\n${order}\n\nDELIVERY\n• Deliver to: ${pm?.deliveryLocation ?? '—'}${pm?.needsHemming ? ' (hemming / semi-stitching in-house)' : ''}\n• In-house by: ${fmtDate(o.targetInhouse)}${d?.goodsExpectedBy ? `\n• Goods expected by: ${fmtDate(d.goodsExpectedBy)}` : ''}\n\nCLOTH\n${cloth}\n\nRAW MATERIALS\n${raw}\n\nATTACHED\n${att}\n\nPlease confirm you have received this PO.${SIGN}`,
-    attachments: ['PO', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form · planned dates', ...(vs.length ? ['Vendor details · PDF'] : []), ...invs.map(i => `Invoice ${i.no} · material BSC sends`)],
+    attachments: ['PO', 'Tech pack', 'Trim card', 'Size break-up', 'BOM', 'TNA form · planned dates', ...(vs.length ? ['Vendor details · PDF'] : [])],
   };
 }
 export function invoiceMailOf(db: Db, o: ProductionOrder): Mail {
@@ -437,4 +438,39 @@ export function poDiffOf(old: PoDoc, nu: PoDoc): PoChange[] {
     ['Cloth issued', d => d.cloth ? `${d.cloth.metresIssued ?? '—'} m · ${d.cloth.wastagePct ?? '—'}% wastage` : '—']];
   fields.forEach(([k, f]) => { const a = f(old), b = f(nu); if (a !== b) out.push({ kind: 'changed', area: 'Terms', what: k, was: a, now: b }); });
   return out;
+}
+
+/* ---------- 19 Nov 2026: the transfer note Desai sends against, and the mail it goes out in ---------- */
+export const transfersOf = (o: ProductionOrder) => o.transfers ?? [];
+export const transferOpenOf = (o: ProductionOrder) => transfersOf(o).find(t => !t.sentOn) ?? null;
+/* lines BSC sends that are on no transfer note yet: a line sourcing has found again after Desai could not send it all */
+export function untransferredOf(o: ProductionOrder) {
+  const on = new Set(transfersOf(o).flatMap(t => t.lines.filter(l => !t.sentOn || l.sendQty > 0).map(l => l.idx)));
+  return o.bom.map((l, idx) => ({ l, idx })).filter(({ l, idx }) => !on.has(idx) && !(l.backToSourcing && !l.suppliedBy) && suppliedByOf(o, l) === 'bsc' && l.qtyPerPc != null && !!(l.vendor || l.kind === 'fabric'));
+}
+export function transferMailOf(db: Db, o: ProductionOrder, t: TransferNote): Mail {
+  const v = db.vendors.find(x => x.id === o.vendorId);
+  const sent = t.lines.filter(l => l.sendQty > 0); const amount = sent.reduce((a, l) => a + Math.round(l.sendQty * l.rate), 0);
+  const short = t.lines.filter(l => l.sendQty < l.bomQty);
+  return { to: [vendorMail(v)], cc: [merch(db, o), 'desai@bombayshirts.com'],
+    subject: `Material sent · ${t.no} · ${o.poNo ?? ''} · ${o.styleName}`,
+    body: `Dear ${v?.name ?? 'factory'} team,\n\nWe have dispatched the material below against ${o.poNo ?? 'the PO'} for ${o.styleName}.${t.dispatch ? ` Dispatch: ${t.dispatch}.` : ''}\n\nSENT\n${sent.map(l => `• ${l.item}: ${l.sendQty} ${l.unit}`).join('\n')}${short.length ? `\n\nNOT SENT BY BSC\n${short.map(l => `• ${l.item}: ${Math.round((l.bomQty - l.sendQty) * 100) / 100} ${l.unit} — ${l.rest === 'factory' ? 'please source this yourself; it is on your PO cost' : 'BSC is sourcing it and will send it separately'}`).join('\n')}` : ''}\n\nATTACHED\n• Transfer note ${t.no}\n• Our invoice ${t.invoiceNo ?? ''} for ${money(amount)} for what is sent. It comes off what we pay on this PO.\n\nPlease count it in on arrival and confirm.${SIGN}`,
+    attachments: [`Transfer note ${t.no}`, `Invoice ${t.invoiceNo ?? ''} · material BSC sent`] };
+}
+
+/* marketing's first draft from what the record knows: name, cloth, fit, colour, sizes, MRP, the design brief (the build calls the model) */
+export function marketingDraftOf(o: ProductionOrder): MarketingDetails {
+  const p = packOf(o); const e = o.enigmaProduct; const name = e?.name ?? o.styleName; const cloth = [p.fabric.description, p.fabric.content].filter(Boolean).join(', ');
+  const fit = e?.fit ?? o.fit ?? 'Regular Fit'; const col = e?.colour ?? (p.colours ?? [])[0] ?? o.fabricBrief?.colour ?? '';
+  const kind = o.category.replace(/^RTW (CMT |FOB )?/i, '').replace(/s$/, '').toLowerCase();
+  const sizes = (e?.skus.map(s => s.size) ?? o.sizeBreakup.map(x => x.size));
+  return { title: `${name}${col && !name.toLowerCase().includes(col.toLowerCase()) ? ` · ${col}` : ''}`,
+    description: `${name} in ${cloth || 'our house cloth'}. Cut in a ${fit.toLowerCase()} with clean, considered details, made for everyday wear that still looks put together.${p.brief ? ` ${p.brief.split('.')[0]}.` : ''}`,
+    buzzwords: [/linen/i.test(cloth) ? 'breathable' : /oxford/i.test(cloth + name) ? 'weekend-ready' : 'everyday', fit.toLowerCase().includes('relax') ? 'easy fit' : 'sharp fit', col ? col.toLowerCase() : 'versatile', 'made in India'],
+    bullets: [cloth ? `Fabric: ${cloth}` : 'Fabric: house cloth', `Fit: ${fit}`, ...(col ? [`Colour: ${col}`] : []), ...(sizes.length ? [`Sizes: ${sizes.join(', ')}`] : [])],
+    fabricCare: /linen/i.test(cloth) ? 'Machine wash cold, gentle; line dry in shade; warm iron while damp.' : /wool/i.test(cloth) ? 'Dry clean only.' : 'Machine wash cold with like colours; do not bleach; warm iron.',
+    fitNotes: `${fit}. True to size; the model is 6'0" and wears ${sizes.includes('40') ? '40' : sizes[Math.floor(sizes.length / 2)] ?? 'M'}.`,
+    seo: `${name} | ${fit} ${kind} | Bombay Shirt Company`,
+    pointers: [`Say the cloth first: ${cloth || 'the fabric'}.`, `${fit}: show it on the body, front and side.`, col ? `Lead with the ${col.toLowerCase()} in the hero image.` : 'Lead with the colour in the hero image.'],
+    savedOn: null, by: null, doneOn: null };
 }

@@ -13,6 +13,8 @@ import type { GarmentCategory, Person, RoleId } from './types';
    tool is signed into as the team that owns the decision. */
 export const PEOPLE: Person[] = [
   { id:'kunal',      name:'Kunal',       role:'design',     title:'Head of design' },
+  /* 19 Nov 2026: planning adds the size-wise quantities on every RTW requirement */
+  { id:'charanjeet', name:'Charanjeet',  role:'planning',   title:'Planning — size-wise quantities on RTW requirements' },
   { id:'neha',       name:'Neha',        role:'planning',   title:'Chief Product Officer' },
   { id:'sreekanth',  name:'Sreekanth',   role:'sourcing',   title:'Sourcing' },
   { id:'parag',      name:'Parag',       role:'production', title:'Production & supply chain' },
@@ -23,6 +25,9 @@ export const PEOPLE: Person[] = [
   /* 14 Nov 2026: QC and the warehouse person the factory's invoice and packing list go to */
   { id:'rohit',      name:'Rohit',       role:'qc',         title:'QC — PP sample, size set, line inspections' },
   { id:'prince',     name:'Prince',      role:'warehouse',  title:'Warehouse — receives RTW goods against the packing list' },
+  /* 19 Nov 2026: Desai sends what BSC supplies to the factory against the transfer note; marketing writes the product details */
+  { id:'desai',      name:'Desai',       role:'materials',  title:'Material transfers — cloth and trims BSC sends to factories' },
+  { id:'mkt',        name:'Marketing',   role:'marketing',  title:'Marketing — product copy, buzzwords, launch details' },
   { id:'sairam',     name:'Sairam',      role:'owner',      title:'Owner / CEO — sees every screen' },
   /* the four pre-production desks: every person signs in with their own name, so the desk log says who took up
      and finished each order; everyone on a team sees the same desk. Names are placeholders until BSC shares the teams. */
@@ -36,7 +41,7 @@ export const PEOPLE: Person[] = [
 
 export const ROLE_LABEL: Record<RoleId, string> = {
   hod:'HOD', owner:'Owner', design: RTW_ONLY ? 'Category' : 'Design', planning:'Planning', sourcing:'Sourcing',
-  production:'Production', warehouse:'Warehouse', store:'Store', finance:'Finance', merchandiser:'Factory merchandiser', qc:'QC',
+  production:'Production', warehouse:'Warehouse', materials:'Material transfers', marketing:'Marketing', store:'Store', finance:'Finance', merchandiser:'Factory merchandiser', qc:'QC',
   cad:'CAD team', cutting:'Cutting team', fusing:'Fusing team', compiling:'Compiling team',
 };
 

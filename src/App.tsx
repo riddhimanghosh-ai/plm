@@ -32,6 +32,9 @@ import { Fabrics, FabricPage } from './screens/Fabrics';
 import { PrepDesk } from './screens/Preprod';
 import { Qc } from './screens/Qc';
 import { Approvals } from './screens/Approvals';
+import { PlanningSizes } from './screens/PlanningSizes';
+import { Transfers } from './screens/Transfers';
+import { Marketing } from './screens/Marketing';
 import { PoDraft } from './screens/PoDraft';
 import { Payments } from './screens/Payments';
 import { FinanceInvoices, FinanceLedger } from './screens/Finance';
@@ -59,6 +62,9 @@ export default function App() {
           <Route path="/sourcing" element={RTW_ONLY ? <RtwSourcing /> : <Sourcing />} />
           <Route path="/rtw-sourcing" element={MTM_ONLY ? <Navigate to="/" replace /> : <RtwSourcing />} />
           <Route path="/po-draft" element={MTM_ONLY ? <Navigate to="/" replace /> : <PoDraft />} />
+          <Route path="/sizes" element={MTM_ONLY ? <Navigate to="/" replace /> : <PlanningSizes />} />
+          <Route path="/transfers" element={MTM_ONLY ? <Navigate to="/" replace /> : <Transfers />} />
+          <Route path="/marketing" element={MTM_ONLY ? <Navigate to="/" replace /> : <Marketing />} />
           <Route path="/cogs" element={MTM_ONLY ? <Navigate to="/" replace /> : <CogsDashboard />} />
           <Route path="/enigma-marketing" element={MTM_ONLY ? <Navigate to="/" replace /> : <CogsDashboard only="enigma" />} />
           <Route path="/factory-db" element={MTM_ONLY ? <Navigate to="/" replace /> : <VendorDb kind="factory" />} />

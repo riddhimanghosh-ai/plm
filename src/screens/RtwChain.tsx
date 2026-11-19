@@ -8,7 +8,7 @@ import { downloadVendorsPdf, poPdfOf, poPdfName } from '../domain/invoicePdf';
 import { useApp } from '../store';
 import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice, FabricBy, PoDoc, PoLine, ApproverRole } from '../domain/types';
 import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
-import { TECH_PACK_ITEMS, QC_POINTS, FABRIC_BY_LABEL } from '../domain/reference';
+import { TECH_PACK_ITEMS, QC_POINTS, FABRIC_BY_LABEL, RTW_SIZES } from '../domain/reference';
 import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, supplyInvoicesOf, packedPcsOf, packingFileOf, orderedBySizeOf, isCmt, taxCodeOf, AQL_LEVELS, clothNeedOf, approvalOf, poLedgerOf, supplyLinesOf, rawMaterialsOf, type Mail, bomOpenOf, poVendorsOf, directCostOf, rtwCogsOf, poGroupOf, countedBy3plOf, landsAtOf } from '../domain/rtwPack';
 import { Section, Pill, Button, KV, Field, Input, Select, fromDateInput, dateInput, useFlagEmpty } from '../ui';
 import { VendorLink } from './Vendors';
@@ -19,6 +19,7 @@ import { QuoteFormModal } from './QuoteForm';
 import { BomVendors, BomQuantities } from './BomVendors';
 import { InvoicePreview, SupplyInvoiceBar, PdfPreview } from './InvoicePreview';
 import { MailPreviewButton } from './MailPreview';
+import { TransferStatus } from './Transfers';
 
 const faint = { color: 'var(--ink-faint)' } as const;
 const soft = { color: 'var(--ink-soft)' } as const;
@@ -47,7 +48,8 @@ export function MailCard({ mail, sentOn, label, onSend, sendLabel }: { mail: Mai
 /* ── 1. the five-part requirement, and the gate ── */
 type PartKey = 'techPack' | 'fabric' | 'trimCard' | 'sizes' | 'bom' | 'vendors';
 export function PackSection({ o, design, sourcing, only }: { o: ProductionOrder; design: boolean; sourcing: boolean; only?: PartKey }) {
-  const { db, updatePack, sendPack, updateRequirement, attachFiles } = useApp();
+  const { db, role, updatePack, sendPack, attachFiles, savePlanningSizes } = useApp();
+  const planner = role === 'planning' || role === 'owner';
   const p = packOf(o);
   const pick = (label: string, step: string | null, onName: (n: string) => void) => <label className="file-btn"><input type="file" accept=".pdf,.doc,.docx,image/*" onChange={e => { const f = e.target.files?.[0]; if (!f) return; onName(f.name); void attachFiles('order', o.id, label, step, [f]); }} />Attach</label>; const rd = packReadyOf(o); const sent = !!p.sentOn || o.status !== 'Requirement';
   const [tab, setTab] = useState<PartKey>(only ?? rd.parts.find(x => x.missing.length)?.key ?? 'techPack');
@@ -108,11 +110,17 @@ export function PackSection({ o, design, sourcing, only }: { o: ProductionOrder;
         : <div className="text-[12.5px] py-1">{p.trimCard ? `✓ ${p.trimCard}` : <span style={{ color: 'var(--warn)' }}>missing</span>}</div>}
       {(p.trimLines ?? []).length > 0 && <table className="t compact mt-2"><thead><tr><th>Colour</th><th>Trim</th><th>Supplier item code</th><th>Reference image</th></tr></thead><tbody>{p.trimLines!.map((x, i) => <tr key={i}><td>{x.colour}</td><td>{x.item}</td><td className="mono text-[12px]">{x.supplierCode ?? '—'}</td><td className="text-[12px]">{x.image ?? '—'}</td></tr>)}</tbody></table>}
     </div>}
-    {tab === 'sizes' && <div>
-      <div className="text-[12.5px] pb-2" style={soft}>Size-wise quantity — the cut ratio the factory cuts to. {sizes.reduce((a, x) => a + x.qty, 0)} pcs.</div>
-      <SizeGrid breakup={sizes} edit={canDesign} onChange={(sz, n) => setSizes(b => { const has = b.some(x => x.size === sz); return has ? b.map(x => x.size === sz ? { ...x, qty: n } : x) : [...b, { size: sz, qty: n }]; })} />
-      {canDesign && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updateRequirement(o.id, { sizeBreakup: sizes.filter(x => x.qty > 0), orderQty: sizes.reduce((a, x) => a + x.qty, 0) })}>Save break-up</Button></div>}
-    </div>}
+    {tab === 'sizes' && (() => { const canPlan = planner && !o.poNo && !o.poApproval; const total = sizes.reduce((a, x) => a + x.qty, 0);
+      /* prototype: spread the indicative qty over the usual sizes, the way planning's sheet would */
+      const spread = () => { const base = RTW_SIZES.slice(RTW_SIZES.indexOf(/hirt/i.test(o.category) ? '38' : '30')).slice(0, 6); const w = [1, 2, 3, 3, 2, 1].slice(0, base.length); const ws = w.reduce((a, b) => a + b, 0);
+        setSizes(base.map((sz, i) => ({ size: sz, qty: Math.max(1, Math.round(o.orderQty * w[i] / ws)) }))); };
+      return <div>
+      <div className="flex items-center gap-2 flex-wrap pb-2"><span className="pill role-planning">Planning · Charanjeet</span>
+        <span className="text-[12.5px]" style={soft}>{o.sizesBy ? `Added by ${o.sizesBy.by} ${fmtDate(o.sizesBy.on)} · ${o.orderQty} pcs` : `Planning's half of the requirement: the quantity for each size. Category's ask is about ${o.orderQty} pcs.`}</span></div>
+      {!o.sizesBy && !canPlan && <div className="text-[12.5px] pb-2" style={{ color: 'var(--warn)' }}>Pending with Charanjeet.{o.queryEarly ? ' Counter sourcing has started on a per-piece quote; the PO waits for these sizes.' : ''}</div>}
+      <SizeGrid breakup={sizes} edit={canPlan} onChange={(sz, n) => setSizes(b => { const has = b.some(x => x.size === sz); return has ? b.map(x => x.size === sz ? { ...x, qty: n } : x) : [...b, { size: sz, qty: n }]; })} />
+      {canPlan && <div className="pt-2 flex gap-2 items-center flex-wrap"><Button size="sm" variant="primary" disabled={!total} onClick={() => savePlanningSizes(o.id, sizes)}>{o.sizesBy ? 'Save the sizes' : `Add the sizes · ${total} pcs`}</Button>{!total && <Button size="sm" variant="ghost" onClick={spread}>Fill with sample data</Button>}</div>}
+    </div>; })()}
     {tab === 'bom' && <>
       {!only && <BomSection o={o} editable={design && !o.bomFrozen} open summary />}
       {!only && <BomQuantities o={o} canDesign={design} />}
@@ -131,11 +139,15 @@ export function PackSection({ o, design, sourcing, only }: { o: ProductionOrder;
 
     {/* the gate */}
     <div className="pt-3 mt-3 flex items-center gap-3 flex-wrap" hidden={!!only} style={{ borderTop: '1px solid var(--line-soft)' }}>
-      {sent ? <span className="text-[12.5px]" style={{ color: 'var(--good)' }}>Sent to Production RTW {fmtDate(p.sentOn ?? o.styleHandover)}{p.sentBy ? ` by ${p.sentBy}` : ''}. Nitin picks the factories and sends the cost query.</span>
+      {sent ? <span className="text-[12.5px]" style={{ color: 'var(--good)' }}>Sent to Production RTW {fmtDate(p.sentOn ?? o.styleHandover)}{p.sentBy ? ` by ${p.sentBy}` : ''}. Nitin picks the factories and sends the cost query.{rd.sizesMissing && <span style={{ color: 'var(--warn)' }}> Sent before the sizes: the PO waits for Charanjeet's.</span>}</span>
         : <>
           {(canDesign || canSourcing) && !rd.ready && <Button variant="ghost" onClick={fillSample}>Fill with sample data</Button>}
-          {design ? <Button variant="primary" disabled={!rd.ready} onClick={() => sendPack(o.id)}>Send to Production RTW →</Button> : <ActsBy role="design" does="sends it to Production RTW once the five parts are in" />}
-          {!rd.ready && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>Cannot proceed: {part.missing.length ? `${part.label} needs ${part.missing.join(', ')}` : rd.missing.slice(0, 3).join(', ')}{!part.missing.length && rd.missing.length > 3 ? ` and ${rd.missing.length - 3} more` : ''}{rd.sourcingMissing.length ? ' · sourcing owes vendors on the BOM' : ''}</span>}
+          {design && rd.categoryReady && rd.sizesMissing ? <div className="early-q">
+            <div className="text-[12.5px]"><b>Category's half is complete.</b> The sizes are with Charanjeet.</div>
+            <div className="flex gap-2 flex-wrap pt-1.5"><Button variant="primary" onClick={() => sendPack(o.id, true)}>Start counter sourcing now →</Button><span className="text-[12px]" style={faint}>factories quote per piece; only the PO draft waits for the sizes. Or wait: it goes once Charanjeet adds them.</span></div>
+          </div>
+          : design ? <Button variant="primary" disabled={!rd.ready} onClick={() => sendPack(o.id)}>Send to Production RTW →</Button> : <ActsBy role="design" does="sends it to Production RTW once the five parts are in" />}
+          {!rd.ready && !(rd.categoryReady && rd.sizesMissing) && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>Cannot proceed: {part.missing.length ? `${part.label} needs ${part.missing.join(', ')}` : rd.missing.slice(0, 3).join(', ')}{!part.missing.length && rd.missing.length > 3 ? ` and ${rd.missing.length - 3} more` : ''}{rd.sourcingMissing.length ? ' · sourcing owes vendors on the BOM' : ''}</span>}
         </>}
     </div>
   </Section></div>;
@@ -286,7 +298,8 @@ export function PoInvoicesSection({ o, prod }: { o: ProductionOrder; prod: boole
     </table></div>
     {supply.length > 0 && <div className="supply-inv mt-3">
       <div className="flex items-center gap-2 flex-wrap"><b className="text-[13px]">What BSC sends on this style</b><span className="text-[12px]" style={faint}>{supply.map(l => `${l.item} ${l.qty} ${l.unit}`).join(' · ')}</span>
-        <span className="ml-auto flex items-center gap-2"><b className="text-[13px]">{fmtMoney(supplyTotal)}</b>{prod && <Button size="sm" variant={generated ? 'ghost' : 'primary'} disabled={!supplyTotal || bomOpenOf(o).open.length > 0} onClick={() => generateSupplyInvoice(o.id)}>{generated ? 'Generate again' : 'Generate the invoice'}</Button>}</span></div>
+        <span className="ml-auto flex items-center gap-2"><b className="text-[13px]">{fmtMoney(supplyTotal)}</b></span></div>
+      <div className="pt-1"><TransferStatus o={o} /></div>
       {!supplyTotal && <div className="text-[11.5px] pt-1" style={{ color: 'var(--warn)' }}>Add a rate to the BOM lines BSC sends to price the invoice.</div>}
     </div>}
 
@@ -453,15 +466,14 @@ const ATT_WHAT: Record<string, string> = { 'PO': 'the order: lines, rates, GST, 
 function PoAttachments({ o }: { o: ProductionOrder }) {
   const { db } = useApp(); const [view, setView] = useState<PoInvoice | null>(null); const [poPdf, setPoPdf] = useState(false);
   const invs = supplyInvoicesOf(o); const files = poMailOf(db, o).attachments.filter(a => !a.startsWith('Invoice ') && !a.startsWith('Vendor details')); const vs = poVendorsOf(db, o);
-  const n = files.length + invs.length + (vs.length ? 1 : 0);
+  const n = files.length + (vs.length ? 1 : 0);
   return <div className="mt-3">
     <div className="cap" style={{ margin: '0 0 6px' }}>Attachments on the PO mail · {n}</div>
     <table className="t compact sum-t att-t"><colgroup><col style={{ width: 44 }} /><col style={{ width: 190 }} /><col /><col style={{ width: 116 }} /></colgroup><thead><tr><th>#</th><th>File</th><th>What it is</th><th className="num"></th></tr></thead>
       <tbody>
         {files.map((f, k) => <tr key={f}><td className="mono" style={faint}>{String(k + 1).padStart(2, '0')}</td><td className="font-medium">{f.replace(/ · .*$/, '')}</td><td style={soft}>{ATT_WHAT[f] ?? ''}</td><td className="num">{f === 'PO' && o.poDoc ? <Button size="sm" onClick={() => setPoPdf(true)}>View PDF</Button> : <span style={faint}>{/size break|bom/i.test(f) ? 'XLSX' : 'PDF'}</span>}</td></tr>)}
         {vs.length > 0 && <tr><td className="mono" style={faint}>{String(files.length + 1).padStart(2, '0')}</td><td className="font-medium">Vendor details</td><td style={soft}>{vs.length} vendor{vs.length === 1 ? '' : 's'} · {vs.map(v => `${v.name}: ${v.supplies}`).join(' · ')}</td><td className="num"><Button size="sm" onClick={() => downloadVendorsPdf(db, o)}>↓ PDF</Button></td></tr>}
-        {invs.map((iv, k) => <tr key={iv.id}><td className="mono" style={faint}>{String(files.length + (vs.length ? 1 : 0) + k + 1).padStart(2, '0')}</td><td className="font-medium">Invoice {iv.no}</td><td style={soft}>material BSC sends · <b style={{ color: 'var(--ink)' }}>{fmtMoney(iv.amount)}</b> · comes off what we pay</td><td className="num"><Button size="sm" onClick={() => setView(iv)}>View</Button></td></tr>)}
-        {!invs.length && <tr><td></td><td colSpan={3} style={faint}>{supplyLinesOf(o).length ? 'Invoice for what BSC sends · not generated yet' : 'No invoice · nothing on this PO is sent by BSC'}</td></tr>}
+        <tr><td></td><td className="font-medium">Material BSC sends</td><td colSpan={2}><div className="text-[12px]" style={soft}>not on this mail: Desai's transfer note and the invoice for what he sends go in their own mail</div><TransferStatus o={o} />{invs.map(iv => <span key={iv.id}> · <button type="button" className="vlink text-[12px]" onClick={() => setView(iv)}>view {iv.no}</button></span>)}</td></tr>
       </tbody></table>
     {view && <InvoicePreview o={o} inv={view} onClose={() => setView(null)} />}
     {poPdf && <PdfPreview name={poPdfName(o)} make={() => poPdfOf(db, o)} onClose={() => setPoPdf(false)} />}
@@ -860,27 +872,12 @@ export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boole
       {ep.description && <div className="text-[12.5px] pt-1" style={soft}>{ep.description}</div>}
       <table className="t compact mt-2"><thead><tr><th>Size</th><th>SKU</th><th className="num">Price</th><th className="num">Sale price</th><th className="num">Pcs</th></tr></thead><tbody>{ep.skus.map(x => <tr key={x.size}><td>{x.size}</td><td className="mono text-[12px]">{x.sku}</td><td className="num">{fmtMoney(x.price ?? ep.mrp)}</td><td className="num">{x.salePrice != null ? fmtMoney(x.salePrice) : '—'}</td><td className="num">{x.qty}</td></tr>)}</tbody></table>
     </Section>
-    <div className="pt-3"><Section title="Product and marketing details" collapsible={false} right={<span className="pill ai-pill">✦ AI</span>}>
-      {!copy ? <div className="flex items-center gap-3 flex-wrap py-1">
-        {design ? <Button variant="primary" onClick={() => setCopy(draftCopy())}>✦ Generate product and marketing details</Button> : <ActsBy role="design" does="generates the product and marketing details" />}
-        <span className="text-[12px]" style={faint}>from the name, cloth, fit, colour, sizes, MRP and the design brief</span>
-      </div> : <div className="grid gap-2">
-        <Field label="Product title"><Input value={copy.title} onChange={e => setCopy(c => c && ({ ...c, title: e.target.value }))} disabled={!design} /></Field>
-        <Field label="Description"><textarea className="input" rows={3} value={copy.description} onChange={e => setCopy(c => c && ({ ...c, description: e.target.value }))} disabled={!design} style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4 }} /></Field>
-        <Field label="Details · one per line"><textarea className="input" rows={4} value={copy.bullets.join('\n')} onChange={e => setCopy(c => c && ({ ...c, bullets: e.target.value.split('\n') }))} disabled={!design} style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4 }} /></Field>
-        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-          <Field label="Care"><Input value={copy.care} onChange={e => setCopy(c => c && ({ ...c, care: e.target.value }))} disabled={!design} /></Field>
-          <Field label="SEO title"><Input value={copy.seo} onChange={e => setCopy(c => c && ({ ...c, seo: e.target.value }))} disabled={!design} /></Field>
-        </div>
-        <Field label="Pointers for marketing · one per line"><textarea className="input" rows={4} value={copy.marketing.join('\n')} onChange={e => setCopy(c => c && ({ ...c, marketing: e.target.value.split('\n') }))} disabled={!design} style={{ fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.4 }} /></Field>
-        {design && <div className="flex gap-2"><Button variant="primary" onClick={() => setEnigmaCopy(o.id, { ...copy, bullets: copy.bullets.filter(Boolean), marketing: copy.marketing.filter(Boolean) })}>Save to Enigma</Button><Button variant="ghost" onClick={() => setCopy(draftCopy())}>✦ Generate again</Button></div>}
-        {ep.copy && <div className="text-[11.5px]" style={faint}>saved {fmtDate(ep.copy.generatedOn)}</div>}
-      </div>}
-    </Section></div>
+    <div className="pt-3 text-[12.5px] flex gap-2 items-center flex-wrap"><span className="pill role-marketing">Marketing</span>{o.marketing?.doneOn ? <span>Product and marketing details done {fmtDate(o.marketing.doneOn)} · ready for go-live</span> : <span style={{ color: 'var(--warn)' }}>Product and marketing details with marketing{o.marketing?.savedOn ? ' · draft saved' : ''} · go-live waits for them</span>}<a className="vlink" href={`#/marketing?open=${o.id}`}>see them →</a></div>
   </>;
 
   return <Section title={ep ? 'Edit in Enigma' : 'Add the SKUs to Enigma'} collapsible={false} right={<span className="pill role-design">Category</span>}>
     {!ep && !o.poNo && <div className="text-[12.5px] pb-2" style={{ color: 'var(--warn)' }}>The PO cannot be drafted until the SKUs are in Enigma.</div>}
+    {!ep && <div className="text-[12px] pb-2 flex gap-2 items-center" style={{ color: 'var(--ink-soft)' }}><span className="pill role-marketing">Marketing</span>is filling the product and marketing details alongside{o.marketing?.doneOn ? ' · done' : o.marketing?.savedOn ? ' · draft saved' : ''}.</div>}
     {(() => { const dc = directCostOf(o); return <div className="mrp-box mb-3">
       <div><span>Direct cost per piece</span><b>{fmtMoney(Math.round(dc.total))}</b><em>{fmtMoney(Math.round(dc.total - dc.fixed))} from {dc.fobFrom} + {fmtMoney(Math.round(dc.fixed))} fixed</em></div><i>×</i>
       <div><span>Multiplier</span><b>{dc.multiple}</b></div><i>=</i>
