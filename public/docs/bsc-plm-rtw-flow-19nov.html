@@ -38,6 +38,14 @@ classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 flowchart TD
 A(["Requirement arrives, with or without its sizes"]) --> B["<b>Nitin picks factories</b> from the factory database<br/>recommended by the category's specialisation and on-time rate<br/>per factory: which files it gets · a reply deadline"]
 B --> C["PLM mails each factory its files and a quote-form link<br/>(no login), the merchandiser copied"]
+C --> SC["<b>PLM writes a stock check for Desai</b><br/>every BOM line BSC supplies, for the pcs on the requirement"]
+SC --> SC1["<b>Desai checks BSC's stock</b> (Material transfers · To check)<br/>per line: what BSC has, the vendor (he can change it)"]
+SC1 --> SC2{"BSC has all of it?"}
+SC2 -- "yes" --> SC5
+SC2 -- "less" --> SC3["Desai sets who supplies the shortfall, with vendor and rate:<br/>BSC buys from another vendor · factory buys from a vendor · factory sources it"]
+SC3 --> SC4["PLM splits the BOM line and logs the revision"]
+SC4 --> SC5(["Stock check confirmed: the BOM shows the real split · no invoice yet"])
+SC5 -.-> H
 C --> D{"Factory fills the form by the deadline?"}
 D -- "no" --> D1["Turns red; on the merchandiser's follow-ups"]
 D1 --> D
@@ -48,7 +56,7 @@ G --> F
 F -- "yes" --> H["<b>Category completes the BOM</b> from the quote<br/>consumption and wastage → quantity per piece and for N pcs<br/>then freezes it for costing (a later change is a revision)"]
 H --> H2["Category confirms the cloth route:<br/>BSC sends · factory buys from BSC's vendor · factory's own"]
 H2 --> I(["To Enigma SKUs and the PO draft"])
-class C,D1,E,F auto
+class C,D1,E,F,SC,SC4 auto
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
@@ -62,7 +70,10 @@ MK -.-> MK2(["Go-live waits for these; the PO never does"])
 B -- "yes" --> SZ{"Sizes in from Charanjeet?"}
 SZ -- "no" --> SZ1["Shown as sizes with Charanjeet; cannot be ticked"]
 SZ1 --> SZ
-SZ -- "yes" --> C["Category ticks one or several requirements for one factory"]
+SZ -- "yes" --> DC{"Desai's stock check confirmed?"}
+DC -- "no" --> DC1["Shown as stock check with Desai; cannot be ticked"]
+DC1 --> DC
+DC -- "yes" --> C["Category ticks one or several requirements for one factory"]
 C --> C2["<b>PLM drafts the PO</b>: every style a line, one total<br/>per colour: qty per size × rate · other charges (logistics)<br/>taxable value, GST, PO total · ship-by, goods expected by<br/>payment terms (advance %), raw material terms, tolerance, AQL"]
 C2 --> D{"Send for approval to?"}
 D -- "both" --> E["HOD and finance"]
@@ -79,9 +90,9 @@ F1 --> F
 F -- "everyone asked approved" --> K["PLM raises the PO: one PO number for every style on it"]
 K --> N["PLM mails the PO as one combined PDF and the TNA form<br/>to the factory and the merchandiser, with the delivery location"]
 N --> L{"Any BOM line sent by BSC?"}
-L -- "yes" --> M(["PLM writes a transfer note for that material; it goes to Desai"])
+L -- "yes" --> M(["PLM writes the transfer note from the BOM Desai confirmed; it goes to him to dispatch"])
 L -- "no" --> N2(["No transfer note"])
-class A,B,SZ,SZ1,C2,F1,K,L,M,N,N2 auto
+class A,B,SZ,SZ1,DC,DC1,C2,F1,K,L,M,N,N2 auto
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
@@ -93,11 +104,10 @@ B1 --> B
 B -- "yes" --> C{"Who supplies the cloth?"}
 C -- "factory's own" --> C2["Factory raises its own fabric PO and logs the receipt on the TNA"]
 C -- "nominated vendor" --> C2
-C -- "BSC sends" --> T1["<b>Desai opens the transfer note</b> (Material transfers)<br/>per line: item, what the BOM says, sending qty, vendor, rate"]
-T1 --> T0["Desai changes the vendor on any line if it comes from elsewhere"]
-T0 --> T2{"Can he send all of it?"}
+C -- "BSC sends" --> T1["<b>Desai opens the transfer note</b> (Material transfers · To send)<br/>the BOM as he confirmed it in counter sourcing, for the pcs on the PO"]
+T1 --> T2{"All of it ready to dispatch?<br/>(it usually is: he checked during counter sourcing)"}
 T2 -- "yes" --> T5
-T2 -- "less" --> T3["Desai types what he can send, and a reason"]
+T2 -- "less: something changed since the check" --> T3["Desai types what he can send, and a reason; he can change the vendor"]
 T3 --> T4{"Who supplies the rest?"}
 T4 -- "factory sources it" --> T8["PLM splits the BOM line:<br/>the rest is the factory's"]
 T4 -- "factory buys from a vendor" --> T9["PLM splits the BOM line:<br/>the rest nominated, vendor and rate"]
