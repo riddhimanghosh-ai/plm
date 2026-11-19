@@ -1059,3 +1059,36 @@ tr.po-pick-on > td { background: color-mix(in srgb, var(--accent) 7%, transparen
 .bomq-rep:hover:not(:disabled) { border-color: var(--accent); } .bomq-rep:disabled { cursor: default; opacity: .7; }
 .cons-up { margin-bottom: 10px; padding: 10px 12px; border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--accent) 4%, transparent); font-size: 12.5px; }
 @media (max-width: 820px) { .po-bar { position: static; } .mrp-box > i { display: none; } }
+
+.pay-strip { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.pay-strip-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 14px; }
+.pay-strip-nums > div { display: flex; flex-direction: column; gap: 1px; }
+.pay-strip-nums span { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .04em; }
+.pay-strip-nums b { font-size: 15px; font-variant-numeric: tabular-nums; } .pay-strip-nums i { font-style: normal; font-size: 11px; color: var(--ink-soft); }
+.pay-strip-nums .paid b { color: var(--good); } .pay-strip-nums .left b { color: var(--warn); } .pay-strip-nums .left.done b { color: var(--good); }
+.pay-bar { height: 6px; border-radius: 3px; background: var(--line-soft, #eee); margin-top: 8px; overflow: hidden; } .pay-bar span { display: block; height: 100%; background: var(--good); }
+.pay-list { display: flex; gap: 6px 14px; flex-wrap: wrap; padding-top: 6px; font-size: 11.5px; color: var(--ink-soft); }
+
+/* Draft a PO: every reply as a chip, the recommended one starred; the drafted PO shown before it is sent */
+.po-cs td { vertical-align: top; }
+.po-reps { display: flex; gap: 6px; flex-wrap: wrap; }
+.po-rep { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface, #fff); font-size: 11.5px; cursor: pointer; text-align: left; }
+.po-rep:disabled { cursor: default; }
+.po-rep.rec { border-color: color-mix(in srgb, var(--good) 55%, var(--line)); }
+.po-rep.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface, #fff)); }
+.po-rep-n { font-weight: 600; font-size: 12px; display: flex; flex-direction: column; } .po-rep-n em { font-style: normal; font-weight: 600; font-size: 10px; color: var(--good); text-transform: uppercase; letter-spacing: .04em; }
+.po-rep-v { color: var(--ink-soft); white-space: nowrap; }
+.po-rep-wait { align-self: center; font-size: 11px; color: var(--ink-faint); }
+.po-prev-back { position: fixed; inset: 0; z-index: 300; background: rgba(20,24,20,.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.po-prev { width: min(980px, 100%); max-height: 100%; display: flex; flex-direction: column; background: var(--bg, #f4f3ee); border-radius: 14px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.po-prev-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface, #fff); border-bottom: 1px solid var(--line); font-size: 13px; } .po-prev-top b { font-size: 15px; } .po-prev-top button { margin-left: auto; }
+.po-prev-body { overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.po-sheet { background: #fff; color: #1b1f1b; border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+.po-sheet-h { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 2px solid #1b1f1b; } .po-sheet-h img { width: 40px; height: 40px; border-radius: 50%; }
+.po-sheet-h > div { display: flex; flex-direction: column; } .po-sheet-h b { font-size: 15px; } .po-sheet-h span { font-size: 11.5px; color: #6b716b; }
+.po-sheet-no { margin-left: auto; text-align: right; }
+.po-sheet-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 18px; padding: 12px 0; }
+.po-sheet-meta > div { display: flex; flex-direction: column; gap: 1px; } .po-sheet-meta span { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: #6b716b; } .po-sheet-meta b { font-size: 13px; } .po-sheet-meta i { font-style: normal; font-size: 11.5px; color: #6b716b; }
+.po-sheet-t tfoot td { border-top: 1px solid var(--line); font-size: 12.5px; } .po-sheet-t tr.po-sheet-tot td { font-weight: 700; font-size: 14px; border-top: 2px solid #1b1f1b; }
+.po-prev-foot { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; padding: 12px 16px; background: var(--surface, #fff); border-top: 1px solid var(--line); }
+@media (max-width: 820px) { .po-prev-back { padding: 0; } .po-prev { border-radius: 0; height: 100%; } }

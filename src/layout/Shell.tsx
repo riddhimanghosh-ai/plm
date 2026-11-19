@@ -96,7 +96,7 @@ function Crumbs() {
   if (!entry) return null;
   const sep = <span style={{ color:'var(--line)' }}>/</span>;
   return <div className="crumbs flex items-center gap-2 flex-wrap">
-    <span>{entry.group}</span>{sep}
+    <span>{RTW_ONLY && entry.group === 'Design' ? 'Category' : entry.group}</span>{sep}
     {fabric ? <NavLink to={entry.path} className="crumb-link">{entry.label}</NavLink> : <span className="crumb-here">{entry.label}</span>}
     {fabric && <>{sep}<span className="crumb-here">{fabric.name}</span></>}
     {fabric && from && <span className="crumb-from">· opened from <a href={from.path} className="crumb-link">{from.label}</a></span>}

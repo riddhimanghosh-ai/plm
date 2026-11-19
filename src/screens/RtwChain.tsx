@@ -465,6 +465,24 @@ function PoAttachments({ o }: { o: ProductionOrder }) {
     {poPdf && <PdfPreview name={poPdfName(o)} make={() => poPdfOf(db, o)} onClose={() => setPoPdf(false)} />}
   </div>;
 }
+/* what is paid on the PO and what is left, for everyone who opens it: the total is fixed at the start (the PO value,
+   less BSC's own invoice for what it sent), each payment comes off it, in parts */
+export function PayStrip({ o }: { o: ProductionOrder }) {
+  const l = poLedgerOf(o); const pays = o.poPayments ?? []; if (!o.poNo) return null;
+  const pct = l.payable > 0 ? Math.max(0, Math.min(100, Math.round(l.paid * 100 / l.payable))) : 0;
+  return <div className="pay-strip">
+    <div className="pay-strip-nums">
+      <div><span>PO total</span><b>{fmtMoney(Math.round(l.poTotal))}</b><i>FOB value incl. GST</i></div>
+      {l.bscInvoiced > 0 && <div><span>Less BSC's invoice</span><b>− {fmtMoney(Math.round(l.bscInvoiced))}</b><i>cloth and trims BSC sent</i></div>}
+      {l.shortValue > 0 && <div><span>Less short received</span><b>− {fmtMoney(l.shortValue)}</b><i>{l.shortPcs} pcs not received</i></div>}
+      <div><span>To pay in all</span><b>{fmtMoney(Math.max(0, Math.round(l.payable)))}</b>{l.payable < 0 && <i style={{ color: 'var(--warn)' }}>BSC's invoice is {fmtMoney(Math.round(-l.payable))} more than the PO</i>}</div>
+      <div className="paid"><span>Paid</span><b>{fmtMoney(Math.round(l.paid))}</b><i>{pays.length ? `${pays.length} payment${pays.length === 1 ? '' : 's'}` : 'nothing yet'}</i></div>
+      <div className={`left${l.remaining <= 0 ? ' done' : ''}`}><span>Remaining</span><b>{fmtMoney(Math.max(0, Math.round(l.remaining)))}</b><i>{l.remaining <= 0 ? 'paid in full' : `${100 - pct}% left`}</i></div>
+    </div>
+    <div className="pay-bar" title={`${pct}% paid`}><span style={{ width: `${pct}%` }} /></div>
+    {pays.length > 0 && <div className="pay-list">{pays.map(p => <span key={p.id}>{fmtDate(p.on)} · <b>{fmtMoney(p.amount)}</b>{p.note ? ` · ${p.note}` : ''}{p.ref ? ` · ${p.ref}` : ''}</span>)}</div>}
+  </div>;
+}
 export function PoSection({ o }: { o: ProductionOrder }) {
   const { db, sendPoMail } = useApp();
   const pm = o.poMail; const p = packOf(o); const rp = o.costQuery?.replies.find(r => r.vendorId === o.vendorId);
@@ -480,6 +498,7 @@ export function PoSection({ o }: { o: ProductionOrder }) {
         <tr><th>Mailed</th><td>{pm?.sentOn ? <span style={{ color: 'var(--good)' }}>✓ {fmtDate(pm.sentOn)}</span> : <span style={{ color: 'var(--warn)' }}>not sent yet</span>}</td><td style={soft}>{(pm?.to ?? []).join(', ')}{pm?.cc?.length ? ` · cc ${pm.cc.join(', ')}` : ''}</td></tr>
         <tr><th>Acknowledged</th><td>{o.poAckOn ? <span style={{ color: 'var(--good)' }}>✓ {fmtDate(o.poAckOn)}</span> : <span style={faint}>waiting on the factory</span>}</td><td style={soft}>{o.poAckBy ?? ''}</td></tr>
       </tbody></table>; })()}
+    <PayStrip o={o} />
     <PoDocView o={o} />
     <PoAttachments o={o} />
     <div className="pt-2"><MailCard label="PO · with the TNA form" mail={{ ...poMailOf(db, o), ...(pm?.mail ?? {}), to: pm?.to?.length ? pm.to : poMailOf(db, o).to, cc: pm?.cc?.length ? pm.cc : poMailOf(db, o).cc }} sentOn={pm?.sentOn ?? null} onSend={pm && !pm.sentOn ? m => sendPoMail(o.id, { to: m.to, cc: m.cc, subject: m.subject, body: m.body }) : undefined} sendLabel="Send the PO to the factory ✉" /></div>

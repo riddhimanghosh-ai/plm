@@ -30,7 +30,7 @@ export function OwnerPill({ editable, owner }: { editable?: boolean; owner: stri
   const theirs = roleOf(owner);
   /* the team's own colour, whether it is you or them — "yours" in design's plum
      still says which team's step this is */
-  const label = owner === 'yours' ? ROLE_LABEL[theirs] : owner;
+  const label = owner === 'yours' || owner === 'Design' ? ROLE_LABEL[theirs] : owner;   // 'Design' reads as Category in the RTW edition
   void editable;
   return <span className={`pill owner-pill role-${theirs}`} title={`${label}'s step`}>{label}</span>;
 }

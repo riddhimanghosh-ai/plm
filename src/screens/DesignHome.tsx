@@ -164,7 +164,7 @@ export function DesignHome() {
   const KIND_TONE: Record<Kind, string> = { MTM:'design', RTW:'planning', FOB:'production', Options:'sourcing' };
 
   return (
-    <Page title="Design requirements" lede="Everything design has asked for, at one of four stages: requirement, sourcing, finalised and ordered, execution."
+    <Page title={RTW_ONLY ? "Category requirements" : "Design requirements"} lede={RTW_ONLY ? "Everything category has asked for, at one of four stages: requirement, sourcing, finalised and ordered, execution." : "Everything design has asked for, at one of four stages: requirement, sourcing, finalised and ordered, execution."}
       replaces="the design meeting's un-minuted list, the brief emailed to sourcing, and three trackers that each start too late"
       actions={design ? <span className="flex gap-2"><Button onClick={() => setBulk(true)}>↑ Bulk upload</Button><Button variant="primary" onClick={() => set('new', RTW_ONLY ? 'rtw' : '1')}>{RTW_ONLY ? '+ New RTW style' : '+ New requirement'}</Button></span> : <ActsBy role={['design', 'planning']} does="raises a requirement — what is needed, for which product, by when" inline />}>
 
