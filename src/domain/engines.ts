@@ -1123,6 +1123,7 @@ export function fabricStateOf(o: ProductionOrder) {
   }
   if (fs?.sentToFactoryOn) return mk('sent', `sent to the factory · ${fs.metresSent ?? '—'} m · awaiting the factory's count`, 'merchandiser', 'info');
   if (!o.poNo) return mk('wait-factory', `fabric PO ${o.sourcing.fabricPo.no} raised · waiting for the factory PO`, 'production', 'neutral');
+  if ((o.transfers ?? []).some(t => !t.sentOn)) return mk('bought', `fabric PO ${o.sourcing.fabricPo.no} raised · Desai to send it on the transfer note`, 'sourcing', 'warn');
   return mk('bought', `fabric PO ${o.sourcing.fabricPo.no} raised · send it to the factory`, 'sourcing', 'warn');
 }
 

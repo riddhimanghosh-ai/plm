@@ -460,7 +460,8 @@ export function FabricFinalisationSection({ o, bare, columns, part, onGiven }: {
             <Pill tone={fs?.receipt ? (st.short > 0 ? 'risk' : 'good') : 'neutral'}>{fs?.receipt ? `factory counted ${fs.receipt.metresOk} m usable${fs.receipt.metresDamaged ? `, ${fs.receipt.metresDamaged} m damaged` : ''}` : 'not yet counted at the factory'}</Pill>
           </div>
           {isSourcing && !fs?.sentToFactoryOn && !o.poNo && <div className="pt-2 text-[12.5px]" style={faint}>The cloth goes straight to the factory, so it waits until design has raised the PO to one.</div>}
-          {isSourcing && o.poNo && !fs?.sentToFactoryOn && <div className="flex gap-2 items-end pt-2"><div style={{ width: 140 }}><Field label="Metres sent"><Input type="number" value={sent} onChange={e => setSent(e.target.value)} /></Field></div><Button size="sm" variant="primary" onClick={() => markFabricSent(o.id, sent === '' ? null : Number(sent))}>Sent to {nameOf(o.vendorId)}</Button></div>}
+          {o.poNo && !fs?.sentToFactoryOn && (o.transfers ?? []).length > 0 && <div className="text-[12px] pt-2" style={{ color: 'var(--ink-soft)' }}>Desai sends it on the transfer note below; it shows as sent here once he does.</div>}
+          {isSourcing && o.poNo && !fs?.sentToFactoryOn && !(o.transfers ?? []).length && <div className="flex gap-2 items-end pt-2"><div style={{ width: 140 }}><Field label="Metres sent"><Input type="number" value={sent} onChange={e => setSent(e.target.value)} /></Field></div><Button size="sm" variant="primary" onClick={() => markFabricSent(o.id, sent === '' ? null : Number(sent))}>Sent to {nameOf(o.vendorId)}</Button></div>}
           {!isSourcing && !fs?.sentToFactoryOn && <ActsBy role="sourcing" does="sends the cloth straight to the factory once both POs are raised" />}
           {fs?.sentToFactoryOn && !fs.receipt && (isFactory ? <div className="pt-2">
             <div className="label">What landed at the factory</div>

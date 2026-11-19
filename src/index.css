@@ -1156,7 +1156,11 @@ td.cr-over { color: var(--risk); }
 table.fab-t tfoot td { border-top: 1.5px solid var(--line); background: var(--surface-2); }
 
 /* 19 Nov 2026: Desai's transfer note */
-.tn-t .tn-in { width: 84px; text-align: right; padding: 3px 6px; }
+.tn-wrap { overflow-x: auto; }
+.tn-t { table-layout: auto; width: 100%; }
+.tn-t td, .tn-t th { white-space: nowrap; }
+.tn-t td:first-child { white-space: normal; min-width: 160px; }
+.tn-t .tn-in { width: 76px; text-align: right; padding: 3px 6px; }
 .tn-t tr.tn-short td { background: color-mix(in srgb, var(--warn) 7%, transparent); }
 .tn-t tfoot td { border-top: 1px solid var(--line); font-size: 12.5px; padding-top: 6px; }
 .pill.role-materials { background: #e6eef7; color: #2b4f7a; border-color: transparent; }

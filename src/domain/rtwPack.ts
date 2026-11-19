@@ -460,7 +460,10 @@ export function transferMailOf(db: Db, o: ProductionOrder, t: TransferNote): Mai
 
 /* marketing's first draft from what the record knows: name, cloth, fit, colour, sizes, MRP, the design brief (the build calls the model) */
 export function marketingDraftOf(o: ProductionOrder): MarketingDetails {
-  const p = packOf(o); const e = o.enigmaProduct; const name = e?.name ?? o.styleName; const cloth = [p.fabric.description, p.fabric.content].filter(Boolean).join(', ');
+  const p = packOf(o); const e = o.enigmaProduct; const name = e?.name ?? o.styleName;
+  /* the cloth's own words, without repeating the style name when the fabric line is named after the style */
+  const desc = p.fabric.description && !name.toLowerCase().includes(p.fabric.description.toLowerCase().slice(0, 12)) ? p.fabric.description : null;
+  const cloth = [desc, p.fabric.content].filter(Boolean).join(', ');
   const fit = e?.fit ?? o.fit ?? 'Regular Fit'; const col = e?.colour ?? (p.colours ?? [])[0] ?? o.fabricBrief?.colour ?? '';
   const kind = o.category.replace(/^RTW (CMT |FOB )?/i, '').replace(/s$/, '').toLowerCase();
   const sizes = (e?.skus.map(s => s.size) ?? o.sizeBreakup.map(x => x.size));

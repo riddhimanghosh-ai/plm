@@ -42,22 +42,20 @@ export function TransferForm({ o, t, can, onSent }: { o: ProductionOrder; t: Tra
   const mail = transferMailOf(db, o, sent ? t : draft);
   const set = (k: number, p: Partial<typeof rows[number]>) => setRows(rs => rs.map((r, i) => i === k ? { ...r, ...p } : r));
   return <div>
-    <table className="t compact tn-t">
-      <thead><tr><th>#</th><th>Item</th><th className="num">BOM says</th><th className="num">Sending</th><th>The rest</th><th>Remark</th><th className="num">Rate</th><th className="num">On the invoice</th></tr></thead>
+    <div className="tn-wrap"><table className="t compact tn-t">
+      <thead><tr><th>Item</th><th className="num">BOM says</th><th className="num">Sending</th><th>The rest</th><th>Remark</th><th className="num">On the invoice</th></tr></thead>
       <tbody>{t.lines.map((l, k) => { const line = o.bom[l.idx]; const q = sent ? l.sendQty : val(k); const short = q < l.bomQty;
         return <tr key={l.idx} className={short ? 'tn-short' : undefined}>
-          <td className="mono" style={faint}>{k + 1}</td>
           <td><div className="font-medium">{l.item}</div><div className="text-[11px]" style={faint}>{line?.kind ?? ''}{line?.vendor ? ` · ${line.vendor}` : ''}</div></td>
           <td className="num">{l.bomQty} {l.unit}</td>
           <td className="num">{!sent && can ? <span className="flex items-center gap-1 justify-end"><input className="input tn-in" type="number" min={0} max={l.bomQty} value={rows[k].send} onChange={e => set(k, { send: e.target.value })} /><span style={faint}>{l.unit}</span></span> : <b>{l.sendQty} {l.unit}</b>}</td>
-          <td>{!short ? <span style={faint}>—</span> : !sent && can ? <Select style={{ width: 190 }} value={rows[k].rest} onChange={v => set(k, { rest: v as 'factory' | 'sourcing' })} options={[{ value: 'sourcing', label: `${r2(l.bomQty - q)} ${l.unit} · back to sourcing` }, { value: 'factory', label: `${r2(l.bomQty - q)} ${l.unit} · the factory sources it` }]} />
+          <td>{!short ? <span style={faint}>—</span> : !sent && can ? <Select style={{ width: 172 }} value={rows[k].rest} onChange={v => set(k, { rest: v as 'factory' | 'sourcing' })} options={[{ value: 'sourcing', label: `${r2(l.bomQty - q)} ${l.unit} · back to sourcing` }, { value: 'factory', label: `${r2(l.bomQty - q)} ${l.unit} · the factory sources it` }]} />
             : <span className="text-[12px]">{r2(l.bomQty - q)} {l.unit} · {l.rest === 'factory' ? 'the factory sources it' : 'back to sourcing'}</span>}</td>
-          <td>{!sent && can ? <Input value={rows[k].remark} onChange={e => set(k, { remark: e.target.value })} placeholder={short ? 'why short' : ''} style={{ width: 150 }} /> : <span className="text-[12px]" style={soft}>{l.remark ?? '—'}</span>}</td>
-          <td className="num">{fmtMoney(l.rate)}</td>
-          <td className="num">{fmtMoney(Math.round(q * l.rate))}</td>
+          <td>{!sent && can ? <Input value={rows[k].remark} onChange={e => set(k, { remark: e.target.value })} placeholder={short ? 'why short' : ''} style={{ width: 120 }} /> : <span className="text-[12px]" style={soft}>{l.remark ?? '—'}</span>}</td>
+          <td className="num">{fmtMoney(Math.round(q * l.rate))}<div className="text-[11px]" style={faint}>@ {fmtMoney(l.rate)}</div></td>
         </tr>; })}</tbody>
-      <tfoot><tr><td></td><td colSpan={5}>{shorts ? <span style={{ color: 'var(--warn)' }}>{shorts} line{shorts === 1 ? '' : 's'} short · the BOM is updated on send</span> : 'Everything on the BOM'}</td><td className="num" style={faint}>invoice</td><td className="num"><b>{fmtMoney(total)}</b></td></tr></tfoot>
-    </table>
+      <tfoot><tr><td colSpan={4}>{shorts ? <span style={{ color: 'var(--warn)' }}>{shorts} line{shorts === 1 ? '' : 's'} short · the BOM is updated on send</span> : 'Everything on the BOM'}</td><td className="num" style={faint}>invoice</td><td className="num"><b>{fmtMoney(total)}</b></td></tr></tfoot>
+    </table></div>
     {!sent ? <div className="flex items-end gap-2 flex-wrap pt-3">
       {can && <div style={{ flex: '1 1 260px' }}><div className="cap" style={{ margin: '0 0 4px' }}>Dispatch · how it goes</div><Input value={dispatch} onChange={e => setDispatch(e.target.value)} placeholder="by road · BSC tempo · LR 4471" /></div>}
       <Button variant="ghost" onClick={() => setPreview(v => !v)}>{preview ? 'Hide the mail' : 'See the mail'}</Button>

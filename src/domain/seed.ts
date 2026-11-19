@@ -1654,6 +1654,7 @@ orders.forEach(o => { if (!o.sizeBreakup?.length) return; const sum = (b: { qty:
 /* 19 Nov 2026: marketing's details — done for what has landed, a draft saved on a few in Enigma, the rest still to start */
 orders.forEach((o, i) => { if (!o.enigmaProduct) return; const d = marketingDraftOf(o);
   if (o.status === 'Closed' || o.enigmaProduct.copy) o.marketing = { ...d, savedOn: o.enigmaProduct.addedOn, by: 'Marketing', doneOn: o.enigmaProduct.addedOn };
+  else if (i % 3 === 0) o.marketing = { ...d, savedOn: o.enigmaProduct.addedOn, by: 'Marketing', doneOn: o.enigmaProduct.addedOn };
   else if (i % 2) o.marketing = { ...d, savedOn: o.enigmaProduct.addedOn, by: 'Marketing', doneOn: null }; });
 export const SEED: Db = {
   lostSales,

@@ -141,7 +141,7 @@ export function PackSection({ o, design, sourcing, only }: { o: ProductionOrder;
     <div className="pt-3 mt-3 flex items-center gap-3 flex-wrap" hidden={!!only} style={{ borderTop: '1px solid var(--line-soft)' }}>
       {sent ? <span className="text-[12.5px]" style={{ color: 'var(--good)' }}>Sent to Production RTW {fmtDate(p.sentOn ?? o.styleHandover)}{p.sentBy ? ` by ${p.sentBy}` : ''}. Nitin picks the factories and sends the cost query.{rd.sizesMissing && <span style={{ color: 'var(--warn)' }}> Sent before the sizes: the PO waits for Charanjeet's.</span>}</span>
         : <>
-          {(canDesign || canSourcing) && !rd.ready && <Button variant="ghost" onClick={fillSample}>Fill with sample data</Button>}
+          {(canDesign || canSourcing) && !rd.ready && !rd.categoryReady && <Button variant="ghost" onClick={fillSample}>Fill with sample data</Button>}
           {design && rd.categoryReady && rd.sizesMissing ? <div className="early-q">
             <div className="text-[12.5px]"><b>Category's half is complete.</b> The sizes are with Charanjeet.</div>
             <div className="flex gap-2 flex-wrap pt-1.5"><Button variant="primary" onClick={() => sendPack(o.id, true)}>Start counter sourcing now →</Button><span className="text-[12px]" style={faint}>factories quote per piece; only the PO draft waits for the sizes. Or wait: it goes once Charanjeet adds them.</span></div>
