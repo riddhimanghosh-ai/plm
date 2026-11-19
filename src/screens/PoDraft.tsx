@@ -99,7 +99,7 @@ export function PoDraft() {
       <div className="po-bar">
         <div className="po-bar-sum"><b>{sel.length ? `${drafts.length === 1 ? 'One PO' : `${drafts.length} POs · one per factory`} · ${sel.length} requirement${sel.length === 1 ? '' : 's'}` : 'Tick the requirements to put on a PO'}</b>
           {sel.length > 0 && <span>{drafts.map(d => `${nameOf(d.vendorId)} · ${d.items.length} style${d.items.length === 1 ? '' : 's'} · ${fmtMoney(Math.round(d.total))}`).join('  |  ')}</span>}
-          <span className="ml-auto">{can ? <Button variant="primary" disabled={!sel.length} onClick={() => setPreview(true)}>See the drafted PO →</Button> : <span className="text-[12.5px]" style={soft}>Category drafts the PO.</span>}</span></div>
+          <span className="ml-auto">{can ? <Button variant="primary" disabled={!sel.length} onClick={() => setPreview(true)}>Draft PO →</Button> : <span className="text-[12.5px]" style={soft}>Category drafts the PO.</span>}</span></div>
         <div className="text-[11.5px]" style={faint}>A PO is drafted only after the style is in Enigma. Requirements ticked for the same factory go on one PO.</div>
       </div>
     </>}

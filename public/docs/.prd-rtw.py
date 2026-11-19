@@ -14,7 +14,7 @@ def p(t): C.append(('p', t))
 def b(lead, rest): C.append(('b', lead, rest))
 def table(headers, rows): C.append(('table', headers, rows))
 def ul(items): C.append(('ul', items))
-def steps(rows): table(['#', 'Step · who', 'User flow', 'Data in (source)', 'System checks', 'Then'], rows)
+def steps(rows): table(['#', 'Step / who', 'User flow', 'Data in (source)', 'System checks', 'Then'], rows)
 
 # ------------------------------------------------------------------ 1
 h2("1. Purpose and scope")
