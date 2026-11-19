@@ -1654,6 +1654,14 @@ orders.forEach(o => { if (!o.sizeBreakup?.length) return; const sum = (b: { qty:
         /* past the cloth stage (closed, dispatched, or cutting started): the factory counted it in */
         const eta = o.milestones.find(m => m.key === 'Fabric ETA')?.actual ?? o.milestones.find(m => m.key === 'Cutting Start')?.actual ?? null;
         if (!o.fabricSupply.receipt && (o.status !== 'Open' || eta)) o.fabricSupply.receipt = { on: eta ?? iso(addDays(o.fabricSupply.sentToFactoryOn, 2)), by: o.merchant ?? 'Nitin Singh', metresOk: fl.sendQty, metresDamaged: 0, note: '' }; } } }); }
+/* 19 Nov 2026 (user): Desai checks BSC's stock during counter sourcing. Every query where BSC supplies material has a stock
+   check: confirmed for anything past the PO draft and most others; two still wait with Desai, so the PO waits for them. */
+{ let waiting = 0; orders.forEach(o => { const cq = o.costQuery; if (!cq || o.status === 'Cancelled') return; const pcs = o.orderQty || 0;
+  const lines = o.bom.map((l, idx) => ({ l, idx })).filter(({ l }) => supplyLinesOf(o).some(x => x.item === l.item) && l.qtyPerPc != null).map(({ l, idx }) => { const q = Math.round(l.qtyPerPc! * pcs * 100) / 100; const rate = l.rate ?? (l.kind === 'fabric' ? (o.pack?.fabric.rate ?? o.pack?.fabric.cpm ?? 0) : 0);
+    return { idx, item: l.item, unit: l.unit, rate, bomQty: q, sendQty: q, rest: null, remark: null }; });
+  if (!lines.length) return;
+  const pending = !o.poNo && !o.poApproval && waiting < 2 && !o.enigmaProduct; if (pending) waiting++;
+  o.stockCheck = { on: cq.sentOn, checkedOn: pending ? null : iso(addDays(cq.sentOn, 1)), by: pending ? null : 'Desai', lines }; }); }
 /* 19 Nov 2026: marketing's details — done for what has landed, a draft saved on a few in Enigma, the rest still to start */
 orders.forEach((o, i) => { if (!o.enigmaProduct) return; const d = marketingDraftOf(o);
   if (o.status === 'Closed' || o.enigmaProduct.copy) o.marketing = { ...d, savedOn: o.enigmaProduct.addedOn, by: 'Marketing', doneOn: o.enigmaProduct.addedOn };

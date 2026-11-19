@@ -375,6 +375,8 @@ export interface ProductionOrder {
      Desai checks what he can actually send, changes the quantities (the BOM follows), and on Send the invoice is made for
      what went and mailed to the factory with the note. */
   transfers?: TransferNote[] | null;
+  /* 19 Nov 2026 (user): Desai checks BSC's stock during counter sourcing, so factories quote on the real split; after the PO he only dispatches */
+  stockCheck?: { on: string; checkedOn: string | null; by: string | null; lines: TransferLine[] } | null;
   /* 19 Nov 2026: marketing fills the product and marketing details while category adds the style to Enigma; go-live waits for it */
   marketing?: MarketingDetails | null;
   poDoc?: PoDoc | null;

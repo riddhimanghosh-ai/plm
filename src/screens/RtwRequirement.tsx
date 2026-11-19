@@ -20,14 +20,14 @@ import { PackSection, CostQuerySection, PoSection, PoCostsSection, PoInvoicesSec
 import { SOURCE_LABEL } from '../domain/rtwJourney';
 import { countedBy3plOf, poFabricsOf, packReadyOf } from '../domain/rtwPack';
 import { MarketingSection } from './Marketing';
-import { TransferSection } from './Transfers';
+import { TransferSection, StockCheckSection } from './Transfers';
 import { ApprovalSection, PoEditSection } from './RtwApproval';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
 const MINE: Record<string, string[]> = {
   design: ['pack', 'query', 'launch', 'approval', 'po', 'cloth', 'tna', 'cogs'],
   marketing: ['marketing', 'launch'],   // 19 Nov 2026: marketing's details beside the Enigma entry
-  materials: ['cloth', 'po'],           // 19 Nov 2026: Desai sends against the transfer note   // 19 Nov 2026 (Parag): category drafts the PO and does everything on it
+  materials: ['query', 'cloth', 'po'],           // 19 Nov 2026: Desai sends against the transfer note   // 19 Nov 2026 (Parag): category drafts the PO and does everything on it
   hod: ['query', 'launch', 'approval', 'po', 'invoices'],
   finance: ['query', 'launch', 'approval', 'po', 'cogs', 'invoices'],
   planning: ['pack'],   // 19 Nov 2026: Charanjeet adds the sizes
@@ -147,6 +147,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
 
     {at('pack') && <div className="rtw-full"><PackSection o={o} design={design && scoped !== 'sourcing'} sourcing={sourcing} only={scoped === 'sourcing' ? 'bom' : undefined} /></div>}
 
+    {at('query') && o.stockCheck && <div className="rtw-full pb-3"><StockCheckSection o={o} /></div>}
     {at('query') && <div className="rtw-full"><CostQuerySection o={o} prod={prod} merchant={merchant} design={design} onAskApproval={(vendorId, fabricBy) => { setApPreset({ vendorId, fabricBy }); setOpen('approval'); }} onGo={setOpen} /></div>}
 
     {at('launch') && <div className="rtw-full"><EnigmaSection o={o} design={design} /></div>}

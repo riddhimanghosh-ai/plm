@@ -30,8 +30,8 @@ export function TransferStatus({ o }: { o: ProductionOrder }) {
 
 /* Desai's form: what the BOM says, what he sends and from which vendor, and who supplies the rest. He changes the BOM himself. */
 const REST: { value: SuppliedBy; label: string }[] = [{ value: 'bsc', label: 'BSC buys it, sends later' }, { value: 'nominated', label: 'Factory buys from a vendor' }, { value: 'factory', label: 'Factory sources it' }];
-export function TransferForm({ o, t, can, onSent }: { o: ProductionOrder; t: TransferNote; can: boolean; onSent?: () => void }) {
-  const { db, sendTransfer } = useApp();
+export function TransferForm({ o, t, can, onSent, check }: { o: ProductionOrder; t: TransferNote; can: boolean; onSent?: () => void; check?: boolean }) {
+  const { db, sendTransfer, confirmStockCheck } = useApp();
   const v0 = (l: TransferNote['lines'][number]) => l.vendor ?? o.bom[l.idx]?.vendor ?? (db.vendors.find(v => v.id === (o.bom[l.idx]?.kind === 'fabric' ? o.pack?.fabric.vendorId : o.pack?.fabric.trimVendorId))?.name ?? '');
   const [rows, setRows] = useState(() => t.lines.map(l => ({ idx: l.idx, send: String(l.sendQty), vendor0: v0(l), vendor: v0(l), rest: (l.rest ?? 'bsc') as SuppliedBy, restVendor: l.restVendor ?? '', restRate: l.restRate != null ? String(l.restRate) : '', remark: l.remark ?? '' })));
   const vendorNames = db.vendors.filter(v => v.kind.endsWith('mill') || v.kind === 'Trims').map(v => v.name);
@@ -46,7 +46,7 @@ export function TransferForm({ o, t, can, onSent }: { o: ProductionOrder; t: Tra
   const set = (k: number, p: Partial<typeof rows[number]>) => setRows(rs => rs.map((r, i) => i === k ? { ...r, ...p } : r));
   return <div>
     <div className="tn-wrap"><table className="t compact tn-t">
-      <thead><tr><th>Item</th><th className="num">BOM says</th><th className="num">Sending</th><th>From vendor</th><th>The rest · who supplies it</th><th className="num">On the invoice</th></tr></thead>
+      <thead><tr><th>Item</th><th className="num">BOM says</th><th className="num">{check ? 'BSC has' : 'Sending'}</th><th>From vendor</th><th>The rest · who supplies it</th><th className="num">{check ? 'Value' : 'On the invoice'}</th></tr></thead>
       <tbody>{t.lines.map((l, k) => { const line = o.bom[l.idx]; const q = sent ? l.sendQty : val(k); const short = q < l.bomQty;
         return <tr key={l.idx} className={short ? 'tn-short' : undefined}>
           <td><div className="font-medium">{l.item}</div><div className="text-[11px]" style={faint}>{line?.kind ?? ''}</div></td>
@@ -59,9 +59,13 @@ export function TransferForm({ o, t, can, onSent }: { o: ProductionOrder; t: Tra
             : <span className="text-[12px]">{r2(l.bomQty - q)} {l.unit} · {REST.find(x => x.value === l.rest)?.label ?? '—'}{l.restVendor ? ` · ${l.restVendor}` : ''}{l.restRate ? ` @ ₹${l.restRate}` : ''}{l.remark ? <span className="block" style={soft}>{l.remark}</span> : null}</span>}</td>
           <td className="num">{fmtMoney(Math.round(q * l.rate))}<div className="text-[11px]" style={faint}>@ {fmtMoney(l.rate)}</div></td>
         </tr>; })}</tbody>
-      <tfoot><tr><td colSpan={4}>{shorts ? <span style={{ color: 'var(--warn)' }}>{shorts} line{shorts === 1 ? '' : 's'} short · your changes go onto the BOM on send</span> : 'Everything on the BOM · a changed vendor goes onto the BOM on send'}</td><td className="num" style={faint}>invoice</td><td className="num"><b>{fmtMoney(total)}</b></td></tr></tfoot>
+      <tfoot><tr><td colSpan={4}>{shorts ? <span style={{ color: 'var(--warn)' }}>{shorts} line{shorts === 1 ? '' : 's'} short · your changes go onto the BOM on {check ? 'confirm' : 'send'}</span> : `Everything on the BOM · a changed vendor goes onto the BOM on ${check ? 'confirm' : 'send'}`}</td><td className="num" style={faint}>{check ? 'value' : 'invoice'}</td><td className="num"><b>{fmtMoney(total)}</b></td></tr></tfoot>
     </table><datalist id="tn-vendors">{vendorNames.map(n => <option key={n} value={n} />)}</datalist></div>
-    {!sent ? <div className="flex items-end gap-2 flex-wrap pt-3">
+    {check ? (!sent ? <div className="flex items-center gap-2 flex-wrap pt-3">
+      {can ? <Button variant="primary" onClick={() => { const input = rows.map((r, k) => ({ idx: r.idx, sendQty: val(k), vendor: r.vendor.trim() && r.vendor.trim() !== r.vendor0 ? r.vendor.trim() : null, rest: val(k) < t.lines[k].bomQty ? r.rest : null, restVendor: r.rest !== 'factory' ? (r.restVendor.trim() || null) : null, restRate: r.restRate === '' ? null : Number(r.restRate), remark: r.remark.trim() || null })); confirmStockCheck(o.id, input); onSent?.(); }}>Confirm · update the BOM →</Button> : <span className="text-[12px]" style={faint}>Desai confirms it</span>}
+      <span className="text-[12px]" style={faint}>No invoice now: it is made when the material is dispatched after the PO.</span>
+    </div> : <div className="text-[12.5px] pt-2" style={{ color: 'var(--good)' }}>Confirmed {fmtDate(t.sentOn!)} by {t.by}. The BOM shows what BSC supplies and who supplies the rest; the PO is drafted on it.</div>)
+    : !sent ? <div className="flex items-end gap-2 flex-wrap pt-3">
       {can && <div style={{ flex: '1 1 260px' }}><div className="cap" style={{ margin: '0 0 4px' }}>Dispatch · how it goes</div><Input value={dispatch} onChange={e => setDispatch(e.target.value)} placeholder="by road · BSC tempo · LR 4471" /></div>}
       <Button variant="ghost" onClick={() => setPreview(v => !v)}>{preview ? 'Hide the mail' : 'See the mail'}</Button>
       {can ? <Button variant="primary" onClick={() => { sendTransfer(o.id, t.id, rows.map((r, k) => ({ idx: r.idx, sendQty: val(k), vendor: r.vendor.trim() && r.vendor.trim() !== r.vendor0 ? r.vendor.trim() : null, rest: val(k) < t.lines[k].bomQty ? r.rest : null, restVendor: r.rest !== 'factory' ? (r.restVendor.trim() || null) : null, restRate: r.restRate === '' ? null : Number(r.restRate), remark: r.remark.trim() || null })), dispatch.trim() || null); onSent?.(); }}>Send · make the invoice and mail it →</Button>
@@ -71,13 +75,24 @@ export function TransferForm({ o, t, can, onSent }: { o: ProductionOrder; t: Tra
   </div>;
 }
 
+/* during counter sourcing: Desai checks BSC's stock against the BOM before the PO */
+export function StockCheckSection({ o }: { o: ProductionOrder }) {
+  const { role } = useApp(); const can = role === 'materials' || role === 'owner'; const sc = o.stockCheck;
+  if (!sc) return null;
+  const t: TransferNote = { id: 'check', no: 'Stock check', on: sc.on, lines: sc.lines, sentOn: sc.checkedOn, by: sc.by, invoiceNo: null, mail: null, dispatch: null };
+  return <Section title="Stock check · what BSC has for this style" collapsible={false} right={<span className="flex gap-2 items-center"><span className="pill role-materials">Desai</span>{sc.checkedOn ? <Pill tone="good">confirmed {fmtDate(sc.checkedOn)}</Pill> : <Pill tone="warn">with Desai · the PO waits</Pill>}</span>}>
+    <div className="text-[12.5px] pb-2" style={soft}>Written when the counter-sourcing query went out, {fmtDate(sc.on)}, for the {o.orderQty} pcs on the requirement. Desai confirms what BSC has, the vendor on each line, and who supplies any shortfall, so the factories' quotes and the PO rest on the real split. After the PO he only dispatches.</div>
+    <TransferForm key={sc.checkedOn ?? 'open'} o={o} t={t} can={can} check />
+  </Section>;
+}
+
 /* on the record (the cloth step): the notes on this PO */
 export function TransferSection({ o }: { o: ProductionOrder }) {
   const { role, newTransfer } = useApp(); const can = role === 'materials' || role === 'owner';
   const ts = transfersOf(o); const extra = untransferredOf(o).filter(x => o.poNo && ts.length > 0);
   if (!ts.length && !extra.length) return null;
   return <Section title="Material BSC sends · transfer note" collapsible={false} right={<span className="flex gap-2 items-center"><span className="pill role-materials">Desai</span>{transferOpenOf(o) ? <Pill tone="warn">with Desai</Pill> : <Pill tone="good">sent</Pill>}</span>}>
-    {ts.map(t => <div key={t.id} className="pb-2"><div className="text-[12.5px] pb-1"><span className="mono">{t.no}</span> <span style={faint}>· written {fmtDate(t.on)} when the PO was raised</span></div><TransferForm o={o} t={t} can={can} /></div>)}
+    {ts.map(t => <div key={t.id} className="pb-2"><div className="text-[12.5px] pb-1"><span className="mono">{t.no}</span> <span style={faint}>· written {fmtDate(t.on)} when the PO was raised{o.stockCheck?.checkedOn ? `, on the stock Desai confirmed ${fmtDate(o.stockCheck.checkedOn)}` : ''}</span></div><TransferForm o={o} t={t} can={can} /></div>)}
     {extra.length > 0 && <div className="text-[12.5px] pt-1 flex gap-2 items-center flex-wrap"><span>{extra.length} line{extra.length === 1 ? '' : 's'} BSC still has to send: {extra.map(x => x.l.item).join(', ')}</span>{can && <Button size="sm" variant="primary" onClick={() => newTransfer(o.id)}>Write a transfer note for {extra.length === 1 ? 'it' : 'them'}</Button>}</div>}
   </Section>;
 }
@@ -87,7 +102,8 @@ export function Transfers() {
   const { db, role } = useApp(); const can = role === 'materials' || role === 'owner';
   const [params, setParams] = useSearchParams();
   const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); v ? n.set(k, v) : n.delete(k); setParams(n, { replace: true }); };
-  const view = (params.get('view') ?? 'open') as 'open' | 'sent' | 'rest';
+  const view = (params.get('view') ?? 'open') as 'open' | 'sent' | 'rest' | 'check';
+  const checks = db.orders.filter(o => o.stockCheck && !o.stockCheck.checkedOn && o.status !== 'Cancelled');
   const [fac, setFac] = useState<string[]>([]); const [q, setQ] = useState('');
   const nameOf = (id: string | null) => db.vendors.find(v => v.id === id)?.name ?? '—';
   const rows = db.orders.flatMap(o => transfersOf(o).map(t => ({ o, t })));
@@ -98,20 +114,29 @@ export function Transfers() {
   const active = db.orders.find(o => o.id === params.get('open')) ?? null; const activeT = active ? (transferOpenOf(active) ?? transfersOf(active).slice(-1)[0] ?? null) : null;
   const factories = [...new Set(rows.map(x => x.o.vendorId).filter(Boolean))] as string[];
   const [rec, setRec] = useState<string | null>(null); const recO = db.orders.find(o => o.id === rec) ?? null;
-  return <Page title="Material transfers" lede="What BSC sends to factories. A transfer note lands here when a PO is raised; change what you can actually send, the vendor, and who supplies any rest; the BOM follows. Then send it. The invoice is made for what went and mailed to the factory with the note.">
+  return <Page title="Material transfers" lede="What BSC supplies to factories. During counter sourcing a stock check lands here: confirm what BSC has, the vendors, and who supplies any shortfall. When the PO is raised a transfer note lands; change what you can actually send, the vendor, and who supplies any rest; the BOM follows. Then send it. The invoice is made for what went and mailed to the factory with the note.">
     <Stats items={[
+      { label: 'Stock checks · counter sourcing', value: checks.length, tone: checks.length ? 'warn' : 'good' },
       { label: 'Transfer notes to send', value: openRows.length, tone: openRows.length ? 'warn' : 'good' },
       { label: 'Oldest waiting', value: openRows.length ? `${Math.max(...openRows.map(x => daysAgo(x.t.on)))} d` : '—', tone: openRows.some(x => daysAgo(x.t.on) > 3) ? 'risk' : undefined },
       { label: 'Rest BSC sends later', value: back.filter(x => toSendLater(x.o, x.idx)).length, tone: back.some(x => toSendLater(x.o, x.idx)) ? 'warn' : undefined },
       { label: 'Invoiced this month', value: fmtMoney(db.orders.reduce((a, o) => a + supplyInvoicesOf(o).filter(i => daysAgo(i.on) <= 30).reduce((x, i) => x + i.amount, 0), 0)) },
     ]} />
-    <div className="pb-3"><Seg value={view} onChange={v => set('view', v === 'open' ? null : v)} options={[{ id: 'open', label: 'To send', count: openRows.length }, { id: 'rest', label: 'Short · the rest', count: back.length }, { id: 'sent', label: 'Sent', count: sentRows.length }]} /></div>
+    <div className="pb-3"><Seg value={view} onChange={v => set('view', v === 'open' ? null : v)} options={[{ id: 'check', label: 'To check · counter sourcing', count: checks.length }, { id: 'open', label: 'To send · after the PO', count: openRows.length }, { id: 'rest', label: 'Short · the rest', count: back.length }, { id: 'sent', label: 'Sent', count: sentRows.length }]} /></div>
     <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
-      {view !== 'rest' && <MultiFilter value={fac} onChange={setFac} label="Factory" options={[{ id: 'all', label: 'Every factory' }, ...factories.map(id => ({ id, label: nameOf(id), count: rows.filter(x => x.o.vendorId === id && !x.t.sentOn).length }))]} />}
+      {view !== 'rest' && view !== 'check' && <MultiFilter value={fac} onChange={setFac} label="Factory" options={[{ id: 'all', label: 'Every factory' }, ...factories.map(id => ({ id, label: nameOf(id), count: rows.filter(x => x.o.vendorId === id && !x.t.sentOn).length }))]} />}
       <Input value={q} onChange={e => setQ(e.target.value)} placeholder="style, PO, note or factory" style={{ width: 220 }} />
     </div></Card>
     {ready.length > 0 && view === 'open' && <Card className="mb-3"><div className="px-3 py-2 text-[12.5px] flex gap-2 flex-wrap items-center"><b>Rest to send:</b>{ready.map(o => <button key={o.id} type="button" className="vlink" onClick={() => set('open', o.id)}>{o.styleName} · {untransferredOf(o).length} line{untransferredOf(o).length === 1 ? '' : 's'}</button>)}<span style={faint}>open one to write a transfer note once it is in</span></div></Card>}
-    {view === 'rest' ? (back.length === 0 ? <Card><Empty title="Nothing short." body="When you send less than the BOM says, the rest and who supplies it show here." /></Card>
+    {view === 'check' ? (checks.length === 0 ? <Card><Empty title="No stock check waiting." body="One lands here when Nitin sends a counter-sourcing query on a style where BSC supplies material." /></Card>
+      : <Card><table className="t"><thead><tr><th>Style</th><th>Counter sourcing</th><th>What BSC supplies</th><th className="num">Value</th><th>Waiting</th></tr></thead>
+        <tbody>{checks.map(o => <tr key={o.id} className="row" onClick={() => set('open', o.id)}>
+          <td><div className="font-medium text-[12.5px]">{o.styleName}</div><div className="text-[11.5px]" style={faint}>{o.category} · {o.orderQty} pcs</div></td>
+          <td className="text-[12px]">{o.costQuery ? `${o.costQuery.replies.length} of ${o.costQuery.factoryIds.length} replied` : '—'}</td>
+          <td className="text-[12px]" style={{ whiteSpace: 'normal', maxWidth: 320 }}>{o.stockCheck!.lines.map(l => `${l.item} ${l.bomQty} ${l.unit}`).join(' · ')}</td>
+          <td className="num">{fmtMoney(o.stockCheck!.lines.reduce((a, l) => a + Math.round(l.bomQty * l.rate), 0))}</td>
+          <td className="text-[12px]" style={{ color: daysAgo(o.stockCheck!.on) > 3 ? 'var(--risk)' : undefined }}>{daysAgo(o.stockCheck!.on)} d</td></tr>)}</tbody></table></Card>)
+    : view === 'rest' ? (back.length === 0 ? <Card><Empty title="Nothing short." body="When you send less than the BOM says, the rest and who supplies it show here." /></Card>
       : <Card><table className="t"><thead><tr><th>PO · style</th><th>Item</th><th className="num">The rest</th><th>Since</th><th>Who supplies it</th></tr></thead>
         <tbody>{back.map(({ o, l, idx }) => <tr key={`${o.id}-${idx}`} className="row" onClick={() => setRec(o.id)}>
           <td><div className="mono text-[12px]">{o.poNo}</div><div className="font-medium text-[12.5px]">{o.styleName}</div></td>
@@ -128,8 +153,8 @@ export function Transfers() {
         <td className="num">{fmtMoney(t.lines.reduce((a, l) => a + Math.round((t.sentOn ? l.sendQty : l.bomQty) * l.rate), 0))}</td>
         <td className="text-[12px]">{t.sentOn ? <>{fmtDate(t.sentOn)}{t.invoiceNo ? <div className="mono text-[11px]" style={faint}>{t.invoiceNo}</div> : null}</> : <span style={{ color: daysAgo(t.on) > 3 ? 'var(--risk)' : undefined }}>{daysAgo(t.on)} d</span>}</td>
       </tr>)}</tbody></table></Card>}
-    <Drawer open={!!active} onClose={() => set('open', null)} title={active ? `${activeT?.no ?? 'Transfer'} · ${active.styleName}` : ''} subtitle={active && <span>{active.poNo} · to {nameOf(active.vendorId)} · <button type="button" className="vlink" onClick={() => setRec(active.id)}>open the record</button></span>}>
-      {active && <TransferSection o={active} />}
+    <Drawer open={!!active} onClose={() => set('open', null)} title={active ? `${view === 'check' || !active.poNo ? 'Stock check' : (activeT?.no ?? 'Transfer')} · ${active.styleName}` : ''} subtitle={active && <span>{active.poNo ? `${active.poNo} · to ${nameOf(active.vendorId)}` : 'counter sourcing · no PO yet'} · <button type="button" className="vlink" onClick={() => setRec(active.id)}>open the record</button></span>}>
+      {active && (view === 'check' || (active.stockCheck && !active.poNo) ? <StockCheckSection o={active} /> : <TransferSection o={active} />)}
     </Drawer>
     <Drawer open={!!recO} onClose={() => setRec(null)} title={recO?.styleName ?? ''} subtitle={recO && <span>{recO.poNo}</span>}>
       {recO && <RtwRequirement key={recO.id} o={recO} initial="cloth" />}

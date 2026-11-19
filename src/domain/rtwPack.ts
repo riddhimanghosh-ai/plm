@@ -442,6 +442,7 @@ export function poDiffOf(old: PoDoc, nu: PoDoc): PoChange[] {
 
 /* ---------- 19 Nov 2026: the transfer note Desai sends against, and the mail it goes out in ---------- */
 export const transfersOf = (o: ProductionOrder) => o.transfers ?? [];
+export const stockCheckOpenOf = (o: ProductionOrder) => !!o.stockCheck && !o.stockCheck.checkedOn;
 export const transferOpenOf = (o: ProductionOrder) => transfersOf(o).find(t => !t.sentOn) ?? null;
 /* lines BSC sends that are on no transfer note yet: a line sourcing has found again after Desai could not send it all */
 export function untransferredOf(o: ProductionOrder) {
