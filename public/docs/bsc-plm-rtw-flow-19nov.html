@@ -3,6 +3,26 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script></head><body>
 <h1 style="font-size:22px">BSC PLM · RTW flow · as built on 19 Nov 2026</h1>
 
+<h2>1 · Requirement and vendors on the BOM</h2><div class="d" id="d1" data-name="1-requirement-and-bom-vendors"><pre class="mermaid">
+flowchart TD
+A([Category raises a style]) --> B{One by one or bulk?}
+B -- one by one --> C[Category fills the parts: ask, fabric, tech pack, trim card, sizes]
+B -- bulk sheet --> B1{Row has a problem?}
+B1 -- yes --> B2[Row skipped, shown in red]
+B1 -- no --> C
+C --> D[Category adds the BOM lines; quantities are optional here]
+D --> E[Sourcing adds a vendor per line: supplied by, vendor, rate, GST, state]
+E --> F{Every line has a vendor?}
+F -- no --> E
+F -- yes --> M{Several vendors on a line?}
+M -- yes, optional --> G[Category picks one vendor per line, or the lowest rate on all]
+M -- no, one vendor --> H
+G --> H{Every part complete?}
+H -- no --> H1[Gate lists what is missing, part by part]
+H1 --> C
+H -- yes --> I([Category sends to Production RTW])
+</pre></div>
+
 <h2>2 · Factory counter sourcing</h2><div class="d" id="d2" data-name="2-factory-counter-sourcing"><pre class="mermaid">
 flowchart TD
 A([Requirement arrives]) --> B[Nitin picks factories, the files each gets, and a deadline]
