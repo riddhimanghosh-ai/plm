@@ -1,0 +1,117 @@
+<!doctype html><html><head><meta charset="utf-8"><title>BSC PLM · RTW flow · 19 Nov 2026</title>
+<style>body{font-family:Helvetica,Arial,sans-serif;background:#fff;color:#42392e;margin:24px}h2{font-size:18px;margin:36px 0 8px}.d{display:inline-block;background:#fff;padding:28px}</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script></head><body>
+<h1 style="font-size:22px">BSC PLM · RTW flow · as built on 19 Nov 2026</h1>
+
+<h2>2 · Factory counter sourcing</h2><div class="d" id="d2" data-name="2-factory-counter-sourcing"><pre class="mermaid">
+flowchart TD
+A([Requirement arrives]) --> B[Nitin picks factories, the files each gets, and a deadline]
+B --> C[PLM mails each factory its files and quote-form link]
+C --> D{Factory fills the form by the deadline?}
+D -- no --> D1[Turns red; on the merchandiser's follow-ups]
+D1 --> D
+D -- yes --> E[Reply lands: cost by head, cloth per piece and wastage, lead time, start date]
+E --> F{Any reply within target cost and date?}
+F -- no --> G[Category revises the target date or cost, with a reason]
+G --> F
+F -- yes --> H[Category completes the BOM with the real quantities from the quote and freezes them]
+H --> H2[Category confirms the cloth route]
+H2 --> I([To Enigma SKUs and the PO draft])
+</pre></div>
+
+<h2>3 · Enigma SKUs, PO draft and approval</h2><div class="d" id="d3" data-name="3-enigma-skus-po-approval"><pre class="mermaid">
+flowchart TD
+A([Draft a PO: every query, its replies, the recommended factory]) --> B{SKUs in Enigma?}
+B -- no --> B1[Category adds the style with one SKU per size]
+B1 --> B
+B -- yes --> C[Category ticks one or several requirements for one factory]
+C --> C2[Category sees the drafted PO: every style a line, one total]
+C2 --> D{Send for approval to?}
+D -- both --> E[HOD and finance]
+D -- only HOD --> E1[HOD]
+D -- only finance --> E2[Finance]
+D -- skip, with a reason --> K
+E --> F{Decision}
+E1 --> F
+E2 --> F
+F -- rejected, with a comment --> G[Category changes the PO and sends again]
+G --> D
+F -- no answer by the approve-by date --> F1[Flagged late on the approver's list]
+F1 --> F
+F -- everyone asked approved --> K[PLM raises the PO: one PO number for every style on it]
+K --> L{Any BOM line sent by BSC?}
+L -- yes --> M[PLM generates the tax invoice for that material]
+L -- no --> N
+M --> N([PLM mails the PO as one combined PDF, the TNA form and the invoice to the factory and the merchandiser])
+</pre></div>
+
+<h2>4 · Cloth at the factory, cut ratio and changing a raised PO</h2><div class="d" id="d4" data-name="4-cloth-cut-ratio-po-change"><pre class="mermaid">
+flowchart TD
+A([PO mailed]) --> B{TNA form back with planned dates?}
+B -- no --> B1[On the merchandiser's follow-ups]
+B1 --> B
+B -- yes --> C{Who supplies the cloth?}
+C -- BSC sends --> C1[Sourcing sends cloth and trims; factory counts them in]
+C -- nominated vendor --> C2[Factory raises its own fabric PO and logs the receipt]
+C -- factory's own --> C2
+C1 --> D{Each colour: counted and checked}
+C2 --> D
+D -- passed, enough --> P([Into production])
+D -- failed --> E{Nitin decides}
+E -- hold --> E1[Replacement by a date, same PO]
+E1 --> D
+E -- drop --> R[Category gives new sizes, or approves a cut-short]
+D -- short or extra cloth or trims --> Q[Factory or merchandiser asks for a new cut ratio]
+Q --> R
+R --> S[Category changes the PO; new sizes filled in]
+S --> T{Approval again: HOD, finance or both}
+T -- rejected --> S
+T -- approved --> U[Revision number goes up; revised PO mailed by PLM]
+U --> P
+</pre></div>
+
+<h2>6 · Dispatch, count-in and COGS</h2><div class="d" id="d6" data-name="6-dispatch-count-in-cogs"><pre class="mermaid">
+flowchart TD
+A([Dispatch logged]) --> B[Merchandiser uploads the invoice and the packing list PDF with its pieces]
+B --> C[PLM mails both to the warehouse]
+C --> W{Where did the goods land?}
+W -- Vasai --> D[Prince counts in by size against the PO]
+W -- the 3PL --> D2[Merchandiser uploads the 3PL's consignment report; the count by size fills from it]
+D --> E{Everything received?}
+D2 --> E
+E -- yes --> H[Received in full]
+E -- damaged pieces --> E1[Entered with a note]
+E1 --> E
+E -- short, more coming --> F[Balance expected on a date]
+F --> W
+E -- short, no more coming --> G[Closed short; missing pieces come off the payable]
+G --> H
+H --> I[Direct COGS closed: PO cost plus fixed packaging, shipping and process costs]
+I --> I2[Cost x multiplier = MRP, checked against the MRP in Enigma]
+I2 --> J[To finance: payments, in parts]
+I2 --> M[Category: Enigma and marketing details, on its own screen]
+</pre></div>
+
+<h2>7 · Finance: approve the PO, add payments</h2><div class="d" id="d7" data-name="7-finance-approve-and-payments"><pre class="mermaid">
+flowchart TD
+A([PO drafted by category and sent for approval]) --> B{Finance asked to approve?}
+B -- no, only HOD --> K[PO raised on the HOD's approval]
+B -- yes --> C{Finance's decision}
+C -- rejected, with a comment --> C1[Back to category to change and send again]
+C1 --> A
+C -- approved --> K2[PO raised and mailed by PLM]
+K --> P[Payment made to the factory, in full or in part, outside PLM]
+K2 --> P
+P --> R{How is it added?}
+R -- one payment --> R1[On the PO: date, amount, reference, note]
+R -- many at once --> R2[Upload a sheet; each row lands on its PO]
+R2 --> R3{PO number found and an amount?}
+R3 -- no --> R4[Row skipped, shown in red]
+R3 -- yes --> S
+R1 --> S{Paid equals the net payable?}
+S -- no: the PO shows total, paid and remaining --> P
+S -- yes --> L([PO paid in full])
+</pre></div>
+
+<script>mermaid.initialize({startOnLoad:true,theme:'base',flowchart:{htmlLabels:true,curve:'basis',useMaxWidth:false,wrappingWidth:220},themeVariables:{fontFamily:'Helvetica,Arial,sans-serif',fontSize:'16px',primaryColor:'#f4efe4',primaryBorderColor:'#7a6c52',primaryTextColor:'#42392e',lineColor:'#8a7f6d',edgeLabelBackground:'#ffffff',tertiaryColor:'#ffffff'}});</script>
+</body></html>

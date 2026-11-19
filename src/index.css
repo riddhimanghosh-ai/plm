@@ -1040,7 +1040,7 @@ table.t.sum-t.kv { table-layout: auto; } table.t.sum-t.kv td { white-space: norm
 .mrp-box > div > em { font-style: normal; font-size: 11px; color: var(--ink-soft); }
 .mrp-box > div.warn > b { color: var(--risk); }
 .mrp-box > i { font-style: normal; align-self: center; font-size: 18px; color: var(--ink-faint); }
-.po-bar { position: sticky; bottom: 0; z-index: 5; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface, #fff); box-shadow: 0 -4px 18px rgba(0,0,0,.06); display: flex; flex-direction: column; gap: 8px; }
+.po-bar { position: sticky; top: 8px; z-index: 5; margin-bottom: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface, #fff); box-shadow: 0 4px 18px rgba(0,0,0,.06); display: flex; flex-direction: column; gap: 8px; }
 .po-bar-sum { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; font-size: 13px; }
 .po-bar-sum > b { font-size: 14px; } .po-bar-sum em { font-style: normal; color: var(--warn); }
 .po-bar-acts { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }

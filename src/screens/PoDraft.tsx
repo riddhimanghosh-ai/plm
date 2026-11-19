@@ -71,6 +71,12 @@ export function PoDraft() {
     <div className="pb-3"><Seg value={view} onChange={v => set('view', v === 'open' ? null : v)} options={[{ id: 'open', label: 'Counter sourcing · no PO yet', count: all.length }, { id: 'sent', label: 'Sent for approval', count: sentGroups.length }]} /></div>
 
     {view === 'open' && <>
+      <div className="po-bar">
+        <div className="po-bar-sum"><b>{sel.length ? `${drafts.length === 1 ? 'One PO' : `${drafts.length} POs · one per factory`} · ${sel.length} requirement${sel.length === 1 ? '' : 's'}` : 'Tick the requirements to put on a PO'}</b>
+          {sel.length > 0 && <span>{drafts.map(d => `${nameOf(d.vendorId)} · ${d.items.length} style${d.items.length === 1 ? '' : 's'} · ${fmtMoney(Math.round(d.total))}`).join('  |  ')}</span>}
+          <span className="ml-auto">{can ? <Button variant="primary" disabled={!sel.length} onClick={() => setPreview(true)}>Draft PO →</Button> : <span className="text-[12.5px]" style={soft}>Category drafts the PO.</span>}</span></div>
+        <div className="text-[11.5px]" style={faint}>A PO is drafted only after the style is in Enigma. Requirements ticked for the same factory go on one PO.</div>
+      </div>
       <Card className="mb-3"><div className="px-3 py-2.5 flex items-end gap-3 flex-wrap">
         <Field label="Show"><Select value={state} onChange={setState} options={[{ value: 'all', label: `Every query · ${all.length}` }, { value: 'ready', label: `Ready for a PO · ${n('ready')}` }, { value: 'enigma', label: `SKUs not in Enigma yet · ${n('enigma')}` }, { value: 'waiting', label: `No reply yet · ${n('waiting')}` }]} /></Field>
         <Field label="Recommend on"><Select value={by} onChange={v => setBy(v as By)} options={[{ value: 'both', label: 'Price and in-house date' }, { value: 'price', label: 'Lowest price' }, { value: 'date', label: 'Earliest in-house' }]} /></Field>
@@ -96,12 +102,6 @@ export function PoDraft() {
             <td>{st === 'ready' ? <Pill tone="good">ready · SKUs in Enigma</Pill> : st === 'enigma' ? <button type="button" onClick={() => set('open', `${o.id}:launch`)}><Pill tone="warn">add the SKUs to Enigma first →</Pill></button> : <Pill tone="neutral">waiting on replies · due {fmtDate(cq.deadline)}</Pill>}</td>
           </tr>; })}</tbody>
       </table></Card>}
-      <div className="po-bar">
-        <div className="po-bar-sum"><b>{sel.length ? `${drafts.length === 1 ? 'One PO' : `${drafts.length} POs · one per factory`} · ${sel.length} requirement${sel.length === 1 ? '' : 's'}` : 'Tick the requirements to put on a PO'}</b>
-          {sel.length > 0 && <span>{drafts.map(d => `${nameOf(d.vendorId)} · ${d.items.length} style${d.items.length === 1 ? '' : 's'} · ${fmtMoney(Math.round(d.total))}`).join('  |  ')}</span>}
-          <span className="ml-auto">{can ? <Button variant="primary" disabled={!sel.length} onClick={() => setPreview(true)}>Draft PO →</Button> : <span className="text-[12.5px]" style={soft}>Category drafts the PO.</span>}</span></div>
-        <div className="text-[11.5px]" style={faint}>A PO is drafted only after the style is in Enigma. Requirements ticked for the same factory go on one PO.</div>
-      </div>
     </>}
 
     {view === 'sent' && (sentGroups.length === 0 ? <Card><Empty title="Nothing is with the approvers." body="" /></Card> : <Card><table className="t m-cards">
