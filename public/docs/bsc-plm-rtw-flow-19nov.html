@@ -43,15 +43,12 @@ D1 --> D
 D -- "yes" --> E["<b>Factory's reply comes into PLM directly</b><br/>rate per piece, lead time,<br/>fabric consumption per piece with wastage"]
 E --> F{"Any factory within our<br/>target cost and in-house date?"}
 F -- "no, all are above" --> G["Category revises the target cost or date,<br/>with the reason"]
-G --> F
-F -- "yes" --> BOMF
-subgraph BOMF["After the costing is final"]
-direction LR
-H["<b>Category completes the BOM</b><br/>from the factory's costing and freezes it<br/>(any later change becomes a revision)"] --> H2["Category confirms who will<br/>supply the fabric"] --> I(["Next: adding to Enigma<br/>and making the PO"])
-end
+G -. "checked again" .-> F
+F -- "yes" --> H["<b>Category completes the BOM</b><br/>from the factory's costing and freezes it<br/>(any later change becomes a revision)"]
+H --> H2["Category confirms who will<br/>supply the fabric"]
+H2 --> I(["Next: adding to Enigma<br/>and making the PO"])
 class C,D1,E,F auto
 style ASK fill:#faf7f0,stroke:#cfc6b2,stroke-dasharray:4 3,color:#6b665c
-style BOMF fill:#faf7f0,stroke:#cfc6b2,stroke-dasharray:4 3,color:#6b665c
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
