@@ -446,15 +446,16 @@ export const transferOpenOf = (o: ProductionOrder) => transfersOf(o).find(t => !
 /* lines BSC sends that are on no transfer note yet: a line sourcing has found again after Desai could not send it all */
 export function untransferredOf(o: ProductionOrder) {
   const on = new Set(transfersOf(o).flatMap(t => t.lines.filter(l => !t.sentOn || l.sendQty > 0).map(l => l.idx)));
-  return o.bom.map((l, idx) => ({ l, idx })).filter(({ l, idx }) => !on.has(idx) && !(l.backToSourcing && !l.suppliedBy) && suppliedByOf(o, l) === 'bsc' && l.qtyPerPc != null && !!(l.vendor || l.kind === 'fabric'));
+  return o.bom.map((l, idx) => ({ l, idx })).filter(({ l, idx }) => !on.has(idx) && suppliedByOf(o, l) === 'bsc' && l.qtyPerPc != null && !!(l.vendor || l.kind === 'fabric'));
 }
 export function transferMailOf(db: Db, o: ProductionOrder, t: TransferNote): Mail {
   const v = db.vendors.find(x => x.id === o.vendorId);
   const sent = t.lines.filter(l => l.sendQty > 0); const amount = sent.reduce((a, l) => a + Math.round(l.sendQty * l.rate), 0);
   const short = t.lines.filter(l => l.sendQty < l.bomQty);
+  const restLine = (l: TransferNote['lines'][number]) => l.rest === 'factory' ? 'please source this yourself; it is on your PO cost' : l.rest === 'nominated' ? `please buy it from ${l.restVendor ?? 'the vendor BSC nominates'}${l.restRate ? ` at ₹${l.restRate} / ${l.unit}` : ''}` : `BSC is buying it${l.restVendor ? ` from ${l.restVendor}` : ''} and will send it separately`;
   return { to: [vendorMail(v)], cc: [merch(db, o), 'desai@bombayshirts.com'],
     subject: `Material sent · ${t.no} · ${o.poNo ?? ''} · ${o.styleName}`,
-    body: `Dear ${v?.name ?? 'factory'} team,\n\nWe have dispatched the material below against ${o.poNo ?? 'the PO'} for ${o.styleName}.${t.dispatch ? ` Dispatch: ${t.dispatch}.` : ''}\n\nSENT\n${sent.map(l => `• ${l.item}: ${l.sendQty} ${l.unit}`).join('\n')}${short.length ? `\n\nNOT SENT BY BSC\n${short.map(l => `• ${l.item}: ${Math.round((l.bomQty - l.sendQty) * 100) / 100} ${l.unit} — ${l.rest === 'factory' ? 'please source this yourself; it is on your PO cost' : 'BSC is sourcing it and will send it separately'}`).join('\n')}` : ''}\n\nATTACHED\n• Transfer note ${t.no}\n• Our invoice ${t.invoiceNo ?? ''} for ${money(amount)} for what is sent. It comes off what we pay on this PO.\n\nPlease count it in on arrival and confirm.${SIGN}`,
+    body: `Dear ${v?.name ?? 'factory'} team,\n\nWe have dispatched the material below against ${o.poNo ?? 'the PO'} for ${o.styleName}.${t.dispatch ? ` Dispatch: ${t.dispatch}.` : ''}\n\nSENT\n${sent.map(l => `• ${l.item}: ${l.sendQty} ${l.unit}`).join('\n')}${short.length ? `\n\nNOT IN THIS DISPATCH\n${short.map(l => `• ${l.item}: ${Math.round((l.bomQty - l.sendQty) * 100) / 100} ${l.unit} — ${restLine(l)}`).join('\n')}` : ''}\n\nATTACHED\n• Transfer note ${t.no}\n• Our invoice ${t.invoiceNo ?? ''} for ${money(amount)} for what is sent. It comes off what we pay on this PO.\n\nPlease count it in on arrival and confirm.${SIGN}`,
     attachments: [`Transfer note ${t.no}`, `Invoice ${t.invoiceNo ?? ''} · material BSC sent`] };
 }
 

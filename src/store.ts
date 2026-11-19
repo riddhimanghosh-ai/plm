@@ -255,7 +255,7 @@ export interface AppState {
   pickBomOptions(orderId: string, picks: { idx: number; optId: string }[]): void;   // category picks one option per line
   generateSupplyInvoice(orderId: string): void;
   /* 19 Nov 2026: Desai sends what BSC supplies against the transfer note; the invoice is made for what went and mailed with it */
-  sendTransfer(orderId: string, transferId: string, lines: { idx: number; sendQty: number; rest: 'factory' | 'sourcing' | null; remark: string | null }[], dispatch: string | null): void;
+  sendTransfer(orderId: string, transferId: string, lines: { idx: number; sendQty: number; vendor: string | null; rest: SuppliedBy | null; restVendor: string | null; restRate: number | null; remark: string | null }[], dispatch: string | null): void;
   newTransfer(orderId: string): void;
   /* planning (Charanjeet): the size-wise quantities, planning's half of the requirement */
   savePlanningSizes(orderId: string, sizes: { size: string; qty: number }[]): void;
@@ -390,7 +390,7 @@ function makeTransfer(db: Db, o: ProductionOrder, only?: number[]) {
   o.transfers = open ? (o.transfers ?? []).map(x => x.id === open.id ? t : x) : [...(o.transfers ?? []), t];
   (o.activity = o.activity ?? []).push({ at: new Date(TODAY).toISOString(), who: 'PLM', what: `Transfer note ${t.no} ${open ? 'rewritten' : 'written'} for what BSC sends · ${lines.length} line${lines.length === 1 ? '' : 's'} · with Desai` });
 }
-const SEED_VERSION = 182;
+const SEED_VERSION = 183;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 let saveWarned = false;
@@ -1473,15 +1473,18 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { const o = db.orders.find(x => x.id === orderId); const t = o?.transfers?.find(x => x.id === transferId); if (!o || !t || t.sentOn) return;
         const w = who(); const by = PEOPLE.find(p => p.name === w)?.role === 'materials' ? w : 'Desai'; const at = now(); const changed: string[] = [];
         t.lines = t.lines.map(l => { const i = input.find(x => x.idx === l.idx); if (!i) return l; const send = Math.max(0, Math.min(l.bomQty, i.sendQty));
-          return { ...l, sendQty: send, rest: send < l.bomQty ? (i.rest ?? 'sourcing') : null, remark: i.remark }; });
+          const short = send < l.bomQty;
+          return { ...l, sendQty: send, vendor: i.vendor, rest: short ? (i.rest ?? 'bsc') : null, restVendor: short ? i.restVendor : null, restRate: short ? i.restRate : null, remark: i.remark }; });
+        /* Desai edits the BOM himself: a new vendor on what he sends goes onto the line */
+        t.lines.forEach(l => { const line = o.bom[l.idx]; const was = line?.vendor ?? db.vendors.find(v => v.id === (line?.kind === 'fabric' ? o.pack?.fabric.vendorId : o.pack?.fabric.trimVendorId))?.name ?? null; if (line && l.vendor && l.vendor !== was) { changed.push(`${l.item}: vendor ${was ?? 'none'} → ${l.vendor}`); line.vendor = l.vendor; } });
         /* the BOM follows what Desai sent: a short line splits into what BSC sent and the rest (the factory's, or back with sourcing) */
         t.lines.forEach(l => { if (l.sendQty >= l.bomQty) return; const line = o.bom[l.idx]; if (!line || line.qtyPerPc == null) return;
           const f = l.bomQty ? l.sendQty / l.bomQty : 0; const restQty = Math.round((l.bomQty - l.sendQty) * 100) / 100;
-          const rest: BomLine = { ...JSON.parse(JSON.stringify(line)), qtyPerPc: Math.round(line.qtyPerPc * (1 - f) * 10000) / 10000,
-            spec: `${line.spec ? `${line.spec} · ` : ''}rest of ${l.bomQty} ${l.unit} Desai could not send`, ...(l.rest === 'factory' ? { suppliedBy: 'factory', vendor: null, rate: line.rate } : { suppliedBy: undefined, vendor: null, options: [], chosen: null, backToSourcing: { on: at, by, qty: restQty } }) };
+          const rest: BomLine = { ...JSON.parse(JSON.stringify(line)), qtyPerPc: Math.round(line.qtyPerPc * (1 - f) * 10000) / 10000, options: [], chosen: null,
+            suppliedBy: l.rest ?? 'bsc', vendor: l.rest === 'factory' ? null : (l.restVendor ?? null), rate: l.restRate ?? line.rate, restOf: { note: t.no, on: at, by, qty: restQty } };
           if (f === 0) o.bom[l.idx] = { ...rest, spec: line.spec }; else { line.qtyPerPc = Math.round(line.qtyPerPc * f * 10000) / 10000; o.bom.push(rest); }
-          changed.push(`${l.item}: ${l.sendQty} of ${l.bomQty} ${l.unit} sent, the rest ${l.rest === 'factory' ? 'to the factory' : 'back to sourcing'}`); });
-        if (changed.length) o.bomRevisions = [...(o.bomRevisions ?? []), { on: at, by, why: `Transfer ${t.no}: ${changed.join('; ')}` }];
+          changed.push(`${l.item}: ${l.sendQty} of ${l.bomQty} ${l.unit} sent, the rest ${l.rest === 'factory' ? 'by the factory' : l.rest === 'nominated' ? `from ${l.restVendor ?? 'a nominated vendor'}, bought by the factory` : `bought by BSC${l.restVendor ? ` from ${l.restVendor}` : ''}, to send later`}`); });
+        if (changed.length) o.bomRevisions = [...(o.bomRevisions ?? []), { on: at, by, why: `Desai on ${t.no}: ${changed.join('; ')}` }];
         /* the invoice for what went */
         const sent = t.lines.filter(l => l.sendQty > 0); const lines = sent.map(l => ({ item: l.item, qty: l.sendQty, unit: l.unit, rate: l.rate, amount: Math.round(l.sendQty * l.rate) }));
         const amount = lines.reduce((a, l) => a + l.amount, 0);
@@ -1490,7 +1493,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         t.sentOn = at; t.by = by; t.dispatch = dispatch; const m = transferMailOf(db, o, t); t.mail = { to: m.to, cc: m.cc, attachments: m.attachments };
         const fab = sent.find(l => o.bom[l.idx]?.kind === 'fabric');
         if (fab && o.fabricNominated) { o.fabricSupply = o.fabricSupply ?? { boughtOn: null, sentToFactoryOn: null, metresSent: null, receipt: null }; if (!o.fabricSupply.sentToFactoryOn) { o.fabricSupply.sentToFactoryOn = at; o.fabricSupply.metresSent = fab.sendQty; } }
-        log(o, `${t.no} sent by Desai · ${sent.length} line${sent.length === 1 ? '' : 's'}${t.invoiceNo ? ` · invoice ${t.invoiceNo} ₹${amount}` : ''} · mailed to the factory${changed.length ? ` · BOM updated (${changed.length} short)` : ''}`); },
+        log(o, `${t.no} sent by Desai · ${sent.length} line${sent.length === 1 ? '' : 's'}${t.invoiceNo ? ` · invoice ${t.invoiceNo} ₹${amount}` : ''} · mailed to the factory${changed.length ? ` · BOM updated by Desai (${changed.length} change${changed.length === 1 ? '' : 's'})` : ''}`); },
         'Sent. The invoice for what went is made and mailed to the factory with the transfer note.');
     },
     sendCostQuery(orderId, factoryIds, deadline, mail = null, files = null) {

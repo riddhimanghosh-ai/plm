@@ -137,7 +137,7 @@ export function BomSheet({ o }: { o: ProductionOrder }) {
         <td className="num">{r.rate != null ? money2(r.rate) : '—'}</td>
         <td className="num">{r.per != null ? money2(r.per) : '—'}</td>
         <td><span className={`sup sup-${r.by}`}>{SUP[r.by]}</span></td>
-        <td className="rm">{r.l.backToSourcing && !r.l.suppliedBy ? <span style={{ color: 'var(--warn)' }}>short on transfer · back with sourcing</span> : r.by === 'factory' ? (r.vendor ?? "factory's own") : (r.vendor ?? '—')}</td>
+        <td className="rm">{r.l.restOf ? <span>{r.by === 'factory' ? "factory's own" : (r.vendor ?? '—')}<span className="block text-[10.5px]" style={{ color: 'var(--warn)' }}>rest of {r.l.restOf.note} · set by Desai</span></span> : r.by === 'factory' ? (r.vendor ?? "factory's own") : (r.vendor ?? '—')}</td>
       </tr>)}</tbody>
       <tfoot>
         <tr><td colSpan={8} className="r">Total material cost per piece</td><td className="num b">{money2(perPc)}</td><td colSpan={2}></td></tr>

@@ -162,7 +162,7 @@ export interface BomLine {
   qtyPerPc: number | null;
   unit: string;                  // 'm', 'kg', 'pc'
   suppliedBy?: SuppliedBy;       // 17 Nov 2026: who gets this line to the factory
-  backToSourcing?: { on: string; by: string; qty: number } | null;   // 19 Nov 2026: what Desai could not send, back with sourcing to buy
+  restOf?: { note: string; on: string; by: string; qty: number } | null;   // 19 Nov 2026: the rest of a line Desai could not send; he decides who supplies it
   rate?: number | null;          // ₹ per unit: the line's cost, and the price on the invoice BSC raises on what it sends
   vendor?: string | null;        // who it is bought from: BSC's vendor, or the one BSC nominates
   options?: BomOption[];         // 17 Nov 2026: what sourcing offers for this line; category picks one, which sets suppliedBy, vendor and rate
@@ -1141,6 +1141,6 @@ export interface Db {
   creditLedger?: CreditEntry[];
 }
 
-export interface TransferLine { idx: number; item: string; unit: string; rate: number; bomQty: number; sendQty: number; rest: 'factory' | 'sourcing' | null; remark: string | null }
+export interface TransferLine { idx: number; item: string; unit: string; rate: number; bomQty: number; sendQty: number; vendor?: string | null; rest: SuppliedBy | null; restVendor?: string | null; restRate?: number | null; remark: string | null }
 export interface TransferNote { id: string; no: string; on: string; lines: TransferLine[]; sentOn: string | null; by: string | null; invoiceNo: string | null; mail: { to: string[]; cc: string[]; attachments: string[] } | null; dispatch: string | null }
 export interface MarketingDetails { title: string; description: string; buzzwords: string[]; bullets: string[]; fabricCare: string; fitNotes: string; seo: string; pointers: string[]; savedOn: string | null; by: string | null; doneOn: string | null }
