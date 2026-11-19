@@ -278,7 +278,7 @@ export function Drawer({ open, onClose, title, subtitle, back, children }: { ope
      screen does not come back as a sliver on a large one */
   /* default (12 Nov 2026): everything right of the sidebar except a ~100px strip of the list, so the sidebar and a
      sliver of the list stay in view; a width the person drags to is remembered as a share of the window and wins */
-  const [width, setWidth] = useState(() => { const f = Number(localStorage.getItem(DRAWER_W)); if (f > 0.3 && f <= 0.95) return Math.max(380, Math.round(window.innerWidth * f));
+  const [width, setWidth] = useState(() => { const f = Number(localStorage.getItem(DRAWER_W)); if (f >= 0.5 && f <= 0.95)   /* 19 Nov 2026: a saved sliver (under half the window) is ignored; the drawer opens wide */ return Math.max(380, Math.round(window.innerWidth * f));
     const side = document.querySelector('aside')?.getBoundingClientRect().width ?? 264; return Math.max(380, Math.round(window.innerWidth - side - 100)); });
   const drag = useRef<{ x: number; w: number } | null>(null);
   const clamp = (w: number) => Math.max(380, Math.min(window.innerWidth - 120, w));
