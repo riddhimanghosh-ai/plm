@@ -3,192 +3,198 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script></head><body>
 <h1 style="font-size:22px">BSC PLM · RTW flow</h1>
 <div class="lg"><span><i class="sw a"></i>Done by PLM, by itself</span><span><i class="sw m"></i>Done by a person</span><span><i class="sw d"></i>A check or a decision (green when PLM checks it)</span><span><i class="sw t"></i>Start or end</span></div>
-<h2>1 · Requirement and vendors on the BOM</h2><div class="d" data-name="1-requirement-and-bom-vendors"><pre class="mermaid">
+<h2>1 · New style requirement and vendors on the BOM</h2><div class="d" data-name="1-requirement-and-bom-vendors"><pre class="mermaid">
 flowchart TD
-A(["Category raises a style"]) --> B{"One by one or bulk sheet?"}
-B -- "bulk sheet" --> B1{"PLM checks each row:<br/>style, category, target cost, date"}
-B1 -- "a problem" --> B2["Row skipped, shown in red"]
-B1 -- "fine" --> C
-B -- "one by one" --> C["<b>1 · Style and production ask</b><br/>category, sub-category, style name, colour options<br/>approximate order qty, target in-house date, target cost per piece<br/>semi-stitched? → delivers to Vasai, else the 3PL<br/>files: style sheet, references; the design brief"]
-C --> C2["<b>2 · Fabric information</b><br/>description, content, photo of the physical fabric<br/>option and phase (swatch analyser), CPM, vendor rate, width"]
-C2 --> C3["<b>3 · Tech pack</b> · 12 items, each a file or a note<br/>sketch, styling detail, stitch dimensions, colourways, spec sheet,<br/>how to measure, folding, trim card, label, hang tag, barcodes, packaging"]
-C3 --> C4["<b>4 · Trim card</b><br/>the file; per colour: trim, supplier item code, reference image"]
-C4 --> D["<b>5 · BOM</b> · pre-filled from the category template<br/>per line: item, description, colour, qty per piece, unit, wastage %<br/>quantities optional now: category standards stand in as an estimate"]
-D --> E["<b>Sourcing</b> adds per BOM line:<br/>supplied by (BSC sends · nominated vendor · factory),<br/>vendor, rate, GST %, vendor state"]
-E --> F{"Every line has a vendor?"}
+A(["Category raises a new style requirement"]) --> B{"Single style, or many styles<br/>through a bulk sheet?"}
+B -- "bulk sheet" --> B1{"PLM checks every row of the sheet"}
+B1 -- "row has an error" --> B2["That row is skipped and shown in red,<br/>so category can correct it"]
+subgraph REQ["Category fills its part of the requirement"]
+direction LR
+C["<b>1 · Requirement</b><br/>style, approx qty,<br/>target in-house date<br/>and target cost"] --> C2["<b>2 · Fabric details</b><br/>with fabric photo"] --> C3["<b>3 · Tech pack</b>"] --> C4["<b>4 · Trim card</b>"] --> D["<b>5 · BOM</b><br/>comes pre-filled from<br/>the category template"]
+end
+B1 -- "row is fine" --> REQ
+B -- "single style" --> REQ
+REQ --> E["<b>Sourcing team</b> marks for every BOM item who will supply it:<br/>BSC will send it, a nominated vendor, or the factory itself,<br/>and from which vendor"]
+E --> F{"Vendor marked for every BOM item?"}
 F -- "no" --> E
-F -- "yes" --> M{"Several vendors on a line?"}
-M -- "yes, optional" --> G["Category picks one per line, or the lowest rate on all"]
+F -- "yes" --> M{"More than one vendor<br/>given for an item?"}
+M -- "yes" --> G["Category selects one vendor per item,<br/>or takes the lowest rate for all"]
 M -- "no" --> H
-G --> H{"Category's half complete?"}
-H -- "no" --> H1["Gate lists what is missing, part by part"]
-H1 --> C
-H -- "yes" --> J{"Planning's sizes in?"}
-J -- "not yet" --> J1["On Charanjeet's <b>Sizes to add</b> list<br/>shows category's ask (about N pcs) and the target date"]
-J1 --> K{"Category: wait, or start counter sourcing now?"}
-K -- "start now" --> I2(["To counter sourcing on a per-piece quote;<br/>only the PO waits for the sizes"])
-K -- "wait" --> J2["<b>Charanjeet adds the size-wise quantities</b><br/>quantity per size (e.g. 38: 30 · 40: 60 · 42: 60 · 44: 30)<br/>order qty = the sum; this is the cut ratio on the PO"]
-J2 --> J
-J -- "yes" --> I(["Category sends to Production RTW"])
-class B1,B2,F,H,H1,J,J1 auto
+G --> H{"All details filled?<br/>(category's part and the size-wise qty)"}
+H -- "no" --> H1["PLM shows exactly what is still pending"]
+H1 -- "category's part pending" --> REQ
+H1 -- "size-wise qty pending" --> J2["<b>Charanjeet (planning) fills the size-wise qty</b><br/>this becomes the cut ratio on the PO"]
+J2 --> H
+H -- "yes" --> I(["Category sends it to the factories for costing"])
+class B1,B2,F,H,H1 auto
+style REQ fill:#faf7f0,stroke:#cfc6b2,stroke-dasharray:4 3,color:#6b665c
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
-<h2>2 · Factory counter sourcing</h2><div class="d" data-name="2-factory-counter-sourcing"><pre class="mermaid">
+<h2>2 · Factory costing (counter sourcing)</h2><div class="d" data-name="2-factory-counter-sourcing"><pre class="mermaid">
 flowchart TD
-A(["Requirement arrives"]) --> B["<b>Nitin picks factories</b> from the factory database<br/>recommended by the category's specialisation and on-time rate<br/>per factory: which files it gets · a reply deadline"]
-B --> C["PLM mails each factory its files and a quote-form link<br/>(no login), the merchandiser copied"]
-C --> D{"Factory fills the form by the deadline?"}
-D -- "no" --> D1["Turns red; on the merchandiser's follow-ups"]
+subgraph ASK["Asking the factories for costing"]
+direction LR
+A(["Requirement comes to<br/>Production RTW"]) --> B["<b>Nitin selects the factories</b><br/>and gives a last date to reply"] --> C["PLM mails every factory<br/>the files and a costing form link"]
+end
+ASK --> D{"Factory filled the costing form<br/>before the last date?"}
+D -- "no" --> D1["Shows in red; the merchant<br/>does the follow-up"]
 D1 --> D
-D -- "yes" --> E["<b>Reply lands by itself</b><br/>cost per piece by head (CMT, cloth, trims, packing, other)<br/>cloth consumption per piece, wastage %<br/>lead time in days, start date, a note"]
-E --> F{"Any reply within target cost and in-house date?"}
-F -- "no: every reply over" --> G["Category revises the target cost or date, with a reason<br/>(the record keeps what it was, who and when)"]
+D -- "yes" --> E["<b>Factory's reply comes into PLM directly</b><br/>rate per piece, lead time,<br/>fabric consumption per piece with wastage"]
+E --> F{"Any factory within our<br/>target cost and in-house date?"}
+F -- "no, all are above" --> G["Category revises the target cost or date,<br/>with the reason"]
 G --> F
-F -- "yes" --> H["<b>Category completes the BOM</b> from the quote<br/>consumption and wastage → quantity per piece and for N pcs<br/>then freezes it for costing (a later change is a revision)"]
-H --> H2["Category confirms the cloth route:<br/>BSC sends · factory buys from BSC's vendor · factory's own"]
-H2 --> I(["To Enigma SKUs and the PO draft"])
+F -- "yes" --> BOMF
+subgraph BOMF["After the costing is final"]
+direction LR
+H["<b>Category completes the BOM</b><br/>from the factory's costing and freezes it<br/>(any later change becomes a revision)"] --> H2["Category confirms who will<br/>supply the fabric"] --> I(["Next: adding to Enigma<br/>and making the PO"])
+end
 class C,D1,E,F auto
+style ASK fill:#faf7f0,stroke:#cfc6b2,stroke-dasharray:4 3,color:#6b665c
+style BOMF fill:#faf7f0,stroke:#cfc6b2,stroke-dasharray:4 3,color:#6b665c
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
-<h2>3 · Enigma SKUs with COGS and MRP, PO draft, Desai and approval</h2><div class="d" data-name="3-enigma-skus-po-approval"><pre class="mermaid">
+<h2>3 · Adding to Enigma, PO draft, Desai and approval</h2><div class="d" data-name="3-enigma-skus-po-approval"><pre class="mermaid">
 flowchart TD
-A(["<b>Draft a PO</b>: every query, its replies,<br/>the factory recommended on price and in-house date"]) --> B{"SKUs in Enigma?"}
-B -- "no" --> B1["<b>Category adds the style to Enigma</b><br/>every size with its price"]
-B1 --> CG["<b>PLM shows the direct COGS per piece</b><br/>factory's quoted price (FOB) + other PO charges<br/>+ fixed packaging, shipping and process costs<br/>e.g. ₹300 + ₹10 + ₹44 + ₹142 + ₹113 = ₹609"]
-CG --> CG2["<b>MRP by the multiplier</b> fills the MRP and every size's price<br/>₹609 × 3.5 = ₹2,131.50 → rounded up to the next hundred less ₹10 → ₹2,190<br/>category can change it"]
-CG2 --> B
-CG2 -.-> MK["<b>Marketing fills alongside</b><br/>title, description, buzzwords, key features,<br/>fabric and care, fit notes, SEO title, shoot pointers"]
-MK -.-> MK2(["Go-live waits for these; the PO never does"])
-B -- "yes" --> SZ{"Sizes in from Charanjeet?"}
-SZ -- "no" --> SZ1["Shown as sizes with Charanjeet; cannot be ticked"]
-SZ1 --> SZ
-SZ -- "yes" --> C["Category ticks one or several requirements for one factory"]
-C --> C2["<b>PLM drafts the PO</b>: every style a line, one total<br/>per colour: qty per size × rate · other charges (logistics)<br/>taxable value, GST, PO total · ship-by, goods expected by<br/>payment terms (advance %), raw material terms, tolerance, AQL"]
-C2 --> CS["Category sends it for approval, naming the approvers"]
-CS --> DZ["<b>It goes to Desai first</b> (Material transfers · To confirm)<br/>every BOM line BSC supplies, for the pcs on the PO"]
-DZ --> DZ1{"BSC has all of it, from these vendors?"}
+A(["<b>Making the PO</b><br/>PLM shows all factory replies and suggests the factory<br/>with the best rate and in-house date"]) --> B{"Style already added in Enigma?"}
+subgraph ENG["Adding the style to Enigma"]
+direction LR
+B1["<b>Category adds the style<br/>and all sizes to Enigma</b>"] --> CG["<b>PLM shows the direct COGS per piece</b><br/>factory's rate (FOB) + other PO charges<br/>+ fixed packaging, shipping and process cost<br/>e.g. ₹300 + ₹10 + ₹44 + ₹142 + ₹113 = ₹609"] --> CG2["<b>PLM fills the MRP using the multiplier</b><br/>₹609 × 3.5 = ₹2,131.50, rounded to ₹2,190<br/>(next hundred minus ₹10)<br/>category can change it"]
+end
+B -- "no" --> ENG
+ENG --> B
+ENG -.-> MK["<b>Marketing team fills the product details</b><br/>at the same time"]
+MK -.-> MK2(["Needed before the style goes live;<br/>the PO does not wait for it"])
+B -- "yes" --> C["Category selects one or more styles<br/>going to the same factory"]
+C --> C2["<b>PLM makes the PO draft</b><br/>every style as one line, with one total"]
+C2 --> CS["Category sends the PO for approval<br/>and selects the approvers"]
+CS --> DZ["<b>PO first goes to Desai</b><br/>to check the materials BSC has to send"]
+DZ --> DZ1{"BSC has full stock,<br/>from these vendors?"}
 DZ1 -- "yes" --> DZ4
-DZ1 -- "no" --> DZ2["Desai updates the BOM: what BSC has, the vendor,<br/>and who supplies any shortfall (BSC from another vendor ·<br/>factory buys from a vendor · factory sources it), with the rate"]
-DZ2 --> DZ3["PLM splits the BOM line and logs the revision"]
-DZ3 --> DZ4["Desai confirms: on to the approvers"]
-DZ4 --> D{"Approvers named?"}
+DZ1 -- "no" --> DZ2["Desai updates the BOM: changes the vendor,<br/>and marks who will supply the balance qty"]
+DZ2 --> DZ3["PLM splits that BOM item<br/>and keeps a record of the revision"]
+DZ3 --> DZ4["Desai confirms; PO goes to the approvers"]
+DZ4 --> D{"Who has to approve?"}
 D -- "both" --> E["HOD and finance"]
 D -- "only HOD" --> E1["HOD"]
 D -- "only finance" --> E2["Finance"]
-D -- "skip, with a reason" --> K
-E --> F{"Decision, by the approve-by date"}
+D -- "no approval needed (with reason)" --> K
+E --> F{"Approved by the<br/>approve-by date?"}
 E1 --> F
 E2 --> F
-F -- "rejected, with a comment" --> G["Category changes the PO and sends again"]
+F -- "rejected, with a comment" --> G["Category corrects the PO<br/>and sends it again"]
 G --> CS
-F -- "no answer by the date" --> F1["Flagged late on the approver's list"]
+F -- "no reply by the date" --> F1["Shows as delayed<br/>in the approver's list"]
 F1 --> F
-F -- "everyone asked approved" --> K["PLM raises the PO: one PO number for every style on it"]
-K --> L{"Any BOM line sent by BSC?"}
-L -- "yes" --> M["PLM makes the invoice for that material from the BOM Desai confirmed<br/>HSN, GST (CGST + SGST in state, IGST across)"]
+F -- "approved by all" --> K["<b>PLM raises the PO</b><br/>one PO number for all the styles on it"]
+K --> L{"Is BSC sending any<br/>fabric or trims?"}
+L -- "yes" --> M["PLM makes the invoice for that material,<br/>as per the BOM Desai confirmed"]
 L -- "no" --> N
-M --> N(["<b>PLM mails the PO to the factory and the merchandiser</b><br/>one combined PDF, the invoice, the TNA form, the vendor details,<br/>the delivery location"])
-class A,B,SZ,SZ1,C2,DZ3,F1,K,L,M,N,CG,CG2 auto
+M --> N(["<b>PLM mails the PO to the factory and the merchant</b><br/>along with the invoice, the TNA form and vendor details"])
+class A,B,C2,DZ3,F1,K,L,M,N,CG,CG2 auto
+style ENG fill:#faf7f0,stroke:#cfc6b2,stroke-dasharray:4 3,color:#6b665c
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
-<h2>4 · Cloth at the factory, cut ratio and changing a raised PO</h2><div class="d" data-name="4-cloth-cut-ratio-po-change"><pre class="mermaid">
+<h2>4 · Fabric at the factory, cut ratio and PO revision</h2><div class="d" data-name="4-cloth-cut-ratio-po-change"><pre class="mermaid">
 flowchart TD
-A(["PO mailed"]) --> C{"Who supplies the cloth?<br/>(set before the PO; starts the same day)"}
-A --> B{"TNA form back with planned dates?<br/>(runs alongside)"}
-B -- "no" --> B1["On the merchandiser's follow-ups"]
+A(["PO mailed to the factory"]) --> C{"Who is supplying the fabric?<br/>(already decided before the PO)"}
+A --> B{"Factory sent back the TNA form<br/>with planned dates?<br/>(happens side by side)"}
+B -- "no" --> B1["Merchant does the follow-up"]
 B1 --> B
-B -- "yes" --> B2["Planned dates on the TNA"]
-C -- "factory's own" --> C2["Factory raises its own fabric PO and logs the receipt on the TNA"]
+B -- "yes" --> B2["Planned dates saved on the TNA"]
+C -- "factory itself" --> C2["Factory raises its own fabric PO<br/>and updates the fabric inward on the TNA"]
 C -- "nominated vendor" --> C2
-C -- "BSC sends" --> C0["Sourcing sends the cloth and trims on the invoice that went with the PO"]
-C0 --> C1["Factory counts the cloth and trims in"]
-C1 --> D{"Each colour: counted and checked"}
+C -- "BSC" --> C0["Sourcing sends the fabric and trims<br/>against the invoice sent with the PO"]
+C0 --> C1["Factory does the inward<br/>of fabric and trims"]
+C1 --> D{"Every colour checked:<br/>quality ok and qty enough?"}
 C2 --> D
-D -- "passed, enough" --> P(["Into production"])
-D -- "failed" --> E{"Nitin decides"}
-E -- "hold" --> E1["Replacement by a date, same PO"]
+D -- "ok and enough" --> P(["Production starts"])
+D -- "quality failed" --> E{"Nitin decides"}
+E -- "hold" --> E1["Replacement fabric by a date,<br/>on the same PO"]
 E1 --> D
-E -- "drop" --> R
-D -- "short or extra cloth or trims" --> Q["Factory or merchandiser asks for a new cut ratio"]
-Q --> R["Category gives new sizes (New row against Was), or approves a cut-short"]
-R --> S["PLM opens the PO with the new sizes filled in; category changes it"]
-S --> T{"Approval again: HOD, finance or both"}
-T -- "rejected" --> S
-T -- "approved" --> U["Revision number goes up; PLM mails the revised PO"]
+E -- "drop it" --> CR
+D -- "fabric or trims short or extra" --> CR
+subgraph CR["New cut ratio"]
+direction LR
+Q["Factory or merchant asks<br/>for a new cut ratio"] --> R["Category gives the new size-wise qty,<br/>or approves cutting less"] --> S["PLM opens the PO with the new<br/>size-wise qty; category edits it"]
+end
+CR --> T{"Approved again by<br/>HOD, finance or both?"}
+T -- "rejected" --> CR
+T -- "approved" --> U["PO revision number goes up;<br/>PLM mails the revised PO"]
 U --> P
 class B1,S,U auto
+style CR fill:#faf7f0,stroke:#cfc6b2,stroke-dasharray:4 3,color:#6b665c
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
-<h2>5 · Making and QC</h2><div class="d" data-name="5-making-and-qc"><pre class="mermaid">
+<h2>5 · Production and QC</h2><div class="d" data-name="5-making-and-qc"><pre class="mermaid">
 flowchart TD
-A(["In production"]) --> B["Factory logs actual dates on the TNA<br/>fabric in, cutting, stitching, finishing, dispatch"]
-B --> C{"Step late against the plan?"}
-C -- "yes" --> C1["Revised date with a reason"]
-C1 --> C2["PLM pushes the open steps; late shows on the dashboard"]
+A(["Production starts"]) --> B["Factory updates the actual dates on the TNA"]
+B --> C{"Any step delayed<br/>compared to the plan?"}
+C -- "yes" --> C1["Factory gives the revised date<br/>with the reason"]
+C1 --> C2["PLM shifts the pending steps;<br/>delay shows on the dashboard"]
 C2 --> B
-C -- "no" --> D{"QC point due?<br/>PP sample · size set · initial (stitching starts)<br/>mid-line (finishing starts) · final (finishing done)"}
-D --> E{"QC result: checklist, technical and aesthetic remarks"}
-E -- "failed, with remarks" --> F["Sent to the factory and the merchandiser;<br/>the block stays open; factory fixes and resubmits"]
+C -- "no" --> D{"QC due at this step?<br/>(five QC points on the TNA)"}
+D --> E{"QC passed?<br/>(checklist, technical and look)"}
+E -- "failed, with remarks" --> F["Remarks go to the factory and the merchant;<br/>factory corrects it and sends for QC again"]
 F --> E
-E -- "passed" --> G{"More steps?"}
+E -- "passed" --> G{"More steps pending?"}
 G -- "yes" --> B
-G -- "no" --> H(["Finishing done; ready to dispatch"])
+G -- "no" --> H(["Finishing done; ready for dispatch"])
 class C,C2,D,F auto
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
-<h2>6 · Dispatch and count-in</h2><div class="d" data-name="6-dispatch-count-in-cogs"><pre class="mermaid">
+<h2>6 · Dispatch and inward</h2><div class="d" data-name="6-dispatch-count-in-cogs"><pre class="mermaid">
 flowchart TD
-A(["Dispatch logged on the TNA"]) --> B["Merchandiser uploads the factory's invoice (number, amount, file)<br/>and the packing list PDF with its piece count"]
+A(["Factory dispatches the goods<br/>(updated on the TNA)"]) --> B["Merchant uploads the factory's invoice<br/>and the packing list"]
 B --> C["PLM mails both to the warehouse"]
-C --> W{"Where did the goods land?"}
-W -- "Vasai (semi-stitched)" --> D["Prince counts in by size against the PO"]
-W -- "the 3PL" --> D2["Merchandiser uploads the 3PL's consignment report"]
-D2 --> D3["PLM fills the count by size from the report"]
-D --> E{"Everything received?"}
+C --> W{"Where are the goods coming?"}
+W -- "Vasai (semi-stitched)" --> D["Prince does the inward size-wise<br/>against the PO"]
+W -- "3PL warehouse" --> D2["Merchant uploads the 3PL's<br/>consignment report"]
+D2 --> D3["PLM fills the size-wise qty<br/>from the report"]
+D --> E{"Full qty received?"}
 D3 --> E
 E -- "yes" --> H["Received in full"]
-E -- "damaged pieces" --> E1["Entered with a note"]
+E -- "some pieces damaged" --> E1["Entered with a remark"]
 E1 --> E
-E -- "short, more coming" --> F["Balance expected on a date"]
+E -- "short, balance coming" --> F["Balance qty expected by a date"]
 F --> W
-E -- "short, no more coming" --> G["Closed short"]
-G --> G2["PLM takes the missing pieces × rate off the payable"]
+E -- "short, nothing more coming" --> G["PO closed as short"]
+G --> G2["PLM deducts the short pieces × rate<br/>from the amount to be paid"]
 G2 --> H
-H --> J["To finance: payments, in parts"]
-H --> M{"Marketing details done?"}
-M -- "no" --> M1["On marketing's list, red if it lands within 3 weeks"]
+H --> J["Goes to finance for payment,<br/>which can be in parts"]
+H --> M{"Product details from<br/>marketing done?"}
+M -- "no" --> M1["Stays on marketing's pending list;<br/>red if goods arrive within 3 weeks"]
 M1 --> M
 M -- "yes" --> M2(["Ready to go live"])
 class C,W,D3,E,G2,M,M1 auto
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
-<h2>7 · Finance: approve the PO, add payments</h2><div class="d" data-name="7-finance-approve-and-payments"><pre class="mermaid">
+<h2>7 · Finance: PO approval and payments</h2><div class="d" data-name="7-finance-approve-and-payments"><pre class="mermaid">
 flowchart TD
-A(["PO drafted by category and sent for approval"]) --> B{"Finance asked to approve?"}
-B -- "no, only HOD" --> K["PO raised on the HOD's approval"]
-B -- "yes" --> C{"Finance's decision<br/>sees the PO, every reply, past prices for the category"}
-C -- "rejected, with a comment" --> C1["Back to category to change and send again"]
+A(["Category sends the PO draft for approval"]) --> B{"Is finance one of the approvers?"}
+B -- "no, only HOD" --> K["PO raised after the HOD approves"]
+B -- "yes" --> C{"Finance approves?"}
+C -- "rejected, with a comment" --> C1["Goes back to category to correct<br/>and send again"]
 C1 --> A
-C -- "approved" --> K2["PO raised and mailed by PLM"]
+C -- "approved" --> K2["PLM raises the PO and mails it"]
 K --> NP
-K2 --> NP["<b>Net payable on the PO</b><br/>PO total (incl. GST and other charges)<br/>− BSC's invoice for the material it sends (on the PO mail)<br/>− debit notes − pieces not received × rate"]
-NP --> P["Payment made to the factory, in full or in part, outside PLM<br/>advance % due up front where the terms say so"]
-P --> R{"How is it added?"}
-R -- "one payment" --> R1["Finance adds it on the PO: date, amount, reference, note"]
-R -- "many at once" --> R2["Finance uploads a sheet"]
-R2 --> R5["Each row lands on its PO"]
-R5 --> R3{"PO number found and an amount?"}
+K2 --> NP["<b>Net amount payable on the PO</b><br/>PO total − BSC's material invoice<br/>− debit notes − pieces not received"]
+NP --> P["Finance pays the factory, full or in parts<br/>(payment done outside PLM)"]
+P --> R{"How is the payment entered?"}
+R -- "one payment" --> R1["Finance enters it on the PO"]
+R -- "many payments together" --> R2["Finance uploads a sheet"]
+R2 --> R5["Each row goes to its PO"]
+R5 --> R3{"PO number found<br/>and amount filled?"}
 R3 -- "no" --> R4["Row skipped, shown in red"]
 R3 -- "yes" --> S
-R1 --> S{"Paid equals the net payable?"}
-S -- "no: the PO shows total, paid and remaining (paid ₹400 of ₹1,000 → ₹600 remains)" --> P
-S -- "yes" --> L(["PO paid in full"])
+R1 --> S{"Full net amount paid?"}
+S -- "no: PO shows total, paid and balance<br/>(paid ₹400 of ₹1,000 → ₹600 balance)" --> P
+S -- "yes" --> L(["PO fully paid"])
 class K,K2,NP,R5,R3,R4,S,L auto
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
