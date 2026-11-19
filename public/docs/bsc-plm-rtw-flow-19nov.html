@@ -100,14 +100,14 @@ classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 <h2>4 · Fabric at the factory, cut ratio and PO revision</h2><div class="d" data-name="4-cloth-cut-ratio-po-change"><pre class="mermaid">
 flowchart TD
 A(["PO mailed to the factory"]) --> C{"Who is supplying the fabric?<br/>(already decided before the PO)"}
-A --> B{"Factory sent back the TNA form<br/>with planned dates?<br/>(happens side by side)"}
-B -- "no" --> B1["Shows on the merchant's dashboard<br/>as a follow-up, till the factory sends it"]
+A --> B{"Planned dates from the factory<br/>updated on the TNA by the merchant?<br/>(happens side by side)"}
+B -- "no" --> B1["Shows on the merchant's dashboard<br/>as a follow-up, till the dates are in"]
 B1 --> B
 B -- "yes" --> B2["Planned dates saved on the TNA"]
-C -- "factory itself" --> C2["Factory raises its own fabric PO<br/>and updates the fabric inward on the TNA"]
+C -- "factory itself" --> C2["Factory raises its own fabric PO;<br/>merchant updates the fabric inward on the TNA"]
 C -- "nominated vendor" --> C2
 C -- "BSC" --> C0["Sourcing sends the fabric and trims<br/>against the invoice sent with the PO"]
-C0 --> C1["Factory does the inward<br/>of fabric and trims"]
+C0 --> C1["Factory receives the fabric and trims;<br/>merchant updates the inward in PLM"]
 C1 --> D{"Every colour checked:<br/>quality ok and qty enough?"}
 C2 --> D
 D -- "ok and enough" --> P(["Production starts"])
@@ -131,14 +131,14 @@ classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 
 <h2>5 · Production and QC</h2><div class="d" data-name="5-making-and-qc"><pre class="mermaid">
 flowchart TD
-A(["Production starts"]) --> B["Factory updates the actual dates on the TNA"]
+A(["Production starts"]) --> B["<b>Merchant updates the actual dates on the TNA</b><br/>on behalf of the factory"]
 B --> C{"Any step delayed<br/>compared to the plan?"}
-C -- "yes" --> C1["Factory gives the revised date<br/>with the reason"]
+C -- "yes" --> C1["Merchant enters the revised date<br/>and the reason, as per the factory"]
 C1 --> C2["PLM shifts the pending steps;<br/>delay shows on the dashboard"]
 C2 --> B
 C -- "no" --> D{"QC due at this step?<br/>(five QC points on the TNA)"}
 D --> E{"QC passed?<br/>(checklist, technical and look)"}
-E -- "failed, with remarks" --> F["Remarks go to the factory and the merchant;<br/>factory corrects it and sends for QC again"]
+E -- "failed, with remarks" --> F["Remarks go to the factory and the merchant;<br/>factory corrects it; merchant sends it for QC again"]
 F --> E
 E -- "passed" --> G{"More steps pending?"}
 G -- "yes" --> B
@@ -149,7 +149,7 @@ classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 
 <h2>6 · Dispatch and inward</h2><div class="d" data-name="6-dispatch-count-in-cogs"><pre class="mermaid">
 flowchart TD
-A(["Factory dispatches the goods<br/>(updated on the TNA)"]) --> B["Merchant uploads the factory's invoice<br/>and the packing list"]
+A(["Factory dispatches the goods;<br/>merchant updates it on the TNA"]) --> B["Merchant uploads the factory's invoice<br/>and the packing list"]
 B --> C["PLM mails both to the warehouse"]
 C --> W{"Where are the goods coming?"}
 W -- "Vasai (semi-stitched)" --> D["Prince does the inward size-wise<br/>against the PO"]
