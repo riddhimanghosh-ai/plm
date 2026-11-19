@@ -225,7 +225,7 @@ export function Shell() {
             <span><b style={{ color:'var(--sidebar-ink)' }}>Walkthrough mode</b><br/>{demoAll ? 'Super admin: every screen and every button, whoever you are signed in as.' : `Every screen opens; ${me.name.split(' ')[0]} changes only what ${me.name.split(' ')[0]}'s team does. The rest is view only.`}</span>
           </label>
           <Button size="sm" variant="ghost" onClick={reset} style={{ color:'var(--sidebar-soft)', justifyContent:'flex-start', padding:'4px 2px', fontSize: 12.5 }}>Reset demo data</Button>
-          <div className="text-[11px] pt-2 leading-relaxed" style={{ color:'var(--sidebar-soft)', borderTop:'1px solid rgb(255 255 255/.08)' }}>Prototype · illustrative data<br/>Clock fixed at 12 Sep 2026</div>
+          
           </div>
           </details>
         </div>
