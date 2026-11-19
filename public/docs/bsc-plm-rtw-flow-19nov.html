@@ -38,7 +38,7 @@ direction LR
 A(["Requirement comes to<br/>Production RTW"]) --> B["<b>Nitin selects the factories</b><br/>and gives a last date to reply"] --> C["PLM mails every factory<br/>the files and a costing form link"]
 end
 ASK --> D{"Factory filled the costing form<br/>before the last date?"}
-D -- "no" --> D1["Shows in red; the merchant<br/>does the follow-up"]
+D -- "no" --> D1["Shows in red on the merchant's dashboard<br/>as a follow-up, till the factory replies"]
 D1 --> D
 D -- "yes" --> E["<b>Factory's reply comes into PLM directly</b><br/>rate per piece, lead time,<br/>fabric consumption per piece with wastage"]
 E --> F{"Any factory within our<br/>target cost and in-house date?"}
@@ -101,7 +101,7 @@ classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 flowchart TD
 A(["PO mailed to the factory"]) --> C{"Who is supplying the fabric?<br/>(already decided before the PO)"}
 A --> B{"Factory sent back the TNA form<br/>with planned dates?<br/>(happens side by side)"}
-B -- "no" --> B1["Merchant does the follow-up"]
+B -- "no" --> B1["Shows on the merchant's dashboard<br/>as a follow-up, till the factory sends it"]
 B1 --> B
 B -- "yes" --> B2["Planned dates saved on the TNA"]
 C -- "factory itself" --> C2["Factory raises its own fabric PO<br/>and updates the fabric inward on the TNA"]
