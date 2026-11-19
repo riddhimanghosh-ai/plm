@@ -53,11 +53,11 @@ export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; 
   return <div>
     <div className="flex items-center gap-2 flex-wrap pb-2">
       <span className="cap" style={{ margin: 0 }}>Vendors on each BOM line</span>
-      {noOpts > 0 && <Pill tone="warn">{noOpts} line{noOpts === 1 ? '' : 's'} waiting on sourcing</Pill>}
+      {noOpts > 0 && <span title="Until every line has its vendor, the requirement cannot go to Production RTW and no invoice is generated."><Pill tone="warn">{noOpts} line{noOpts === 1 ? '' : 's'} waiting on sourcing · blocks the send</Pill></span>}
       {unpicked.length > 0 && <Pill tone="warn">{unpicked.length} line{unpicked.length === 1 ? '' : 's'} for category to pick</Pill>}
       <span className="ml-auto flex gap-2 items-center"><button type="button" className="bom-cols" onClick={() => setMore(v => !v)} aria-pressed={more}>{more ? '− fewer columns' : '+ per pc, GST, state, code'}</button>{(canSourcing || canDesign) && openLines.length > 0 && <Button size="sm" variant="ghost" onClick={sampleFill}>Sample fill{canDesign ? ' · vendors and picks' : ' · vendor options'}</Button>}{canDesign && unpicked.length > 0 && <Button size="sm" onClick={cheapest}>Pick the lowest rate on every line</Button>}</span>
     </div>
-    {openLines.length > 0 && <div className="text-[12px] pb-1.5" style={{ color: 'var(--warn)' }}>Until every line has its vendor, the requirement cannot go to Production RTW and no invoice is generated.</div>}
+
     <div style={{ overflowX: 'auto' }}><table className={`t compact bom-t bomv${more ? '' : ' lean'}`}><thead><tr><th>BOM line</th><th className="num c-x">Per pc</th><th className="num">For {pcs} pcs</th><th>Supplied by</th><th>Vendor</th><th className="num">Rate ₹</th><th className="num">Cost ₹</th><th className="c-x">GST · vendor state</th><th className="c-x">Code · note</th><th></th></tr></thead>
       <tbody>{(['fabric', 'trim', 'packaging'] as const).flatMap(k => { const rows = o.bom.map((l, i) => ({ l, i })).filter(x => x.l.kind === k); if (!rows.length) return [];
         const pend = rows.filter(x => !legacyOf(x.i) && !x.l.chosen && !x.l.suppliedBy).length; const sub = rows.reduce((a, x) => { const r0 = rateOf(x.i); const q0 = qtyOf(x.i); return a + (r0 != null && q0 != null ? r0 * q0 : 0); }, 0);
@@ -91,7 +91,7 @@ export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; 
                 {BOM_MULTI_OPTIONS && <Button size="sm" disabled={f.by !== 'factory' && !f.vendor.trim()} onClick={() => save(true)}>Add and add another</Button>}
                 <button type="button" className="vlink text-[11.5px]" onClick={() => setAddFor(null)}>cancel</button></span>
             </div></td></tr>);
-          else if (canSourcing && (BOM_MULTI_OPTIONS || (!opts.length && !legacy))) out.push(<tr key={`${i}-plus`}>{out.length === 0 && head(n)}{out.length === 0 && qty(n)}<td colSpan={7}><button type="button" className="vlink text-[11.5px]" style={opts.length || legacy ? undefined : { color: 'var(--warn)' }} onClick={() => open(i)}>+ {opts.length || legacy ? 'add another vendor option' : BOM_MULTI_OPTIONS ? 'add vendor options' : 'add the vendor'}</button>{(opts.length > 0) && <span className="text-[11.5px] pl-2" style={faint}>{opts.length} option{opts.length === 1 ? '' : 's'} · category picks one</span>}</td></tr>);
+          else if (canSourcing && (BOM_MULTI_OPTIONS || (!opts.length && !legacy))) out.push(<tr key={`${i}-plus`}>{out.length === 0 && head(n)}{out.length === 0 && qty(n)}<td colSpan={7}><button type="button" className={`bomv-addbtn${opts.length || legacy ? ' more' : ''}`} onClick={() => open(i)}>+ {opts.length || legacy ? 'Another vendor option' : 'Add vendor'}</button>{(opts.length > 0) && <span className="text-[11.5px] pl-2" style={faint}>{opts.length} option{opts.length === 1 ? '' : 's'} · category picks one</span>}</td></tr>);
           return out; })]; })}</tbody>
       <tfoot><tr><td colSpan={more ? 6 : 5} className="text-[12.5px]" style={{ textAlign: 'right' }}>Material cost on what is picked</td><td className="num font-semibold">{fmtMoney(Math.round(total))}</td><td className="text-[12px]">GST <b className="mono">{fmtMoney(Math.round(tax))}</b> · with GST <b className="mono">{fmtMoney(Math.round(total + tax))}</b></td>{more && <td colSpan={2}></td>}</tr></tfoot>
     </table></div>

@@ -10,7 +10,7 @@ import type { ProductionOrder, QcPoint, RequirementPack, TechPackKey, PoInvoice,
 import { fmtDate, daysAgo, receiptOf, fmtMoney, costingOf, netOf } from '../domain/engines';
 import { TECH_PACK_ITEMS, QC_POINTS, FABRIC_BY_LABEL } from '../domain/reference';
 import { draftFromBrief, packOf, packReadyOf, recommendFactories, needsHemmingOf, deliveryLocationOf, qcPointsOf, costQueryMail, poMailOf, invoiceMailOf, vendorMail, replyFlagsOf, targetReviseOpenOf, poFabricsOf, poDraftOf, poTotalsOf, QUERY_FILES, supplyInvoicesOf, packedPcsOf, packingFileOf, orderedBySizeOf, isCmt, taxCodeOf, AQL_LEVELS, clothNeedOf, approvalOf, poLedgerOf, supplyLinesOf, rawMaterialsOf, type Mail, bomOpenOf, poVendorsOf } from '../domain/rtwPack';
-import { Section, Pill, Button, KV, Field, Input, Select, fromDateInput, dateInput } from '../ui';
+import { Section, Pill, Button, KV, Field, Input, Select, fromDateInput, dateInput, useFlagEmpty } from '../ui';
 import { VendorLink } from './Vendors';
 import { ActsBy } from './Who';
 import { SizeGrid, ReceiptLots } from './RtwGates';
@@ -51,6 +51,8 @@ export function PackSection({ o, design, sourcing, only }: { o: ProductionOrder;
   const p = packOf(o);
   const pick = (label: string, step: string | null, onName: (n: string) => void) => <label className="file-btn"><input type="file" accept=".pdf,.doc,.docx,image/*" onChange={e => { const f = e.target.files?.[0]; if (!f) return; onName(f.name); void attachFiles('order', o.id, label, step, [f]); }} />Attach</label>; const rd = packReadyOf(o); const sent = !!p.sentOn || o.status !== 'Requirement';
   const [tab, setTab] = useState<PartKey>(only ?? rd.parts.find(x => x.missing.length)?.key ?? 'techPack');
+  /* 19 Nov 2026: what the gate still needs shows in amber on its field */
+  const reqRef = useRef<HTMLDivElement>(null); useFlagEmpty(reqRef, rd.parts.flatMap(x => x.missing));
   const [tp, setTp] = useState<Partial<Record<TechPackKey, string>>>({ ...p.techPack });
   const [fab, setFab] = useState<RequirementPack['fabric']>({ ...p.fabric });
   const [trim, setTrim] = useState(p.trimCard ?? '');
@@ -79,12 +81,12 @@ export function PackSection({ o, design, sourcing, only }: { o: ProductionOrder;
   const mills = db.vendors.filter(v => v.kind.endsWith('mill')).map(v => ({ v, fit: (v.supplies ?? []).some(x => want.includes(x.toLowerCase())) })).sort((a, b) => Number(b.fit) - Number(a.fit) || a.v.name.localeCompare(b.v.name)).map(x => ({ ...x.v, name: x.fit ? `★ ${x.v.name} · supplies ${(x.v.supplies ?? []).filter(y => want.includes(y.toLowerCase())).join(', ')}` : x.v.name }));
   const num = (v: string) => v === '' ? null : Number(v);
   const part = rd.parts.find(x => x.key === tab)!;
-  return <Section title="Requirement" collapsible={false} right={<Pill tone={sent ? 'good' : rd.ready ? 'good' : 'warn'}>{sent ? `sent to Production RTW ${fmtDate(p.sentOn ?? o.styleHandover)}` : rd.ready ? 'complete · ready to send' : `${rd.missing.length} item${rd.missing.length > 1 ? 's' : ''} to fill`}</Pill>}>
+  return <div ref={reqRef}><Section title="Requirement" collapsible={false} right={<Pill tone={sent ? 'good' : rd.ready ? 'good' : 'warn'}>{sent ? `sent to Production RTW ${fmtDate(p.sentOn ?? o.styleHandover)}` : rd.ready ? 'complete · ready to send' : `${rd.missing.length} item${rd.missing.length > 1 ? 's' : ''} to fill`}</Pill>}>
     <div className="form-tabs pb-3" role="tablist">{rd.parts.filter(x => !only || x.key === only).map((x, i) => <button type="button" key={x.key} role="tab" aria-selected={tab === x.key} className={tab === x.key ? 'on' : x.missing.length === 0 ? 'done' : ''} onClick={() => setTab(x.key)} title={x.missing.length ? `missing: ${x.missing.join(', ')}` : 'complete'}><span className="n">{x.missing.length === 0 && tab !== x.key ? '✓' : i + 1}</span>{x.label}<span className="text-[11px]" style={{ opacity: .7 }}>{x.done}/{x.total}</span></button>)}</div>
     {tab === 'techPack' && <div>
       {p.brief && <div className="text-[12px] mb-2 p-2 rounded-[6px]" style={{ background: 'var(--surface-2)' }}><b>Design brief</b> <span className="pill">phase 2 · AI drafts from this</span><div className="pt-1" style={soft}>{p.brief}</div></div>}
       <div className="grid gap-x-4 gap-y-1.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-        {TECH_PACK_ITEMS.map(it => <Field key={it.key} label={it.label}>{canDesign ? <div className="flex gap-1.5 items-center">{pick('Tech pack', it.label, n => { setTp(x => ({ ...x, [it.key]: n })); updatePack(o.id, { techPack: { [it.key]: n } }); })}<Input value={tp[it.key] ?? ''} onChange={e => setTp(x => ({ ...x, [it.key]: e.target.value }))} placeholder="or a note" style={{ flex: 1 }} /></div> : <div className="text-[12.5px] py-1">{p.techPack[it.key] ? <span>✓ {p.techPack[it.key]}</span> : <span style={{ color: 'var(--warn)' }}>missing</span>}</div>}</Field>)}
+        {TECH_PACK_ITEMS.map(it => <div key={it.key}><Field label={it.label}>{canDesign ? <div className="flex gap-1.5 items-center">{pick('Tech pack', it.label, n => { setTp(x => ({ ...x, [it.key]: n })); updatePack(o.id, { techPack: { [it.key]: n } }); })}<Input value={tp[it.key] ?? ''} onChange={e => setTp(x => ({ ...x, [it.key]: e.target.value }))} placeholder="or a note" style={{ flex: 1 }} /></div> : <div className="text-[12.5px] py-1">{p.techPack[it.key] ? <span>✓ {p.techPack[it.key]}</span> : <span style={{ color: 'var(--warn)' }}>missing</span>}</div>}</Field></div>)}
       </div>
       {canDesign && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updatePack(o.id, { techPack: tp })}>Save tech pack</Button></div>}
     </div>}
@@ -133,7 +135,7 @@ export function PackSection({ o, design, sourcing, only }: { o: ProductionOrder;
           {!rd.ready && <span className="text-[12px]" style={{ color: 'var(--warn)' }}>Cannot proceed: {part.missing.length ? `${part.label} needs ${part.missing.join(', ')}` : rd.missing.slice(0, 3).join(', ')}{!part.missing.length && rd.missing.length > 3 ? ` and ${rd.missing.length - 3} more` : ''}{rd.sourcingMissing.length ? ' · sourcing owes vendors on the BOM' : ''}</span>}
         </>}
     </div>
-  </Section>;
+  </Section></div>;
 }
 
 /* ── 2. the cost query: factories from the database, a deadline, the mail, the replies ── */

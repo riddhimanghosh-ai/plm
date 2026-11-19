@@ -28,17 +28,17 @@ export function BomSection({ o, editable, open, summary }: { o: ProductionOrder;
   const groups = (['fabric', 'trim', 'packaging'] as const).map(k => ({ k, rows: (editing ? lines : o.bom).map((l, i) => ({ l, i })).filter(x => x.l.kind === k) }));
   return (
     <Section title={`BOM · ${o.bom.length} lines`} defaultOpen={open} right={<div className="flex gap-2 items-center"><OwnerPill editable={editable} owner="Design" />{!editable && <ActsBy role="design" does="edits the BOM" inline />}{editable && !editing && <Button size="sm" onClick={() => { setLines(o.bom); setEditing(true); }}>Edit</Button>}</div>}>
-      {!editing && summary && <div className="bom-sum-wrap"><table className="t compact sum-t kv"><tbody>
-        <tr><th>Material</th><td className="num"><b>{fmtMoney(bc.total)}</b></td><td style={{ color: 'var(--ink-soft)' }}>{fmtMoney(Math.round(bc.perPc))} per pc · {o.bom.length} lines</td><td></td></tr>
-        {bc.bsc > 0 && <tr><th>Sent by BSC</th><td className="num"><b>{fmtMoney(bc.bsc)}</b></td><td style={{ color: 'var(--ink-soft)' }}>BSC buys it and invoices the factory</td><td></td></tr>}
-        {bc.nominated > 0 && <tr><th>Nominated</th><td className="num"><b>{fmtMoney(bc.nominated)}</b></td><td style={{ color: 'var(--ink-soft)' }}>the factory buys from BSC's vendor</td><td></td></tr>}
-        {bc.factory > 0 && <tr><th>By the factory</th><td className="num"><b>{fmtMoney(bc.factory)}</b></td><td style={{ color: 'var(--ink-soft)' }}>inside the factory's rate</td><td></td></tr>}
-        {c.fabricMetres != null && <tr><th>Fabric</th><td className="num"><b>{c.fabricMetres} {o.bom[0]?.unit ?? 'm'}</b></td><td style={{ color: 'var(--ink-soft)' }}>{o.costing.consumption} × {o.orderQty} pcs</td><td></td></tr>}
-        {bc.unpriced > 0 && <tr><th>Without a rate</th><td className="num"><b style={{ color: 'var(--warn)' }}>{bc.unpriced}</b></td><td style={{ color: 'var(--warn)' }}>line{bc.unpriced === 1 ? '' : 's'} to price</td><td></td></tr>}
-        {supply.length > 0 && <tr className="sum-hi"><th>Invoice</th><td className="num"><b>{inv0 ? fmtMoney(inv0.amount) : '—'}</b></td>
-          <td>{inv0 ? <><span className="mono">{inv0.no}</span> <span style={{ color: 'var(--ink-soft)' }}>· {fmtDate(inv0.on)} · goes with the PO mail</span></> : <span style={{ color: 'var(--ink-faint)' }}>{openN ? `generated once ${openN} more line${openN === 1 ? '' : 's'} get a vendor` : 'not generated yet'}</span>}</td>
-          <td className="num">{inv0 ? <Button size="sm" variant="primary" onClick={() => setShowInv(true)}>View invoice</Button> : editable && !openN ? <Button size="sm" variant="primary" onClick={() => generateSupplyInvoice(o.id)}>Generate</Button> : null}</td></tr>}
-      </tbody></table>
+      {!editing && summary && <div className="bom-sum-wrap">
+        <div className="bom-strip">
+          <div><span>Material</span><b>{fmtMoney(bc.total)}</b><i>{fmtMoney(Math.round(bc.perPc))} / pc · {o.bom.length} lines</i></div>
+          {bc.bsc > 0 && <div><span>Sent by BSC</span><b>{fmtMoney(bc.bsc)}</b><i>BSC invoices the factory</i></div>}
+          {bc.nominated > 0 && <div><span>Nominated</span><b>{fmtMoney(bc.nominated)}</b><i>factory buys from BSC's vendor</i></div>}
+          {bc.factory > 0 && <div><span>By the factory</span><b>{fmtMoney(bc.factory)}</b><i>inside its rate</i></div>}
+          {c.fabricMetres != null && <div><span>Fabric</span><b>{c.fabricMetres} {o.bom[0]?.unit ?? 'm'}</b><i>{o.costing.consumption} × {o.orderQty} pcs</i></div>}
+          {bc.unpriced > 0 && <div className="warn"><span>Without a rate</span><b>{bc.unpriced}</b><i>to price</i></div>}
+          {supply.length > 0 && <div className={inv0 ? 'inv' : 'inv wait'}><span>Invoice</span>{inv0 ? <><b>{fmtMoney(inv0.amount)}</b><i><span className="mono">{inv0.no}</span> · {fmtDate(inv0.on)}</i></> : <><b>—</b><i>{openN ? `after ${openN} line${openN === 1 ? '' : 's'} get a vendor` : 'not generated yet'}</i></>}
+            {inv0 ? <Button size="sm" variant="primary" onClick={() => setShowInv(true)}>View</Button> : editable && !openN ? <Button size="sm" variant="primary" onClick={() => generateSupplyInvoice(o.id)}>Generate</Button> : null}</div>}
+        </div>
         <button type="button" className={`bom-more${menu ? ' on' : ''}`} aria-expanded={menu} onClick={() => setMenu(v => !v)} title="invoice details, copy from another style">⋯</button>
       </div>}
       {showInv && inv0 && <InvoicePreview o={o} inv={inv0} onClose={() => setShowInv(false)} />}

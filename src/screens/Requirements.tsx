@@ -1,14 +1,14 @@
 /* Design opens the order: what, how many, in which sizes, by when,
    at what cost. This is the requirement Sourcing quotes against. Today it is
    the first ~12 columns of the tracker plus a phone call. */
-import { useState, type ReactNode } from 'react';
+import { useState, useRef, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import { GARMENT_CATEGORIES, SUB_CATEGORIES, SIZE_SETS, TECH_PACK_ITEMS } from '../domain/reference';
 import { draftFromBrief } from '../domain/rtwPack';
 import type { GarmentCategory, ProductionOrder, TechPackKey } from '../domain/types';
 import { fmtDate, fmtMoney, daysAgo, TODAY, addDays, iso } from '../domain/engines';
-import { Page, Card, Pill, Field, Input, Select, Button, Drawer, KV, Section, Note, Seg, dateInput, fromDateInput, useExamples } from '../ui';
+import { Page, Card, Pill, Field, Input, Select, Button, Drawer, KV, Section, Note, Seg, dateInput, fromDateInput, useExamples, useFlagEmpty } from '../ui';
 import { FabricBriefSection } from './Sourcing';
 import { VendorLink } from './Vendors';
 import { SampleSection, ProtoSection, MaterialsCoverSection, FactoryFinalisationSection, FabricFinalisationSection, DocsChecklist, SizeGrid } from './RtwGates';
@@ -290,6 +290,9 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
     { k:'delivery', label:'Delivery instruction', ok: true },
   ];
   const [tab, setTab] = useState('ask');
+  /* 19 Nov 2026: the fields the form needs before it can be sent show in amber until filled */
+  const formRef = useRef<HTMLDivElement>(null);
+  useFlagEmpty(formRef, ['Style / design', 'Order qty', 'Fabric description', 'CPM', ...(fabPhoto || fab.swatchAnalyser.trim() ? [] : ['Photo of the physical fabric', 'Option / phase']), 'Trim card', ...TECH_PACK_ITEMS.map(t => t.label)]);
   const show = (k: string) => view !== 'tabs' || tab === k;
   const tabIndex = PARTS.findIndex(x => x.k === tab);
   const fileBtn = (label: string, file: File | null | undefined, onFile: (f: File | null) => void) => <label className="file-btn"><input type="file" accept=".pdf,.doc,.docx,image/*" onChange={e => onFile(e.target.files?.[0] ?? null)} />{file ? <span className="file-on">📎 {file.name}</span> : <span>{label}</span>}</label>;
@@ -315,7 +318,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
     onDone(id);
   };
 
-  return <>
+  return <div ref={formRef}>
     <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
       {view === 'tabs' ? <div className="form-tabs" role="tablist" ref={el => { el?.querySelector('[aria-selected="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }}>{PARTS.map((p, i) => <button type="button" key={p.k} role="tab" aria-selected={tab === p.k} className={tab === p.k ? 'on' : p.ok ? 'done' : ''} onClick={() => setTab(p.k)}><span className="n">{p.ok && tab !== p.k ? '✓' : i + 1}</span>{p.label}{'n' in p && p.n ? <span className="text-[11px]" style={{ opacity:.7 }}>{p.n}</span> : null}</button>)}</div> : <span />}
     </div>
@@ -371,7 +374,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
     </Section>}
     {show('tech') && <Section title="Tech pack" collapsible={false} right={<span className="text-[11.5px]" style={faint}>{tpDone} of {TECH_PACK_ITEMS.length} · pdf, doc or image per item</span>}>
       <div className="grid gap-x-4 gap-y-2" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))' }}>
-        {TECH_PACK_ITEMS.map(it => <Field key={it.key} label={it.label}><div className="flex gap-1.5 items-center">{fileBtn('Attach', tpFiles[it.key], f => setTpFiles(x => ({ ...x, [it.key]: f ?? undefined }))) }<Input value={tp[it.key] ?? ''} onChange={e => setTp(x => ({ ...x, [it.key]: e.target.value }))} placeholder="or a note" style={{ flex:1 }} /></div></Field>)}
+        {TECH_PACK_ITEMS.map(it => <div key={it.key}><Field label={it.label}><div className="flex gap-1.5 items-center">{fileBtn('Attach', tpFiles[it.key], f => setTpFiles(x => ({ ...x, [it.key]: f ?? undefined }))) }<Input value={tp[it.key] ?? ''} onChange={e => setTp(x => ({ ...x, [it.key]: e.target.value }))} placeholder="or a note" style={{ flex:1 }} /></div></Field></div>)}
       </div>
     </Section>}
     {show('trim') && <Section title="Trim card" collapsible={false}>
@@ -397,7 +400,7 @@ export function NewRequirement({ onDone, initialMode }: { onDone: (id: string) =
     {view === 'tabs' && <div className="flex gap-2 pt-2">{tabIndex > 0 && <Button size="sm" variant="ghost" onClick={() => setTab(PARTS[tabIndex - 1].k)}>← {PARTS[tabIndex - 1].label}</Button>}{tabIndex < PARTS.length - 1 && <Button size="sm" onClick={() => setTab(PARTS[tabIndex + 1].k)}>{PARTS[tabIndex + 1].label} →</Button>}</div>}
     </div>
     <div className="flex gap-2 pt-3 items-center"><Button variant="primary" disabled={!style.trim() || !Number(qty)} onClick={() => void create()}>Create requirement</Button><span className="text-[11.5px]" style={faint}>{PARTS.filter(p => p.ok).length} of {PARTS.length} parts filled</span></div>
-  </>;
+  </div>;
 }
 
 /* Design edits the brief while the requirement is still theirs. Once it is

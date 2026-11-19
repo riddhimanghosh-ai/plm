@@ -482,3 +482,21 @@ export function useExamples<T>(rows: T[], key: (r: T) => unknown, opts: { n?: nu
     {missingDone && <span data-missing-done title="the demo data has no finished record in this list"> · none finished yet</span>}</span> : null;
   return { rows: all ? rows : picked, all, total: rows.length, strip, missingDone };
 }
+
+/* 19 Nov 2026: a required field that is still empty shows in amber. `required` names the fields by their label
+   (a prefix is enough: "CPM" matches "CPM (₹ / m)"). A field counts as filled when any input, select or text box in it
+   has a value or a file is attached. Runs after every render, so it clears as soon as you type. */
+export function useFlagEmpty(ref: React.RefObject<HTMLElement | null>, required: string[]) {
+  const key = required.join('|').toLowerCase();
+  useEffect(() => {
+    const root = ref.current; if (!root) return;
+    const want = key ? key.split('|') : [];
+    root.querySelectorAll<HTMLElement>('label.block').forEach(f => {
+      const name = (f.querySelector('.label')?.childNodes[0]?.textContent ?? '').trim().toLowerCase();
+      const listed = !!name && want.some(w => w && (name.startsWith(w) || w.startsWith(name)));
+      const ctrls = [...f.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input:not([type=file]):not([type=checkbox]), select, textarea')];
+      const filled = ctrls.some(c => (c.value ?? '').trim() !== '') || !!f.querySelector('.file-on');
+      f.classList.toggle('tp-missing', listed && !filled);
+    });
+  });
+}
