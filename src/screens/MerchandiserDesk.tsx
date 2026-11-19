@@ -5,8 +5,8 @@
 import { useState } from 'react';
 import { useApp } from '../store';
 import type { ProductionOrder } from '../domain/types';
-import { fmtDate, daysAgo } from '../domain/engines';
-import { qcPointsOf } from '../domain/rtwPack';
+import { fmtDate, daysAgo, receiptOf } from '../domain/engines';
+import { qcPointsOf, countedBy3plOf } from '../domain/rtwPack';
 import { Card, Pill, Empty, Stats, Input, MultiFilter, passes } from '../ui';
 import { VendorLink } from './Vendors';
 
@@ -24,6 +24,7 @@ export function merchandiserItemsOf(orders: ProductionOrder[]): Item[] {
       const next = o.milestones.find(m => !m.actual && !m.skipped); const due = next ? (next.revised ?? next.plan) : null;
       if (next && due && daysAgo(due) > 0) out.push({ kind: 'late', o, vendorId: o.vendorId, what: `${next.key} · planned ${fmtDate(next.plan)}${next.revised ? ` · revised ${fmtDate(next.revised)}` : ''}`, since: due, days: daysAgo(due), tone: daysAgo(due) > 5 ? 'risk' : 'warn', step: 'tna' });
       if (o.invoice && !o.invoice.mailedOn) out.push({ kind: 'form', o, vendorId: o.vendorId, what: `invoice ${o.invoice.no} and packing list uploaded · send to Prince`, since: o.invoice.uploadedOn, days: daysAgo(o.invoice.uploadedOn), tone: 'warn', step: 'dispatch' });
+      if (o.invoice?.mailedOn && countedBy3plOf(o) && !receiptOf(o).lots.length) out.push({ kind: 'form', o, vendorId: o.vendorId, what: `delivered to the 3PL · upload its consignment report so the count fills in`, since: o.invoice.mailedOn, days: daysAgo(o.invoice.mailedOn), tone: 'warn', step: 'received' });
       qcPointsOf(o).forEach(pt => { if (pt.state === 'failed' && pt.last) out.push({ kind: 'qc', o, vendorId: o.vendorId, what: `${pt.label} failed ${fmtDate(pt.last.on)} · factory to correct and resubmit`, since: pt.last.on, days: daysAgo(pt.last.on), tone: 'risk', step: 'tna', remarks: pt.last.remarks });
         else if (pt.state === 'passed' && pt.last && daysAgo(pt.last.on) <= 7) out.push({ kind: 'qc', o, vendorId: o.vendorId, what: `${pt.label} passed ${fmtDate(pt.last.on)}`, since: pt.last.on, days: 0, tone: 'good', step: 'tna', remarks: pt.last.remarks }); });
     }

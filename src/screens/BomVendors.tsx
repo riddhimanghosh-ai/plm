@@ -4,8 +4,8 @@
 import { useState } from 'react';
 import { useApp, useAppStore } from '../store';
 import type { ProductionOrder, SuppliedBy, BomLine } from '../domain/types';
-import { fmtMoney } from '../domain/engines';
-import { Button, Input, Select, Pill } from '../ui';
+import { fmtMoney, fmtDate } from '../domain/engines';
+import { Button, Input, Select, Pill, Field } from '../ui';
 import { BOM_MULTI_OPTIONS } from '../domain/edition';
 import { STATES, GST_RATES, BSC_STATE, defaultGstOf, gstSplit, stateOfPlace } from '../domain/invoicePdf';
 import { bomCostOf, bomOpenOf, bomCopyOf, bomSourcesOf } from '../domain/rtwPack';
@@ -21,7 +21,7 @@ export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; 
   /* each group folds; fabric starts open, a group with a line still open starts open, a finished group starts closed */
   const [fold, setFold] = useState<Record<string, boolean>>({});
   const [f, setF] = useState<{ by: SuppliedBy; vendor: string; rate: string; gst: string; state: string; code: string; note: string }>({ by: 'bsc', vendor: '', rate: '', gst: '5', state: BSC_STATE, code: '', note: '' });
-  const pcs = o.orderQty; const qtyOf = (i: number) => { const l = o.bom[i]; return l.qtyPerPc != null ? Math.round(l.qtyPerPc * pcs * 100) / 100 : null; };
+  const pcs = o.orderQty; const qtyOf = (i: number) => { const l = o.bom[i]; return l.qtyPerPc != null ? Math.round(l.qtyPerPc * (1 + (l.wastagePct ?? 0) / 100) * pcs * 100) / 100 : null; };
   /* a line is settled when an option is picked, a supplier is set on it, or (older records) the requirement went out with the supplier the BOM derives */
   const bc = bomCostOf(db, o);
   const { legacyDone, open: openLines } = bomOpenOf(o);
@@ -64,7 +64,7 @@ export function BomVendors({ o, canDesign, canSourcing }: { o: ProductionOrder; 
         const shut = fold[k] ?? (k !== 'fabric' && pend === 0 && addFor == null);
         return [<tr key={k} className={`grp bomv-grp g-${k}`} onClick={() => setFold(x => ({ ...x, [k]: !shut }))}><td colSpan={10}><span className="flex items-center gap-2"><span className="bomv-car">{shut ? '▸' : '▾'}</span><span className="bomv-dot" aria-hidden /><b>{KIND[k]}</b><span style={faint}>{rows.length} line{rows.length === 1 ? '' : 's'}{sub ? ` · ${fmtMoney(Math.round(sub))}` : ''}</span>{pend > 0 ? <Pill tone="warn">{pend} without a vendor</Pill> : <span style={{ color: 'var(--good)' }}>✓ every line has a vendor</span>}</span></td></tr>, ...(shut ? [] : rows).flatMap(({ l, i }) => { const opts = l.options ?? []; const q = qtyOf(i); const legacy = legacyOf(i); const r = bc.rows[i];
           const head = (span: number) => <td rowSpan={span} style={{ whiteSpace: 'normal', verticalAlign: 'top' }}><div className="font-medium">{l.item || '—'}</div>{l.spec && <div className="text-[11.5px]" style={faint}>{l.spec}</div>}</td>;
-          const qty = (span: number) => <><td rowSpan={span} className="num c-x" style={{ verticalAlign: 'top' }}>{l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit}` : '—'}</td><td rowSpan={span} className="num" style={{ verticalAlign: 'top' }}>{q != null ? `${q.toLocaleString('en-IN')} ${l.unit}` : '—'}</td></>;
+          const qty = (span: number) => <><td rowSpan={span} className="num c-x" style={{ verticalAlign: 'top' }}>{l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit}${l.wastagePct ? ` + ${l.wastagePct}%` : ''}` : '—'}</td><td rowSpan={span} className="num" style={{ verticalAlign: 'top' }}>{q != null ? `${q.toLocaleString('en-IN')} ${l.unit}` : '—'}</td></>;
           const adding = addFor === i; const showNone = !opts.length && !legacy && !canSourcing;
           const n = opts.length + (legacy && !opts.length ? 1 : 0) + (showNone ? 1 : 0) + (adding ? 1 : 0) + (canSourcing && !adding && (BOM_MULTI_OPTIONS || (!opts.length && !legacy)) ? 1 : 0);
           const out = [];
@@ -113,5 +113,40 @@ export function CopyBomPicker({ category, excludeId, onPick, note }: { category:
     <Select value={id} onChange={setId} groups={[{ label: 'Pick a style', options: [{ value: '', label: 'pick a style, any category' }] }, ...groups]} style={{ minWidth: 260, maxWidth: 380 }} />
     <Button size="sm" disabled={!src} onClick={() => { if (src) { onPick(bomCopyOf(db, src), src.styleName); setId(''); } }}>Copy its BOM</Button>
     <span className="text-[11.5px]" style={faint}>{note ?? 'trims and packaging come with their vendor and rate; the cloth line with its consumption only'}</span>
+  </div>;
+}
+
+/* 19 Nov 2026 (Parag): the BOM does two jobs. First a per-piece material estimate when the factories are asked; then, once a
+   factory has quoted its consumption and wastage, the real quantities, frozen for the costing and used as the reference for what
+   is sent to the factory. Quantities are optional on the requirement; a change after the freeze is a logged revision. */
+export function BomQuantities({ o, canDesign }: { o: ProductionOrder; canDesign: boolean }) {
+  const { db, bomFromReply, bomStandards, freezeBom, reviseBom } = useApp();
+  const [why, setWhy] = useState(''); const [rev, setRev] = useState(false);
+  if (!o.bom.length) return null;
+  const fab = o.bom.find(l => l.kind === 'fabric') ?? null; const blank = o.bom.filter(l => l.qtyPerPc == null).length;
+  const replies = (o.costQuery?.replies ?? []).filter(r => r.consumptionPerPc != null); const fz = o.bomFrozen ?? null;
+  const width = fab?.widthIn ?? o.pack?.fabric.widthIn ?? null; const need = fab?.qtyPerPc != null ? fab.qtyPerPc * (1 + (fab.wastagePct ?? 0) / 100) : null;
+  const nameOf = (id: string) => db.vendors.find(v => v.id === id)?.name ?? id;
+  const state = fz ? { tone: 'good' as const, t: `frozen ${fmtDate(fz.on)}${fz.from ? ` · with ${fz.from}` : ''}` } : fab?.qtyBasis === 'factory' ? { tone: 'info' as const, t: "the factory's quantities · to freeze" } : replies.length ? { tone: 'warn' as const, t: 'a factory has quoted · complete the quantities' } : blank ? { tone: 'neutral' as const, t: `${blank} line${blank === 1 ? '' : 's'} without a quantity · optional for now` } : { tone: 'neutral' as const, t: fab?.qtyBasis === 'standard' ? 'category standard · an estimate' : 'estimate until a factory quotes' };
+  return <div className="bomq">
+    <div className="bomq-h"><b>Quantities</b><Pill tone={state.tone}>{state.t}</Pill>
+      <span className="bomq-acts">
+        {canDesign && !fz && blank > 0 && <Button size="sm" variant="ghost" onClick={() => bomStandards(o.id)}>Fill the {o.category} standards</Button>}
+        {canDesign && !fz && (replies.length > 0 || !!o.poApproval) && <Button size="sm" variant="primary" disabled={blank > 0} onClick={() => freezeBom(o.id)} >Freeze the quantities</Button>}
+        {canDesign && fz && !rev && <Button size="sm" onClick={() => setRev(true)}>Revise</Button>}
+      </span></div>
+    {fab && <div className="bomq-cloth">
+      <div><span>Cloth width</span><b>{width != null ? `${width}"` : '—'}</b></div>
+      <div><span>Consumption</span><b>{fab.qtyPerPc != null ? `${fab.qtyPerPc} ${fab.unit}` : '—'}</b><i>{fab.qtyBasis === 'factory' ? "from the factory's marker" : fab.qtyBasis === 'standard' ? 'category standard' : 'per piece'}</i></div>
+      <div><span>Wastage</span><b>{fab.wastagePct != null ? `${fab.wastagePct}%` : '—'}</b></div>
+      <div><span>Needs per piece</span><b>{need != null ? `${Math.round(need * 100) / 100} ${fab.unit}` : '—'}</b></div>
+      <div><span>For {o.orderQty} pcs</span><b>{need != null ? `${Math.ceil(need * o.orderQty).toLocaleString('en-IN')} ${fab.unit}` : '—'}</b><i>the reference for what is sent</i></div>
+    </div>}
+    {!fz && replies.length > 0 && <div className="bomq-replies"><span>Take the cloth quantity from a quote</span>
+      {replies.map(r => <button key={r.vendorId} type="button" className="bomq-rep" disabled={!canDesign} onClick={() => bomFromReply(o.id, r.vendorId)}><b>{nameOf(r.vendorId)}</b> {r.consumptionPerPc} m{r.wastagePct != null ? ` + ${r.wastagePct}%` : ''}</button>)}</div>}
+    {!fz && !replies.length && <div className="text-[11.5px]" style={faint}>Quantities are not needed to send the requirement. They are completed with the real figures once a factory's quote comes in, then frozen for the costing.</div>}
+    {rev && <div className="flex gap-2 items-end flex-wrap pt-2"><div style={{ flex: '1 1 260px' }}><Field label="Why are the quantities changing"><Input value={why} onChange={e => setWhy(e.target.value)} placeholder="cloth width changed to 54 in, new marker, new cut ratio…" /></Field></div>
+      <Button size="sm" variant="primary" disabled={!why.trim()} onClick={() => { reviseBom(o.id, why.trim()); setWhy(''); setRev(false); }}>Reopen the quantities</Button><Button size="sm" variant="ghost" onClick={() => setRev(false)}>Cancel</Button></div>}
+    {(o.bomRevisions ?? []).length > 0 && <div className="text-[11.5px] pt-1" style={faint}>Revised {(o.bomRevisions ?? []).map(x => `${fmtDate(x.on)} · ${x.by} · ${x.why}`).join('  |  ')}</div>}
   </div>;
 }

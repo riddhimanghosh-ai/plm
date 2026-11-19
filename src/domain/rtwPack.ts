@@ -228,7 +228,7 @@ export function bomCostOf(db: Db, o: ProductionOrder) {
   const pcs = o.poDoc ? poTotalsOf(o.poDoc).pcs : o.orderQty;
   const rows = o.bom.map((l, i) => { const by = suppliedByOf(o, l);
     const rate = l.rate ?? (l.kind === 'fabric' ? (o.pack?.fabric.rate ?? o.pack?.fabric.cpm ?? null) : null);
-    const qty = l.qtyPerPc != null ? Math.round(l.qtyPerPc * pcs * 100) / 100 : null;
+    const qty = l.qtyPerPc != null ? Math.round(l.qtyPerPc * (1 + (l.wastagePct ?? 0) / 100) * pcs * 100) / 100 : null;   // the wastage sits on top of the consumption
     const vendor = l.vendor ?? (l.kind === 'fabric' && by !== 'factory' ? (db.vendors.find(v => v.id === o.pack?.fabric.vendorId)?.name ?? null) : l.kind !== 'fabric' && by !== 'factory' ? (db.vendors.find(v => v.id === o.pack?.fabric.trimVendorId)?.name ?? null) : null);
     return { l, i, by, rate, qty, vendor, cost: qty != null && rate != null ? Math.round(qty * rate) : null }; });
   const total = rows.reduce((a, r) => a + (r.cost ?? 0), 0);
@@ -354,17 +354,37 @@ export function draftFromBrief(text: string, styleName: string) {
 
 /* COGS per piece for an RTW style, from the costing sheet with the actuals laid over it (the record's COGS step and the
    category's COGS dashboard read the same numbers) */
+/* 19 Nov 2026 (Parag): direct COGS only. The PO's FOB cost per piece, plus the fixed packaging, shipping and process costs.
+   That cost × the multiplier is the MRP category puts in Enigma. Indirect COGS is out of scope for now. */
+export function directCostOf(o: ProductionOrder) {
+  const c = o.costing; const rc = receiptOf(o); const pcs = rc.received || o.cutQty || o.orderQty;
+  const replies = o.costQuery?.replies ?? [];
+  const drafted = o.poApproval ? replies.find(r => r.vendorId === o.poApproval!.vendorId) ?? null : null;
+  const low = replies.length ? [...replies].sort((a, b) => a.cost - b.cost)[0] : null;
+  const fob = o.finalFob ?? drafted?.cost ?? low?.cost ?? c.cmp ?? o.targetCost ?? 0;
+  const fobFrom = o.finalFob != null ? (o.poNo ? `the PO · ${o.poNo}` : 'the agreed price') : drafted ? 'the quote the PO is drafted on' : low ? 'the lowest quote so far' : 'the target cost · no quote yet';
+  /* the PO's price is the cost: what BSC sends the factory (cloth, trims) it invoices the factory for, so it is inside that price */
+  const make = fob;
+  const pc = o.poCosts ?? { logistics: null, other: [] }; const poSum = (pc.logistics ?? 0) + pc.other.reduce((a, x) => a + x.amount, 0);
+  const poExtra = poSum / (pcs || 1);
+  const packaging = c.trimsPackaging || 0; const shipping = (c.shipping || 0) + (c.transportation || 0); const process = (c.factoryOverheads || 0) + (c.hemming || 0);
+  const rs = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+  const lines: { key: 'fabric' | 'make' | 'poExtra' | 'packaging' | 'shipping' | 'process'; label: string; amount: number; from: string; fixed?: boolean }[] = [
+    { key: 'make', label: 'PO cost · FOB', amount: make, from: fobFrom },
+    ...(poExtra ? [{ key: 'poExtra' as const, label: 'Other charges on the PO', amount: poExtra, from: `${rs(poSum)} over ${pcs} pcs` }] : []),
+    { key: 'packaging', label: 'Packaging', amount: packaging, from: 'fixed per piece', fixed: true },
+    { key: 'shipping', label: 'Shipping', amount: shipping, from: 'fixed per piece', fixed: true },
+    { key: 'process', label: 'Process costs', amount: process, from: 'fixed per piece', fixed: true },
+  ];
+  const total = lines.reduce((a, l) => a + (l.amount || 0), 0); const fixed = packaging + shipping + process;
+  const multiple = c.multiple || 0; const mrpRaw = total * multiple; const mrpBy = mrpRaw ? Math.ceil(mrpRaw / 100) * 100 - 10 : null;   // rounded as the costing sheet rounds: 3,965 → 3,990
+  return { lines, total, fixed, fob, fobFrom, pcs, multiple, mrpRaw, mrpBy, final: o.finalFob != null && !!o.poNo };
+}
 export function rtwCogsOf(db: Db, o: ProductionOrder) {
-  const c = o.costing; const plan = costingOf(o); const rc = receiptOf(o);
-  const pcs = rc.received || o.cutQty || o.orderQty;
-  const cons = c.actualConsumption ?? c.consumption;
-  const fabric = o.fabricNominated && c.cpm != null && cons != null ? c.cpm * cons : 0;
-  /* when BSC sends the cloth the factory charges making only (CMT); otherwise its price is the full FOB, cloth included */
-  const make = o.fabricNominated ? (c.cmp ?? Math.max(0, (o.finalFob ?? 0) - fabric)) : (o.finalFob ?? c.cmp ?? 0);
-  const pc = o.poCosts ?? { logistics: null, other: [] };
-  const poExtra = ((pc.logistics ?? 0) + pc.other.reduce((a, x) => a + x.amount, 0)) / (pcs || 1);
-  const parts = { fabric, make, trims: c.trimsPackaging, transport: c.transportation, hemming: c.hemming ?? 0, freight: c.shipping, overheads: c.factoryOverheads, poExtra };
-  const cogs = Object.values(parts).reduce((a, x) => a + (x || 0), 0);
+  const plan = costingOf(o); const rc = receiptOf(o); const dc = directCostOf(o);
+  const amt = (k: string) => dc.lines.find(l => l.key === k)?.amount ?? 0;
+  const parts = { fabric: 0, make: amt('make'), packaging: amt('packaging'), shipping: amt('shipping'), process: amt('process'), poExtra: amt('poExtra') };
+  const cogs = dc.total; const pcs = dc.pcs;
   const opt = db.options.find(x => x.styleName === o.styleName) ?? null;
   const launch = (db.launches ?? []).find(l => l.orderId === o.id);
   const mrp = o.enigmaProduct?.mrp ?? launch?.designCodes?.[0]?.mrp ?? opt?.mrp ?? plan.finalMrp ?? null;
@@ -372,8 +392,25 @@ export function rtwCogsOf(db: Db, o: ProductionOrder) {
   const planned = plan.cogs ?? null;
   const delivered = rc.lots.length > 0 && !rc.partial;
   const closedOn = o.cogsClosedOn ?? (o.status === 'Closed' ? (rc.lots[rc.lots.length - 1]?.at ?? null) : null);
-  return { parts, cogs, pcs, total: cogs * pcs, mrp, net, margin, planned, diff: planned != null ? cogs - planned : null, delivered, closedOn, target: o.targetCost };
+  return { parts, cogs, pcs, total: cogs * pcs, mrp, net, margin, planned, diff: planned != null ? cogs - planned : null, delivered, closedOn, target: o.targetCost, multiple: dc.multiple, mrpBy: dc.mrpBy };
 }
+
+/* one PO, several requirements: every style that shares the PO, and what the PO adds up to */
+export function poGroupOf(db: Db, o: ProductionOrder) {
+  const g = o.poGroup ?? o.poApproval?.group ?? null;
+  const all = g ? db.orders.filter(x => (x.poGroup ?? x.poApproval?.group) === g) : [o];
+  const rows = all.map(x => { const d = (x.poApproval?.doc ?? x.poDoc) ?? null; const t = d ? poTotalsOf(d) : null; return { o: x, pcs: t?.pcs ?? x.orderQty, rate: t?.avgRate ?? x.finalFob ?? 0, total: t?.total ?? 0 }; });
+  return { id: g, rows, many: rows.length > 1, pcs: rows.reduce((a, r) => a + r.pcs, 0), total: rows.reduce((a, r) => a + r.total, 0) };
+}
+/* requirements a PO can be drafted on: a factory has quoted, the SKUs are in Enigma, and no PO or draft is on it yet */
+export function poReadyOf(db: Db) {
+  return db.orders.filter(o => !o.poNo && o.status !== 'Cancelled' && !!o.enigmaProduct && (o.costQuery?.replies.length ?? 0) > 0 && (approvalOf(o).state === 'none' || approvalOf(o).state === 'rejected'));
+}
+/* where the goods land decides who counts them in: Vasai → Prince counts; the 3PL → the merchandiser uploads its consignment report */
+export const landsAtOf = (o: ProductionOrder) => o.poMail?.deliveryLocation ?? o.deliverTo ?? deliveryLocationOf(!!o.semiStitched);
+export const countedBy3plOf = (o: ProductionOrder) => /3PL/i.test(landsAtOf(o));
+/* category-wise standard cloth consumption, for the first estimate before any factory has quoted */
+export const STD_WASTAGE_PCT = 3;
 
 /* the packing list is the factory's PDF for now, with the pieces on it; older records carry it size by size */
 export const packedPcsOf = (inv: NonNullable<ProductionOrder['invoice']>) => inv.packedPcs ?? inv.packingList.reduce((a, x) => a + x.qty, 0);

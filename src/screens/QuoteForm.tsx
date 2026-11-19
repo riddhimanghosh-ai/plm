@@ -29,7 +29,7 @@ export function QuoteFormModal({ o, vendorId, onClose }: { o: ProductionOrder; v
   const [fabRate, setFabRate] = useState(''); const [fabMtr, setFabMtr] = useState(o.fabricMetres && o.orderQty ? String(Math.round(o.fabricMetres / o.orderQty * 100) / 100) : '1.6');
   const fabricPc = factoryCloth ? (Number(fabRate) || 0) * (Number(fabMtr) || 0) : 0;
   const [extras, setExtras] = useState<{ colour: string; amount: string }[]>([]);
-  const [lead, setLead] = useState(prev ? String(prev.leadDays) : '');
+  const [lead, setLead] = useState(prev ? String(prev.leadDays) : ''); const [consPc, setConsPc] = useState(''); const [wast, setWast] = useState('');
   const [start, setStart] = useState(dateInput(prev?.startOn));
   const [cloth, setCloth] = useState<FabricBy | ''>(prev?.fabricBy ?? '');
   const [note, setNote] = useState(prev?.note ?? '');
@@ -44,12 +44,12 @@ export function QuoteFormModal({ o, vendorId, onClose }: { o: ProductionOrder; v
     const base: Record<string, number> = { 'Trims and accessories': 24, 'Cutting': 16, 'Stitching': 135, 'Washing / finishing': 28, 'Pressing, checking and packing': 18, 'Overheads and margin': 42 };
     setAmts(Object.fromEntries(HEADS.map(h => [h, String(base[h] ?? 20)])));
     if (factoryCloth) { setFabRate('240'); if (!fabMtr) setFabMtr('1.6'); }
-    setLead('40'); setStart(dateInput(new Date(Date.now() + 7 * 864e5).toISOString())); setCloth('');
+    setConsPc('1.62'); setWast('4'); setLead('40'); setStart(dateInput(new Date(Date.now() + 7 * 864e5).toISOString())); setCloth('');
     setNote('Capacity on line 2 from next week. MOQ 150 per colour.');
   };
   const submit = () => {
     const breakdown = [...(factoryCloth ? [{ head: `Fabric · ₹${fabRate}/m × ${fabMtr} m`, amount: Math.round(fabricPc * 100) / 100 }] : []), ...HEADS.filter(h => Number(amts[h]) > 0).map(h => ({ head: h, amount: Number(amts[h]) }))];
-    replyCostQuery(o.id, vendorId, { cost: Math.round((value / (pcs || 1)) * 100) / 100, leadDays: Number(lead), note: note.trim() || null, fabricBy: cloth || null, breakdown,
+    replyCostQuery(o.id, vendorId, { cost: Math.round((value / (pcs || 1)) * 100) / 100, leadDays: Number(lead), note: note.trim() || null, fabricBy: cloth || null, breakdown, consumptionPerPc: consPc === '' ? (factoryCloth && Number(fabMtr) ? Number(fabMtr) : null) : Number(consPc), wastagePct: wast === '' ? null : Number(wast),
       lines: lines.map(l => ({ colour: l.colour, rate: Math.round((perPc + extraOf(l.colour)) * 100) / 100 })), startOn: fromDateInput(start) });
     setDone(true);
   };
@@ -106,6 +106,8 @@ export function QuoteFormModal({ o, vendorId, onClose }: { o: ProductionOrder; v
           </div>}
 
           <div className="qf-grid pt-3">
+            <Field label="Cloth per piece (m)" hint="your marker's consumption, before wastage"><Input type="number" step="0.01" min={0} value={consPc} onChange={e => setConsPc(e.target.value)} placeholder="e.g. 1.62" /></Field>
+            <Field label="Wastage %" hint="what you add on top"><Input type="number" step="0.5" min={0} value={wast} onChange={e => setWast(e.target.value)} placeholder="e.g. 4" /></Field>
             <Field label="Lead time (days from PO)"><Input type="number" min={1} value={lead} onChange={e => setLead(e.target.value)} placeholder="e.g. 40" /></Field>
             <Field label="Can start from"><Input type="date" value={start} onChange={e => setStart(e.target.value)} /></Field>
             <Field label="Cloth: your preference"><Select value={cloth} onChange={x => setCloth(x as FabricBy | '')} options={[{ value: '', label: 'as BSC decides' }, ...(Object.keys(FABRIC_BY_LABEL) as FabricBy[]).map(k => ({ value: k, label: FABRIC_BY_LABEL[k] }))]} /></Field>

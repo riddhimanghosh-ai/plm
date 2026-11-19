@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../store';
 import type { ProductionOrder, FabricBy, ApproverRole } from '../domain/types';
 import { fmtDate, fmtMoney, daysAgo } from '../domain/engines';
-import { poDiffOf, poMailOf, approvalOf, poEditOf, poTotalsOf, replyFlagsOf, similarPricesOf, APPROVER_LABEL } from '../domain/rtwPack';
+import { poGroupOf, poDiffOf, poMailOf, approvalOf, poEditOf, poTotalsOf, replyFlagsOf, similarPricesOf, APPROVER_LABEL } from '../domain/rtwPack';
 import { Section, Pill, Button, Field, Input, Select, KV, Seg } from '../ui';
 import { ActsBy } from './Who';
 import { PoForm, PoDocView } from './RtwChain';
@@ -38,9 +38,9 @@ export function ApprovalSection({ o, prod, preset, onGo }: { o: ProductionOrder;
   /* drafting: the PO form, ending in "send for approval" */
   const redo = again && ap.state === 'rejected';
   if (!a || redo) {
-    if (!prod) return <Section title="PO draft" collapsible={false}><ActsBy role="production" does="drafts the PO on a factory reply and sends it for approval" /></Section>;
+    if (!prod) return <Section title="PO draft" collapsible={false}><ActsBy role="design" does="drafts the PO on a factory reply and sends it for approval" /></Section>;
     const cur = pick ?? (redo ? { vendorId: a!.vendorId, fabricBy: a!.fabricBy } : null);
-    if (!cur) return <Section title="PO draft" collapsible={false} right={<span className="pill role-production">Nitin</span>}>
+    if (!cur) return <Section title="PO draft" collapsible={false} right={<span className="pill role-design">Category</span>}>
       <div className="flex gap-2 items-end flex-wrap">
         <div style={{ flex: '0 1 340px' }}><Field label="Draft the PO on"><Select value={vendorId} onChange={setVendorId} options={replies.map(r => ({ value: r.vendorId, label: `${nameOf(r.vendorId)} · ${fmtMoney(r.cost)}/pc · ${r.leadDays} d` }))} /></Field></div>
         <Button variant="primary" disabled={!vendorId} onClick={() => setPick({ vendorId, fabricBy: o.pack?.clothBy ?? 'bsc-vendor' })}>Draft the PO →</Button>
@@ -78,6 +78,13 @@ export function ApprovalSection({ o, prod, preset, onGo }: { o: ProductionOrder;
             </div>)}</div>}
         </div>; })()}
       {revision && a.doc && o.poDoc && (() => { const g: Record<string, number> = {}; a.doc.lines.forEach(l => l.sizes.forEach(x => { g[x.size] = (g[x.size] ?? 0) + x.qty; })); return <RatioCompare o={o} given={Object.entries(g).map(([size, qty]) => ({ size, qty }))} label="Sizes on the revised PO" />; })()}
+      {(() => { const g = poGroupOf(db, o); if (!g.many) return null; return <div className="po-group">
+        <div className="po-group-h"><b>One PO · {g.rows.length} styles</b><span>{g.pcs.toLocaleString('en-IN')} pcs · {fmtMoney(Math.round(g.total))} incl. GST</span><em>one approval covers every style on it</em></div>
+        <table className="t compact"><thead><tr><th>Style</th><th className="num">Pcs</th><th className="num">₹ / pc</th><th className="num">Value</th><th>Against target</th></tr></thead>
+          <tbody>{g.rows.map(x => { const r2 = x.o.costQuery?.replies.find(r => r.vendorId === a.vendorId); const f2 = r2 ? replyFlagsOf(x.o, r2) : null; return <tr key={x.o.id} style={x.o.id === o.id ? { background: 'color-mix(in srgb, var(--accent) 6%, transparent)' } : undefined}>
+            <td className="font-medium" style={{ whiteSpace: 'normal' }}>{x.o.styleName}{x.o.id === o.id && <span className="pill ml-2">open here</span>}<div className="text-[11px]" style={faint}>{x.o.category}</div></td><td className="num">{x.pcs}</td><td className="num">{fmtMoney(Math.round(x.rate))}</td><td className="num">{fmtMoney(Math.round(x.total))}</td>
+            <td className="text-[12px]" style={{ color: f2?.flagged ? 'var(--risk)' : 'var(--good)' }}>{f2?.flagged ? [f2.costOver > 0 ? `${fmtMoney(f2.costOver)} over` : null, f2.lateDays > 0 ? `${f2.lateDays}d late` : null].filter(Boolean).join(' · ') : 'fits'}</td></tr>; })}</tbody></table>
+      </div>; })()}
       {rp?.breakdown && rp.breakdown.length > 0 && <div className="text-[12px] pt-1" style={soft}>Quote made up of: {rp.breakdown.map(b => `${b.head} ${fmtMoney(b.amount)}`).join(' · ')}</div>}
       {a.note && <div className="text-[12.5px] pt-2"><span style={faint}>Note </span>{a.note}</div>}
 
@@ -155,7 +162,7 @@ export function PoEditSection({ o, prod, design, onGo }: { o: ProductionOrder; p
   return <div ref={box} style={{ scrollMarginTop: 70 }}><Section title="PO change" collapsible={false} right={<span className="text-[11.5px]" style={faint}>revision {o.poDoc.revision ?? 1} · a change goes for approval again</span>}>
     {ratio && <div className="text-[12.5px]" style={{ color: 'var(--warn)' }}>Category gave a new cut ratio on {fmtDate(ratio.given!.on)}. The PO still carries the earlier sizes; change the PO and send it for approval.</div>}
     {ratio && <RatioCompare o={o} given={ratio.given!.breakup} by={ratio.given!.by} />}
-    {!canEdit ? <ActsBy role="production" does="changes the PO and sends it for approval again" />
+    {!canEdit ? <ActsBy role="design" does="changes the PO and sends it for approval again" />
       : !editing ? <Button onClick={() => setEditing(true)}>Change the PO</Button>
       : <PoForm o={o} vendorId={o.vendorId!} rate={o.finalFob ?? 0} fabricBy={o.poMail?.fabricBy ?? 'factory'} initialDoc={start} title={`${o.poNo} · revision ${(o.poDoc.revision ?? 1) + 1} · ${why}`}
           onCancel={() => setEditing(false)} onRaise={(d, ask) => askPoApproval(o.id, o.vendorId!, o.poMail?.fabricBy ?? 'factory', ask.needs, ask.deadline, ask.note ?? why, d)} />}

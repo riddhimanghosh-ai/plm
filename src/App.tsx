@@ -32,6 +32,7 @@ import { Fabrics, FabricPage } from './screens/Fabrics';
 import { PrepDesk } from './screens/Preprod';
 import { Qc } from './screens/Qc';
 import { Approvals } from './screens/Approvals';
+import { PoDraft } from './screens/PoDraft';
 import { Payments } from './screens/Payments';
 import { FinanceInvoices, FinanceLedger } from './screens/Finance';
 import { GoodsIn } from './screens/GoodsIn';
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="/requirements" element={MTM_ONLY ? <Navigate to="/design" replace /> : <ToDesign kind="RTW" form="rtw" />} />
           <Route path="/sourcing" element={RTW_ONLY ? <RtwSourcing /> : <Sourcing />} />
           <Route path="/rtw-sourcing" element={MTM_ONLY ? <Navigate to="/" replace /> : <RtwSourcing />} />
+          <Route path="/po-draft" element={MTM_ONLY ? <Navigate to="/" replace /> : <PoDraft />} />
           <Route path="/cogs" element={MTM_ONLY ? <Navigate to="/" replace /> : <CogsDashboard />} />
           <Route path="/enigma-marketing" element={MTM_ONLY ? <Navigate to="/" replace /> : <CogsDashboard only="enigma" />} />
           <Route path="/factory-db" element={MTM_ONLY ? <Navigate to="/" replace /> : <VendorDb kind="factory" />} />

@@ -13,8 +13,8 @@ import { fmtDate, prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factory
 const SAMPLE_STAGES: SampleStage[] = ['prototype', 'sample', 'trial'];
 const STAGE_NAME: Record<SampleStage, string> = { prototype: 'Prototype', sample: 'Sampling cycle', trial: 'Trial cycle' };
 import { BOM_MULTI_OPTIONS, RTW_ONLY } from './domain/edition';
-import { EMPTY_PACK, packReadyOf, costQueryMail, poMailOf, invoiceMailOf, deliveryLocationOf, poTotalsOf, supplyLinesOf, approvalOf, poEditOf, bomOpenOf } from './domain/rtwPack';
-import { PEOPLE, MERCHANDISERS, QC_POINTS, FABRIC_BY_LABEL, ORDER_STAGE_NEXT, METRES_PER_SHIRT, STORES, SHEET_LABEL, MILESTONES, MILESTONE_OWNER, PRE_PRODUCTION, SHIRT_PRESETS, defaultSpec, defaultMeasurements, defaultPattern } from './domain/reference';
+import { poDraftOf, EMPTY_PACK, packReadyOf, costQueryMail, poMailOf, invoiceMailOf, deliveryLocationOf, poTotalsOf, supplyLinesOf, approvalOf, poEditOf, bomOpenOf } from './domain/rtwPack';
+import { CONSUMPTION_DEFAULT, PEOPLE, MERCHANDISERS, QC_POINTS, FABRIC_BY_LABEL, ORDER_STAGE_NEXT, METRES_PER_SHIRT, STORES, SHEET_LABEL, MILESTONES, MILESTONE_OWNER, PRE_PRODUCTION, SHIRT_PRESETS, defaultSpec, defaultMeasurements, defaultPattern } from './domain/reference';
 
 /* `undoAt` is the depth of the stack this toast was raised at: its Undo button
    may only revert its own change, never a later one that landed on top. */
@@ -233,12 +233,17 @@ export interface AppState {
   sendPack(orderId: string): void;                                   // category: to Production RTW, only when the five parts are complete
   sendCostQuery(orderId: string, factoryIds: string[], deadline: string, mail?: MailDraft | null, files?: Record<string, string[]> | null): void;   // Nitin: mails the factories, copies the merchandiser; the mail as edited before sending
   replyCostQuery(orderId: string, vendorId: string, reply: Omit<CostReply, 'vendorId' | 'repliedOn'>): void;   // the factory's reply on the form (logged here in the prototype)
-  raisePoOnReply(orderId: string, vendorId: string, fabricBy: FabricBy, doc?: PoDoc | null): void;   // Nitin decides the cloth (BSC sends · factory buys from BSC's vendor · factory's own) before the PO; delivery location follows the requirement's semi-stitched flag   // Nitin: the PO on one reply, mailed with the delivery location and the TNA form
+  raisePoOnReply(orderId: string, vendorId: string, fabricBy: FabricBy, doc?: PoDoc | null, poNo?: string | null): void;   // Nitin decides the cloth (BSC sends · factory buys from BSC's vendor · factory's own) before the PO; delivery location follows the requirement's semi-stitched flag   // Nitin: the PO on one reply, mailed with the delivery location and the TNA form
   submitTnaPlan(orderId: string, plans?: Record<string, string>): void;    // merchandiser: the planned dates back from the factory
   recordQcCheck(orderId: string, point: QcPoint, result: 'pass' | 'fail', remarks: string, aesthetic?: string | null): void;   // QC: a pass closes the TNA block
   reviseTarget(orderId: string, field: 'targetInhouse' | 'targetCost', to: string | number, why: string): void;   // category, when every factory reply is over target; was → now stays on the record
   /* 17 Nov 2026 */
   askPoApproval(orderId: string, vendorId: string, fabricBy: FabricBy, needs: ApproverRole[], deadline: string, note: string | null, doc: PoDoc): void;
+  askCombinedPo(orderIds: string[], vendorId: string, needs: ApproverRole[], deadline: string, note: string | null): void;   // 19 Nov 2026: one PO for several requirements, one approval
+  setConsignment(orderId: string, file: string): void;   // the 3PL's consignment report, uploaded by the merchandiser
+  bomFromReply(orderId: string, vendorId: string): void;   // the cloth line takes the factory's consumption and wastage
+  bomStandards(orderId: string): void;                     // category-wise standard quantities, for the first estimate
+  freezeBom(orderId: string): void; reviseBom(orderId: string, why: string): void;
   requestPoEdit(orderId: string, needs: ApproverRole[], reason: string): void;   // Nitin: a raised PO is locked; ask HOD and / or finance for edit access
   grantPoEdit(orderId: string, role: ApproverRole, granted: boolean, comment: string | null): void;   // Nitin: the chosen reply to HOD, finance or both, with an approve-by date
   decidePoApproval(orderId: string, role: ApproverRole, approved: boolean, comment: string | null): void;
@@ -363,7 +368,7 @@ function makeSupplyInvoice(db: Db, o: ProductionOrder) {
   o.poInvoices = prev ? (o.poInvoices ?? []).map(i => i.id === prev.id ? inv : i) : [...(o.poInvoices ?? []), inv];
   (o.activity = o.activity ?? []).push({ at: new Date(TODAY).toISOString(), who: 'PLM', what: `Invoice ${no} ${prev ? 'regenerated' : 'generated'} for what BSC sends · ₹${amount} · ${lines.length} line${lines.length === 1 ? '' : 's'}` });
 }
-const SEED_VERSION = 173;
+const SEED_VERSION = 175;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 let saveWarned = false;
@@ -436,9 +441,9 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     db.grns.unshift({ ...g, id: `grn-${Date.now().toString(36)}-${n}`, grnNo, receivedOn: now(), by: who(), invoiceNo: g.invoiceNo ?? null, poNo: g.poNo ?? (g.kind === 'rtw-po' || g.kind === 'fabric' ? g.ref : null), financeSeenOn: null }); return grnNo; };
 
     /* approved (or approval skipped): a new PO is raised and mailed; a revision replaces the PO and the new one is mailed */
-    const finishPoApproval = (orderId: string, a: PoApproval, revision: boolean) => { if (!a.doc) return;
+    const finishPoApproval = (orderId: string, a: PoApproval, revision: boolean, poNo: string | null = null) => { if (!a.doc) return;
       /* the last approval: a new PO is raised and mailed; a revision replaces the PO and the new one is mailed — no send step for production */
-      if (!revision) { get().raisePoOnReply(orderId, a.vendorId, a.fabricBy, a.doc); get().sendPoMail(orderId); }
+      if (!revision) { get().raisePoOnReply(orderId, a.vendorId, a.fabricBy, a.doc, poNo); get().sendPoMail(orderId); }
       else touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.poDoc) return; const rev = (o.poDoc.revision ?? 1) + 1; const t = poTotalsOf(a.doc!);
         o.poDoc = { ...a.doc!, revision: rev }; o.finalFob = Math.round(t.avgRate * 100) / 100 || o.finalFob; o.orderQty = t.pcs || o.orderQty;
         const logi = a.doc!.charges.find(c => /logistic|freight|transport/i.test(c.label)); o.poCosts = { logistics: logi?.amount ?? null, other: a.doc!.charges.filter(c => c !== logi) };
@@ -1437,12 +1442,12 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.costQuery) return; o.costQuery.replies = o.costQuery.replies.filter(r => r.vendorId !== vendorId);
         o.costQuery.replies.push({ vendorId, repliedOn: now(), ...reply });
         log(o, `${db.vendors.find(v => v.id === vendorId)?.name ?? vendorId} replied · ₹${reply.cost}/pc · ${reply.leadDays} days${reply.fabricBy ? ` · prefers: ${FABRIC_BY_LABEL[reply.fabricBy]}` : ''}`); },
-        'Reply logged. Nitin raises the PO on the one he picks.');
+        'Reply logged. Category drafts the PO on the one it picks.');
     },
-    raisePoOnReply(orderId, vendorId, fabricBy, doc = null) {
+    raisePoOnReply(orderId, vendorId, fabricBy, doc = null, poNo = null) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); const rp = o?.costQuery?.replies.find(r => r.vendorId === vendorId); if (!o || !rp || o.poNo) return;
         if (!o.enigmaProduct || !approvalOf(o).approved || o.poApproval?.vendorId !== vendorId) return;   // 17 Nov 2026: SKUs in Enigma and the approval come first
-        o.vendorId = vendorId; o.poDate = now(); o.poNo = `PO #${15500 + db.orders.filter(x => x.poNo).length + 1}`; o.status = 'Open'; o.finalFob = rp.cost; o.costingClosure.actual = now();
+        o.vendorId = vendorId; o.poDate = now(); o.poNo = poNo ?? `PO #${15500 + new Set(db.orders.filter(x => x.poNo).map(x => x.poNo)).size + 1}`; o.poGroup = o.poApproval?.group ?? null; if (!o.bomFrozen) o.bomFrozen = { on: now(), by: who(), from: 'the PO' }; o.status = 'Open'; o.finalFob = rp.cost; o.costingClosure.actual = now();
         if (doc) { const t = poTotalsOf(doc); o.poDoc = doc; o.finalFob = Math.round(t.avgRate * 100) / 100 || rp.cost;
           const logi = doc.charges.find(c => /logistic|freight|transport/i.test(c.label)); o.poCosts = { logistics: logi?.amount ?? null, other: doc.charges.filter(c => c !== logi) }; }
         o.fabricNominated = fabricBy === 'bsc'; o.sourcingMode = fabricBy === 'bsc' ? 'bsc-buys' : 'vendor-sources';
@@ -1499,14 +1504,46 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
       if (made && !needs.length) finishPoApproval(orderId, made as PoApproval, rev);
     },
     decidePoApproval(orderId, role, approved, comment) {
-      let go: PoApproval | null = null; let revision = false;
-      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.poApproval || !o.poApproval.needs.includes(role)) return;
-        o.poApproval.decisions.push({ role, by: who(), on: now(), approved, comment });
-        log(o, `${role === 'hod' ? 'HOD' : 'Finance'} ${approved ? 'approved' : 'rejected'} the ${o.poNo ? 'revised PO' : 'PO'}${comment ? ` · ${comment}` : ''}`);
-        if (approvalOf(o).approved) { go = o.poApproval; revision = !!o.poNo; } },
-        approved ? 'Approved.' : 'Rejected. Nitin can change the PO and send it again.', approved ? 'ok' : 'warn');
-      if (go) finishPoApproval(orderId, go as PoApproval, revision);
+      /* a PO that carries several requirements is approved or rejected once, for all of them */
+      const done: { id: string; a: PoApproval; revision: boolean }[] = [];
+      touch(db => { const o0 = db.orders.find(x => x.id === orderId); if (!o0?.poApproval || !o0.poApproval.needs.includes(role)) return;
+        const g = o0.poApproval.group ?? null; const all = g && !o0.poNo ? db.orders.filter(x => x.poApproval?.group === g && !x.poNo) : [o0];
+        all.forEach(o => { if (!o.poApproval || !o.poApproval.needs.includes(role)) return;
+          o.poApproval.decisions.push({ role, by: who(), on: now(), approved, comment });
+          log(o, `${role === 'hod' ? 'HOD' : 'Finance'} ${approved ? 'approved' : 'rejected'} the ${o.poNo ? 'revised PO' : all.length > 1 ? `PO · ${all.length} styles on it` : 'PO'}${comment ? ` · ${comment}` : ''}`);
+          if (approvalOf(o).approved) done.push({ id: o.id, a: o.poApproval, revision: !!o.poNo }); }); },
+        approved ? 'Approved.' : 'Rejected. Category can change the PO and send it again.', approved ? 'ok' : 'warn');
+      let shared: string | null = null;
+      done.forEach((d, k) => { finishPoApproval(d.id, d.a, d.revision, d.a.group ? shared : null); if (k === 0 && d.a.group) shared = get().db.orders.find(x => x.id === d.id)?.poNo ?? null; });
     },
+    askCombinedPo(orderIds, vendorId, needs, deadline, note) {
+      const fin: { id: string; a: PoApproval }[] = [];
+      touch(db => { const os = orderIds.map(id => db.orders.find(x => x.id === id)).filter((o): o is ProductionOrder => !!o && !o.poNo && !!o.enigmaProduct && !!o.costQuery?.replies.some(r => r.vendorId === vendorId));
+        if (!os.length) return; const group = os.length > 1 ? `pog-${Date.now().toString(36)}` : null; const fac = db.vendors.find(v => v.id === vendorId)?.name ?? vendorId;
+        os.forEach(o => { const rp = o.costQuery!.replies.find(r => r.vendorId === vendorId)!; const fabricBy = (o.pack?.clothBy ?? 'bsc-vendor') as FabricBy; const doc = poDraftOf(o, rp.cost, rp.lines);
+          o.poApproval = { vendorId, fabricBy, needs, deadline, askedOn: now(), by: who(), note, decisions: [], doc, kind: 'new', group }; const t = poTotalsOf(doc);
+          if (!o.bomFrozen) o.bomFrozen = { on: now(), by: who(), from: 'the PO draft' };
+          log(o, `PO draft sent for approval · ${fac} · ${t.pcs} pcs · ₹${Math.round(t.total)}${group ? ` · one PO with ${os.length - 1} other style${os.length === 2 ? '' : 's'}` : ''} · ${needs.length ? `needs ${needs.map(r => r === 'hod' ? 'HOD' : 'finance').join(' and ')} · by ${fmtDate(deadline)}` : 'approval skipped'}`);
+          if (!needs.length) fin.push({ id: o.id, a: o.poApproval }); }); },
+        `One PO drafted for ${orderIds.length} style${orderIds.length === 1 ? '' : 's'} and sent for approval.`);
+      let shared: string | null = null;
+      fin.forEach((d, k) => { finishPoApproval(d.id, d.a, false, shared); if (k === 0) shared = get().db.orders.find(x => x.id === d.id)?.poNo ?? null; });
+    },
+    setConsignment(orderId, file) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.consignment = { file, on: now(), by: who() }; log(o, `3PL consignment report uploaded · ${file}`); }, 'Consignment report read. The count is filled from it.'); },
+    bomFromReply(orderId, vendorId) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); const r = o?.costQuery?.replies.find(x => x.vendorId === vendorId); if (!o || !r || r.consumptionPerPc == null) return;
+        o.bom = o.bom.map(l => l.kind === 'fabric' ? { ...l, qtyPerPc: r.consumptionPerPc!, wastagePct: r.wastagePct ?? l.wastagePct ?? null, qtyBasis: 'factory' as const, widthIn: l.widthIn ?? o.pack?.fabric.widthIn ?? null } : l);
+        o.costing.consumption = Math.round(r.consumptionPerPc * (1 + (r.wastagePct ?? 0) / 100) * 100) / 100;
+        log(o, `BOM cloth quantity taken from ${db.vendors.find(v => v.id === vendorId)?.name ?? vendorId}'s quote · ${r.consumptionPerPc} m per piece${r.wastagePct != null ? ` · ${r.wastagePct}% wastage` : ''}`); }, 'The cloth line now carries the factory\'s consumption and wastage.');
+    },
+    bomStandards(orderId) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; const std = CONSUMPTION_DEFAULT[o.category as GarmentCategory];
+        o.bom = o.bom.map(l => l.qtyPerPc != null ? l : l.kind === 'fabric' ? { ...l, qtyPerPc: std?.qty ?? 1.6, wastagePct: l.wastagePct ?? 3, qtyBasis: 'standard' as const, widthIn: l.widthIn ?? o.pack?.fabric.widthIn ?? 57 }
+          : { ...l, qtyPerPc: /button/i.test(l.item) ? 12 : 1, qtyBasis: 'standard' as const });
+        log(o, `BOM quantities filled from the ${o.category} standard · an estimate until the factory quotes`); }, 'Standard quantities filled. They are an estimate until the factory quotes.');
+    },
+    freezeBom(orderId) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.bomFrozen = { on: now(), by: who(), from: null }; log(o, 'BOM quantities frozen for the costing · they are the reference for what is sent to the factory'); }, 'BOM quantities frozen.'); },
+    reviseBom(orderId, why) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.bomFrozen = null; o.bomRevisions = [...(o.bomRevisions ?? []), { on: now(), by: who(), why }]; log(o, `BOM quantities reopened for revision · ${why}`); }, 'BOM reopened. Change the quantities and freeze them again.'); },
     requestPoEdit(orderId, needs, reason) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.poNo || !needs.length) return;
         o.poEdit = { needs, reason, askedOn: now(), by: who(), grants: [] };

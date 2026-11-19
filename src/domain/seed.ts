@@ -1508,7 +1508,7 @@ orders.forEach((o, i) => {
     o.pack = fullPack(o, sentOn);
     const ids = factoriesFor(o, 3); const d0 = addDays(o.poDate!, -4);
     o.costQuery = { sentOn: iso(addDays(d0, -3)), by: 'Nitin Singh', deadline: iso(addDays(d0, 2)), to: ids.map(id => `${id}@factory.in`), cc: ['nitin.singh@merchandiser.in'], factoryIds: ids,
-      replies: ids.map((id, k) => ({ vendorId: id, cost: id === o.vendorId ? (o.finalFob ?? o.targetCost) : Math.round((o.finalFob ?? o.targetCost) * (1.04 + k * 0.05)), leadDays: 36 + k * 3, repliedOn: iso(addDays(d0, k)), note: null })) };
+      replies: ids.map((id, k) => ({ vendorId: id, cost: id === o.vendorId ? (o.finalFob ?? o.targetCost) : Math.round((o.finalFob ?? o.targetCost) * (1.04 + k * 0.05)), leadDays: 36 + k * 3, repliedOn: iso(addDays(d0, k)), note: null, consumptionPerPc: Math.round(((o.costing?.consumption ?? 1.6) * (1 + k * 0.02)) * 100) / 100, wastagePct: 3 + k })) };
     const hem = !!o.semiStitched;
     /* a third of the POs: the factory buys the cloth itself (from BSC's vendor, or its own) and gives the details back */
     if (i % 3 === 1 && !(o.cutRatios ?? []).length) { o.fabricNominated = false; o.sourcingMode = 'vendor-sources'; o.fabricSupply = null; }
@@ -1607,6 +1607,14 @@ orders.forEach((o, i) => {
 /* category's cloth choice follows what the PO did */
 orders.forEach((o, i) => { if (o.pack && o.pack.clothBy === undefined) o.pack.clothBy = o.poMail?.fabricBy ?? clothFor(o, i); if (o.pack && o.pack.clothBy === 'factory') { o.pack.fabric.vendorId = null; o.pack.fabric.vendorFabricCode = null; o.pack.fabric.blockedMetres = null; o.pack.fabric.readiness = null; o.pack.fabric.trimVendorId = null; } });
 orders.forEach(o => { const m = Object.entries({ 'Nitin Singh': ['ayaan', 'camellia', 'topnotch'], 'Abhin M': ['gseams', 'goodwill', 'richman'], 'Bhupendra': ['united', 'strand', 'zen'] }).find(([, fs]) => o.vendorId && fs.includes(o.vendorId))?.[0]; if (m) o.merchant = m; });
+/* 19 Nov 2026 (Parag): every factory reply carries its cloth consumption per piece and its wastage, beside the cost per unit */
+orders.forEach(o => (o.costQuery?.replies ?? []).forEach((r, k) => { if (r.consumptionPerPc == null) { r.consumptionPerPc = Math.round((o.costing?.consumption ?? 1.6) * (1 + k * 0.02) * 100) / 100; r.wastagePct = 3 + k; } }));
+/* the BOM's quantities are frozen once the PO is drafted; the cloth line knows its width and wastage */
+orders.forEach(o => { const f = o.bom.find(l => l.kind === 'fabric'); if (f) { f.widthIn = f.widthIn ?? o.pack?.fabric.widthIn ?? (o.id.charCodeAt(o.id.length - 1) % 2 ? 57 : 54); if (o.poNo) { f.wastagePct = f.wastagePct ?? 3; f.qtyBasis = 'factory'; } }
+  if (o.poNo && o.poDate) o.bomFrozen = { on: o.poDate, by: 'Category', from: 'the PO' }; });
+/* counting follows where the goods land: one PO delivered to the 3PL still waits for the merchandiser to upload the 3PL's consignment report */
+{ const o = [...orders].reverse().find(x => x.status === 'Closed' && x.invoice?.mailedOn && x.poDoc && x.poMail?.deliveryLocation === '3PL warehouse' && (x.receipts ?? []).length > 0);
+  if (o) { o.receipts = []; o.status = 'Open'; o.cogsClosedOn = null; } }
 export const SEED: Db = {
   lostSales,
   people: PEOPLE, vendors: VENDORS, orders, escalations, options, fabrics,

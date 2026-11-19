@@ -18,16 +18,17 @@ import { MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
 import { PackSection, CostQuerySection, PoSection, PoCostsSection, PoInvoicesSection, FactoryClothSection, TnaPlanSection, QcChecksSection, InvoiceSection, ReceivedSection, WarehouseCount, CogsSection, RemarksLog, remarksCountOf, PoFabricsSection, EnigmaSection } from './RtwChain';
 import { SOURCE_LABEL } from '../domain/rtwJourney';
+import { countedBy3plOf } from '../domain/rtwPack';
 import { ApprovalSection, PoEditSection } from './RtwApproval';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
 const MINE: Record<string, string[]> = {
-  design: ['raised', 'pack', 'query', 'launch', 'approval', 'cloth', 'tna', 'cogs'],
+  design: ['raised', 'pack', 'query', 'launch', 'approval', 'po', 'cloth', 'tna', 'cogs'],   // 19 Nov 2026 (Parag): category drafts the PO and does everything on it
   hod: ['query', 'launch', 'approval', 'po', 'invoices'],
   finance: ['query', 'launch', 'approval', 'po', 'cogs', 'invoices'],
   planning: ['raised', 'cogs', 'launch'],
   sourcing: ['pack', 'cloth', 'invoices'],
-  production: ['raised', 'pack', 'query', 'launch', 'approval', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'cogs', 'invoices'],
+  production: ['raised', 'pack', 'query', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'invoices'],
   merchandiser: ['query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'invoices'],
   qc: ['po', 'tna'],
   warehouse: ['po', 'dispatch', 'received'],
@@ -144,11 +145,11 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
 
     {at('query') && <div className="rtw-full"><CostQuerySection o={o} prod={prod} merchant={merchant} design={design} onAskApproval={(vendorId, fabricBy) => { setApPreset({ vendorId, fabricBy }); setOpen('approval'); }} onGo={setOpen} /></div>}
 
-    {at('launch') && <div className="rtw-full"><EnigmaSection o={o} design={design || prod} /></div>}
-    {at('approval') && <div className="rtw-full"><ApprovalSection key={(apPreset?.vendorId ?? '') + (o.poApproval?.askedOn ?? '')} o={o} prod={prod} preset={apPreset} onGo={k => { setApPreset(null); setOpen(k); }} /></div>}
+    {at('launch') && <div className="rtw-full"><EnigmaSection o={o} design={design} /></div>}
+    {at('approval') && <div className="rtw-full"><ApprovalSection key={(apPreset?.vendorId ?? '') + (o.poApproval?.askedOn ?? '')} o={o} prod={design} preset={apPreset} onGo={k => { setApPreset(null); setOpen(k); }} /></div>}
     {at('po') && <div className="rtw-full"><PoSection o={o} /></div>}
-    {at('po') && o.poNo && <div className="rtw-full pt-3"><PoEditSection key={(o.poEdit?.askedOn ?? '') + (o.poDoc?.revision ?? 1) + (o.cutRatios ?? []).filter(c => c.given).length} o={o} prod={prod} design={design} onGo={setOpen} /></div>}
-    {at('po') && o.poNo && <div className="rtw-full pt-3"><PoCostsSection o={o} design={prod} factory={merchant} /></div>}
+    {at('po') && o.poNo && <div className="rtw-full pt-3"><PoEditSection key={(o.poEdit?.askedOn ?? '') + (o.poDoc?.revision ?? 1) + (o.cutRatios ?? []).filter(c => c.given).length} o={o} prod={design} design={design} onGo={setOpen} /></div>}
+    {at('po') && o.poNo && <div className="rtw-full pt-3"><PoCostsSection o={o} design={design} factory={merchant} /></div>}
 
     {at('plan') && <div className="rtw-full"><TnaPlanSection o={o} merchant={merchant} /></div>}
 
@@ -174,10 +175,10 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
 
     {at('dispatch') && <div className="rtw-full"><InvoiceSection o={o} merchant={merchant} /></div>}
 
-    {at('received') && (role === 'warehouse' || role === 'owner') && <div className="rtw-full pb-3"><WarehouseCount o={o} /></div>}
+    {at('received') && (countedBy3plOf(o) ? merchant : (role === 'warehouse' || role === 'owner')) && <div className="rtw-full pb-3"><WarehouseCount o={o} /></div>}
     {at('received') && <div className="rtw-full"><ReceivedSection o={o} /></div>}
 
-    {at('cogs') && <CogsSection o={o} finance={prod || design} />}
+    {at('cogs') && <CogsSection o={o} finance={design} />}
 
     {at('invoices') && <div className="rtw-full"><PoInvoicesSection o={o} prod={prod || role === 'finance'} /></div>}
         </div>

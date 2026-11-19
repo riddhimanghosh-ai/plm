@@ -19,6 +19,7 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
 
   /* the book: what exists and what it is called */
   { path:'/design',       label:'Requirements',        hint: RTW_ONLY ? 'every RTW style at its stage; open any row, raise a new one' : 'every ask — MTM fabric, RTW style — at its stage; open any row, raise any kind', group:'Design',   roles:['owner','design','planning','sourcing'] , hideFor:['sourcing']},
+  { path:'/po-draft',     label:'Draft a PO',                 hint:'one PO for one or several requirements; sent to the HOD and finance', group:'Design',   roles:['owner','design'] },
   { path:'/cogs',         label:'COGS and cost',              hint:'COGS per piece and margin for every style', group:'Design',   roles:['owner','design','production'], hideFor:['production'] },
   { path:'/enigma-marketing', label:'Enigma and marketing',   hint:'add received styles to Enigma; product and marketing details', group:'Design',   roles:['owner','design'] },
   { path:'/swatches',     label:'Swatch desk',                hint:'cloth in → swatches cut → stores told → live; the sticker prints off the record', group:'Design',   roles:['owner','design','production','warehouse'] , hideFor:['production']},
@@ -54,10 +55,8 @@ export const NAV: { path: string; label: string; hint: string; group?: string; r
   /* 17 Nov 2026: the PO needs approval before it is drafted; finance also runs the payments */
   { path:'/approvals-hod', label:'PO approvals',              hint:'PO requests waiting on the HOD, and by when', group:'HOD', roles:['owner','hod'] },
   { path:'/approvals',    label:'PO approvals',               hint:'approve or reject: new POs and revised POs waiting on finance', group:'Finance', roles:['owner','finance'] },
+  /* 19 Nov 2026: finance keeps only what the RTW flow needs — approving the PO and paying it (in parts). Invoices, the ledger and COGS stay on each style's record; their screens are off the menu. */
   { path:'/payments',     label:'Payments to make',           hint:'what is due to factories now, what comes later; record or upload payments', group:'Finance', roles:['owner','finance'] },
-  { path:'/invoices',     label:'Invoices',                   hint:"factories' invoices checked against the PO and the count; BSC's invoices; debit and credit notes", group:'Finance', roles:['owner','finance'] },
-  { path:'/ledger',       label:'Ledger',                     hint:'PO value, deductions, payable, paid and remaining: by PO and by factory', group:'Finance', roles:['owner','finance'] },
-  { path:'/finance-cogs', label:'COGS and margin',            hint:'COGS per piece and margin for every style', group:'Finance', roles:['owner','finance'] },
   { path:'/qc',           label:'QC · samples and inspections', hint:'PP sample, size set, the line inspections: pass or fail with remarks', group:'QC', roles:['owner','qc'] },
   { path:'/factory',      label:'My factory · merchandiser',   hint:"the floor's own day: output, pieces, cloth",     group:'Merchandiser', roles:['owner','merchandiser','production'] , hideFor:['production']},
 
@@ -148,7 +147,7 @@ export function Shell() {
   const [navOpen, setNavOpen] = useState(false);
   useEffect(() => { setNavOpen(false); }, [loc.pathname, loc.search]);
   /* phone: on the floor roles' list screens every table row reads as a card; each cell is labelled with its column heading */
-  const CARD_SCREENS = ['/qc', '/factory', '/inward', '/tracker', '/rtw-sourcing', '/design', '/approvals', '/approvals-hod', '/payments', '/dashboard', '/factory-db', '/cloth-vendors'];
+  const CARD_SCREENS = ['/po-draft', '/qc', '/factory', '/inward', '/tracker', '/rtw-sourcing', '/design', '/approvals', '/approvals-hod', '/payments', '/dashboard', '/factory-db', '/cloth-vendors'];
   const cards = CARD_SCREENS.some(p => loc.pathname === p || loc.pathname.startsWith(p + '/'));
   useEffect(() => {
     if (!cards) return; const main = document.querySelector('main.app-main'); if (!main) return; let raf = 0;

@@ -168,6 +168,8 @@ export interface BomLine {
   chosen?: string | null;        // the option category picked
   gstPct?: number | null;        // GST % on this line, from the picked option
   vendorState?: string | null;   // the vendor's state, from the picked option
+  /* 19 Nov 2026 (Parag): the cloth line's width, the wastage on top of the consumption, and where the quantity came from */
+  widthIn?: number | null; wastagePct?: number | null; qtyBasis?: 'standard' | 'factory' | null;
 }
 /* one way to get a BOM line: who supplies it, from which vendor, at what rate */
 export interface BomOption { id: string; suppliedBy: SuppliedBy; vendor: string | null; rate: number | null; gstPct?: number | null; state?: string | null;   // GST on the line and the vendor's state: same state as the buyer is CGST + SGST, another state is IGST
@@ -240,6 +242,7 @@ export interface RequirementPack {
 export type FabricBy = 'bsc' | 'bsc-vendor' | 'factory';
 /* fabricBy: what the factory may say it prefers; RTW Production decides before the PO */
 export interface CostReply { vendorId: string; cost: number; fabricBy?: FabricBy | null; leadDays: number; repliedOn: string; note: string | null;
+  consumptionPerPc?: number | null; wastagePct?: number | null;   // 19 Nov 2026 (Parag): the factory comes back with its cloth consumption per piece and its wastage, beside the cost per unit
   lines?: { colour: string; rate: number }[] | null; startOn?: string | null; validTill?: string | null;
   breakdown?: { head: string; amount: number }[] | null }   // the price per piece by cost head: fabric (when the factory buys it), trims, cutting, stitching, finishing, packing, overheads and margin   // 16 Nov 2026: the factory quotes a rate per item line on its web form; cost = the weighted average
 export interface MailDraft { to: string[]; cc: string[]; subject: string; body: string }   // a mail PLM composed, as the sender edited it before sending
@@ -270,6 +273,7 @@ export interface PoFabric { id: string; colour: string; vendorId: string | null;
 /* 17 Nov 2026: before the PO, Nitin sends the chosen reply for approval — HOD, finance or both — with an approve-by date */
 export type ApproverRole = 'hod' | 'finance';
 export interface PoApproval { vendorId: string; fabricBy: FabricBy; needs: ApproverRole[]; deadline: string; askedOn: string; by: string; note: string | null;
+  group?: string | null;   // 19 Nov 2026 (Parag): one PO can carry several requirements; they share this id, one approval and one PO number
   doc?: PoDoc | null; kind?: 'new' | 'revision';   // the drafted PO the approvers approve; on the last approval it is raised (or the revision applied) and mailed by itself
   decisions: { role: ApproverRole; by: string; on: string; approved: boolean; comment: string | null }[] }
 /* a payment made against the PO: keyed by hand or from finance's upload */
@@ -357,6 +361,11 @@ export interface ProductionOrder {
   semiStitched?: boolean;
   deliverTo?: DeliveryLocation | null;   // category's pick on the requirement; defaults from semi-stitched, can be overridden   // known at the requirement: a semi-stitched product (hemming in-house) delivers to Vasai, everything else to the 3PL warehouse
   costQuery?: CostQuery | null;
+  poGroup?: string | null;   // the other requirements on the same PO share this id
+  /* 19 Nov 2026 (Parag): the BOM's quantities are frozen once the factory's quote is in, to get the costing; a later change is a logged revision */
+  bomFrozen?: { on: string; by: string; from: string | null } | null; bomRevisions?: { on: string; by: string; why: string }[];
+  /* delivered to the 3PL: the merchandiser uploads the 3PL's consignment report and the count fills from it */
+  consignment?: { file: string; on: string; by: string } | null;
   poDoc?: PoDoc | null;
   poApproval?: PoApproval | null;
   poPayments?: PoPayment[] | null;

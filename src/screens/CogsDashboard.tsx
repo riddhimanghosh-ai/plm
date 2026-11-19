@@ -34,8 +34,8 @@ export function CogsDashboard({ only = 'cogs' }: { only?: 'cogs' | 'enigma' }) {
   const below = all.filter(r => r.c.margin != null && r.c.margin < TARGET_MARGIN);
   const toEnigma = all.filter(r => !r.o.enigmaProduct && r.c.delivered); const toMkt = all.filter(r => r.o.enigmaProduct && !r.o.enigmaProduct.copy);
   /* where the money goes, per piece on average */
-  const parts = ['fabric', 'make', 'trims', 'transport', 'hemming', 'freight', 'overheads', 'poExtra'] as const;
-  const PART: Record<typeof parts[number], string> = { fabric: 'Fabric', make: 'Making', trims: 'Trims & packaging', transport: 'Transport', hemming: 'Hemming', freight: 'Freight', overheads: 'Overheads', poExtra: 'PO extras' };
+  const parts = ['fabric', 'make', 'poExtra', 'packaging', 'shipping', 'process'] as const;
+  const PART: Record<typeof parts[number], string> = { fabric: 'Cloth sent by BSC', make: 'PO cost · FOB', poExtra: 'Other PO charges', packaging: 'Packaging', shipping: 'Shipping', process: 'Process costs' };
   const mix = parts.map(k => ({ k, v: all.length ? all.reduce((a, r) => a + (r.c.parts[k] || 0), 0) / all.length : 0 })).filter(x => x.v > 0);
   const mixTotal = mix.reduce((a, x) => a + x.v, 0) || 1;
   const active = db.orders.find(o => o.id === (params.get('open') ?? '').split(':')[0]) ?? null;

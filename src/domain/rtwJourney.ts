@@ -6,7 +6,7 @@
 import type { Db, ProductionOrder } from './types';
 import { fmtDate, daysAgo, receiptOf, riskOf, stageOf, fabricStateOf } from './engines';
 import { PEOPLE } from './reference';
-import { packReadyOf, openQcOf, targetReviseOpenOf, poFabricsOf, approvalOf } from './rtwPack';
+import { packReadyOf, openQcOf, targetReviseOpenOf, poFabricsOf, approvalOf, countedBy3plOf } from './rtwPack';
 
 export type RtwActor = 'hod' | 'design' | 'sourcing' | 'production' | 'merchandiser' | 'qc' | 'warehouse' | 'planning' | 'finance';
 export type RtwPhase = 'design' | 'buy' | 'make' | 'land';
@@ -21,13 +21,13 @@ export const RTW_INTRO: Record<string, string> = {
   raised: 'Where the ask came from (a category ask or a planning reorder) and what it asks for: the style, how many, by when, at what cost.',
   pack: 'The parts of the requirement: tech pack, fabric info, trim card, size-wise quantity (the cut ratio) and the BOM. Sourcing adds the cloth vendor, its fabric code, the blocked quantity and when the cloth is ready. Nothing goes to Production RTW until every part is in.',
   query: 'Nitin picks factories from the factory database (recommended by category and region, or any other), sets a reply deadline and sends the counter-sourcing query. PLM mails it to the factories with the requirement and a cost form, copying the merchandiser. Replies land here: cost per piece and lead time. Before raising the PO, Nitin decides the cloth: BSC sends it, the factory buys it from BSC\'s vendor, or the factory\'s own. A reply over the target cost or past the target in-house date is flagged red; when none fits, category revises the target and the record keeps what it was.',
-  po: 'Nitin raises the PO on one reply. PLM mails it to the factory and the merchandiser with the delivery location (3PL warehouse, or Vasai in-house when there is hemming or semi-stitching), the cloth vendor\'s details when BSC\'s vendor supplies it, and the TNA form. There is no PO for the vendor cloth in PLM.',
+  po: 'Category drafts the PO on one reply; one PO can carry several requirements. PLM mails it to the factory and the merchandiser with the delivery location (3PL warehouse, or Vasai in-house when there is hemming or semi-stitching), the cloth vendor\'s details when BSC\'s vendor supplies it, and the TNA form. There is no PO for the vendor cloth in PLM.',
   plan: 'The TNA form comes back with the planned date for every step, through the merchandiser. Until it does, the merchandiser sees it as owed.',
   cloth: 'Three ways the cloth reaches the factory, decided by RTW Production before the PO: BSC sends it — cloth and trims both shipped by sourcing, the factory counts them in; the factory buys it from BSC\'s vendor on the details in the PO; or the factory\'s own cloth. In the last two the factory gives back its fabric PO and receipt, which land on the TNA. Less or more cloth or trim than the PO needs goes back to category for a new cut ratio.',
   tna: 'Every step of the TNA — the factory\'s own fabric PO and receipt, PP sample, size set, cutting, stitching, finishing, dispatch — with planned, revised and actual dates. QC passes or fails the PP sample, the size set and three line inspections; its remarks are on the record for the merchandiser.',
   dispatch: 'After the dispatch actual the merchandiser uploads the factory\'s invoice and packing list. PLM mails both to Prince at the warehouse, who receives against the packing list on Enigma.',
-  received: 'What Enigma received, by size, against the packing list: did everything reach?',
-  cogs: 'COGS per piece from the costing sheet with the actuals laid over it: fabric at the consumption cutting used, the factory\'s PO price, the sheet\'s trims, transport, freight and overheads. Against MRP net of discounts and GST. Nitin and category see it.',
+  received: 'What was received, by size, against the PO. Delivered to Vasai, Prince counts it in. Delivered to the 3PL, the merchandiser uploads the 3PL consignment report and the count fills from it.',
+  cogs: 'Direct COGS per piece: the PO cost (FOB) plus the fixed packaging, shipping and process costs. That cost times the multiplier is the MRP category puts in Enigma. Indirect COGS is not in this phase.',
   invoices: 'Every invoice, debit note and credit note on this PO, both ways, with its document — logged here for reconciliation.',
   launch: 'The style into Enigma with every size: code, name, MRP and one SKU per size.',
 };
@@ -63,10 +63,10 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
     /* 17 Nov 2026: the SKUs go into Enigma once the factories have quoted, and the PO needs approval before it is drafted */
     { key: 'launch', phase: 'buy', label: 'Added to Enigma · SKUs', who: 'Category', act: 'design', on: o.enigmaProduct?.addedOn ?? launch?.launchedOn ?? null, by: o.enigmaProduct ? `${o.enigmaProduct.code} · ${o.enigmaProduct.skus.length} SKUs` : launch?.dropMonth,
       now: !replies ? 'after a factory reply' : 'category to add the SKUs in Enigma; no PO before that' },
-    { key: 'approval', phase: 'buy', label: 'PO draft · approval', who: 'Nitin · HOD · Finance', act: ap.state === 'pending' ? ap.pending[0] : 'production', on: ap.approved ? (ap.a!.decisions[ap.a!.decisions.length - 1]?.on ?? ap.a!.askedOn) : (o.poNo ? o.poDate : null), by: ap.approved ? ap.line : o.poNo ? 'approved' : null,
+    { key: 'approval', phase: 'buy', label: 'PO draft · approval', who: 'Category · HOD · Finance', act: ap.state === 'pending' ? ap.pending[0] : 'design', on: ap.approved ? (ap.a!.decisions[ap.a!.decisions.length - 1]?.on ?? ap.a!.askedOn) : (o.poNo ? o.poDate : null), by: ap.approved ? ap.line : o.poNo ? 'approved' : null,
       tone: ap.state === 'rejected' || ap.late ? 'risk' : undefined,
-      now: !replies ? 'after a factory reply' : !(o.enigmaProduct || launch) ? 'after the SKUs are in Enigma' : ap.state === 'none' ? 'Nitin to draft the PO on a reply and send it for approval' : ap.state === 'rejected' ? `${ap.line} · Nitin to change the PO and send again` : `${ap.line}${ap.late ? ' · past the date' : ''}` },
-    { key: 'po', phase: 'buy', label: 'PO raised · mailed', who: 'on approval', act: 'production', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}${o.poMail ? ` · to ${o.poMail.deliveryLocation}${o.poMail.sentOn ? '' : ' · mail to send'}` : ''}` : null,
+      now: !replies ? 'after a factory reply' : !(o.enigmaProduct || launch) ? 'after the SKUs are in Enigma' : ap.state === 'none' ? 'category to draft the PO on a reply and send it for approval' : ap.state === 'rejected' ? `${ap.line} · category to change the PO and send again` : `${ap.line}${ap.late ? ' · past the date' : ''}` },
+    { key: 'po', phase: 'buy', label: 'PO raised · mailed', who: 'on approval', act: 'design', on: o.poDate, by: o.poNo ? `${o.poNo} · ${nameOf(o.vendorId)}${o.poMail ? ` · to ${o.poMail.deliveryLocation}${o.poMail.sentOn ? '' : ' · mail to send'}` : ''}` : null,
       now: !cq ? 'after counter sourcing' : !replies ? 'after a reply' : 'raised and mailed by itself once approved' },
     { key: 'plan', phase: 'buy', label: 'TNA · planned dates', who: 'Factory · Merchandiser', act: o.poMail && !o.poMail.sentOn ? 'production' : 'merchandiser', on: o.tnaPlan?.submittedOn ?? (o.poNo && !o.tnaPlan ? o.poDate : null), by: o.tnaPlan?.submittedOn ? tnaByOf(o) : null,
       now: !o.poNo ? 'after the PO' : `merchandiser to return the TNA form${o.tnaPlan ? ` · sent ${fmtDate(o.tnaPlan.sentOn)}` : ''}` },
@@ -78,10 +78,10 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
       now: !o.poNo ? 'after the PO' : tnaNow },
     { key: 'dispatch', phase: 'land', label: 'Dispatched · invoice to the warehouse', who: 'Factory · Merchandiser', act: 'merchandiser', on: inv?.mailedOn ?? null, by: inv ? `invoice ${inv.no} · ${inv.packedPcs ?? inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs` : null,
       now: !o.poNo ? 'after the PO' : !dispatched ? 'after the dispatch actual on the TNA' : inv && !inv.mailedOn ? 'merchandiser to send the invoice and packing list to Prince' : 'merchandiser to upload the invoice and packing list' },
-    { key: 'received', phase: 'land', label: 'Received · counted in', who: 'Prince', act: 'warehouse', on: receivedOn, by: receivedOn ? (rc.lots.length ? `${rc.received} pcs` : 'closed') : null,
-      now: !inv ? 'after the invoice' : rc.partial ? `${rc.received} of ${rc.base} in` : 'Prince to count the goods in against the packing list' },
-    { key: 'cogs', phase: 'land', label: 'COGS · profitability', who: 'Nitin · Category', act: 'production', on: cogsOn, by: cogsOn ? 'closed' : null,
-      now: !receivedOn ? 'after receipt' : 'Nitin to close COGS' },
+    { key: 'received', phase: 'land', label: 'Received · counted in', who: countedBy3plOf(o) ? 'Merchandiser · 3PL report' : 'Prince', act: countedBy3plOf(o) ? 'merchandiser' : 'warehouse', on: receivedOn, by: receivedOn ? (rc.lots.length ? `${rc.received} pcs` : 'closed') : null,
+      now: !inv ? 'after the invoice' : rc.partial ? `${rc.received} of ${rc.base} in` : countedBy3plOf(o) ? 'merchandiser to upload the 3PL consignment report' : 'Prince to count the goods in against the packing list' },
+    { key: 'cogs', phase: 'land', label: 'Direct COGS · MRP', who: 'Category', act: 'design', on: cogsOn, by: cogsOn ? 'closed' : null,
+      now: !receivedOn ? 'after receipt' : 'category to close COGS' },
     /* a log, not a gate: every invoice, debit note and credit note on the PO, for reconciliation; it never holds the record up */
     { key: 'invoices', phase: 'land', label: 'Invoices · notes · payments', who: 'Nitin · Finance', act: 'production', on: o.poNo ? (o.poInvoices?.length ? o.poInvoices[o.poInvoices.length - 1].on : o.poDate) : null, by: o.poNo ? `${o.poInvoices?.length ?? 0} logged` : null, now: 'after the PO' },
   ];
