@@ -28,16 +28,11 @@ export function BomSection({ o, editable, open, summary }: { o: ProductionOrder;
   const groups = (['fabric', 'trim', 'packaging'] as const).map(k => ({ k, rows: (editing ? lines : o.bom).map((l, i) => ({ l, i })).filter(x => x.l.kind === k) }));
   return (
     <Section title={`BOM · ${o.bom.length} lines`} defaultOpen={open} right={<div className="flex gap-2 items-center"><OwnerPill editable={editable} owner="Design" />{!editable && <ActsBy role="design" does="edits the BOM" inline />}{editable && !editing && <Button size="sm" onClick={() => { setLines(o.bom); setEditing(true); }}>Edit</Button>}</div>}>
-      {!editing && summary && <div className="bom-sum-wrap">
-        <div className="bom-strip">
-          <div><span>Material</span><b>{fmtMoney(bc.total)}</b><i>{fmtMoney(Math.round(bc.perPc))} / pc · {o.bom.length} lines</i></div>
-          {bc.bsc > 0 && <div><span>Sent by BSC</span><b>{fmtMoney(bc.bsc)}</b><i>BSC invoices the factory</i></div>}
-          {bc.nominated > 0 && <div><span>Nominated</span><b>{fmtMoney(bc.nominated)}</b><i>factory buys from BSC's vendor</i></div>}
-          {bc.factory > 0 && <div><span>By the factory</span><b>{fmtMoney(bc.factory)}</b><i>inside its rate</i></div>}
-          {c.fabricMetres != null && <div><span>Fabric</span><b>{c.fabricMetres} {o.bom[0]?.unit ?? 'm'}</b><i>{o.costing.consumption} × {o.orderQty} pcs</i></div>}
-          {bc.unpriced > 0 && <div className="warn"><span>Without a rate</span><b>{bc.unpriced}</b><i>to price</i></div>}
-          {supply.length > 0 && <div className={inv0 ? 'inv' : 'inv wait'}><span>Invoice</span>{inv0 ? <><b>{fmtMoney(inv0.amount)}</b><i><span className="mono">{inv0.no}</span> · {fmtDate(inv0.on)}</i></> : <><b>—</b><i>{openN ? `after ${openN} line${openN === 1 ? '' : 's'} get a vendor` : 'not generated yet'}</i></>}
-            {inv0 ? <Button size="sm" variant="primary" onClick={() => setShowInv(true)}>View</Button> : editable && !openN ? <Button size="sm" variant="primary" onClick={() => generateSupplyInvoice(o.id)}>Generate</Button> : null}</div>}
+      {!editing && summary && <div className="bom-sum-wrap sheet">
+        <BomSheet o={o} />
+        <div className="bom-sheet-foot">
+          {supply.length > 0 && <span className="flex items-center gap-2 flex-wrap"><span style={{ color: 'var(--ink-faint)' }}>BSC's invoice for what it sends</span>{inv0 ? <><b>{fmtMoney(inv0.amount)}</b><span className="mono">{inv0.no}</span><span style={{ color: 'var(--ink-faint)' }}>{fmtDate(inv0.on)}</span><Button size="sm" onClick={() => setShowInv(true)}>View</Button></> : <><span>{openN ? `after ${openN} line${openN === 1 ? '' : 's'} get a vendor` : 'not generated yet'}</span>{editable && !openN && <Button size="sm" variant="primary" onClick={() => generateSupplyInvoice(o.id)}>Generate</Button>}</>}</span>}
+          {bc.unpriced > 0 && <span style={{ color: 'var(--warn)' }}>{bc.unpriced} line{bc.unpriced === 1 ? '' : 's'} without a rate</span>}
         </div>
         <button type="button" className={`bom-more${menu ? ' on' : ''}`} aria-expanded={menu} onClick={() => setMenu(v => !v)} title="invoice details, copy from another style">⋯</button>
       </div>}
@@ -105,4 +100,49 @@ export function CostingSection({ o, editable }: { o: ProductionOrder; editable: 
       {c.cogs == null && <div className="pt-2"><Note>Not costed yet — CPM and consumption come from the BOM's fabric line, CMP from the chosen quote.</Note></div>}
     </Section>
   );
+}
+
+/* 19 Nov 2026: the BOM as one sheet, the way the factory and BSC read it on paper: a header, one ruled line per material,
+   the extra (wastage) on top of the quantity, the cost per piece, who supplies it (BSC, the factory, or a vendor BSC nominates),
+   and the total material cost per piece and for the order. */
+const SUP: Record<'bsc' | 'nominated' | 'factory', string> = { bsc: 'BSC', nominated: 'Nominated', factory: 'Factory' };
+export function BomSheet({ o }: { o: ProductionOrder }) {
+  const { db } = useApp(); const bc = bomCostOf(db, o);
+  const colours = (o.pack?.colours?.length ? o.pack.colours : [o.fabricBrief?.colour].filter(Boolean)) as string[];
+  const sizes = o.sizeBreakup.filter(x => x.qty > 0).map(x => x.size); const range = sizes.length ? (sizes.length > 1 ? `${sizes[0]} to ${sizes[sizes.length - 1]}` : sizes[0]) : '—';
+  const factory = db.vendors.find(v => v.id === (o.vendorId ?? o.poApproval?.vendorId))?.name ?? null;
+  const rows = bc.rows.map(r => { const l = r.l; const extra = l.wastagePct ?? 0; const per = l.qtyPerPc != null && r.rate != null ? l.qtyPerPc * (1 + extra / 100) * r.rate : null; return { ...r, extra, per }; });
+  const perPc = rows.reduce((a, r) => a + (r.per ?? 0), 0);
+  const money2 = (n: number) => `₹${(Math.round(n * 100) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fz = o.bomFrozen;
+  return <div className="bom-sheet">
+    <table className="bom-sheet-h"><tbody>
+      <tr><th>Style</th><td>{o.styleName}</td><th>Date</th><td>{fmtDate(fz?.on ?? o.pack?.sentOn ?? o.styleHandover)}</td></tr>
+      <tr><th>Category</th><td>{o.category}{o.subCategory ? ` · ${o.subCategory}` : ''}</td><th>Factory</th><td>{factory ?? 'not chosen yet'}</td></tr>
+      <tr><th>Size range</th><td>{range}</td><th>Delivery date</th><td>{fmtDate(o.targetInhouse)}</td></tr>
+      <tr><th>Order qty</th><td>{bc.pcs.toLocaleString('en-IN')} pcs</td><th>PO</th><td>{o.poNo ?? 'not raised yet'}</td></tr>
+    </tbody></table>
+    <div className="bom-sheet-title">Bill of materials{fz ? <span>quantities frozen {fmtDate(fz.on)}</span> : <span className="est">quantities are an estimate until frozen</span>}</div>
+    <div style={{ overflowX: 'auto' }}><table className="bom-sheet-t">
+      <thead><tr><th>No.</th><th>Item</th><th>Description</th><th>Colour</th><th className="num">Qty</th><th>UOM</th><th className="num">Extra</th><th className="num">Unit price</th><th className="num">Cost</th><th>Supplier</th><th>Remarks</th></tr></thead>
+      <tbody>{rows.map((r, i) => <tr key={i} className={`k-${r.l.kind}`}>
+        <td className="c">{i + 1}</td>
+        <td className="b">{r.l.item}</td>
+        <td>{r.l.spec ?? ''}</td>
+        <td>{r.l.kind === 'fabric' ? (colours.join(', ') || '—') : 'All'}</td>
+        <td className="num">{r.l.qtyPerPc ?? '—'}</td>
+        <td>{r.l.unit}</td>
+        <td className="num">{r.extra ? `${r.extra}%` : '—'}</td>
+        <td className="num">{r.rate != null ? money2(r.rate) : '—'}</td>
+        <td className="num">{r.per != null ? money2(r.per) : '—'}</td>
+        <td><span className={`sup sup-${r.by}`}>{SUP[r.by]}</span></td>
+        <td className="rm">{r.by === 'factory' ? (r.vendor ?? "factory's own") : (r.vendor ?? '—')}</td>
+      </tr>)}</tbody>
+      <tfoot>
+        <tr><td colSpan={8} className="r">Total material cost per piece</td><td className="num b">{money2(perPc)}</td><td colSpan={2}></td></tr>
+        <tr><td colSpan={8} className="r">For {bc.pcs.toLocaleString('en-IN')} pcs</td><td className="num b">{fmtMoney(Math.round(perPc * bc.pcs))}</td><td colSpan={2} className="rm">BSC {fmtMoney(bc.bsc)} · nominated {fmtMoney(bc.nominated)} · factory {fmtMoney(bc.factory)}</td></tr>
+      </tfoot>
+    </table></div>
+    <div className="bom-sheet-sign"><div><span>Approved by</span><i /></div><div><span>Approved date</span><i /></div></div>
+  </div>;
 }

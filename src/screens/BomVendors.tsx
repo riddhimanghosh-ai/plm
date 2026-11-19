@@ -135,13 +135,13 @@ export function BomQuantities({ o, canDesign }: { o: ProductionOrder; canDesign:
         {canDesign && !fz && (replies.length > 0 || !!o.poApproval) && <Button size="sm" variant="primary" disabled={blank > 0} onClick={() => freezeBom(o.id)} >Freeze the quantities</Button>}
         {canDesign && fz && !rev && <Button size="sm" onClick={() => setRev(true)}>Revise</Button>}
       </span></div>
-    {fab && <div className="bomq-cloth">
-      <div><span>Cloth width</span><b>{width != null ? `${width}"` : '—'}</b></div>
-      <div><span>Consumption</span><b>{fab.qtyPerPc != null ? `${fab.qtyPerPc} ${fab.unit}` : '—'}</b><i>{fab.qtyBasis === 'factory' ? "from the factory's marker" : fab.qtyBasis === 'standard' ? 'category standard' : 'per piece'}</i></div>
-      <div><span>Wastage</span><b>{fab.wastagePct != null ? `${fab.wastagePct}%` : '—'}</b></div>
-      <div><span>Needs per piece</span><b>{need != null ? `${Math.round(need * 100) / 100} ${fab.unit}` : '—'}</b></div>
-      <div><span>For {o.orderQty} pcs</span><b>{need != null ? `${Math.ceil(need * o.orderQty).toLocaleString('en-IN')} ${fab.unit}` : '—'}</b><i>the reference for what is sent</i></div>
-    </div>}
+    {fab && <table className="t compact sum-t kv bom-sum-t"><tbody>
+      <tr><th>Cloth width</th><td className="num">{width != null ? `${width}"` : '—'}</td><td></td></tr>
+      <tr><th>Consumption</th><td className="num">{fab.qtyPerPc != null ? `${fab.qtyPerPc} ${fab.unit}` : '—'}</td><td style={{ color: 'var(--ink-soft)' }}>{fab.qtyBasis === 'factory' ? "from the factory's marker" : fab.qtyBasis === 'standard' ? 'category standard' : 'per piece'}</td></tr>
+      <tr><th>Wastage</th><td className="num">{fab.wastagePct != null ? `${fab.wastagePct}%` : '—'}</td><td></td></tr>
+      <tr><th>Needs per piece</th><td className="num">{need != null ? `${Math.round(need * 100) / 100} ${fab.unit}` : '—'}</td><td style={{ color: 'var(--ink-soft)' }}>consumption plus wastage</td></tr>
+      <tr className="sum-hi"><th>For {o.orderQty} pcs</th><td className="num"><b>{need != null ? `${Math.ceil(need * o.orderQty).toLocaleString('en-IN')} ${fab.unit}` : '—'}</b></td><td style={{ color: 'var(--ink-soft)' }}>the reference for what is sent</td></tr>
+    </tbody></table>}
     {!fz && replies.length > 0 && <div className="bomq-replies"><span>Take the cloth quantity from a quote</span>
       {replies.map(r => <button key={r.vendorId} type="button" className="bomq-rep" disabled={!canDesign} onClick={() => bomFromReply(o.id, r.vendorId)}><b>{nameOf(r.vendorId)}</b> {r.consumptionPerPc} m{r.wastagePct != null ? ` + ${r.wastagePct}%` : ''}</button>)}</div>}
     {!fz && !replies.length && <div className="text-[11.5px]" style={faint}>Quantities are not needed to send the requirement. They are completed with the real figures once a factory's quote comes in, then frozen for the costing.</div>}

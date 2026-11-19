@@ -116,9 +116,11 @@ export function PackSection({ o, design, sourcing, only }: { o: ProductionOrder;
     {tab === 'bom' && <>
       {!only && <BomSection o={o} editable={design && !o.bomFrozen} open summary />}
       {!only && <BomQuantities o={o} canDesign={design} />}
-      <div className={only ? '' : 'pt-3 mt-3'} style={only ? undefined : { borderTop: '1px solid var(--line-soft)' }}>
-        <BomVendors o={o} canDesign={canDesign} canSourcing={canSourcing} />
-      </div>
+      {only ? <BomVendors o={o} canDesign={canDesign} canSourcing={canSourcing} />
+        : <details className="bom-vend-fold pt-3 mt-3" open={bomOpenOf(o).open.length > 0 || o.bom.some(l => !l.suppliedBy && (l.options ?? []).length > 0) || undefined}>
+          <summary>Vendors on each line · where sourcing adds vendors and category picks one</summary>
+          <BomVendors o={o} canDesign={canDesign} canSourcing={canSourcing} />
+        </details>}
     </>}
 
     {canDesign && !only && <div className="ai-brief mt-3">

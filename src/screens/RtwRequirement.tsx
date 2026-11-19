@@ -12,7 +12,7 @@ import { fmtDate, fmtMoney, daysAgo, riskOf, stageOf, fabricStateOf } from '../d
 import { rtwJourneyOf, RTW_PHASES, RTW_ACTOR_LABEL } from '../domain/rtwJourney';
 import { FILE_LABELS, ORDER_STEPS } from '../domain/reference';
 import { Section, Pill, Button, KV, Field, Input, fromDateInput, dateInput, DrawerSlot } from '../ui';
-import { SizeGrid, FabricFinalisationSection } from './RtwGates';
+import { FabricFinalisationSection } from './RtwGates';
 import { MilestoneGrid } from './Tracker';
 import { MaterialsPanel } from './FactoryRtw';
 import { RecordTail } from './RecordTail';
@@ -23,19 +23,19 @@ import { ApprovalSection, PoEditSection } from './RtwApproval';
 
 /* the steps each desk works in; every other step shows as a status line, not a panel */
 const MINE: Record<string, string[]> = {
-  design: ['raised', 'pack', 'query', 'launch', 'approval', 'po', 'cloth', 'tna', 'cogs'],   // 19 Nov 2026 (Parag): category drafts the PO and does everything on it
+  design: ['pack', 'query', 'launch', 'approval', 'po', 'cloth', 'tna', 'cogs'],   // 19 Nov 2026 (Parag): category drafts the PO and does everything on it
   hod: ['query', 'launch', 'approval', 'po', 'invoices'],
   finance: ['query', 'launch', 'approval', 'po', 'cogs', 'invoices'],
-  planning: ['raised', 'cogs', 'launch'],
+  planning: ['pack', 'cogs', 'launch'],
   sourcing: ['pack', 'cloth', 'invoices'],
-  production: ['raised', 'pack', 'query', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'invoices'],
+  production: ['pack', 'query', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'invoices'],
   merchandiser: ['query', 'po', 'plan', 'cloth', 'tna', 'dispatch', 'received', 'invoices'],
   qc: ['po', 'tna'],
   warehouse: ['po', 'dispatch', 'received'],
 };
 
 /* HOD and finance follow a style up to the PO; finance also keeps the invoices and payments log. Nothing of the making (TNA, cloth, QC, dispatch). */
-const SCOPE: Record<'hod' | 'finance' | 'warehouse' | 'sourcing', string[]> = { sourcing: ['pack'], warehouse: ['po', 'dispatch', 'received'], hod: ['raised', 'pack', 'query', 'launch', 'approval', 'po'], finance: ['raised', 'pack', 'query', 'launch', 'approval', 'po', 'cogs', 'invoices'] };
+const SCOPE: Record<'hod' | 'finance' | 'warehouse' | 'sourcing', string[]> = { sourcing: ['pack'], warehouse: ['po', 'dispatch', 'received'], hod: ['pack', 'query', 'launch', 'approval', 'po'], finance: ['pack', 'query', 'launch', 'approval', 'po', 'cogs', 'invoices'] };
 export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; initial?: string; scope?: 'hod' | 'finance' | 'warehouse' | 'sourcing' }) {
   const { db, role, myRole, demoAll, updateRequirement } = useApp();
   /* 18 Nov 2026: the whole record shows for every role; only a screen that asks for one part (scope) narrows it */
@@ -76,7 +76,6 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
 
   /* the order's numbers, editable by category until it is sent */
   const [qty, setQty] = useState(String(o.orderQty)); const [target, setTarget] = useState(dateInput(o.targetInhouse)); const [cost, setCost] = useState(String(o.targetCost)); const [semi, setSemi] = useState(!!o.semiStitched);
-  const total = o.sizeBreakup.reduce((s, x) => s + x.qty, 0);
 
   const mine = !!next?.act && next.act === role;
   const onTracker = typeof location !== 'undefined' && location.hash.startsWith('#/tracker');
@@ -121,7 +120,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
         {(() => { const i = journey.findIndex(x => x.key === open); const x = journey[i]; if (!x) return null;
           return <div className="rtw-panel-head"><div className="flex items-center justify-between gap-3 flex-wrap"><div className="flex items-baseline gap-2 flex-wrap"><h2 style={{ margin: 0, fontSize: 15 }}>{x.label}</h2><span className="cap" style={{ margin: 0 }}>Step {i + 1} of {journey.length} · {x.who}</span>{!isMine(x.key) && <span className="view-only-pill">View only · not your step</span>}</div></div></div>; })()}
         <div className={view === 'blocks' ? 'rtw-blocks' : undefined}>
-    {at('raised') && <Section title="The ask" collapsible={false} right={<span className="pill role-design">Category</span>}>
+    {at('pack') && scoped !== 'sourcing' && <div className="rtw-full pb-3"><Section title="The ask" collapsible={false} right={<span className="pill role-design">Category</span>}>
       {editable ? <div className="grid gap-2.5 py-1" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
         <Field label="Order qty"><Input type="number" value={qty} onChange={e => setQty(e.target.value)} /></Field>
         <Field label="Target in-house"><Input type="date" value={target} onChange={e => setTarget(e.target.value)} /></Field>
@@ -137,9 +136,7 @@ export function RtwRequirement({ o, initial, scope }: { o: ProductionOrder; init
       {editable ? <div className="kv"><span className="k">Semi-stitched?</span><span className="v"><label className="flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={semi} onChange={e => setSemi(e.target.checked)} /> hemming in-house → delivers to Vasai; else the 3PL warehouse</label></span></div>
         : <KV k="Delivers to" v={o.deliverTo ?? (o.semiStitched ? 'Vasai · in-house' : '3PL warehouse')} note={o.semiStitched ? 'semi-stitched product · hemming in-house' : 'not semi-stitched'} />}
       {editable && <div className="pt-2"><Button size="sm" variant="primary" onClick={() => updateRequirement(o.id, { orderQty: Number(qty), targetInhouse: fromDateInput(target) ?? o.targetInhouse, targetCost: Number(cost), semiStitched: semi })}>Save</Button></div>}
-      <div className="cap pt-3">Size · qty break-up · {total} pcs</div>
-      <SizeGrid breakup={o.sizeBreakup} />
-    </Section>}
+    </Section></div>}
 
     {at('pack') && <div className="rtw-full"><PackSection o={o} design={design && scoped !== 'sourcing'} sourcing={sourcing} only={scoped === 'sourcing' ? 'bom' : undefined} /></div>}
 

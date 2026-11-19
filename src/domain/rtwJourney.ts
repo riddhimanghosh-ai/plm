@@ -36,7 +36,6 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
   const rc = receiptOf(o); const r = riskOf(o); const st = stageOf(o); const fab = fabricStateOf(o);
   const launch = (db.launches ?? []).find(l => l.orderId === o.id) ?? null;
   const nameOf = (id: string | null | undefined) => db.vendors.find(v => v.id === id)?.name ?? '—';
-  const raised = o.activity?.find(a => /created|raised/i.test(a.what)) ?? null;
   const sent = o.status !== 'Requirement';
   const pack = packReadyOf(o); const packOn = o.pack?.sentOn ?? (sent ? (o.activity?.find(a => /^Sent to production/i.test(a.what))?.at ?? o.styleHandover) : null);
   const ms = (k: string) => o.milestones.find(m => m.key === k);
@@ -56,8 +55,8 @@ export function rtwJourneyOf(db: Db, o: ProductionOrder): { steps: RtwStep[]; cu
   const packNow = pack.ready ? 'category to send it to Production RTW' : pack.sourcingMissing.length === pack.missing.length ? `sourcing to add vendors on ${pack.sourcingMissing.length} BOM line${pack.sourcingMissing.length > 1 ? 's' : ''}` : `category to fill ${pack.missing.length} item${pack.missing.length > 1 ? 's' : ''}${pack.sourcingMissing.length ? ` · sourcing ${pack.sourcingMissing.length}` : ''}`;
 
   const steps: RtwStep[] = [
-    { key: 'raised', phase: 'design', label: 'Raised', who: sourceWho, on: raised?.at ?? o.styleHandover, by: raised?.who ?? sourceWho },
-    { key: 'pack', phase: 'design', label: 'Requirement', who: 'Category · Sourcing', act: pack.ready || pack.sourcingMissing.length < pack.missing.length ? 'design' : 'sourcing', on: packOn, by: packOn ? (o.pack?.sentBy ?? 'sent to Production RTW') : null, now: packNow },
+    /* 19 Nov 2026: Raised and Requirement are one step; where the ask came from shows at the top of it */
+    { key: 'pack', phase: 'design', label: 'Requirement', who: `${sourceWho} · Sourcing`, act: pack.ready || pack.sourcingMissing.length < pack.missing.length ? 'design' : 'sourcing', on: packOn, by: packOn ? (o.pack?.sentBy ?? 'sent to Production RTW') : null, now: packNow },
     { key: 'query', phase: 'buy', label: 'Factory counter sourcing', who: 'Nitin · Factories · Category', act: tr.open && replies >= asked ? 'design' : cq && replies < asked ? 'merchandiser' : 'production', on: cq ? ((replies >= asked && !tr.open) || o.poNo || (o.poApproval && replies > 0) ? (cq.replies[cq.replies.length - 1]?.repliedOn ?? cq.sentOn) : null) : null, by: cq ? `${replies} of ${asked} replied` : null,
       now: !sent ? 'after the requirement' : !cq ? 'Nitin to pick factories and send the counter-sourcing query' : tr.open && replies >= asked ? `every reply over target · category to revise the target ${tr.flagged.some(r => r.cost > o.targetCost) ? 'cost' : ''}${tr.flagged.some(r => r.cost > o.targetCost) && tr.flagged.some(r => r.leadDays > 0) ? ' or ' : ''}${tr.flagged.some(r => r.leadDays > 0) ? 'in-house date' : ''}`.replace(/target $/, 'target') : `${asked - replies} repl${asked - replies === 1 ? 'y' : 'ies'} due by ${fmtDate(cq.deadline)}${qDeadlineLate ? ` · ${daysAgo(cq.deadline)}d past` : ''}${tr.open ? ' · replies so far over target' : ''}` },
     /* 17 Nov 2026: the SKUs go into Enigma once the factories have quoted, and the PO needs approval before it is drafted */
