@@ -113,7 +113,7 @@ function ScreenOwner() {
 }
 
 export function Shell() {
-  const { db, role, myRole, demoAll, setDemoAll, settings, personId, setPerson, storeId, setStore, factoryId, setFactory, reset, views, saveView, deleteView } = useApp();
+  const { db, role, myRole, demoAll, setDemoAll, settings, personId, setPerson, storeId, setStore, factoryId, setFactory, reset } = useApp();
   const loc = useLocation();
   useEffect(() => { window.scrollTo(0, 0); }, [loc.pathname]);
   /* design and planning work from the one Design requirements screen; the per-record lists stay reachable by link and drawer */
@@ -195,24 +195,7 @@ export function Shell() {
           </div>; })}
         </nav>
 
-        {/* the filter you set every morning, kept by name — the whole URL is the
-            view, because every screen already puts its tab and filters there */}
-        <div className="px-1">
-          <div className="flex items-center justify-between gap-2 px-1.5 pb-1">
-            <span className="text-[10px] uppercase tracking-[.14em]" style={{ color:'var(--sidebar-soft)', opacity:.7 }}>My views</span>
-            <button type="button" title="Save this screen, with its filters, as a view"
-              onClick={() => { const n = window.prompt('Name this view', document.title.replace(' · BSC PLM', '')); if (n?.trim()) saveView(n.trim(), window.location.hash || '#/'); }}
-              style={{ font:'inherit', fontSize: 11, background:'none', border:0, color:'var(--sidebar-soft)', cursor:'pointer', padding:0 }}>+ save</button>
-          </div>
-          {views.length === 0
-            ? <div className="px-1.5 text-[11px] leading-snug" style={{ color:'var(--sidebar-soft)', opacity:.6 }}>None yet — set the filters you want and press save.</div>
-            : views.map(v => <div key={v.id} className="flex items-center gap-1 group">
-                <button type="button" onClick={() => { window.location.hash = v.href; }}
-                  className="flex-1 text-left px-1.5 py-1 text-[13px] cursor-pointer" style={{ background:'none', border:0, color:'var(--sidebar-soft)', font:'inherit' }}>{v.name}</button>
-                <button type="button" onClick={() => deleteView(v.id)} title="Forget this view"
-                  style={{ font:'inherit', fontSize: 12, background:'none', border:0, color:'var(--sidebar-soft)', opacity:.5, cursor:'pointer', padding:'0 4px' }}>×</button>
-              </div>)}
-        </div>
+        {/* 19 Nov 2026: My views removed from the sidebar */}
 
         {/* who you are is one quiet line; the switches under it are demo scaffolding
             and fold away until asked for */}
