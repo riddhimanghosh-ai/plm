@@ -1125,3 +1125,19 @@ table.t.sum-t.bom-sum-t { margin: 0; } table.t.sum-t.bom-sum-t td { padding-top:
 .bom-vend-fold > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); padding: 4px 0 8px; }
 .bom-sheet-t { min-width: 860px; } .bom-sheet-t td.b { white-space: nowrap; } .bom-sheet-t td:nth-child(3) { min-width: 170px; }
 .bom-sheet-t td:nth-child(4), .bom-sheet-t td:nth-child(10) { white-space: nowrap; } .bom-sheet-t td.rm { min-width: 120px; }
+
+/* the BOM form: the sheet's grid with inputs in the cells */
+.bom-form-t { min-width: 820px; }
+.bom-form-t td { padding: 2px 4px; vertical-align: middle; }
+.bom-cell { width: 100%; min-width: 0; border: 1px solid transparent; background: transparent; border-radius: 3px; padding: 4px 5px; font: inherit; font-size: 12px; color: var(--ink); }
+.bom-cell:hover { border-color: var(--line); } .bom-cell:focus { outline: none; border-color: var(--accent); background: var(--surface, #fff); }
+.bom-cell.num { text-align: right; font-variant-numeric: tabular-nums; } .bom-cell.sm { width: 56px; }
+input.bom-cell::placeholder { color: var(--ink-faint); }
+.bom-form-t td.b input.bom-cell { font-weight: 600; min-width: 150px; } .bom-form-t td:nth-child(4) input.bom-cell { min-width: 160px; }
+.bom-kind { font-size: 11px; color: var(--ink-soft); white-space: nowrap; }
+.bom-stock { font-size: 11px; white-space: nowrap; } .bom-stock.good { color: var(--good); } .bom-stock.risk { color: var(--risk); font-weight: 600; } .bom-stock.warn { color: var(--warn); } .bom-stock.neutral { color: var(--ink-faint); }
+.bom-src-empty { color: var(--ink-faint); font-style: italic; font-size: 11px; white-space: nowrap; }
+.bom-x { border: 0; background: none; color: var(--ink-faint); font-size: 16px; line-height: 1; cursor: pointer; padding: 0 4px; } .bom-x:hover { color: var(--risk); }
+.bom-form-t tfoot td { padding: 6px; background: var(--surface-2); }
+.bom-form-t select.bom-cell { min-width: 96px; } .bom-form-t td.num input.bom-cell { width: 64px; } .bom-form-t td.num input.bom-cell.sm { width: 52px; }
+.bom-form-t th:nth-child(5), .bom-form-t td:nth-child(5) { width: 72px; }

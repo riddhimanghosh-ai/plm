@@ -28,12 +28,10 @@ export function lineStatus(trims: TrimItem[], db: Parameters<typeof trimCoverage
   return { tone: 'risk' as const, text: `short by ${short.toLocaleString('en-IN')} ${t.unit}${c.incoming ? ` · ${c.incoming.toLocaleString('en-IN')} on order` : ' · nothing on order'} — sourcing buys the rest` };
 }
 
-const SUP = { bsc: 'BSC sends', nominated: 'Nominated', factory: 'By the factory' } as const;
-/* 18 Nov 2026: on the requirement, sourcing's columns show beside each line, faded until sourcing fills them */
-function SourcingCells({ l }: { l: BomLine }) {
-  const cell = (label: string, v: string | number | null | undefined) => <span className={`bom-src-c${v == null || v === '' ? ' empty' : ''}`}><i>{label}</i>{v == null || v === '' ? 'sourcing adds' : v}</span>;
-  return <div className="bom-src">{cell('Supplied by', l.suppliedBy ? SUP[l.suppliedBy] : null)}{cell('Vendor', l.vendor)}{cell('Rate ₹', l.rate)}{cell('GST', l.gstPct != null ? `${l.gstPct}%` : null)}{cell('Vendor state', l.vendorState)}</div>;
-}
+const SUP = { bsc: 'BSC', nominated: 'Nominated', factory: 'Factory' } as const;
+const STOCK_SHORT = { good: 'in stock', risk: 'short', warn: 'not on master', neutral: '' } as const;
+/* 19 Nov 2026: the BOM is still a form, laid out as the BOM sheet: one ruled row per material, typed in place.
+   Sourcing's columns (supplier, vendor, rate) show beside each line, faded, until sourcing fills them. */
 export function BomEditor({ lines, onChange, orderQty, editable = true, sourcingCols }: { lines: BomLine[]; onChange: (l: BomLine[]) => void; orderQty: number; editable?: boolean; sourcingCols?: boolean }) {
   const { db } = useApp();
   const trims = db.trims ?? [];
@@ -42,34 +40,44 @@ export function BomEditor({ lines, onChange, orderQty, editable = true, sourcing
   const remove = (i: number) => onChange(lines.filter((_, k) => k !== i));
   const addFromMaster = (name: string) => { const t = masterFor(trims, name); if (!t) return; if (lines.some(l => l.item.toLowerCase() === t.name.toLowerCase())) return;
     onChange([...lines, { kind: t.kind, item: t.name, spec: null, qtyPerPc: t.kind === 'trim' && t.name === 'Button' ? 12 : 1, unit: t.unit }]); setPick(''); };
-  const groups = (['fabric', 'trim', 'packaging'] as const).map(k => ({ k, rows: lines.map((l, i) => ({ l, i })).filter(x => x.l.kind === k) }));
+  const order = (['fabric', 'trim', 'packaging'] as const).flatMap(k => lines.map((l, i) => ({ l, i })).filter(x => x.l.kind === k));
   const notOnMaster = lines.filter(l => l.kind !== 'fabric' && !masterFor(trims, l.item)).length;
   const short = lines.filter(l => lineStatus(trims, db, l, orderQty).tone === 'risk').length;
+  const num = (v: string) => (v === '' ? null : Number(v));
+  const faded = (v: string | number | null | undefined) => v == null || v === '' ? <span className="bom-src-empty">sourcing adds</span> : v;
+  const cols = 9 + (sourcingCols ? 3 : 0) + (editable ? 1 : 0);
   return <div>
     <div className="flex gap-2 flex-wrap pb-2 text-[12px]">
       <Pill tone={notOnMaster ? 'warn' : 'good'}>{notOnMaster ? `${notOnMaster} line${notOnMaster === 1 ? '' : 's'} not on the trims master` : 'every trim is on the master'}</Pill>
       <Pill tone={short ? 'risk' : 'good'}>{short ? `${short} line${short === 1 ? '' : 's'} short at the unit for ${orderQty} pcs` : `stock covers ${orderQty} pcs`}</Pill>
-      {sourcingCols && <span className="pill role-sourcing">faded fields · sourcing adds them once the requirement is saved</span>}
+      <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>quantities are optional now; they are completed once a factory quotes</span>
     </div>
-    {groups.map(g => g.rows.length > 0 && <div key={g.k} className="py-1">
-      <div className="label">{KIND_LABEL[g.k]}</div>
-      {g.rows.map(({ l, i }) => { const st = lineStatus(trims, db, l, orderQty); return <div key={i} className="py-1" style={{ borderBottom: '1px solid var(--line-soft)' }}>
-        {editable && l.kind !== 'fabric' ? <div className="grid gap-1.5" style={{ gridTemplateColumns: '1.3fr 2fr .6fr .5fr auto' }}>
-          <Input list="trims-master" value={l.item} onChange={e => upd(i, { item: e.target.value })} placeholder="item — from the trims master" />
-          <Input value={l.spec ?? ''} placeholder="spec — size, finish, colour" onChange={e => upd(i, { spec: e.target.value || null })} />
-          <Input type="number" step="0.01" value={l.qtyPerPc ?? ''} placeholder="per pc" onChange={e => upd(i, { qtyPerPc: e.target.value === '' ? null : Number(e.target.value) })} />
-          <Input value={l.unit} onChange={e => upd(i, { unit: e.target.value })} />
-          <button type="button" className="vlink text-[11.5px]" onClick={() => remove(i)}>remove</button>
-        </div> : <div className="flex items-baseline gap-2 flex-wrap"><span className="font-medium">{l.item}</span><span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>{l.spec ?? ''}</span><span className="flex-1" /><span className="mono text-[12px]">{l.qtyPerPc != null ? `${l.qtyPerPc} ${l.unit} / pc` : '—'}</span></div>}
-        <div className="text-[11.5px] pt-0.5" style={{ color: st.tone === 'risk' ? 'var(--risk)' : st.tone === 'warn' ? 'var(--warn)' : st.tone === 'good' ? 'var(--good)' : 'var(--ink-faint)' }}>{st.text}{st.tone === 'warn' && <> · <a className="vlink" href="#/fabrics?tab=trims">trims master →</a></>}</div>
-        {sourcingCols && <SourcingCells l={l} />}
-      </div>; })}
-    </div>)}
-    {editable && <div className="flex gap-2 items-end flex-wrap pt-2">
-      <div style={{ width: 260 }}><Input list="trims-master" value={pick} onChange={e => setPick(e.target.value)} placeholder="add a line from the trims master…" onKeyDown={e => { if (e.key === 'Enter') addFromMaster(pick); }} /></div>
-      <Button size="sm" disabled={!masterFor(trims, pick)} onClick={() => addFromMaster(pick)}>+ Add from master</Button>
-      <Button size="sm" variant="ghost" onClick={() => onChange([...lines, { kind: 'trim', item: '', spec: null, qtyPerPc: 1, unit: 'pc' }])}>+ blank line</Button>
-      <datalist id="trims-master">{trims.map(t => <option key={t.id} value={t.name}>{t.kind} · {t.stock.toLocaleString('en-IN')} {t.unit} at the unit</option>)}</datalist>
-    </div>}
+    <div className="bom-sheet"><div className="bom-sheet-title" style={{ borderTop: 0 }}>Bill of materials</div>
+    <div style={{ overflowX: 'auto' }}><table className="bom-sheet-t bom-form-t">
+      <thead><tr><th>No.</th><th>Type</th><th>Item</th><th>Description</th><th className="num">Qty / pc</th><th>UOM</th><th className="num">Extra %</th><th className="num">For {orderQty} pcs</th><th>Stock</th>
+        {sourcingCols && <><th>Supplier</th><th>Vendor</th><th className="num">Rate ₹</th></>}{editable && <th></th>}</tr></thead>
+      <tbody>{order.map(({ l, i }, n) => { const st = lineStatus(trims, db, l, orderQty); const need = l.qtyPerPc != null ? Math.ceil(l.qtyPerPc * (1 + (l.wastagePct ?? 0) / 100) * orderQty) : null;
+        return <tr key={i} className={`k-${l.kind}`}>
+          <td className="c">{n + 1}</td>
+          <td>{editable && l.kind !== 'fabric' ? <select className="bom-cell" value={l.kind} onChange={e => upd(i, { kind: e.target.value as BomLine['kind'] })}><option value="trim">Trim</option><option value="packaging">Packaging</option></select> : <span className="bom-kind">{KIND_LABEL[l.kind]}</span>}</td>
+          <td className="b">{editable && l.kind !== 'fabric' ? <input className="bom-cell" list="trims-master" value={l.item} onChange={e => upd(i, { item: e.target.value })} placeholder="from the trims master" /> : l.item}</td>
+          <td>{editable ? <input className="bom-cell" value={l.spec ?? ''} placeholder="size, finish, colour" onChange={e => upd(i, { spec: e.target.value || null })} /> : (l.spec ?? '')}</td>
+          <td className="num">{editable ? <input className="bom-cell num" type="number" step="0.01" min={0} value={l.qtyPerPc ?? ''} placeholder="—" onChange={e => upd(i, { qtyPerPc: num(e.target.value) })} /> : (l.qtyPerPc ?? '—')}</td>
+          <td>{editable ? <input className="bom-cell sm" value={l.unit} onChange={e => upd(i, { unit: e.target.value })} /> : l.unit}</td>
+          <td className="num">{editable ? <input className="bom-cell num sm" type="number" step="0.5" min={0} value={l.wastagePct ?? ''} placeholder="—" onChange={e => upd(i, { wastagePct: num(e.target.value) })} /> : (l.wastagePct != null ? `${l.wastagePct}%` : '—')}</td>
+          <td className="num">{need != null ? `${need.toLocaleString('en-IN')} ${l.unit}` : '—'}</td>
+          <td title={st.text}><span className={`bom-stock ${st.tone}`}>{STOCK_SHORT[st.tone] || (l.kind === 'fabric' ? 'cloth' : 'free')}</span>{st.tone === 'warn' && <a className="vlink text-[11px] ml-1" href="#/fabrics?tab=trims">master →</a>}</td>
+          {sourcingCols && <><td>{l.suppliedBy ? SUP[l.suppliedBy] : faded(null)}</td><td>{faded(l.vendor)}</td><td className="num">{faded(l.rate)}</td></>}
+          {editable && <td className="c">{l.kind !== 'fabric' && <button type="button" className="bom-x" onClick={() => remove(i)} aria-label={`remove ${l.item}`} title="remove the line">×</button>}</td>}
+        </tr>; })}
+        {order.length === 0 && <tr><td colSpan={cols} className="c" style={{ padding: 12 }}>No lines yet. Add from the trims master below.</td></tr>}
+      </tbody>
+      {editable && <tfoot><tr><td colSpan={cols}><div className="flex gap-2 items-center flex-wrap">
+        <input className="bom-cell" style={{ width: 260 }} list="trims-master" value={pick} onChange={e => setPick(e.target.value)} placeholder="add a line from the trims master…" onKeyDown={e => { if (e.key === 'Enter') addFromMaster(pick); }} />
+        <Button size="sm" disabled={!masterFor(trims, pick)} onClick={() => addFromMaster(pick)}>+ Add from master</Button>
+        <Button size="sm" variant="ghost" onClick={() => onChange([...lines, { kind: 'trim', item: '', spec: null, qtyPerPc: null, unit: 'pc' }])}>+ blank line</Button>
+      </div></td></tr></tfoot>}
+    </table></div></div>
+    {editable && <datalist id="trims-master">{trims.map(t => <option key={t.id} value={t.name}>{t.kind} · {t.stock.toLocaleString('en-IN')} {t.unit} at the unit</option>)}</datalist>}
   </div>;
 }
