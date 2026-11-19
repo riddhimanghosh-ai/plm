@@ -52,12 +52,14 @@ class C,D1,E,F auto
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
-<h2>3 · Enigma SKUs, PO draft and approval</h2><div class="d" data-name="3-enigma-skus-po-approval"><pre class="mermaid">
+<h2>3 · Enigma SKUs with COGS and MRP, PO draft, Desai and approval</h2><div class="d" data-name="3-enigma-skus-po-approval"><pre class="mermaid">
 flowchart TD
 A(["<b>Draft a PO</b>: every query, its replies,<br/>the factory recommended on price and in-house date"]) --> B{"SKUs in Enigma?"}
-B -- "no" --> B1["<b>Category adds the style to Enigma</b><br/>design code, name it sells as, fit, colour, description<br/>every size: SKU, price, sale price, pcs<br/>MRP shown beside: direct cost × multiplier"]
-B1 --> B
-B1 -.-> MK["<b>Marketing fills alongside</b><br/>title, description, buzzwords, key features,<br/>fabric and care, fit notes, SEO title, shoot pointers"]
+B -- "no" --> B1["<b>Category adds the style to Enigma</b><br/>every size with its price"]
+B1 --> CG["<b>PLM shows the direct COGS per piece</b><br/>factory's quoted price (FOB) + other PO charges<br/>+ fixed packaging, shipping and process costs<br/>e.g. ₹300 + ₹10 + ₹44 + ₹142 + ₹113 = ₹609"]
+CG --> CG2["<b>MRP by the multiplier</b> fills the MRP and every size's price<br/>₹609 × 3.5 = ₹2,131.50 → rounded up to the next hundred less ₹10 → ₹2,190<br/>category can change it"]
+CG2 --> B
+CG2 -.-> MK["<b>Marketing fills alongside</b><br/>title, description, buzzwords, key features,<br/>fabric and care, fit notes, SEO title, shoot pointers"]
 MK -.-> MK2(["Go-live waits for these; the PO never does"])
 B -- "yes" --> SZ{"Sizes in from Charanjeet?"}
 SZ -- "no" --> SZ1["Shown as sizes with Charanjeet; cannot be ticked"]
@@ -88,7 +90,7 @@ K --> L{"Any BOM line sent by BSC?"}
 L -- "yes" --> M["PLM makes the invoice for that material from the BOM Desai confirmed<br/>HSN, GST (CGST + SGST in state, IGST across)"]
 L -- "no" --> N
 M --> N(["<b>PLM mails the PO to the factory and the merchandiser</b><br/>one combined PDF, the invoice, the TNA form, the vendor details,<br/>the delivery location"])
-class A,B,SZ,SZ1,C2,DZ3,F1,K,L,M,N auto
+class A,B,SZ,SZ1,C2,DZ3,F1,K,L,M,N,CG,CG2 auto
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
@@ -139,7 +141,7 @@ class C,C2,D,F auto
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
-<h2>6 · Dispatch, count-in and COGS</h2><div class="d" data-name="6-dispatch-count-in-cogs"><pre class="mermaid">
+<h2>6 · Dispatch and count-in</h2><div class="d" data-name="6-dispatch-count-in-cogs"><pre class="mermaid">
 flowchart TD
 A(["Dispatch logged on the TNA"]) --> B["Merchandiser uploads the factory's invoice (number, amount, file)<br/>and the packing list PDF with its piece count"]
 B --> C["PLM mails both to the warehouse"]
@@ -157,14 +159,12 @@ F --> W
 E -- "short, no more coming" --> G["Closed short"]
 G --> G2["PLM takes the missing pieces × rate off the payable"]
 G2 --> H
-H --> I["<b>Direct COGS per piece</b><br/>PO cost (FOB per piece) + other charges on the PO per piece<br/>+ fixed packaging + fixed shipping + fixed process costs<br/>e.g. ₹300 FOB + ₹10 logistics + ₹44 packaging + ₹142 shipping + ₹113 process = ₹609<br/>(fixed costs per piece by category: BSC to confirm)"]
-I --> I2["<b>MRP by the multiplier</b><br/>direct COGS × multiplier (category's, e.g. 3.5)<br/>₹609 × 3.5 = ₹2,131.50, rounded up to the next hundred less ₹10 → MRP ₹2,190<br/>checked against the MRP in Enigma; margin shown"]
-I2 --> J["To finance: payments, in parts"]
-I2 --> M{"Marketing details done?"}
+H --> J["To finance: payments, in parts"]
+H --> M{"Marketing details done?"}
 M -- "no" --> M1["On marketing's list, red if it lands within 3 weeks"]
 M1 --> M
 M -- "yes" --> M2(["Ready to go live"])
-class C,W,D3,E,G2,I,I2,M,M1 auto
+class C,W,D3,E,G2,M,M1 auto
 classDef auto fill:#e2f0e5,stroke:#2e7d4f,stroke-width:1.6px,color:#1c4a2e;
 </pre></div>
 
