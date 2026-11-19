@@ -1607,6 +1607,14 @@ orders.forEach((o, i) => {
 /* category's cloth choice follows what the PO did */
 orders.forEach((o, i) => { if (o.pack && o.pack.clothBy === undefined) o.pack.clothBy = o.poMail?.fabricBy ?? clothFor(o, i); if (o.pack && o.pack.clothBy === 'factory') { o.pack.fabric.vendorId = null; o.pack.fabric.vendorFabricCode = null; o.pack.fabric.blockedMetres = null; o.pack.fabric.readiness = null; o.pack.fabric.trimVendorId = null; } });
 orders.forEach(o => { const m = Object.entries({ 'Nitin Singh': ['ayaan', 'camellia', 'topnotch'], 'Abhin M': ['gseams', 'goodwill', 'richman'], 'Bhupendra': ['united', 'strand', 'zen'] }).find(([, fs]) => o.vendorId && fs.includes(o.vendorId))?.[0]; if (m) o.merchant = m; });
+/* 19 Nov 2026: more counter-sourcing queries with factory replies for the Draft a PO screen. One factory is on time, another is
+   cheaper but late, so the recommendation (lowest price that is in-house on time) differs from the lowest price. Two are in Enigma
+   and ready for a PO; the third still needs its SKUs. */
+{ let n = 0; orders.forEach(o => { const cq = o.costQuery; if (!cq || o.poNo || cq.replies.length || o.status === 'Cancelled' || n >= 3) return; const k0 = n++;
+  const on = iso(addDays(TODAY, -2)); const room = Math.max(20, daysBetween(on, o.targetInhouse));
+  cq.replies = cq.factoryIds.map((id, k) => ({ vendorId: id, cost: Math.round(o.targetCost * (k === 0 ? 0.97 : k === 1 ? 0.91 : 1.03)), leadDays: k === 0 ? room - 4 : k === 1 ? room + 6 : room - 9, repliedOn: on, note: k === 1 ? 'line free only after the 25th' : null }));
+  if (k0 < 2) { const code = `BSC-RT-${o.id.replace(/\D/g, '').slice(-4).padStart(4, '0')}`; const mrp = Math.round(o.targetCost * 3.2 / 10) * 10 - 1;
+    o.enigmaProduct = { code, name: o.styleName, mrp, category: o.category, fit: o.fit ?? null, colour: o.fabricBrief?.colour ?? null, description: null, skus: o.sizeBreakup.filter(x => x.qty > 0).map(x => ({ size: x.size, sku: `${code}-${x.size}`, qty: x.qty, price: mrp, salePrice: null })), addedOn: iso(addDays(TODAY, -1)), by: 'Category team', editedOn: null, copy: null }; } }); }
 /* 19 Nov 2026 (Parag): every factory reply carries its cloth consumption per piece and its wastage, beside the cost per unit */
 orders.forEach(o => (o.costQuery?.replies ?? []).forEach((r, k) => { if (r.consumptionPerPc == null) { r.consumptionPerPc = Math.round((o.costing?.consumption ?? 1.6) * (1 + k * 0.02) * 100) / 100; r.wastagePct = 3 + k; } }));
 /* the BOM's quantities are frozen once the PO is drafted; the cloth line knows its width and wastage */
