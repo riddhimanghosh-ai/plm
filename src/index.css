@@ -1171,3 +1171,15 @@ table.fab-t tfoot td { border-top: 1.5px solid var(--line); background: var(--su
 
 /* 25 Nov 2026: one dispatch's documents against the PO (part shipments stack) */
 .disp-docs { border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; background: var(--paper, #fff); }
+
+/* 25 Nov 2026: every item for the PO at the factory, and who gets it there */
+.il-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.il-group { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--line-soft); border-left: 4px solid var(--line); border-radius: 10px; background: #fff; font-size: 12.5px; }
+.il-group.role-materials { border-left-color: #2b4f7a; } .il-group.role-sourcing { border-left-color: var(--role-sourcing); } .il-group.role-production { border-left-color: var(--role-production); }
+.il-group .pill { align-self: flex-start; }
+.il-kind { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 4px; background: var(--surface-2, #f1ede3); color: var(--ink-soft); }
+.il-table td { vertical-align: top; }
+.il-row.il-short td:first-child, .il-row.il-late td:first-child { box-shadow: inset 3px 0 0 var(--risk); }
+.il-row.il-to-order td:first-child, .il-row.il-with-desai td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+.il-row.il-received td:first-child { box-shadow: inset 3px 0 0 var(--good); }
+.il-edit td { background: color-mix(in srgb, var(--accent) 4%, #fff); }

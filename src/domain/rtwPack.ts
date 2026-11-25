@@ -2,7 +2,7 @@
    is the five-part requirement complete; which factories to recommend for a cost query; where the
    goods are delivered; which QC point is open on a PO; and the mails PLM composes (the cost query,
    the PO, the invoice to the warehouse). */
-import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc, PoLine, FabricBy, BomLine, TransferNote, MarketingDetails } from './types';
+import type { Db, ProductionOrder, QcCheck, QcPoint, RequirementPack, Vendor, CostReply, PoDoc, PoLine, FabricBy, BomLine, TransferNote, MarketingDetails, SuppliedBy, FactoryBuy } from './types';
 import { TECH_PACK_ITEMS, QC_POINTS, DELIVERY_LOCATIONS, PEOPLE } from './reference';
 import { fmtDate, daysAgo, addDays, iso, daysBetween, costingOf, receiptOf, netOf, TODAY } from './engines';
 
@@ -483,4 +483,49 @@ export function marketingDraftOf(o: ProductionOrder): MarketingDetails {
     seo: `${name} | ${fit} ${kind} | Bombay Shirt Company`,
     pointers: [`Say the cloth first: ${cloth || 'the fabric'}.`, `${fit}: show it on the body, front and side.`, col ? `Lead with the ${col.toLowerCase()} in the hero image.` : 'Lead with the colour in the hero image.'],
     savedOn: null, by: null, doneOn: null };
+}
+
+/* ── 25 Nov 2026: every item line on the PO, who gets it to the factory, and where it is ──
+   BSC sends (Desai, on the transfer note) · the factory buys from BSC's nominated vendor · the factory's own.
+   The merchandiser logs the factory's side on its behalf: its PO, when it is due, what landed. */
+export type ItemState = 'to-order' | 'with-desai' | 'ordered' | 'sent' | 'late' | 'received' | 'short';
+export const WHO_LABEL: Record<SuppliedBy, string> = { bsc: 'BSC sends · Desai', nominated: "Factory buys · BSC's vendor", factory: "Factory's own" };
+export function whoSuppliesOf(o: ProductionOrder, idx: number): SuppliedBy {
+  const l = o.bom[idx]; if (l?.suppliedBy) return l.suppliedBy;
+  if (l?.kind === 'fabric') return o.fabricNominated ? 'bsc' : o.poMail?.fabricBy === 'bsc-vendor' ? 'nominated' : 'factory';
+  return o.fabricNominated ? 'bsc' : 'factory';
+}
+export function factoryBuyOf(o: ProductionOrder, idx: number): FactoryBuy | null {
+  const fb = o.factoryBuys?.[String(idx)]; if (fb) return fb;
+  const l = o.bom[idx]; const fc = o.factoryCloth;
+  if (l?.kind === 'fabric' && !o.fabricNominated && fc && (fc.poOn || fc.receivedOn)) return { poNo: fc.poNo, orderedOn: fc.poOn, expectedOn: null, receivedOn: fc.receivedOn, receivedQty: fc.metresReceived, note: fc.note, by: null, on: null };
+  return null;
+}
+export function itemLinesOf(o: ProductionOrder) {
+  return o.bom.map((l, idx) => {
+    const who = whoSuppliesOf(o, idx); const pfs = l.kind === 'fabric' ? (o.poFabrics ?? []) : [];
+    const need = pfs.length ? pfs.reduce((a, f) => a + (f.metresNeeded ?? 0), 0) : Math.ceil((l.qtyPerPc ?? 0) * o.orderQty * (l.kind === 'fabric' ? 1.03 : 1));
+    const m = (o.materials ?? []).find(x => x.bomIndex === idx);
+    let state: ItemState; let label: string; let detail: string | null = null; let got: number | null = null; let on: string | null = null;
+    if (who === 'bsc') {
+      const tl = (o.transfers ?? []).flatMap(t => t.lines.filter(x => x.idx === idx).map(x => ({ t, x })));
+      const sent = tl.filter(y => y.t.sentOn).reduce((a, y) => a + y.x.sendQty, 0); const lastSent = tl.filter(y => y.t.sentOn).slice(-1)[0];
+      const rest = tl.find(y => y.x.rest && y.x.sendQty < y.x.bomQty);
+      if (rest) detail = `BSC sends ${rest.x.sendQty} ${l.unit}; the rest ${rest.x.bomQty - rest.x.sendQty} ${l.unit} by ${rest.x.rest === 'bsc' ? 'BSC' : rest.x.rest === 'nominated' ? `the factory from ${rest.x.restVendor ?? "BSC's vendor"}` : 'the factory itself'}`;
+      if (m?.receivedOn) { got = m.receivedQty ?? m.requiredQty; on = m.receivedOn; state = got < need ? 'short' : 'received'; label = state === 'short' ? `received short · ${got} of ${need}` : `at the factory`; }
+      else if (lastSent) { on = lastSent.t.sentOn; state = 'sent'; label = `sent ${sent} ${l.unit} · ${lastSent.t.no}`; }
+      else { state = 'with-desai'; label = tl.length ? `on ${tl[0].t.no} · not sent yet` : 'not sent yet'; }
+    } else {
+      const fb = factoryBuyOf(o, idx);
+      const pIn = pfs.filter(f => f.receivedOn); const pGot = pIn.reduce((a, f) => a + (f.metresReceived ?? 0), 0);
+      if (pfs.length && pIn.length) { got = pGot; on = pIn.map(f => f.receivedOn!).sort().slice(-1)[0]; const all = pIn.length === pfs.length;
+        state = !all ? 'ordered' : got < need ? 'short' : 'received'; label = !all ? `${pIn.length} of ${pfs.length} colours in · ${got} m` : state === 'short' ? `received short · ${got} of ${need}` : 'at the factory'; }
+      else if (fb?.receivedOn) { got = fb.receivedQty ?? need; on = fb.receivedOn; state = got < need ? 'short' : 'received'; label = state === 'short' ? `received short · ${got} of ${need}` : 'at the factory'; }
+      else if (fb?.orderedOn) { on = fb.expectedOn; const late = !!fb.expectedOn && new Date(fb.expectedOn) < new Date(TODAY); state = late ? 'late' : 'ordered'; label = `ordered${fb.poNo ? ` · ${fb.poNo}` : ''}${fb.expectedOn ? ` · due ${fmtDate(fb.expectedOn)}` : ''}`; }
+      else { state = 'to-order'; label = ''; }
+      if (fb?.note) detail = fb.note;
+    }
+    const vendor = who === 'factory' ? null : (l.vendor ?? null);
+    return { idx, l, who, need, unit: l.unit, state, label, detail, got, on, vendor };
+  });
 }

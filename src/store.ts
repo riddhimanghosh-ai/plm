@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { MarketingDetails, TransferNote, SuppliedBy, PoApproval, ApproverRole, PoDoc, TechPackKey, RequirementPack, CostReply, QcPoint, CutRatioTrigger, PoInvoice, EwayBill, FabricBy, MailDraft, PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails, SampleStage } from './domain/types';
+import type { MarketingDetails, TransferNote, SuppliedBy, PoApproval, ApproverRole, PoDoc, TechPackKey, RequirementPack, CostReply, QcPoint, CutRatioTrigger, PoInvoice, EwayBill, FactoryBuy, FabricBy, MailDraft, PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails, SampleStage } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
 import { fmtDate, prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
@@ -265,6 +265,7 @@ export interface AppState {
   bulkCreateRequirements(rows: { styleName: string; category: GarmentCategory; subCategory: string; colours: string[]; sizeBreakup: { size: string; qty: number }[]; targetCost: number; targetInhouse: string; semiStitched: boolean; fabric: string | null; content: string | null; clothBy: FabricBy }[]): number;
   addPoInvoice(orderId: string, inv: Omit<PoInvoice, 'id' | 'on' | 'by'>): void;   // Nitin: every invoice on the PO, both ways, for reconciliation
   removePoInvoice(orderId: string, id: string): void;
+  logFactoryBuy(orderId: string, idx: number, patch: Partial<FactoryBuy>): void;   // 25 Nov 2026: merchandiser, for the factory: one BOM line it buys · ordered (its PO, due date) and received
   logFactoryCloth(orderId: string, patch: Partial<NonNullable<ProductionOrder['factoryCloth']>>): void;   // merchandiser: the factory's own fabric PO and receipt; logs the TNA's Fabric PO and Fabric ETA
   receivePoFabric(orderId: string, fabricId: string, metres: number, on?: string | null): void;                 // factory counts a colour in
   qcPoFabric(orderId: string, fabricId: string, result: 'passed' | 'failed', note: string): void;             // the factory's own quality check on the cloth
@@ -1717,6 +1718,22 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         log(o, `${inv.doc === 'debit-note' ? 'Debit note' : inv.doc === 'credit-note' ? 'Credit note' : 'Invoice'} logged on the PO · ${inv.direction === 'bsc-to-factory' ? 'BSC → factory' : 'factory → BSC'} · ${inv.no} · ₹${inv.amount} · ${inv.what}`); }, 'Invoice logged against the PO for reconciliation.');
     },
     removePoInvoice(orderId, id) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.poInvoices = (o.poInvoices ?? []).filter(x => x.id !== id); }); },
+    logFactoryBuy(orderId, idx, patch) {
+      touch(db => { const o = db.orders.find(x => x.id === orderId); const l = o?.bom[idx]; if (!o || !l) return;
+        const was = o.factoryBuys?.[String(idx)] ?? { poNo: null, orderedOn: null, expectedOn: null, receivedOn: null, receivedQty: null, note: null, by: null, on: null };
+        const fb = { ...was, ...patch, by: who(), on: now() }; o.factoryBuys = { ...(o.factoryBuys ?? {}), [String(idx)]: fb };
+        const need = Math.ceil((l.qtyPerPc ?? 0) * o.orderQty * (l.kind === 'fabric' ? 1.03 : 1));
+        if (l.kind === 'fabric' && !o.fabricNominated) {   // the cloth keeps feeding the TNA's Fabric PO and Fabric ETA, as before
+          o.factoryCloth = { vendor: l.vendor ?? o.factoryCloth?.vendor ?? null, poNo: fb.poNo, poOn: fb.orderedOn, metres: o.factoryCloth?.metres ?? need, receivedOn: fb.receivedOn, metresReceived: fb.receivedQty, note: fb.note };
+          const po = o.milestones.find(m => m.key === 'Fabric PO'); if (po && fb.orderedOn && !po.actual) po.actual = fb.orderedOn;
+          const eta = o.milestones.find(m => m.key === 'Fabric ETA'); if (eta && fb.receivedOn && !eta.actual) eta.actual = fb.receivedOn;
+          if (fb.receivedOn) o.fabricReady = true; }
+        if (fb.receivedOn) { if (!o.materials?.length) o.materials = defaultMaterials(o); const m = o.materials.find(x => x.bomIndex === idx);
+          if (m) { m.receivedOn = fb.receivedOn; m.receivedQty = fb.receivedQty; m.checked = (fb.receivedQty ?? need) >= need ? 'ok' : 'fail'; }
+          const trimLines = o.materials.filter(x => o.bom[x.bomIndex]?.kind !== 'fabric'); if (trimLines.length && trimLines.every(x => x.receivedOn && x.checked === 'ok')) { o.trimsReady = true; const te = o.milestones.find(x => x.key === 'Trims ETA'); if (te && !te.actual) te.actual = now(); } }
+        log(o, fb.receivedOn ? `${l.item} received at the factory · ${fb.receivedQty ?? need} of ${need} ${l.unit}` : `Factory ordered ${l.item}${fb.poNo ? ` · ${fb.poNo}` : ''}${fb.expectedOn ? ` · due ${fmtDate(fb.expectedOn)}` : ''}`); },
+        'Logged for the factory.');
+    },
     logFactoryCloth(orderId, patch) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return; o.factoryCloth = { vendor: null, poNo: null, poOn: null, metres: null, receivedOn: null, metresReceived: null, note: null, ...(o.factoryCloth ?? {}), ...patch };
         const po = o.milestones.find(m => m.key === 'Fabric PO'); if (po && o.factoryCloth.poOn && !po.actual) po.actual = o.factoryCloth.poOn;

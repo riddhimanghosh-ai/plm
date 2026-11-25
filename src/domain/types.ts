@@ -177,6 +177,8 @@ export interface BomOption { id: string; suppliedBy: SuppliedBy; vendor: string 
   code?: string | null; note?: string | null; by: string; on: string }
 /* BSC sends it; BSC names the vendor and the factory raises its own PO; or the factory arranges it itself */
 export type SuppliedBy = 'bsc' | 'nominated' | 'factory';
+/* 25 Nov 2026: one BOM line the factory buys (from BSC's nominated vendor or its own), logged by the merchandiser on its behalf */
+export interface FactoryBuy { poNo: string | null; orderedOn: string | null; expectedOn: string | null; receivedOn: string | null; receivedQty: number | null; note: string | null; by: string | null; on: string | null }
 
 /* ---------- RTW sample approval — the gate before bulk ------------------
    Factory makes a sample from the tech pack and job card; the BSC Production
@@ -391,6 +393,7 @@ export interface ProductionOrder {
   poEdit?: { needs: ApproverRole[]; reason: string; askedOn: string; by: string; grants: { role: ApproverRole; by: string; on: string; granted: boolean; comment: string | null }[] } | null;
   poMail?: { on: string; sentOn?: string | null; mail?: MailDraft | null; to: string[]; cc: string[]; deliveryLocation: DeliveryLocation; needsHemming: boolean; fabricBy: FabricBy; clothVendorSent: boolean } | null;   // on: composed with the PO; sentOn: when Nitin sent it
   /* when the factory buys the cloth itself (from BSC's vendor or its own): the details it gives back */
+  factoryBuys?: Record<string, FactoryBuy> | null;   // 25 Nov 2026: per BOM line (by index) the factory gets itself: its PO, when it is due and what landed
   factoryCloth?: { vendor: string | null; poNo: string | null; poOn: string | null; metres: number | null; receivedOn: string | null; metresReceived: number | null; note: string | null } | null;
   tnaPlan?: { sentOn: string; submittedOn: string | null; by: string | null } | null;   // the TNA form: planned dates from the factory, via the merchandiser
   qcChecks?: QcCheck[] | null;
