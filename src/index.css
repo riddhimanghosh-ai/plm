@@ -973,7 +973,7 @@ table.t.sum-t.kv { table-layout: auto; } table.t.sum-t.kv td { white-space: norm
   .rtw-phase { flex-direction: row; gap: 6px; flex: none; } .rtw-ph-head { display: none; } .rtw-phase.shut { display: none; }
   .rtw-step { flex: none; width: auto; max-width: 62vw; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; align-items: center; scroll-snap-align: start; }
   .rtw-step .rtw-step-sub { display: none; } .rtw-step .rtw-step-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; font-size: 12.5px; }
-  .rtw-step[aria-current="step"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); } .rtw-step[aria-current="step"] .rtw-step-label { color: inherit; }
+  .rtw-step[aria-current="step"], .rtw-step.now[aria-current="step"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); } .rtw-step[aria-current="step"] .rtw-step-label { color: inherit; }
   .rtw-step.flat { opacity: .55; }
   .rtw-next { font-size: 12.5px; } .rtw-next .cta { margin-left: 0; width: 100%; text-align: center; }
   .rtw-panel div.kv { grid-template-columns: minmax(0, 1fr); } .rtw-panel div.kv .k { padding: 5px 10px 2px; background: transparent; } .rtw-panel div.kv .v { padding: 0 10px 7px; }
@@ -1029,7 +1029,7 @@ table.t.sum-t.kv { table-layout: auto; } table.t.sum-t.kv td { white-space: norm
   .rtw-phase { flex-direction: row; gap: 6px; flex: none; } .rtw-ph-head { display: none; } .rtw-phase.shut { display: flex; }
   .rtw-step { flex: none; width: auto; max-width: 240px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; align-items: center; scroll-snap-align: start; }
   .rtw-step .rtw-step-sub { display: none; } .rtw-step .rtw-step-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; font-size: 12.5px; }
-  .rtw-step[aria-current="step"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); } .rtw-step[aria-current="step"] .rtw-step-label { color: inherit; }
+  .rtw-step[aria-current="step"], .rtw-step.now[aria-current="step"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); } .rtw-step[aria-current="step"] .rtw-step-label { color: inherit; }
 }
 
 /* 19 Nov 2026: direct COGS × multiplier = MRP; one PO for several requirements; BOM quantities; the 3PL report */
@@ -1183,3 +1183,8 @@ table.fab-t tfoot td { border-top: 1.5px solid var(--line); background: var(--su
 .il-row.il-to-order td:first-child, .il-row.il-with-desai td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
 .il-row.il-received td:first-child { box-shadow: inset 3px 0 0 var(--good); }
 .il-edit td { background: color-mix(in srgb, var(--accent) 4%, #fff); }
+
+/* 25 Nov 2026: theme picker in the sidebar */
+.theme-dots { display: flex; flex-wrap: wrap; gap: 6px; }
+.theme-dots button { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgb(255 255 255/.25); padding: 0; cursor: pointer; }
+.theme-dots button.on { border-color: var(--sidebar-ink); box-shadow: 0 0 0 2px var(--sidebar); outline: 2px solid var(--sidebar-ink); outline-offset: 1px; }

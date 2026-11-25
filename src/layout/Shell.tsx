@@ -8,6 +8,7 @@ import { PEOPLE, ROLE_LABEL, STORES } from '../domain/reference';
 import { MTM_ONLY, RTW_ONLY, EDITION_LABEL, inEdition, RTW_HIDDEN_NAV_GROUPS, RTW_HIDDEN_PATHS } from '../domain/edition';
 import type { RoleId } from '../domain/types';
 import { Toasts, Select, Button } from '../ui';
+import { THEMES, applyTheme, savedTheme } from '../domain/theme';
 import { VendorDrawer } from '../screens/Vendors';
 import { MentionBar } from '../screens/Mentions';
 import { CommandSearch, SearchHint } from '../screens/Search';
@@ -204,6 +205,7 @@ export function Shell() {
             and fold away until asked for */}
         <div className="mt-auto flex flex-col gap-2 px-1">
           <div className="px-1 text-[12.5px] leading-snug" style={{ color:'var(--sidebar-ink)' }}>{me.name}<div className="text-[11px]" style={{ color:'var(--sidebar-soft)' }}>{me.title}{demoAll ? ' · walkthrough' : ''}</div>{!demoAll && portalRole && portalRole !== 'owner' && portalRole !== me.role && <div className="acting-as">Working here as <b>{ROLE_LABEL[portalRole] ?? portalRole}</b></div>}</div>
+          <ThemePicker />
           <details className="demo-fold flex flex-col gap-2 px-1">
           <summary>Demo settings</summary>
           <div className="flex flex-col gap-2 pt-1">
@@ -241,4 +243,16 @@ export function Shell() {
       <Toasts />
     </div>
   );
+}
+
+/* 25 Nov 2026: pick a colour theme; kept in this browser */
+function ThemePicker() {
+  const [cur, setCur] = useState(savedTheme());
+  const t = THEMES.find(x => x.id === cur) ?? THEMES[0];
+  return <div className="theme-pick px-1">
+    <div className="text-[11px] uppercase tracking-[.1em] pb-1" style={{ color: 'var(--sidebar-soft)' }}>Theme · {t.name}</div>
+    <div className="theme-dots">{THEMES.map(x => <button key={x.id} type="button" title={x.name} aria-label={`${x.name} theme`} aria-pressed={x.id === cur}
+      onClick={() => { applyTheme(x.id); setCur(x.id); }} className={x.id === cur ? 'on' : ''}
+      style={{ background: `linear-gradient(135deg, ${x.sidebar} 0 50%, ${x.accent} 50% 100%)` }} />)}</div>
+  </div>;
 }
