@@ -904,7 +904,8 @@ export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boole
         <KV k="Code" v={<span className="mono">{ep.code}</span>} /><KV k="Name" v={ep.name} /><KV k="MRP" v={fmtMoney(ep.mrp)} /><KV k="Category" v={ep.category} note={[ep.fit, ep.colour].filter(Boolean).join(' · ') || undefined} />
       </div>
       {ep.description && <div className="text-[12.5px] pt-1" style={soft}>{ep.description}</div>}
-      <table className="t compact mt-2"><thead><tr><th>Size</th><th>SKU</th><th className="num">Price</th><th className="num">Sale price</th><th className="num">Pcs</th></tr></thead><tbody>{ep.skus.map(x => <tr key={x.size}><td>{x.size}</td><td className="mono text-[12px]">{x.sku}</td><td className="num">{fmtMoney(x.price ?? ep.mrp)}</td><td className="num">{x.salePrice != null ? fmtMoney(x.salePrice) : '—'}</td><td className="num">{x.qty}</td></tr>)}</tbody></table>
+      <table className="t compact mt-2"><thead><tr><th>Size</th><th>SKU</th><th className="num">Price</th><th className="num">Sale price</th></tr></thead><tbody>{ep.skus.map(x => <tr key={x.size}><td>{x.size}</td><td className="mono text-[12px]">{x.sku}</td><td className="num">{fmtMoney(x.price ?? ep.mrp)}</td><td className="num">{x.salePrice != null ? fmtMoney(x.salePrice) : '—'}</td></tr>)}</tbody></table>
+      <div className="text-[12px] pt-1" style={faint}>No quantity goes to Enigma here: it can change during production. Stock goes in when the warehouse counts the goods in.</div>
     </Section>
     <div className="pt-3 text-[12.5px] flex gap-2 items-center flex-wrap"><span className="pill role-marketing">Marketing</span>{o.marketing?.doneOn ? <span>Product and marketing details done {fmtDate(o.marketing.doneOn)} · ready for go-live</span> : <span style={{ color: 'var(--warn)' }}>Product and marketing details with marketing{o.marketing?.savedOn ? ' · draft saved' : ''} · go-live waits for them</span>}<a className="vlink" href={`#/marketing?open=${o.id}`}>see them →</a></div>
   </>;
@@ -925,15 +926,14 @@ export function EnigmaSection({ o, design }: { o: ProductionOrder; design: boole
       <Field label="Colour"><Input value={f.colour} onChange={e => setF(x => ({ ...x, colour: e.target.value }))} disabled={!design} /></Field>
       <div style={{ gridColumn: '1 / -1' }}><Field label="Description"><Input value={f.description} onChange={e => setF(x => ({ ...x, description: e.target.value }))} disabled={!design} /></Field></div>
     </div>
-    <div className="cap pt-3">Every size · {f.skus.reduce((a, x) => a + (x.qty || 0), 0)} pcs</div>
-    <div className="flex items-center gap-2 pb-1 text-[12px]" style={faint}>Price per size defaults to the MRP; type over any size that sells at a different price.{design && <button type="button" className="vlink" onClick={() => setF(y => ({ ...y, skus: y.skus.map(s => ({ ...s, price: Number(y.mrp) || null })) }))}>set every size to ₹{f.mrp}</button>}</div>
-    <table className="t compact"><thead><tr><th>Size</th><th>SKU</th><th className="num">Price (₹)</th><th className="num">Sale price (₹)</th><th className="num">Pcs</th><th></th></tr></thead>
+    <div className="cap pt-3">Every size</div>
+    <div className="flex items-center gap-2 pb-1 text-[12px]" style={faint}>Price per size defaults to the MRP; type over any size that sells at a different price. No quantity goes to Enigma here: it can change during production, so stock goes in when the warehouse counts the goods in.{design && <button type="button" className="vlink" onClick={() => setF(y => ({ ...y, skus: y.skus.map(s => ({ ...s, price: Number(y.mrp) || null })) }))}>set every size to ₹{f.mrp}</button>}</div>
+    <table className="t compact"><thead><tr><th>Size</th><th>SKU</th><th className="num">Price (₹)</th><th className="num">Sale price (₹)</th><th></th></tr></thead>
       <tbody>{f.skus.map((x, i) => <tr key={i}>
         <td>{design ? <Input value={x.size} onChange={e => setSku(i, { size: e.target.value, sku: `${f.code}-${e.target.value}` })} style={{ width: 80 }} /> : x.size}</td>
         <td>{design ? <Input value={x.sku} onChange={e => setSku(i, { sku: e.target.value })} className="input mono" style={{ width: 220 }} /> : <span className="mono text-[12px]">{x.sku}</span>}</td>
         <td className="num">{design ? <Input type="number" value={x.price ?? ''} placeholder={f.mrp} onChange={e => setSku(i, { price: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: 110, textAlign: 'right' }} /> : fmtMoney(x.price ?? Number(f.mrp))}</td>
         <td className="num">{design ? <Input type="number" value={x.salePrice ?? ''} placeholder="—" onChange={e => setSku(i, { salePrice: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: 110, textAlign: 'right' }} /> : x.salePrice != null ? fmtMoney(x.salePrice) : '—'}</td>
-        <td className="num">{design ? <Input type="number" value={x.qty} onChange={e => setSku(i, { qty: Number(e.target.value) || 0 })} style={{ width: 90, textAlign: 'right' }} /> : x.qty}</td>
         <td>{design && <button type="button" className="vlink text-[11.5px]" onClick={() => setF(y => ({ ...y, skus: y.skus.filter((_, k) => k !== i) }))}>remove</button>}</td>
       </tr>)}</tbody></table>
     {design && <div className="pt-1"><button type="button" className="vlink text-[12px]" onClick={() => setF(y => ({ ...y, skus: [...y.skus, { size: '', sku: `${y.code}-`, qty: 0, price: null, salePrice: null }] }))}>+ Add a size</button></div>}
