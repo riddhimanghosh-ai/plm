@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { MarketingDetails, TransferNote, SuppliedBy, PoApproval, ApproverRole, PoDoc, TechPackKey, RequirementPack, CostReply, QcPoint, CutRatioTrigger, PoInvoice, FabricBy, MailDraft, PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails, SampleStage } from './domain/types';
+import type { MarketingDetails, TransferNote, SuppliedBy, PoApproval, ApproverRole, PoDoc, TechPackKey, RequirementPack, CostReply, QcPoint, CutRatioTrigger, PoInvoice, EwayBill, FabricBy, MailDraft, PrepStep, PrepEvent, VendorKind, Fabric, ConceptDesign, SourcingMode, ResolutionStep, StockWriteOff, Grn, Attachment, AttachmentKind, Concept, ConceptFabricOption, OptionRequest, OrderSpec, OrderMeasurements, PatternFlags, SheetOptionKey, MeasureKey, Db, RoleId, ProductionOrder, GarmentCategory, FabricQuote, Milestone, Escalation, RtwOption, BomLine, Costing, ThreadKind, ReturnCase, CustomerOrder, StockRequest, Launch, LaunchPiece, CustomerOrderStage, ExtraFabricRequest, OrderTag, SampleRound, QcAudit, Vendor, TrackerConfig, PlanningReview, LaunchDeskStep, LaunchCodeDetails, SampleStage } from './domain/types';
 import { SEED } from './domain/seed';
 import { putFile, deleteFile, clearFiles } from './domain/files';
 import { fmtDate, prepOf, trimCoverageOf, storeInboundOf, sheetEditMode, factoryLoadOf, type StoreInboundKind, buildMilestones, applyTrackerConfig, daysBetween, addDays, iso, TODAY, defaultBom, defaultCosting, parseMentions, defaultLaunchPieces, consumptionFor, defaultMaterials, mintBespokeCode } from './domain/engines';
@@ -216,7 +216,7 @@ export interface AppState {
 
   /* production */
   updateExecution(orderId: string, patch: Partial<Pick<ProductionOrder, 'merchant' | 'jobCardNo' | 'fabricReady' | 'trimsReady' | 'finalFob' | 'remarks'>> & { costingClosure?: Partial<ProductionOrder['costingClosure']> }): void;
-  setMilestone(orderId: string, key: string, patch: Partial<Pick<Milestone, 'plan' | 'revised' | 'actual' | 'delayReason'>>): void;   // a key not yet on the PO is added to its plan
+  setMilestone(orderId: string, key: string, patch: Partial<Pick<Milestone, 'plan' | 'revised' | 'actual' | 'delayReason'>>, move?: { keys: string[]; days: number } | null): void;   // 25 Nov 2026: move = the later steps the merchandiser chose to move, and by how many days; left out, a late actual moves every later step   // a key not yet on the PO is added to its plan
   skipMilestone(orderId: string, key: string, skip: boolean): void;
   /* the chain after 12 Nov 2026 */
   sendForSampling(orderId: string, kind: SampleStage, dueOn: string | null): void;
@@ -273,7 +273,7 @@ export interface AppState {
   raiseAlternativeFor(orderId: string, fabricId: string): string | null;                                     // a separate requirement for the dropped colour's alternative
   addToEnigma(orderId: string, p: { code: string; name: string; mrp: number; category: string; fit: string | null; colour: string | null; description: string | null; skus: { size: string; sku: string; qty: number; price?: number | null; salePrice?: number | null }[] }): void;   // category: the style and every size into Enigma, ready to sell
   setEnigmaCopy(orderId: string, copy: NonNullable<NonNullable<ProductionOrder['enigmaProduct']>['copy']>): void;   // AI-drafted product and marketing details, edited and kept
-  uploadInvoice(orderId: string, inv: { no: string; amount: number; file: string | null; packingList: { size: string; qty: number }[]; packingFile?: string | null; packedPcs?: number | null }): void;   // merchandiser: uploads the factory's invoice and packing list
+  uploadInvoice(orderId: string, inv: { no: string; amount: number; file: string | null; invoiceOn?: string | null; eway?: EwayBill | null; packingList: { size: string; qty: number }[]; packingFile?: string | null; packedPcs?: number | null }): void;   // a second call after the first is mailed is a part shipment   // merchandiser: uploads the factory's invoice and packing list
   mailInvoice(orderId: string, mail?: MailDraft | null): void;   // merchandiser: one click, PLM mails both to Prince at the warehouse
   sendPoMail(orderId: string, mail?: MailDraft | null): void;   // Nitin: the PO mail to the factory and the merchandiser, edited if needed
   /** production agrees with the factory: part now, balance later — the same PO, split */
@@ -413,7 +413,7 @@ function makeTransfer(db: Db, o: ProductionOrder, only?: number[]) {
   o.transfers = open ? (o.transfers ?? []).map(x => x.id === open.id ? t : x) : [...(o.transfers ?? []), t];
   (o.activity = o.activity ?? []).push({ at: new Date(TODAY).toISOString(), who: 'PLM', what: `Transfer note ${t.no} ${open ? 'rewritten' : 'written'} for what BSC sends · ${lines.length} line${lines.length === 1 ? '' : 's'} · with Desai` });
 }
-const SEED_VERSION = 186;
+const SEED_VERSION = 187;
 const now = () => new Date(TODAY.getTime() + (Date.now() - BOOT)).toISOString();
 
 let saveWarned = false;
@@ -1762,14 +1762,16 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
     setEnigmaCopy(orderId, copy) { touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.enigmaProduct) return; o.enigmaProduct.copy = copy; log(o, 'Product and marketing details saved'); }, 'Product and marketing details saved.'); },
     uploadInvoice(orderId, inv) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o) return;
-        o.invoice = { ...inv, uploadedOn: now(), by: who(), mailedOn: null, mailedTo: [] };
+        if (o.invoice?.mailedOn) o.dispatches = [...(o.dispatches ?? []), o.invoice];   // the earlier dispatch stays; this one is the next part shipment
+        const part = (o.dispatches ?? []).length + 1;
+        o.invoice = { ...inv, poNo: o.poNo, part, uploadedOn: now(), by: who(), mailedOn: null, mailedTo: [] };
         const d = o.milestones.find(x => x.key === 'Dispatch'); if (d && !d.actual) d.actual = now();
-        log(o, `Invoice ${inv.no} and packing list (${inv.packedPcs ?? inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs) uploaded`); },
-        'Uploaded. Send them to Prince when ready.');
+        log(o, `${part > 1 ? `Part shipment ${part} · ` : ''}Invoice ${inv.no}, packing list (${inv.packedPcs ?? inv.packingList.reduce((a, x) => a + x.qty, 0)} pcs)${inv.eway ? ` and e-way bill ${inv.eway.no}` : ''} added against ${o.poNo}`); },
+        'Added against the PO. Send them to Prince when ready.');
     },
     mailInvoice(orderId, mail = null) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); if (!o?.invoice || o.invoice.mailedOn) return; const m = mail ?? invoiceMailOf(db, o); o.invoice.mailedOn = now(); o.invoice.mailedTo = m.to; o.invoice.mail = mail;
-        log(o, `Invoice ${o.invoice.no} and packing list mailed to Prince`); }, 'Mailed to Prince at the warehouse, copying Nitin and the merchandiser.');
+        log(o, `Invoice ${o.invoice.no}, packing list and e-way bill mailed to Prince`); }, 'Mailed to Prince at the warehouse, copying Nitin and the merchandiser.');
     },
     skipMilestone(orderId, key, skip) {
       touch(db => { const o = db.orders.find(x => x.id === orderId); const m = o?.milestones.find(x => x.key === key); if (!o || !m) return;
@@ -1777,7 +1779,7 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         else { m.skipped = null; m.actual = null; log(o, `"${key}" needed after all`); } },
         skip ? `${key} marked not needed; the chain flows past it.` : `${key} is back on the plan.`);
     },
-    setMilestone(orderId, key, patch) {
+    setMilestone(orderId, key, patch, move) {
       touch(db => {
         const o = db.orders.find(x => x.id === orderId); if (!o) return;
         let idx = o.milestones.findIndex(m => m.key === key);
@@ -1790,6 +1792,16 @@ const touch = (fn: (db: Db) => void, msg?: string, tone: Toast['tone'] = 'ok') =
         }
         const m = o.milestones[idx];
         Object.assign(m, patch); if (patch.actual) m.skipped = null;
+        /* 25 Nov 2026: the merchandiser chose which later steps move (all, some or none) and by how much; only open steps move */
+        if (move) {
+          const moved: string[] = [];
+          if (move.days !== 0) o.milestones.slice(idx + 1).forEach(d => { if (d.actual || d.skipped || !move.keys.includes(d.key)) return;
+            d.revised = iso(addDays(d.revised ?? d.plan, move.days)); d.delayReason = `Moved with "${m.key}" (${move.days > 0 ? '+' : ''}${move.days}d)`; moved.push(d.key); });
+          if (m.actual) m.revised = null;
+          const what = m.actual ? `"${m.key}" done ${fmtDate(m.actual)}` : patch.revised ? `"${m.key}" revised to ${fmtDate(patch.revised)} · ${m.delayReason ?? 'no reason'}` : `"${m.key}" saved`;
+          log(o, `${what} · ${moved.length ? `${moved.length} later step${moved.length === 1 ? '' : 's'} moved ${move.days > 0 ? '+' : ''}${move.days}d: ${moved.join(', ')}` : 'later steps left as they were'}`);
+          return;
+        }
         if (m.actual) {
           const slip = Math.max(0, daysBetween(m.plan, m.actual));
           m.revised = null;

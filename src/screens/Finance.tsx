@@ -7,7 +7,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import type { ProductionOrder, PoInvoice } from '../domain/types';
 import { fmtDate, fmtMoney } from '../domain/engines';
-import { poLedgerOf, payDueOf, poTotalsOf, packedPcsOf, supplyInvoicesOf, supplyLinesOf, bomOpenOf } from '../domain/rtwPack';
+import { poLedgerOf, payDueOf, poTotalsOf, packedPcsOf, dispatchesOf, supplyInvoicesOf, supplyLinesOf, bomOpenOf } from '../domain/rtwPack';
 import { invoiceDocOf, downloadInvoicePdf } from '../domain/invoicePdf';
 import { Page, Card, Pill, Drawer, Empty, Tabs, Stats, Input, Button, MultiFilter, passes, ExportButton, dateInput, fromDateInput } from '../ui';
 import { RtwRequirement } from './RtwRequirement';
@@ -66,7 +66,7 @@ export function FinanceInvoices() {
 
   /* a factory's invoice: against the PO's value, and the pieces against what the warehouse counted in */
   const fac: FacRow[] = orders.flatMap(o => [
-    ...(o.invoice ? [{ o, no: o.invoice.no, amount: o.invoice.amount, on: o.invoice.uploadedOn, file: o.invoice.file, packed: packedPcsOf(o.invoice), main: true }] : []),
+    ...dispatchesOf(o).map(d => ({ o, no: d.no, amount: d.amount, on: d.uploadedOn, file: d.file, packed: packedPcsOf(d), main: true })),
     ...(o.poInvoices ?? []).filter(i => i.direction === 'factory-to-bsc' && (i.doc ?? 'invoice') === 'invoice').map(i => ({ o, no: i.no, amount: i.amount, on: i.on, file: i.file, packed: null, main: false })) ]);
   const checkOf = (r: FacRow): { id: string; label: string; tone: Tone; note: string | null } => { const l = poLedgerOf(r.o); const over = r.amount - l.poTotal;
     if (!r.main) return { id: 'extra', label: 'extra invoice', tone: 'info', note: 'not the goods invoice; check what it is for' };

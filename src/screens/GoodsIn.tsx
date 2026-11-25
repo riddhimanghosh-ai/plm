@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import { fmtDate, fmtMoney, receiptOf, daysAgo } from '../domain/engines';
-import { packedPcsOf, poLedgerOf , countedBy3plOf } from '../domain/rtwPack';
+import { sentPcsOf, poLedgerOf, countedBy3plOf } from '../domain/rtwPack';
 import { Page, Card, Pill, Drawer, Empty, Seg, Stats, Input, MultiFilter, passes } from '../ui';
 import { RtwRequirement } from './RtwRequirement';
 
@@ -16,7 +16,7 @@ export function GoodsIn() {
   const view = (params.get('view') ?? 'todo') as 'todo' | 'done';
   const [q, setQ] = useState(''); const [facs, setFacs] = useState<string[]>([]);
   const nameOf = (id: string | null) => db.vendors.find(v => v.id === id)?.name ?? '—';
-  const all = db.orders.filter(o => o.poNo && o.invoice?.mailedOn && !(countedBy3plOf(o) && !receiptOf(o).lots.length)).map(o => { const rc = receiptOf(o); const sent = packedPcsOf(o.invoice!); const l = poLedgerOf(o);
+  const all = db.orders.filter(o => o.poNo && o.invoice?.mailedOn && !(countedBy3plOf(o) && !receiptOf(o).lots.length)).map(o => { const rc = receiptOf(o); const sent = sentPcsOf(o); const l = poLedgerOf(o);
     const done = rc.lots.length > 0 && (o.status === 'Closed' || rc.received + rc.rejected >= sent);
     const state = !rc.lots.length ? 'to-count' : !done ? 'balance' : l.shortPcs > 0 || rc.rejected > 0 ? 'short' : 'ok';
     return { o, rc, sent, l, done, state }; });
@@ -45,7 +45,7 @@ export function GoodsIn() {
         return <tr key={o.id} className="row" onClick={() => set('open', o.id)}>
           <td><div className="mono text-[12.5px]">{o.poNo}</div><div className="text-[11.5px]" style={faint}>{o.styleName}</div></td>
           <td className="text-[12.5px]">{nameOf(o.vendorId)}<div className="text-[11px]" style={faint}>to {o.poMail?.deliveryLocation ?? '—'}</div></td>
-          <td className="text-[12.5px]"><span className="mono">{inv.no}</span> · {fmtMoney(inv.amount)}<div className="text-[11px]" style={faint}>sent {fmtDate(inv.mailedOn)}{!rc.lots.length && daysAgo(inv.mailedOn!) > 0 ? ` · ${daysAgo(inv.mailedOn!)}d ago` : ''}</div></td>
+          <td className="text-[12.5px]"><span className="mono">{inv.no}</span> · {fmtMoney(inv.amount)}{(inv.part ?? 1) > 1 && <span className="pill ml-1">part {inv.part}</span>}<div className="text-[11px]" style={faint}>{inv.eway ? <>e-way <span className="mono">{inv.eway.no}</span> · </> : null}sent {fmtDate(inv.mailedOn)}{!rc.lots.length && daysAgo(inv.mailedOn!) > 0 ? ` · ${daysAgo(inv.mailedOn!)}d ago` : ''}</div></td>
           <td className="num">{l.poPcs}</td><td className="num">{sent}</td>
           <td className="num font-semibold">{rc.lots.length ? rc.received : '—'}{rc.rejected > 0 && <div className="text-[11px]" style={{ color: 'var(--risk)', fontWeight: 400 }}>{rc.rejected} damaged</div>}</td>
           <td className="num" style={{ color: short ? 'var(--risk)' : undefined }}>{short == null ? '—' : short || '✓'}</td>

@@ -279,6 +279,11 @@ export interface PoApproval { vendorId: string; fabricBy: FabricBy; needs: Appro
   decisions: { role: ApproverRole; by: string; on: string; approved: boolean; comment: string | null }[] }
 /* a payment made against the PO: keyed by hand or from finance's upload */
 export interface PoPayment { id: string; on: string; amount: number; ref: string | null; note: string | null; by: string; via: 'manual' | 'upload' }
+/* 25 Nov 2026: one dispatch against a PO: the merchandiser adds the invoice, packing list and e-way bill against the PO number.
+   A PO can go in part shipments, each with its own set. */
+export interface EwayBill { no: string; on: string | null; validTill: string | null; file: string | null }
+export interface DispatchDocs { no: string; amount: number; uploadedOn: string; by: string; file: string | null; invoiceOn?: string | null; poNo?: string | null; part?: number | null; eway?: EwayBill | null;
+  packingList: { size: string; qty: number }[]; packingFile?: string | null; packedPcs?: number | null; mailedOn: string | null; mailedTo: string[]; mail?: MailDraft | null }
 export interface PoInvoice { id: string; lines?: { item: string; qty: number; unit: string; rate: number; amount: number }[] | null; doc?: 'invoice' | 'debit-note' | 'credit-note' | 'other'; direction: 'bsc-to-factory' | 'factory-to-bsc'; kind: 'fabric' | 'trim' | 'service' | 'other'; no: string; amount: number; what: string; file: string | null; on: string; by: string; note: string | null }
 
 export type SampleStage = 'prototype' | 'sample' | 'trial';   // prototype · sampling cycle · trial cycle
@@ -395,7 +400,8 @@ export interface ProductionOrder {
     copy?: { title: string; description: string; bullets: string[]; care: string; seo: string; marketing: string[]; generatedOn: string } | null } | null;   // copy: product and marketing details drafted by AI once it is in Enigma
   targetRevisions?: TargetRevision[] | null;
   poInvoices?: PoInvoice[] | null;
-  invoice?: { no: string; amount: number; uploadedOn: string; by: string; file: string | null; packingList: { size: string; qty: number }[]; packingFile?: string | null; packedPcs?: number | null; mailedOn: string | null; mailedTo: string[]; mail?: MailDraft | null } | null;   // 17 Nov 2026: the packing list is a PDF for now (packingFile, packedPcs); packingList by size stays for older records
+  invoice?: DispatchDocs | null;   // the latest dispatch against the PO
+  dispatches?: DispatchDocs[] | null;   // 25 Nov 2026: earlier part shipments against the same PO, oldest first   // 17 Nov 2026: the packing list is a PDF for now (packingFile, packedPcs); packingList by size stays for older records
   costingClosure: { plan: string | null; revised: string | null; actual: string | null };   // target · revised plan · actual, as the sheet has it
 
   /* — Production Unit writes these — */

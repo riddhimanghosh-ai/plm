@@ -110,7 +110,7 @@ export function costQueryMail(db: Db, o: ProductionOrder, factoryIds: string[], 
   return {
     to: factoryIds.map(id => vendorMail(db.vendors.find(v => v.id === id))), cc: [merch(db, o)],
     subject: `Factory counter sourcing · ${o.styleName} · ${o.orderQty} pcs · reply by ${fmtDate(deadline)}`,
-    body: `Hello,\n\nPlease quote for the style below by ${fmtDate(deadline)}.\n\nTHE STYLE\n• Style: ${o.styleName}\n• Category: ${o.category} · ${o.subCategory}\n• Quantity: ${o.orderQty} pcs\n• Fabric: ${fab}\n• Target in-house: ${fmtDate(o.targetInhouse)}\n\nHOW TO REPLY\nFill your quote on this form, no login needed: cost per piece, lead time and any note. It reaches BSC directly.\nhttps://plm.bombayshirts.com/quote/${o.id}${perFactory}${SIGN}`,
+    body: `Hello,\n\nPlease quote for the style below by ${fmtDate(deadline)}.\n\nTHE STYLE\n• Style: ${o.styleName}\n• Category: ${o.category} · ${o.subCategory}\n• Quantity: ${o.orderQty} pcs\n• Fabric: ${fab}\n\nHOW TO REPLY\nFill your quote on this form, no login needed: cost per piece, your lead time (when you can deliver in-house) and any note. It reaches BSC directly.\nhttps://plm.bombayshirts.com/quote/${o.id}${perFactory}${SIGN}`,
     attachments: union,
   };
 }
@@ -138,8 +138,8 @@ export function invoiceMailOf(db: Db, o: ProductionOrder): Mail {
   return {
     to: ['prince@bombayshirts.com'], cc: [merch(db, o), 'nitin@bombayshirts.com'],
     subject: `Invoice ${inv?.no ?? ''} · ${o.poNo ?? ''} · ${o.styleName} · ${pcs} pcs dispatched`,
-    body: `Hi Prince,\n\n${v?.name ?? 'The factory'} has dispatched goods against ${o.poNo ?? 'the PO'}.\n\nDISPATCH\n• Style: ${o.styleName}\n• Pieces: ${pcs}\n• To: ${o.poMail?.deliveryLocation ?? 'the warehouse'}\n• Invoice: ${inv?.no ?? '—'} for ₹${inv?.amount?.toLocaleString('en-IN') ?? '—'}\n\nATTACHED\n• The invoice and the packing list\n\nPlease receive against the packing list on Enigma.${SIGN}`,
-    attachments: [inv?.file ?? 'Invoice', inv?.packingFile ?? 'Packing list · PDF'],
+    body: `Hi Prince,\n\n${v?.name ?? 'The factory'} has dispatched goods against ${inv?.poNo ?? o.poNo ?? 'the PO'}${(inv?.part ?? 1) > 1 ? ` (part shipment ${inv?.part})` : ''}.\n\nDISPATCH\n• PO: ${inv?.poNo ?? o.poNo ?? '—'}\n• Style: ${o.styleName}\n• Pieces: ${pcs}\n• To: ${o.poMail?.deliveryLocation ?? 'the warehouse'}\n• Invoice: ${inv?.no ?? '—'} for ₹${inv?.amount?.toLocaleString('en-IN') ?? '—'}\n• E-way bill: ${inv?.eway?.no ?? '—'}${inv?.eway?.validTill ? `, valid till ${fmtDate(inv.eway.validTill)}` : ''}\n\nATTACHED\n• The invoice, the packing list and the e-way bill\n\nPlease receive against the packing list on Enigma.${SIGN}`,
+    attachments: [inv?.file ?? 'Invoice', inv?.packingFile ?? 'Packing list · PDF', inv?.eway?.file ?? 'E-way bill'],
   };
 }
 
@@ -275,7 +275,7 @@ export function poLedgerOf(o: ProductionOrder) {
 export function payDueOf(o: ProductionOrder) {
   const l = poLedgerOf(o); const terms = o.poDoc?.paymentTerms ?? ''; const when = l.advanceWhen ?? 'with the PO';
   const lastIn = (o.receipts ?? []).map(x => x.at).sort().slice(-1)[0] ?? null;
-  const dispatched = o.invoice?.uploadedOn ?? o.shipping?.shippedOn ?? null;
+  const dispatched = (o.dispatches?.[0] ?? o.invoice)?.uploadedOn ?? o.shipping?.shippedOn ?? null;
   const days = Number(/(\d+) days from receipt/.exec(terms)?.[1] ?? NaN);
   const advOn = when === 'with the PO' ? o.poDate : when === 'on PP sample approval' ? (o.sampleCycle?.approvedOn ?? null) : (o.factoryCloth?.receivedOn ?? null);
   const balance = Math.max(0, l.remaining - l.advancePending);
@@ -417,6 +417,9 @@ export const STD_WASTAGE_PCT = 3;
 
 /* the packing list is the factory's PDF for now, with the pieces on it; older records carry it size by size */
 export const packedPcsOf = (inv: NonNullable<ProductionOrder['invoice']>) => inv.packedPcs ?? inv.packingList.reduce((a, x) => a + x.qty, 0);
+/* every dispatch against the PO (part shipments, oldest first) and the pieces sent across them */
+export const dispatchesOf = (o: ProductionOrder) => [...(o.dispatches ?? []), ...(o.invoice ? [o.invoice] : [])];
+export const sentPcsOf = (o: ProductionOrder) => dispatchesOf(o).reduce((a, d) => a + packedPcsOf(d), 0);
 export const packingFileOf = (inv: NonNullable<ProductionOrder['invoice']>) => inv.packingFile ?? `packing-list-${inv.no.replace(/[^A-Za-z0-9]+/g, '-')}.pdf`;
 /* pieces ordered by size: off the PO when it has lines, else the requirement's break-up */
 export function orderedBySizeOf(o: ProductionOrder) { const out: Record<string, number> = {}; (o.poDoc?.lines ?? []).forEach(l => l.sizes.forEach(x => { out[x.size] = (out[x.size] ?? 0) + x.qty; })); if (!o.poDoc) o.sizeBreakup.forEach(x => { out[x.size] = x.qty; }); return out; }

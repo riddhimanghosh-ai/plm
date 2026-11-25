@@ -1575,9 +1575,12 @@ orders.forEach((o, i) => {
     /* dispatched: the invoice and packing list went to Prince */
     const disp = ms('Dispatch')?.actual;
     if (disp) { const pcs = o.cutQty ?? o.orderQty; const tot = o.sizeBreakup.reduce((a, x) => a + x.qty, 0) || 1;
-      o.invoice = { no: `INV-${2600 + i}`, amount: Math.round(pcs * (o.finalFob ?? o.targetCost) * (1 + (o.poDoc?.gstPct ?? 5) / 100) * (i % 5 === 2 ? 1.04 : 1)), uploadedOn: iso(addDays(disp, 1)), by: o.merchant ?? 'Nitin Singh', file: `invoice-${2600 + i}.pdf`, packingList: o.sizeBreakup.map(x => ({ size: x.size, qty: Math.round(x.qty * pcs / tot) })), mailedOn: iso(addDays(disp, 1)), mailedTo: ['prince@bombayshirts.com'] }; }
+      o.invoice = { no: `INV-${2600 + i}`, amount: Math.round(pcs * (o.finalFob ?? o.targetCost) * (1 + (o.poDoc?.gstPct ?? 5) / 100) * (i % 5 === 2 ? 1.04 : 1)), uploadedOn: iso(addDays(disp, 1)), by: o.merchant ?? 'Nitin Singh', file: `invoice-${2600 + i}.pdf`, invoiceOn: disp, poNo: o.poNo, part: 1, eway: { no: String(331000000000 + i * 7919), on: disp, validTill: iso(addDays(disp, 3)), file: `eway-bill-${2600 + i}.pdf` }, packingList: o.sizeBreakup.map(x => ({ size: x.size, qty: Math.round(x.qty * pcs / tot) })), mailedOn: iso(addDays(disp, 1)), mailedTo: ['prince@bombayshirts.com'] }; }
   }
 });
+/* 25 Nov 2026: a PO going in part shipments: the first dispatch carried about 60% of the pieces; the balance is still at the factory */
+{ const o = orders.find(x => x.invoice?.mailedOn && x.status !== 'Closed' && !(x.receipts ?? []).length && x.invoice.packingList.length);
+  if (o?.invoice) { const f = 0.6; o.invoice.packingList = o.invoice.packingList.map(x => ({ size: x.size, qty: Math.round(x.qty * f) })); o.invoice.packedPcs = o.invoice.packingList.reduce((a, x) => a + x.qty, 0); o.invoice.amount = Math.round(o.invoice.amount * f); } }
 /* 17 Nov 2026 — before the PO: of the styles with replies, the first still waits for its SKUs in Enigma; the next are in Enigma and wait on HOD and finance, on HOD alone, on finance alone; one is approved and ready for its PO */
 { let n = 0; orders.forEach(o => { const rp = o.costQuery?.replies ?? []; if (o.poNo || !rp.length || (o.status !== 'Quoting' && o.status !== 'Allocated')) return; const k = n++; if (k === 0) return;
   const code = `BSC-RT-${o.id.replace(/\D/g, '').slice(-4).padStart(4, '0')}`; const best = [...rp].sort((a, b) => a.cost - b.cost)[0]; const mrp = Math.round(best.cost * 3.2 / 10) * 10 - 1;

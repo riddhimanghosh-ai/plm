@@ -1,12 +1,13 @@
 /* The factory's quote form (16 Nov 2026): the page the link in each counter-sourcing mail opens, no login.
    The factory sees the style, the files BSC chose to share with it, and the item lines by colour and size;
    it quotes a rate per line, its lead time, when it can start and a note. The reply lands on the record by itself.
+   25 Nov 2026: BSC's target in-house date is not shown to the factory; it is for BSC's reference only. The factory gives its own lead time.
    In the prototype it opens as a pop-up over the record. */
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../store';
 import type { ProductionOrder, FabricBy } from '../domain/types';
-import { fmtDate, fmtMoney } from '../domain/engines';
+import { fmtDate, fmtMoney, TODAY, addDays, iso } from '../domain/engines';
 import { FABRIC_BY_LABEL, TECH_PACK_ITEMS } from '../domain/reference';
 import { packOf, poDraftOf, deliveryLocationOf, needsHemmingOf, QUERY_FILES } from '../domain/rtwPack';
 import { Button, Field, Input, Select, fromDateInput, dateInput } from '../ui';
@@ -77,7 +78,6 @@ export function QuoteFormModal({ o, vendorId, onClose }: { o: ProductionOrder; v
         </div> : <>
           <div className="qf-grid pt-3">
             <div><div className="cap">Quantity</div><div className="text-[14px] font-semibold">{o.orderQty} pcs</div></div>
-            <div><div className="cap">Needed in-house by</div><div className="text-[14px] font-semibold">{fmtDate(o.targetInhouse)}</div></div>
             <div><div className="cap">Deliver to</div><div className="text-[14px] font-semibold">{deliver}</div></div>
             <div><div className="cap">Cloth</div><div className="text-[14px] font-semibold">{FABRIC_BY_LABEL[p.clothBy ?? 'factory']}</div></div>
           </div>
@@ -108,7 +108,7 @@ export function QuoteFormModal({ o, vendorId, onClose }: { o: ProductionOrder; v
           <div className="qf-grid pt-3">
             <Field label="Cloth per piece (m)" hint="your marker's consumption, before wastage"><Input type="number" step="0.01" min={0} value={consPc} onChange={e => setConsPc(e.target.value)} placeholder="e.g. 1.62" /></Field>
             <Field label="Wastage %" hint="what you add on top"><Input type="number" step="0.5" min={0} value={wast} onChange={e => setWast(e.target.value)} placeholder="e.g. 4" /></Field>
-            <Field label="Lead time (days from PO)"><Input type="number" min={1} value={lead} onChange={e => setLead(e.target.value)} placeholder="e.g. 40" /></Field>
+            <Field label="Lead time (days from PO)" hint={Number(lead) > 0 ? `your in-house date if the PO is raised today: ${fmtDate(iso(addDays(TODAY, Number(lead))))}` : 'your own date; BSC does not give one'}><Input type="number" min={1} value={lead} onChange={e => setLead(e.target.value)} placeholder="e.g. 40" /></Field>
             <Field label="Can start from"><Input type="date" value={start} onChange={e => setStart(e.target.value)} /></Field>
             <Field label="Cloth: your preference"><Select value={cloth} onChange={x => setCloth(x as FabricBy | '')} options={[{ value: '', label: 'as BSC decides' }, ...(Object.keys(FABRIC_BY_LABEL) as FabricBy[]).map(k => ({ value: k, label: FABRIC_BY_LABEL[k] }))]} /></Field>
           </div>

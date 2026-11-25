@@ -339,7 +339,30 @@ export function MilestoneGrid({ o, editable, bare, dense }: { o: ProductionOrder
   const [draft, setDraft] = useState<Record<string, Partial<Milestone>>>({});
   const d = (m: Milestone) => ({ ...m, ...draft[m.key] });
   const changed = (m: Milestone) => !!draft[m.key] || !!(m as Milestone & { na?: boolean }).na;
-  const save = (m: Milestone) => { const p = draft[m.key] ?? ((m as Milestone & { na?: boolean }).na ? { plan: iso(TODAY) } : undefined); if (!p) return; setMilestone(o.id, m.key, p); setDraft(x => { const n = { ...x }; delete n[m.key]; return n; }); };
+  /* 25 Nov 2026: a new revised or actual date asks which later steps move with it: all, the ones picked, or none */
+  const [pend, setPend] = useState<{ m: Milestone; p: Partial<Milestone>; days: number; later: Milestone[]; mode: 'all' | 'some' | 'none'; pick: string[] } | null>(null);
+  const DAY = 86400000; const shiftIso = (d: string, n: number) => new Date(new Date(d).getTime() + n * DAY).toISOString();
+  const commit = (m: Milestone, p: Partial<Milestone>, move: { keys: string[]; days: number }) => { setMilestone(o.id, m.key, p, move); setDraft(x => { const n = { ...x }; delete n[m.key]; return n; }); setPend(null); };
+  const save = (m: Milestone) => { const p = draft[m.key] ?? ((m as Milestone & { na?: boolean }).na ? { plan: iso(TODAY) } : undefined); if (!p) return false;
+    const was = m.revised ?? m.plan; const now = p.actual ?? p.revised ?? null;
+    const days = now && was && !(m as Milestone & { na?: boolean }).na ? Math.round((new Date(now).getTime() - new Date(was).getTime()) / DAY) : 0;
+    const i = o.milestones.findIndex(x => x.key === m.key); const later = i < 0 ? [] : o.milestones.slice(i + 1).filter(x => !x.actual && !x.skipped);
+    if (days !== 0 && later.length) { setPend({ m, p, days, later, mode: 'all', pick: later.map(x => x.key) }); return true; }
+    commit(m, p, { keys: [], days: 0 }); return false; };
+  const movePanel = pend && (() => { const { m, p, days, later, mode, pick } = pend; const keys = mode === 'all' ? later.map(x => x.key) : mode === 'none' ? [] : pick;
+    const last = o.milestones[o.milestones.length - 1]; const lastMoves = !!last && keys.includes(last.key);
+    const sign = days > 0 ? '+' : ''; const faintC = { color: 'var(--ink-faint)' } as const;
+    return <div className="mt-3 p-3 tna-move" style={{ border: '1.5px solid var(--warn)', borderRadius: 10, background: 'color-mix(in srgb, var(--warn) 6%, #fff)' }}>
+      <div className="font-medium text-[13px]">"{m.key}" moves {sign}{days} day{Math.abs(days) === 1 ? '' : 's'}{p.actual ? ' (actual date)' : ' (revised date)'}. Move the later steps too?</div>
+      <div className="flex gap-2 flex-wrap pt-2"><Seg value={mode} onChange={v => setPend({ ...pend, mode: v })} options={[{ id: 'all', label: `All later steps · ${later.length}` }, { id: 'some', label: 'Only the ones I pick' }, { id: 'none', label: 'None · only this step' }]} /></div>
+      <table className="t compact mt-2"><thead><tr><th style={{ width: 28 }} /><th>Step</th><th>Planned now</th><th>New date</th></tr></thead>
+        <tbody>{later.map(x => { const on = keys.includes(x.key); const cur = x.revised ?? x.plan; return <tr key={x.key} style={{ opacity: on ? 1 : .55 }}>
+          <td><input type="checkbox" checked={on} disabled={mode !== 'some'} onChange={e => setPend({ ...pend, pick: e.target.checked ? [...pick, x.key] : pick.filter(k => k !== x.key) })} /></td>
+          <td className="text-[12.5px]">{x.key}</td><td className="mono text-[12px]" style={on ? { textDecoration: 'line-through', ...faintC } : undefined}>{fmtDate(cur)}</td>
+          <td className="mono text-[12px] font-semibold" style={{ color: on ? 'var(--warn)' : 'var(--ink-faint)' }}>{on ? fmtDate(shiftIso(cur, days)) : 'stays'}</td></tr>; })}</tbody></table>
+      <div className="text-[12px] pt-2" style={faintC}>Steps already done or marked not needed don't move.{last && <> In-house date: <b style={{ color: 'var(--ink)' }}>{lastMoves ? `${fmtDate(last.revised ?? last.plan)} → ${fmtDate(shiftIso(last.revised ?? last.plan, days))}` : `stays ${fmtDate(last.revised ?? last.plan)}`}</b>.</>}</div>
+      <div className="flex gap-2 pt-2"><Button size="sm" variant="primary" onClick={() => { commit(m, p, { keys, days }); setOpen(null); }}>{keys.length ? `Save · move ${keys.length} step${keys.length === 1 ? '' : 's'} ${sign}${days}d` : 'Save · move nothing else'}</Button><Button size="sm" variant="ghost" onClick={() => setPend(null)}>Back</Button></div>
+    </div>; })();
   /* every block the sheet has, in its order: the ones the category's plan leaves out are greyed, and so are the ones marked not needed */
   const steps = allSteps(o); const live = steps; const na = steps.filter(m => m.na);
   const nextKey = live.find(m => !m.actual && !m.na)?.key ?? null;
@@ -355,11 +378,12 @@ export function MilestoneGrid({ o, editable, bare, dense }: { o: ProductionOrder
       <Field label="Revised"><Input type="date" value={dateInput(v.revised)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], revised: fromDateInput(e.target.value) } }))} style={{ width: 140 }} /></Field>
       <Field label="Actual"><Input type="date" value={dateInput(v.actual)} onChange={e => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], actual: fromDateInput(e.target.value) } }))} style={{ width: 140 }} /></Field>
       <Field label="Why it moved"><Select value={v.delayReason ?? ''} onChange={val => setDraft(x => ({ ...x, [m.key]: { ...x[m.key], delayReason: val || null } }))} options={[{ value: '', label: '— reason —' }, ...DELAY_REASONS.map(rz => ({ value: rz, label: rz }))]} /></Field>
-      <Button size="sm" variant="primary" disabled={!changed(m)} onClick={() => { save(m); setOpen(null); }}>{(m as Milestone & { na?: boolean }).na ? 'Add to this PO\'s plan' : 'Save'}</Button>
+      <Button size="sm" variant="primary" disabled={!changed(m)} onClick={() => { if (!save(m)) setOpen(null); }}>{(m as Milestone & { na?: boolean }).na ? 'Add to this PO\'s plan' : 'Save'}</Button>
       {!(m as Milestone & { na?: boolean }).na && <Button size="sm" variant={m.skipped ? undefined : 'ghost'} onClick={() => { skipMilestone(o.id, m.key, !m.skipped); setOpen(null); }}>{m.skipped ? 'Needed after all' : 'Not needed for this PO'}</Button>}
     </div> : <div className="flex gap-4 text-[12.5px]"><span><span style={faint}>Plan </span>{fmtDate(m.plan)}</span><span><span style={faint}>Revised </span>{fmtDate(m.revised)}</span><span><span style={faint}>Actual </span>{fmtDate(m.actual)}</span><span><span style={faint}>Why </span>{m.delayReason ?? '—'}</span></div>}
     {m.owner === 'qc' && (() => { const qp = QC_POINTS.find(p => p.closes === m.key); const hist = qp ? (o.qcChecks ?? []).filter(c => c.point === qp.key) : []; return hist.length ? <div className="pt-2 mt-2" style={{ borderTop: '1px solid var(--line-soft)' }}><div className="cap">QC remarks · {qp?.label}</div>{hist.map((c, i) => <div key={i} className="text-[12.5px] py-0.5" style={{ color: c.result === 'fail' ? 'var(--risk)' : 'var(--ink)' }}>{c.result === 'fail' ? '✗ failed' : '✓ passed'} {fmtDate(c.on)} · {c.by}{c.remarks ? ` — ${c.remarks}` : ''}</div>)}</div> : null; })()}
-    <div className="text-[11.5px] pt-2" style={faint}>An actual that lands late pushes every open step behind it by the same number of days. A revised date wants a reason.</div>
+    {pend?.m.key === m.key && movePanel}
+    <div className="text-[11.5px] pt-2" style={faint}>A new revised or actual date asks which later steps move with it: all of them, the ones you pick, or none. A revised date wants a reason.</div>
   </div>; };
 
   const flow = <>
@@ -428,7 +452,8 @@ export function MilestoneGrid({ o, editable, bare, dense }: { o: ProductionOrder
         })}
       </tbody>
     </table>
-    <div className="text-[11.5px] py-2" style={faint}>An actual that lands late pushes every open step behind it by the same number of days. A revised date wants a reason — a moved cell without one is what makes a tracker untrustworthy.</div>
+    {movePanel}
+    <div className="text-[11.5px] py-2" style={faint}>A new revised or actual date asks which later steps move with it: all of them, the ones you pick, or none. A revised date wants a reason.</div>
   </>;
 
   const body = <>{!editable && <ActsBy role="production" does="logs each milestone's actual or revised date and the reason it moved" />}{view === 'flow' ? flow : table}</>;
